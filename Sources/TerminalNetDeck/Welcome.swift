@@ -17,18 +17,18 @@ struct Welcome: View {
                 VStack(spacing: 28) {
                     VStack(spacing: 14) {
                         if t.neon {
-                            PixelBanner(text: "NETDECK")
+                            PixelBanner(text: L("NETDECK"))
                         } else {
-                            Text("NetDeck").font(t.ui(52, .bold)).foregroundStyle(SwiftUI.Color(t.text))
+                            Text(L("NetDeck")).font(t.ui(52, .bold)).foregroundStyle(SwiftUI.Color(t.text))
                         }
-                        Text(t.neon ? "TERMINAL NATIVO PARA INGENIEROS DE RED" : "Terminal nativo para ingenieros de red")
+                        Text(t.neon ? L("TERMINAL NATIVO PARA INGENIEROS DE RED") : L("Terminal nativo para ingenieros de red"))
                             .font(t.ui(t.neon ? 11 : 14, .semibold)).tracking(t.neon ? 5 : 0)
                             .foregroundStyle(SwiftUI.Color(t.neon ? t.accent2 : t.dim))
                     }
                     .padding(.top, 40)
                     quickConnect
                     if !model.lastOpen.isEmpty {
-                        NeonButton(title: "Reabrir las \(model.lastOpen.count) de la última vez: "
+                        NeonButton(title: L("Reabrir las \(model.lastOpen.count) de la última vez: ")
                                    + model.lastOpen.prefix(4).map(\.title).joined(separator: ", ")
                                    + (model.lastOpen.count > 4 ? "…" : ""),
                                    icon: "arrow.counterclockwise", tint: t.good) { model.reopenLast() }
@@ -49,14 +49,14 @@ struct Welcome: View {
         HStack(spacing: 10) {
             Image(systemName: "chevron.right").font(.system(size: 15, weight: .black)).foregroundStyle(SwiftUI.Color(t.accent))
             TextField("", text: $target,
-                      prompt: Text("sesión · usuario@equipo[:puerto]").foregroundStyle(SwiftUI.Color(t.dim)))
+                      prompt: Text(L("sesión · usuario@equipo[:puerto]")).foregroundStyle(SwiftUI.Color(t.dim)))
                 .textFieldStyle(.plain)
                 .font(t.ui(16, .medium))
                 .foregroundStyle(SwiftUI.Color(t.text))
                 .focused($focused)
                 .onSubmit(connect)
             JumpPicker(jump: $jump)
-            NeonButton(title: "CONECTAR", icon: "return", tint: t.accent, active: !target.isEmpty, action: connect)
+            NeonButton(title: L("CONECTAR"), icon: "return", tint: t.accent, active: !target.isEmpty, action: connect)
         }
         .padding(.horizontal, 16)
         .frame(height: 54)
@@ -67,7 +67,7 @@ struct Welcome: View {
 
     private var sessionGrid: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(target.isEmpty ? "SESIONES" : "COINCIDEN")
+            Text(target.isEmpty ? L("SESIONES") : L("COINCIDEN"))
                 .font(t.ui(10, .bold)).tracking(3).foregroundStyle(SwiftUI.Color(t.dim))
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 12)], spacing: 12) {
                 ForEach(matches) { SessionCard(profile: $0) }
@@ -77,8 +77,8 @@ struct Welcome: View {
 
     private var shortcuts: some View {
         HStack(spacing: 8) {
-            ForEach([("⌘K", "Conectar"), ("⇧⌘L", "Lista"), ("⇧⌘V", "Pegado seguro"), ("⇧⌘M", "MultiExec"),
-                     ("Esc", "Cancelar"), ("⌘,", "Ajustes")], id: \.0) { k, v in
+            ForEach([("⌘K", L("Conectar")), ("⇧⌘L", L("Lista")), ("⇧⌘V", L("Pegado seguro")), ("⇧⌘M", L("MultiExec")),
+                     (L("Esc"), L("Cancelar")), ("⌘,", L("Ajustes"))], id: \.0) { k, v in
                 HStack(spacing: 5) {
                     Text(k).font(t.ui(10, .bold)).foregroundStyle(SwiftUI.Color(t.accent))
                     Text(v).font(t.ui(10)).foregroundStyle(SwiftUI.Color(t.dim))
@@ -170,11 +170,11 @@ struct JumpPicker: View {
 
     var body: some View {
         Menu {
-            Button("Directo") { jump = "" }
+            Button(L("Directo")) { jump = "" }
             Divider()
             ForEach(model.sessions.profiles) { p in Button("⟵ \(p.name)") { jump = p.name } }
         } label: {
-            NeonLabel(title: jump.isEmpty ? "directo" : "⟵ \(jump)", icon: "arrow.triangle.branch", tint: t.accent2)
+            NeonLabel(title: jump.isEmpty ? L("directo") : "⟵ \(jump)", icon: "arrow.triangle.branch", tint: t.accent2)
         }
         .menuStyle(.button)
         .buttonStyle(.plain)

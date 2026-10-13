@@ -245,7 +245,7 @@ final class AppModel {
             SessionFile.ensureInclude()
         }
         reloadSessions()
-        status = "Sesiones guardadas (\(file.sessions.count))"
+        status = L("Sesiones guardadas (\(file.sessions.count))")
         return nil
     }
 
@@ -318,7 +318,7 @@ final class AppModel {
             : [:]
         if settings.logEnabled { s.startLog(in: settings.logURL) }
         s.start(extraEnvironment: askpass)
-        status = "Conectando a \(route.title)…"
+        status = L("Conectando a \(route.title)…")
         return s
     }
 
@@ -403,7 +403,7 @@ final class AppModel {
             if e.user == nil { e.user = user }
             open(ConnectionRoute(title: e.host, target: e, transport: transport))
         } else {
-            status = "«\(t)» no es una sesión ni usuario@equipo"
+            status = L("«\(t)» no es una sesión ni usuario@equipo")
         }
     }
 
@@ -411,10 +411,10 @@ final class AppModel {
 
     private func handle(_ e: PasswordAutomation.Event, in s: TerminalSession) {
         switch e {
-        case .typed(let r): status = "🔑 «\(r)» escrita en \(s.title)"; notices[s.id] = nil
+        case .typed(let r): status = L("🔑 «\(r)» escrita en \(s.title)"); notices[s.id] = nil
         case .confirmed: notices[s.id] = nil
-        case .cancelled: status = "⎋ Contraseña cancelada"; notices[s.id] = nil
-        case .failed(let r): status = "🔑 «\(r)» no ha valido: bloqueada 15 min en todas las pestañas"; notices[s.id] = e
+        case .cancelled: status = L("⎋ Contraseña cancelada"); notices[s.id] = nil
+        case .failed(let r): status = L("🔑 «\(r)» no ha valido: bloqueada 15 min en todas las pestañas"); notices[s.id] = e
         case .suggested, .manual: notices[s.id] = e
         }
     }
@@ -422,9 +422,9 @@ final class AppModel {
     func typePassword(_ ref: CredentialRef, in s: TerminalSession) {
         switch s.passwords.typeManually(ref, into: s) {
         case .typed: notices[s.id] = nil
-        case .blocked: status = "🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes"
-        case .notAsked: status = "🔑 Ahí no piden contraseña ahora"
-        case .missing: status = "🔑 «\(ref)» no está en el Llavero"
+        case .blocked: status = L("🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes")
+        case .notAsked: status = L("🔑 Ahí no piden contraseña ahora")
+        case .missing: status = L("🔑 «\(ref)» no está en el Llavero")
         }
     }
 
@@ -445,7 +445,7 @@ final class AppModel {
             pasteTargets = Set(multiExec.terminals.compactMap { ($0 as? TerminalSession)?.id })
             defer { sharedGate.end(sw); pasteTargets = [] }
             let reports = await multiExec.paste(text, paster: paster, abort: sw)
-            status = "Pegado en \(reports.count): " + reports.map { describe($0) }.joined(separator: " · ")
+            status = L("Pegado en \(reports.count): ") + reports.map { describe($0) }.joined(separator: " · ")
         } else if let s = current {
             let sw = s.gate.begin()
             pasteTargets = [s.id]
@@ -473,11 +473,11 @@ final class AppModel {
         runner.onChange = { [weak self] d, st in
             // ya en el salto: la del equipo la escribe la lista (un solo intento, nunca dos)
             if st == .connecting { byDevice[d]?.passwords.mode = .off }
-            self?.status = "\(list.name) · \(d.host): \(st)"
+            self?.status = "\(list.name) · \(d.host): \(st.texto)"
         }
         await runner.run()
         let ok = runner.status.values.filter { $0 == .connected }.count
-        status = "\(list.name): \(ok)/\(list.devices.count) dentro"
+        status = L("\(list.name): \(ok)/\(list.devices.count) dentro")
         // juntas en una vista; las que se han quedado en el salto, fuera de MultiExec (nada se ejecuta en el salto)
         let opened = list.devices.compactMap { byDevice[$0] }
         if opened.count > 1 {
@@ -497,14 +497,14 @@ final class AppModel {
 
     private func describe(_ r: PasteReport) -> String {
         switch r.outcome {
-        case .completed: "✓ \(r.sent)/\(r.total) líneas"
-        case .aborted: "⎋ parado en \(r.sent)/\(r.total)"
-        case .deviceError(let l, let out): "✗ error en la línea \(l): \(out)"
-        case .pager(let l): "✗ paginador en la línea \(l) (falta «terminal length 0»)"
-        case .timeout(let l): "✗ sin prompt tras la línea \(l)"
-        case .dangerousNotConfirmed(let l, let c): "✗ línea \(l) peligrosa sin confirmar: \(c)"
-        case .passwordPrompt(0): "🔑 piden contraseña: no pego nada ahí"
-        case .passwordPrompt(let l): "🔑 piden contraseña tras la línea \(l): paro (la siguiente iría como contraseña)"
+        case .completed: L("✓ \(r.sent)/\(r.total) líneas")
+        case .aborted: L("⎋ parado en \(r.sent)/\(r.total)")
+        case .deviceError(let l, let out): L("✗ error en la línea \(l): \(out)")
+        case .pager(let l): L("✗ paginador en la línea \(l) (falta «terminal length 0»)")
+        case .timeout(let l): L("✗ sin prompt tras la línea \(l)")
+        case .dangerousNotConfirmed(let l, let c): L("✗ línea \(l) peligrosa sin confirmar: \(c)")
+        case .passwordPrompt(0): L("🔑 piden contraseña: no pego nada ahí")
+        case .passwordPrompt(let l): L("🔑 piden contraseña tras la línea \(l): paro (la siguiente iría como contraseña)")
         }
     }
 
@@ -515,13 +515,13 @@ final class AppModel {
         if AbortKey.isAbort(bytes), s.gate.isBusy || sharedGate.isBusy {
             s.gate.abortAll()
             sharedGate.abortAll()
-            status = "⎋ Cancelado: no se envía nada más"
+            status = L("⎋ Cancelado: no se envía nada más")
             if !bytes.contains(AbortKey.ctrlC) { return true }        // (Ctrl+C sí llega al equipo)
         }
         // Mientras se pega, lo tecleado no se mezcla con las líneas que se envían (sólo en el pegado: esperando un
         // salto puede tocar escribir una contraseña a mano).
         if pasteTargets.contains(s.id) {
-            status = "⏳ Enviando… Esc para cortar (lo que tecleas no se envía)"
+            status = L("⏳ Enviando… Esc para cortar (lo que tecleas no se envía)")
             return true
         }
         if let k = FunctionKey.name(bytes), let b = buttons.button(forKey: k) {      // F5, Mayús+F6…
@@ -549,7 +549,7 @@ final class AppModel {
         do {
             try f.save()
             reloadButtons()
-            status = "Botones guardados (\(f.buttons.count)) en \(ButtonFile.defaultURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))"
+            status = L("Botones guardados (\(f.buttons.count)) en \(ButtonFile.defaultURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))")
             return nil
         } catch {
             return error.localizedDescription
@@ -585,7 +585,7 @@ final class AppModel {
             guard let s = current else { return }
             let parts = cmd.components(separatedBy: "/").map { $0.trimmingCharacters(in: .whitespaces) }
             guard parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty else {
-                status = "Botón «\(b.name)»: el login es «usuario / nombre-de-la-contraseña»"
+                status = L("Botón «\(b.name)»: el login es «usuario / nombre-de-la-contraseña»")
                 return
             }
             Task {
@@ -594,7 +594,7 @@ final class AppModel {
                 s.passwords.commandUser = parts[0]
                 s.passwords.commandJumpUsers = []
                 let r = await InputScript.login(user: parts[0], credential: .named(parts[1])).run(on: s, store: store, abort: sw)
-                status = "🔑 Login «\(b.name)»: \(r)"
+                status = L("🔑 Login «\(b.name)»: \(r)")
             }
         }
         if b.mode != .session { status = "▶ \(b.name)" + (targets.count > 1 ? " ×\(targets.count)" : "") }
@@ -768,26 +768,26 @@ final class AppModel {
     /// La última release en GitHub: si hay una más nueva, ofrece abrir su descarga (no instala nada sola).
     func checkForUpdates() {
         guard let repo = UpdateCheck.repo else {
-            status = "Sin repositorio de actualizaciones (NETDECK_REPO al instalar)"
+            status = L("Sin repositorio de actualizaciones (NETDECK_REPO al instalar)")
             return
         }
-        status = "Buscando actualizaciones…"
+        status = L("Buscando actualizaciones…")
         Task {
             let alert = NSAlert()
             do {
                 if let r = try await UpdateCheck.check(repo: repo) {
-                    alert.messageText = "Terminal NetDeck \(r.version) disponible"
-                    alert.informativeText = "Tienes la \(UpdateCheck.currentVersion). Descarga el .dmg y sustituye la app: "
-                        + "tus sesiones, ajustes y el Llavero se conservan."
-                    alert.addButton(withTitle: r.dmg == nil ? "Abrir la página" : "Descargar")
-                    alert.addButton(withTitle: "Más tarde")
-                    status = "Hay una versión nueva: \(r.version)"
+                    alert.messageText = L("Terminal NetDeck \(r.version) disponible")
+                    alert.informativeText = L("Tienes la \(UpdateCheck.currentVersion). Descarga el .dmg y sustituye la app: ")
+                        + L("tus sesiones, ajustes y el Llavero se conservan.")
+                    alert.addButton(withTitle: r.dmg == nil ? L("Abrir la página") : L("Descargar"))
+                    alert.addButton(withTitle: L("Más tarde"))
+                    status = L("Hay una versión nueva: \(r.version)")
                     if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(r.dmg ?? r.page) }
                 } else {
-                    status = "Estás al día (\(UpdateCheck.currentVersion))"
+                    status = L("Estás al día (\(UpdateCheck.currentVersion))")
                 }
             } catch {
-                status = "No se ha podido comprobar: \(error.localizedDescription)"
+                status = L("No se ha podido comprobar: \(error.localizedDescription)")
             }
         }
     }
@@ -795,7 +795,7 @@ final class AppModel {
     /// Compila, sustituye la app instalada y la vuelve a abrir con las mismas pestañas.
     func updateFromSource() {
         guard let dir = Self.sourceFolder else {
-            status = "No encuentro el código (actualizar.sh) en este Mac"
+            status = L("No encuentro el código (actualizar.sh) en este Mac")
             return
         }
         saveOpenTabs()
@@ -812,10 +812,10 @@ final class AppModel {
         }
         do {
             try p.run()
-            status = "Actualizando: compilando… (se cerrará y se abrirá sola con tus pestañas)"
+            status = L("Actualizando: compilando… (se cerrará y se abrirá sola con tus pestañas)")
             DebugLog.log("app", "actualizar: \(dir.path)/actualizar.sh (pid \(p.processIdentifier))")
         } catch {
-            status = "No se ha podido actualizar: \(error.localizedDescription)"
+            status = L("No se ha podido actualizar: \(error.localizedDescription)")
         }
     }
 }
@@ -827,12 +827,12 @@ struct Split: Equatable {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .side2: "2 lado a lado"
-            case .stack2: "2 arriba y abajo"
-            case .cols3: "3 columnas"
+            case .side2: L("2 lado a lado")
+            case .stack2: L("2 arriba y abajo")
+            case .cols3: L("3 columnas")
             case .onePlusTwo: "1 + 2"
             case .grid4: "4 (2 × 2)"
-            case .grid: "Todas (cuadrícula)"
+            case .grid: L("Todas (cuadrícula)")
             }
         }
         var icon: String {

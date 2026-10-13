@@ -12,7 +12,7 @@ import Testing
     }
 
     @Test func sinColoresYConSecuenciasPartidas() {
-        #expect(render(["\u{1b}[1;3", "2mup\u{1b}[0m 10.0.0.1\r\n"]) == ["up 10.0.0.1"])
+        #expect(render(["\u{1b}[1;3", "2mup\u{1b}[0m 192.0.2.1\r\n"]) == ["up 192.0.2.1"])
         #expect(render(["título\u{1b}]0;ventana\u{07}ok\n"]) == ["títulook"])
     }
 
@@ -42,12 +42,12 @@ import Testing
     @Test func archivoDeRegistro() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
-        let log = try #require(SessionLogger(directory: dir, name: "core 01/x", host: "10.0.0.1"))
+        let log = try #require(SessionLogger(directory: dir, name: "core 01/x", host: "192.0.2.1"))
         log.feed(Array("\u{1b}[32mhola\u{1b}[0m\r\nadiós".utf8)[...])
         log.close()
         let text = try String(contentsOf: log.url, encoding: .utf8)
         #expect(log.url.lastPathComponent.hasPrefix("core_01_x_"))
-        #expect(text.contains("=== NetDeck · 10.0.0.1 · "))
+        #expect(text.contains("=== NetDeck · 192.0.2.1 · "))
         #expect(text.contains("\nhola\nadiós\n=== fin · "))
         let perms = try FileManager.default.attributesOfItem(atPath: log.url.path)[.posixPermissions] as? Int
         #expect(perms == 0o600)

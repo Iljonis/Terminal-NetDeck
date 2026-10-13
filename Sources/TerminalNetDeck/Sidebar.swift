@@ -12,25 +12,25 @@ struct Sidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SearchField(text: $query, prompt: "Buscar sesión, equipo o IP")
+            SearchField(text: $query, prompt: L("Buscar sesión, equipo o IP"))
                 .padding(10)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
                     if query.isEmpty {
                         let favs = model.favorites.compactMap(model.sessions.profile(named:))
                         if !favs.isEmpty {
-                            header("★ FAVORITAS", count: favs.count, group: nil)
+                            header(L("★ FAVORITAS"), count: favs.count, group: nil)
                             ForEach(favs) { SessionRow(profile: $0).id("fav:" + $0.name) }
                         }
                         let recents = model.recents.filter { !model.favorites.contains($0) }.prefix(5)
                             .compactMap(model.sessions.profile(named:))
                         if !recents.isEmpty {
-                            header("↻ RECIENTES", count: recents.count, group: nil)
+                            header(L("↻ RECIENTES"), count: recents.count, group: nil)
                             ForEach(recents) { SessionRow(profile: $0).id("rec:" + $0.name) }
                         }
                     }
                     ForEach(groups, id: \.name) { g in
-                        header(g.name.uppercased(), count: g.profiles.count, group: g.name)
+                        header(L(nombre: g.name).uppercased(), count: g.profiles.count, group: g.name)
                         if !collapsed.contains(g.name) || !query.isEmpty {
                             ForEach(g.profiles) { SessionRow(profile: $0) }
                         }
@@ -42,17 +42,17 @@ struct Sidebar: View {
             NeonLine(color: t.panel)
             HStack(spacing: 6) {
                 IconButton(icon: "plus") { model.editSessions(.new(group: nil)) }
-                    .help("Nueva sesión")
+                    .help(L("Nueva sesión"))
                 IconButton(icon: "slider.horizontal.3") { model.editSessions() }
-                    .help("Gestionar sesiones y grupos")
+                    .help(L("Gestionar sesiones y grupos"))
                 IconButton(icon: "square.and.arrow.down") { model.editSessions(.importing) }
-                    .help("Importar de SecureCRT, MobaXterm, PuTTY, CSV…")
-                Text(model.sessions.source?.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") ?? "sesiones de ejemplo")
+                    .help(L("Importar de SecureCRT, MobaXterm, PuTTY, CSV…"))
+                Text(model.sessions.source?.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") ?? L("sesiones de ejemplo"))
                     .lineLimit(1).truncationMode(.head)
                     .foregroundStyle(SwiftUI.Color(t.dim))
                 Spacer()
                 IconButton(icon: "arrow.clockwise") { model.reloadSessions(); model.loadFavorites() }
-                    .help("Recargar el ssh_config (⇧⌘R)")
+                    .help(L("Recargar el ssh_config (⇧⌘R)"))
             }
             .font(t.ui(10))
             .padding(.horizontal, 8)
@@ -82,8 +82,8 @@ struct Sidebar: View {
         }
         .contextMenu {
             if let g = group, let ps = model.sessions.groups.first(where: { $0.name == g })?.profiles {
-                Button("Abrir las \(ps.count)") { ps.forEach(model.open) }
-                Button("Abrir las \(ps.count) en vista dividida") {
+                Button(L("Abrir las \(ps.count)")) { ps.forEach(model.open) }
+                Button(L("Abrir las \(ps.count) en vista dividida")) {
                     let before = Set(model.tabs.map(\.id))
                     ps.forEach(model.open)
                     let new = model.tabs.filter { !before.contains($0.id) }.map(\.id)
@@ -93,8 +93,8 @@ struct Sidebar: View {
                     }
                 }
                 Divider()
-                Button("Nueva sesión en «\(g)»") { model.editSessions(.new(group: g)) }
-                Button("Gestionar el grupo…") { model.editSessions(ps.first.map { .session($0.name) }) }
+                Button(L("Nueva sesión en «\(g)»")) { model.editSessions(.new(group: g)) }
+                Button(L("Gestionar el grupo…")) { model.editSessions(ps.first.map { .session($0.name) }) }
             }
         }
     }
@@ -157,7 +157,7 @@ struct SessionRow: View {
                     HStack(spacing: 4) {
                         Text(profile.name).font(t.ui(12.5, .semibold)).foregroundStyle(SwiftUI.Color(t.text))
                         if model.tabs.contains(where: { $0.route.sessionName == profile.name }) {
-                            Circle().fill(SwiftUI.Color(t.good)).frame(width: 5, height: 5).help("Abierta")
+                            Circle().fill(SwiftUI.Color(t.good)).frame(width: 5, height: 5).help(L("Abierta"))
                         }
                     }
                     Text(subtitle).font(t.ui(10)).foregroundStyle(SwiftUI.Color(t.dim)).lineLimit(1)
@@ -177,18 +177,18 @@ struct SessionRow: View {
         .onHover { hover = $0 }
         .help(profile.summary ?? profile.endpoint.description)
         .contextMenu {
-            Button("Conectar") { model.open(profile) }
-            Button("Conectar en la vista dividida") {
+            Button(L("Conectar")) { model.open(profile) }
+            Button(L("Conectar en la vista dividida")) {
                 if let r = try? model.sessions.route(to: profile) { model.addToSplit(model.open(r)) }
             }
             Divider()
-            Button(model.favorites.contains(profile.name) ? "Quitar de ★ favoritas" : "★ Favorita") {
+            Button(model.favorites.contains(profile.name) ? L("Quitar de ★ favoritas") : L("★ Favorita")) {
                 model.toggleFavorite(profile.name)
             }
-            Button("Editar…") { model.editSessions(.session(profile.name)) }
-            Button("Duplicar…") { model.editSessions(.session(profile.name)) }
+            Button(L("Editar…")) { model.editSessions(.session(profile.name)) }
+            Button(L("Duplicar…")) { model.editSessions(.session(profile.name)) }
             Divider()
-            Button("Copiar orden ssh") {
+            Button(L("Copiar orden ssh")) {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString("ssh \(profile.name)", forType: .string)
             }
@@ -203,7 +203,7 @@ struct SessionRow: View {
     private var subtitle: String {
         var s = profile.endpoint.description
         if !profile.proxyJump.isEmpty { s += "  ⟵ " + profile.proxyJump.joined(separator: ", ") }
-        if profile.transport == .telnet { s += " · telnet" }
+        if profile.transport == .telnet { s += L(" · telnet") }
         return s
     }
 }

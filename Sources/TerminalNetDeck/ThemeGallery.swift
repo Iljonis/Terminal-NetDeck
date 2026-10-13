@@ -17,7 +17,7 @@ struct ThemeGallery: View {
                 let items = all.filter { $0.theme.group == g || (g.isEmpty && !Theme.groups.contains($0.theme.group)) }
                 if !items.isEmpty {
                     HStack {
-                        Text(g.isEmpty ? "OTROS" : g.uppercased()).font(t.ui(10, .bold)).tracking(2.5)
+                        Text(g.isEmpty ? L("OTROS") : L(nombre: g).uppercased()).font(t.ui(10, .bold)).tracking(2.5)
                             .foregroundStyle(SwiftUI.Color(t.accent2))
                         Rectangle().fill(SwiftUI.Color(t.accent2).opacity(0.25)).frame(height: 1)
                         Text("\(items.count)").font(t.ui(9.5)).foregroundStyle(SwiftUI.Color(t.dim))
@@ -28,9 +28,9 @@ struct ThemeGallery: View {
                                 .onTapGesture { select(item.theme.id) }
                                 .onHover { hover($0 ? item.theme.id : nil) }
                                 .contextMenu {
-                                    Button("Usar «\(item.theme.name)»") { select(item.theme.id) }
+                                    Button(L("Usar «\(item.theme.name)»")) { select(item.theme.id) }
                                     if item.source == .imported, let remove {
-                                        Button("Quitar (importado)") { remove(item.theme.id) }
+                                        Button(L("Quitar (importado)")) { remove(item.theme.id) }
                                     }
                                 }
                         }
@@ -42,8 +42,8 @@ struct ThemeGallery: View {
 
     private func badge(_ s: ThemeLibrary.Source) -> String? {
         switch s {
-        case .imported: "importado"
-        case .netdeck: "de NetDeck"
+        case .imported: L("importado")
+        case .netdeck: L("de NetDeck")
         default: nil
         }
     }
@@ -70,7 +70,7 @@ struct ThemeCard: View {
                 HStack(spacing: 0) {
                     Text("xe-0/0/1 ").foregroundStyle(SwiftUI.Color(th.accent))
                     Text("up ").foregroundStyle(SwiftUI.Color(th.good))
-                    Text("10.0.0.1 ").foregroundStyle(SwiftUI.Color(th.accent2))
+                    Text("192.0.2.1 ").foregroundStyle(SwiftUI.Color(th.accent2))
                     Text("down").foregroundStyle(SwiftUI.Color(th.bad))
                 }
             }
@@ -113,9 +113,9 @@ struct ThemePreview: View {
             HStack(spacing: 8) {
                 Brand()
                 Spacer().frame(width: 6)
-                NeonLabel(title: "Conectar", icon: "bolt.horizontal.fill")
-                NeonLabel(title: "Contraseña", icon: "key.fill")
-                NeonLabel(title: "MultiExec", icon: "square.stack.3d.forward.dottedline.fill", tint: t.warning, active: true)
+                NeonLabel(title: L("Conectar"), icon: "bolt.horizontal.fill")
+                NeonLabel(title: L("Contraseña"), icon: "key.fill")
+                NeonLabel(title: L("MultiExec"), icon: "square.stack.3d.forward.dottedline.fill", tint: t.warning, active: true)
                 Spacer()
                 Text(t.clockText()).font(t.ui(11, .bold)).foregroundStyle(SwiftUI.Color(t.accent))
             }

@@ -24,7 +24,7 @@ public final class SessionManager {
             source = url
             loadError = nil
         } catch {
-            loadError = "No se puede leer \(url.path): \(error.localizedDescription)"
+            loadError = L("No se puede leer \(url.path): \(error.localizedDescription)")
         }
     }
 
@@ -33,22 +33,22 @@ public final class SessionManager {
         profiles = SSHConfigParser().parse("""
             # @grupo Saltos
             Host bastion
-              HostName 10.0.0.1
+              HostName 192.0.2.1
               User tu.usuario
               # @desc Salto de ejemplo
             # @grupo Core
             # @clave-grupo AD
             Host core-01
-              HostName 10.0.0.11
+              HostName 192.0.2.11
               User tu.usuario
               ProxyJump bastion
             Host core-02
-              HostName 10.0.0.12
+              HostName 192.0.2.12
               User admin
               ProxyJump bastion
               # @clave admin-core
             Host olt-01
-              HostName 10.0.0.21
+              HostName 192.0.2.21
               ProxyJump bastion
               # @telnet
             """)

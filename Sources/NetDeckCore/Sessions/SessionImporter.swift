@@ -40,7 +40,7 @@ public enum SessionImporter {
     public static func suggestions() -> [(String, URL)] {
         let fm = FileManager.default
         var out: [(String, URL)] = []
-        if fm.fileExists(atPath: secureCRTFolder.path) { out.append(("SecureCRT de este Mac", secureCRTFolder)) }
+        if fm.fileExists(atPath: secureCRTFolder.path) { out.append((L("SecureCRT de este Mac"), secureCRTFolder)) }
         for dir in ["Downloads", "Desktop", "Documents"] {
             let d = AppPaths.home.appendingPathComponent(dir)
             for f in (try? fm.contentsOfDirectory(at: d, includingPropertiesForKeys: nil)) ?? [] {
@@ -84,7 +84,7 @@ public enum SessionImporter {
                       extra: $0.extra)
             }, [])
         }
-        return ("desconocido", [], [(url.lastPathComponent, "no reconozco el formato")])
+        return ("desconocido", [], [(url.lastPathComponent, L("no reconozco el formato"))])
     }
 
     /// UTF-16 (los .reg), UTF-8 con o sin BOM, o Windows-1252.
@@ -171,7 +171,7 @@ public enum SessionImporter {
             let type = parts.count > 2 ? parts[1] : ""
             let fields = parts.count > 2 ? parts[2].components(separatedBy: "%") : []
             guard type == "109" || type == "98", fields.count >= 4 else {
-                skipped.append((k, moba[type] ?? "tipo \(type)"))
+                skipped.append((k, moba[type] ?? L("tipo \(type)")))
                 continue
             }
             let user = type == "109" ? fields[3] : ""
@@ -317,16 +317,16 @@ public enum SessionImporter {
         var byRef: [String: String] = [:]
         for e in found {
             let host = e.host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-            guard !host.isEmpty else { skipped.append((e.original, "sin host")); continue }
+            guard !host.isEmpty else { skipped.append((e.original, L("sin host"))); continue }
             guard hostRule.matches(host), e.user.isEmpty || userRule.matches(e.user),
                   let p = Int(e.port), (1...65535).contains(p) else {
-                skipped.append((e.original, "host, usuario o puerto no válidos"))
+                skipped.append((e.original, L("host, usuario o puerto no válidos")))
                 continue
             }
             let key = "\(host.lowercased())|\(e.user)|\(e.port)"
             if let n = have[key] {
                 if let r = e.ref, byRef[r] == nil { byRef[r] = n }
-                skipped.append((e.original, "ya la tienes como «\(n)»"))
+                skipped.append((e.original, L("ya la tienes como «\(n)»")))
                 continue
             }
             let base = validName(e.original)

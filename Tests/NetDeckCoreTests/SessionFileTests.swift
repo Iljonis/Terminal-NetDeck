@@ -11,14 +11,14 @@ private let netdeckFile = """
 
     Host bastion
         # @desc Salto principal
-        HostName 10.0.0.1
+        HostName 192.0.2.1
         User tu.usuario
 
     # @grupo Core
 
     Host core-01
         # @clave admin-core
-        HostName=10.0.0.11
+        HostName=192.0.2.11
         Port 2222
         ProxyJump bastion
         IdentityFile "~/.ssh/mi clave"
@@ -26,11 +26,11 @@ private let netdeckFile = """
         # @antiguo
         KexAlgorithms +diffie-hellman-group-exchange-sha1,diffie-hellman-group14-sha1,diffie-hellman-group1-sha1
         HostKeyAlgorithms +ssh-rsa
-        LocalForward 8080 10.0.0.12:80
+        LocalForward 8080 192.0.2.12:80
 
     Host olt-01
         # @telnet
-        HostName 10.0.0.21
+        HostName 192.0.2.21
 
     # ── Para varias sesiones (Host *, Match…): el editor de Sesiones no los toca ──
 
@@ -48,7 +48,7 @@ private let netdeckFile = """
         #expect(c.port == "2222" && c.jump == "bastion" && c.credential == "admin-core")
         #expect(c.keyFile == "~/.ssh/mi clave")
         #expect(c.legacy)
-        #expect(c.extra == ["LocalForward 8080 10.0.0.12:80"])
+        #expect(c.extra == ["LocalForward 8080 192.0.2.12:80"])
         #expect(f.sessions[2].telnet)
         #expect(f.head == [["Include ~/.ssh/otros"]])
         #expect(f.tail.first?.first == "Host *")
@@ -96,18 +96,18 @@ private let netdeckFile = """
         defer { try? FileManager.default.removeItem(at: dir) }
         let core = dir.appendingPathComponent("Config/Sessions/Madrid/Core")
         try FileManager.default.createDirectory(at: core, withIntermediateDirectories: true)
-        try "S:\"Hostname\"=10.0.0.11\r\nS:\"Username\"=admin\r\nD:\"[SSH2] Port\"=00000016\r\nS:\"Firewall Name\"=Session:Saltos/bastion\r\n"
+        try "S:\"Hostname\"=192.0.2.11\r\nS:\"Username\"=admin\r\nD:\"[SSH2] Port\"=00000016\r\nS:\"Firewall Name\"=Session:Saltos/bastion\r\n"
             .write(to: core.appendingPathComponent("core-01.ini"), atomically: true, encoding: .utf8)
         let saltos = dir.appendingPathComponent("Config/Sessions/Saltos")
         try FileManager.default.createDirectory(at: saltos, withIntermediateDirectories: true)
-        try "S:\"Hostname\"=10.0.0.1\r\nS:\"Protocol Name\"=SSH2\r\n"
+        try "S:\"Hostname\"=192.0.2.1\r\nS:\"Protocol Name\"=SSH2\r\n"
             .write(to: saltos.appendingPathComponent("bastion.ini"), atomically: true, encoding: .utf8)
-        try "S:\"Hostname\"=10.0.0.9\r\nS:\"Protocol Name\"=RDP\r\n"
+        try "S:\"Hostname\"=192.0.2.9\r\nS:\"Protocol Name\"=RDP\r\n"
             .write(to: saltos.appendingPathComponent("escritorio.ini"), atomically: true, encoding: .utf8)
         let r = SessionImporter.read(dir, existing: [])
         #expect(r.format == "SecureCRT")
         let c = try #require(r.sessions.first { $0.name == "core-01" })
-        #expect(c.group == "Madrid/Core" && c.host == "10.0.0.11" && c.user == "admin" && c.port == "22")
+        #expect(c.group == "Madrid/Core" && c.host == "192.0.2.11" && c.user == "admin" && c.port == "22")
         #expect(c.jump == "bastion")
         #expect(r.skipped.contains { $0.1 == "RDP" })
     }
@@ -120,12 +120,12 @@ private let netdeckFile = """
             SubRep=
             [Bookmarks_1]
             SubRep=Red\\Core
-            core 01 (admin)=#109#0%10.0.0.11%22%admin%%-1%-1%%%%%0%0%0%%%-1%0%0%0%%1080%%0%0%1#MobaFont%10#0# #-1
-            olt=#98#1%10.0.0.21%23%%%2%%%%%0%0%%1080%#MobaFont%10#0# #-1
-            pc=#91#4%10.0.0.30%3389%%-1%0%0%0%%0%%%0%0%0%0%%#MobaFont%10#0# #-1
+            core 01 (admin)=#109#0%192.0.2.11%22%admin%%-1%-1%%%%%0%0%0%%%-1%0%0%0%%1080%%0%0%1#MobaFont%10#0# #-1
+            olt=#98#1%192.0.2.21%23%%%2%%%%%0%0%%1080%#MobaFont%10#0# #-1
+            pc=#91#4%192.0.2.30%3389%%-1%0%0%0%%0%%%0%0%0%0%%#MobaFont%10#0# #-1
             """.write(to: url, atomically: true, encoding: .utf8)
         var mine = EditableSession(name: "core-01")
-        mine.host = "10.0.0.99"
+        mine.host = "192.0.2.99"
         let r = SessionImporter.read(url, existing: [mine])
         #expect(r.sessions.map(\.name) == ["core-01-2", "olt"])
         #expect(r.sessions[0].group == "Red/Core" && r.sessions[0].user == "admin")
@@ -137,7 +137,7 @@ private let netdeckFile = """
     @Test func csvConCabeceraYValidacion() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".csv")
         defer { try? FileManager.default.removeItem(at: url) }
-        try "Name;IP;User;Group\ncore-01;10.0.0.11;admin;Core\nmal;10.0.0.1 -oProxyCommand=x;admin;Core\n"
+        try "Name;IP;User;Group\ncore-01;192.0.2.11;admin;Core\nmal;192.0.2.1 -oProxyCommand=x;admin;Core\n"
             .write(to: url, atomically: true, encoding: .utf8)
         let r = SessionImporter.read(url, existing: [])
         #expect(r.sessions.map(\.name) == ["core-01"])

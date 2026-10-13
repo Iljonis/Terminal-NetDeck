@@ -126,7 +126,7 @@ final class ThemeStore {
         do {
             let t = try library.importTheme(file: file)
             refresh()
-            return "Tema «\(t.name)» importado"
+            return L("Tema «\(t.name)» importado")
         } catch {
             return "\(file.lastPathComponent): \(error.localizedDescription)"
         }

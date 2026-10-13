@@ -30,19 +30,19 @@ struct ButtonBarView: View {
                     .background(RoundedRectangle(cornerRadius: t.neon ? 3 : 6).fill(SwiftUI.Color(t.tab)))
                 }
                 .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-                .help("Cambiar de grupo de botones")
+                .help(L("Cambiar de grupo de botones"))
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 5) {
                     ForEach(shown) { b in CommandChip(button: b) }
                     if shown.isEmpty {
-                        Text("Sin botones · ✎ para crear").font(t.ui(10.5)).foregroundStyle(SwiftUI.Color(t.dim))
+                        Text(L("Sin botones · ✎ para crear")).font(t.ui(10.5)).foregroundStyle(SwiftUI.Color(t.dim))
                     }
                 }
                 .padding(.vertical, 4)
             }
             IconButton(icon: "pencil") { model.openSettings("botones") }
-                .help("Editar los botones (los mismos que NetDeck)")
+                .help(L("Editar los botones (los mismos que NetDeck)"))
         }
         .padding(.horizontal, 10)
         .frame(height: 32)
@@ -78,11 +78,11 @@ struct CommandChip: View {
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
-        .help("\(button.mode.title): \(button.mode == .pass ? "contraseña «\(button.command)»" : button.command)"
-              + (model.multiExecOn ? " · en todas (MultiExec)" : ""))
+        .help("\(button.mode.title): \(button.mode == .pass ? L("contraseña «\(button.command)»") : button.command)"
+              + (model.multiExecOn ? L(" · en todas (MultiExec)") : ""))
         .contextMenu {
-            Button("Editar…") { model.openSettings("botones") }
-            Button("Copiar la orden") {
+            Button(L("Editar…")) { model.openSettings("botones") }
+            Button(L("Copiar la orden")) {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(button.command, forType: .string)
             }
@@ -100,7 +100,7 @@ struct CommandChip: View {
     }
 }
 
-/// Rellenar los huecos de un botón ({{interfaz}}, {{peer=10.0.0.1}}): propone lo copiado, lo que ha salido en la
+/// Rellenar los huecos de un botón ({{interfaz}}, {{peer=192.0.2.1}}): propone lo copiado, lo que ha salido en la
 /// pantalla (interfaces e IPs) y lo que usaste otras veces. Esc = no se envía nada.
 struct ButtonFillSheet: View {
     @Environment(AppModel.self) private var model
@@ -131,8 +131,8 @@ struct ButtonFillSheet: View {
             }
             HStack {
                 Spacer()
-                Button("Cancelar") { model.pendingButton = nil; dismiss() }.keyboardShortcut(.cancelAction)
-                Button(model.multiExecOn ? "Enviar a todas (MultiExec)" : "Enviar") { send() }.keyboardShortcut(.defaultAction)
+                Button(L("Cancelar")) { model.pendingButton = nil; dismiss() }.keyboardShortcut(.cancelAction)
+                Button(model.multiExecOn ? L("Enviar a todas (MultiExec)") : L("Enviar")) { send() }.keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
@@ -207,14 +207,14 @@ struct ButtonEditor: View {
         @Bindable var s = model.settings
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Picker("Barra", selection: $s.buttonBar) {
-                    Text("Arriba").tag("arriba")
-                    Text("Abajo").tag("abajo")
-                    Text("Oculta").tag("oculta")
+                Picker(L("Barra"), selection: $s.buttonBar) {
+                    Text(L("Arriba")).tag("arriba")
+                    Text(L("Abajo")).tag("abajo")
+                    Text(L("Oculta")).tag("oculta")
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 240)
-                Toggle("Por grupos (☰)", isOn: $s.buttonBarGrouped)
+                Toggle(L("Por grupos (☰)"), isOn: $s.buttonBarGrouped)
                 Spacer()
                 Text(ButtonFile.defaultURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
                     .font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
@@ -224,7 +224,7 @@ struct ButtonEditor: View {
                 list.frame(width: 270)
                 Divider()
                 if let i = file.buttons.firstIndex(where: { $0.id == selected }) { form(i) } else {
-                    Text("Elige un botón o crea uno").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Text(L("Elige un botón o crea uno")).foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
             Divider()
@@ -232,9 +232,9 @@ struct ButtonEditor: View {
                 if let p = file.problems.first { Text("⚠︎ \(p)").font(.caption).foregroundStyle(.orange).lineLimit(1) }
                 Text(message).font(.caption).lineLimit(1)
                 Spacer()
-                Button("Recargar") { load() }
-                Button("Guardar") {
-                    message = model.saveButtons(file).map { "✗ \($0)" } ?? "✓ Guardados (NetDeck los ve al momento)"
+                Button(L("Recargar")) { load() }
+                Button(L("Guardar")) {
+                    message = model.saveButtons(file).map { "✗ \($0)" } ?? L("✓ Guardados (NetDeck los ve al momento)")
                 }
                 .keyboardShortcut("s")
                 .disabled(file.render() == model.buttons.render())
@@ -263,10 +263,10 @@ struct ButtonEditor: View {
             }
             .scrollContentBackground(.hidden)
             HStack(spacing: 4) {
-                Button { add() } label: { Image(systemName: "plus") }.help("Nuevo botón")
-                Button { remove() } label: { Image(systemName: "minus") }.disabled(selected == nil).help("Borrar")
-                Button { move(-1) } label: { Image(systemName: "arrow.up") }.disabled(selected == nil).help("Subir")
-                Button { move(1) } label: { Image(systemName: "arrow.down") }.disabled(selected == nil).help("Bajar")
+                Button { add() } label: { Image(systemName: "plus") }.help(L("Nuevo botón"))
+                Button { remove() } label: { Image(systemName: "minus") }.disabled(selected == nil).help(L("Borrar"))
+                Button { move(-1) } label: { Image(systemName: "arrow.up") }.disabled(selected == nil).help(L("Subir"))
+                Button { move(1) } label: { Image(systemName: "arrow.down") }.disabled(selected == nil).help(L("Bajar"))
                 Spacer()
             }
             .buttonStyle(.borderless)
@@ -277,26 +277,26 @@ struct ButtonEditor: View {
     private func form(_ i: Int) -> some View {
         let b = $file.buttons[i]
         return Form {
-            TextField("Grupo", text: b.group)
-            TextField("Nombre", text: b.name)
-            Picker("Modo", selection: b.mode) {
+            TextField(L("Grupo"), text: b.group)
+            TextField(L("Nombre"), text: b.name)
+            Picker(L("Modo"), selection: b.mode) {
                 ForEach(CommandButton.Mode.allCases, id: \.self) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
             TextField(prompt(file.buttons[i].mode), text: b.command, axis: .vertical)
                 .font(.system(.body, design: .monospaced))
                 .lineLimit(2...6)
-            Picker("Tecla rápida", selection: Binding(get: { file.buttons[i].hotkey ?? "" },
+            Picker(L("Tecla rápida"), selection: Binding(get: { file.buttons[i].hotkey ?? "" },
                                                        set: { file.buttons[i].hotkey = $0.isEmpty ? nil : $0 })) {
-                ForEach(Self.keys, id: \.self) { k in Text(k.isEmpty ? "(ninguna)" : keyName(k)).tag(k) }
+                ForEach(Self.keys, id: \.self) { k in Text(k.isEmpty ? L("(ninguna)") : keyName(k)).tag(k) }
             }
             if let k = file.buttons[i].hotkey, file.buttons.filter({ $0.hotkey == k }).count > 1 {
-                Text("La tecla \(k) la usa otro botón").font(.caption).foregroundStyle(.orange)
+                Text(L("La tecla \(k) la usa otro botón")).font(.caption).foregroundStyle(.orange)
             }
             Text(help(file.buttons[i].mode)).font(.caption).foregroundStyle(.secondary)
             HStack {
                 Spacer()
-                Button("Probar en la pestaña activa") { model.runButton(file.buttons[i]) }.disabled(model.current == nil)
+                Button(L("Probar en la pestaña activa")) { model.runButton(file.buttons[i]) }.disabled(model.current == nil)
             }
         }
         .formStyle(.grouped)
@@ -305,21 +305,21 @@ struct ButtonEditor: View {
 
     private func prompt(_ m: CommandButton.Mode) -> String {
         switch m {
-        case .run: "Orden (varias con « ;; »)"
-        case .type: "Texto a escribir"
-        case .pass: "Nombre de la contraseña del Llavero"
-        case .login: "usuario / nombre-de-la-contraseña"
-        case .session: "Sesión del ssh_config"
+        case .run: L("Orden (varias con « ;; »)")
+        case .type: L("Texto a escribir")
+        case .pass: L("Nombre de la contraseña del Llavero")
+        case .login: L("usuario / nombre-de-la-contraseña")
+        case .session: L("Sesión del ssh_config")
         }
     }
 
     private func help(_ m: CommandButton.Mode) -> String {
         switch m {
-        case .run: "Escribe la orden y pulsa Intro. Varias: una a una esperando al equipo (se para si da error). Huecos: {{interfaz}}, {{vlan=100}}."
-        case .type: "Sólo la escribe, para que la completes tú. También admite huecos {{…}}."
-        case .pass: "Escribe esa contraseña del Llavero + Intro, sólo si la línea pide «Password:» (si no, no hace nada)."
-        case .login: "Escribe el usuario cuando pidan «Username:/login:» y luego su contraseña cuando la pidan."
-        case .session: "Abre una pestaña con esa sesión."
+        case .run: L("Escribe la orden y pulsa Intro. Varias: una a una esperando al equipo (se para si da error). Huecos: {{interfaz}}, {{vlan=100}}.")
+        case .type: L("Sólo la escribe, para que la completes tú. También admite huecos {{…}}.")
+        case .pass: L("Escribe esa contraseña del Llavero + Intro, sólo si la línea pide «Password:» (si no, no hace nada).")
+        case .login: L("Escribe el usuario cuando pidan «Username:/login:» y luego su contraseña cuando la pidan.")
+        case .session: L("Abre una pestaña con esa sesión.")
         }
     }
 
@@ -331,12 +331,12 @@ struct ButtonEditor: View {
         file = model.buttons
         loaded = true
         selected = selected ?? file.buttons.first?.id
-        message = FileManager.default.fileExists(atPath: ButtonFile.defaultURL.path) ? "" : "Botones de ejemplo: «Guardar» para crear el archivo"
+        message = FileManager.default.fileExists(atPath: ButtonFile.defaultURL.path) ? "" : L("Botones de ejemplo: «Guardar» para crear el archivo")
     }
 
     private func add() {
         let g = file.buttons.first { $0.id == selected }?.group ?? model.settings.buttonGroup
-        let b = CommandButton(group: g.isEmpty ? "General" : g, mode: .run, name: "Nuevo", command: "")
+        let b = CommandButton(group: g.isEmpty ? "General" : g, mode: .run, name: L("Nuevo"), command: "")
         let at = (file.buttons.lastIndex { $0.group == b.group }).map { $0 + 1 } ?? file.buttons.count
         file.buttons.insert(b, at: at)
         selected = b.id

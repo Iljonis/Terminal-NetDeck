@@ -42,7 +42,7 @@ import Testing
     }
 
     @Test func laPorDefectoNuncaAOtroUsuario() async {
-        let io = FakeTerminal(["$ ssh root@10.0.0.1", "root@10.0.0.1's password:"])
+        let io = FakeTerminal(["$ ssh root@192.0.2.1", "root@192.0.2.1's password:"])
         let a = make(io, MemoryCredentialStore([.named("AD"): "x"]), CredentialLedger(),
                      default: .init(name: "AD", user: "tu.usuario"))
         #expect(await a.observe(io, gate: AutomationGate()) == .manual(.userMismatch(requested: "root")))
@@ -50,7 +50,7 @@ import Testing
     }
 
     @Test func promptFalsoTrasLaOrdenNoRecibeNada() async {
-        let io = FakeTerminal(["$ ssh root@10.0.0.1", "(tu.usuario@10.0.0.1) Password:"])
+        let io = FakeTerminal(["$ ssh root@192.0.2.1", "(tu.usuario@192.0.2.1) Password:"])
         let a = make(io, MemoryCredentialStore([.named("AD"): "x"]), CredentialLedger(),
                      default: .init(name: "AD", user: "tu.usuario"))
         a.commandUser = "root"
@@ -61,7 +61,7 @@ import Testing
     }
 
     @Test func passwordASecasSinUsuarioNoSeEscribe() async {
-        let io = FakeTerminal(["$ telnet 10.0.0.9", "Password:"])
+        let io = FakeTerminal(["$ telnet 192.0.2.9", "Password:"])
         let a = make(io, MemoryCredentialStore([.named("AD"): "x"]), CredentialLedger(),
                      default: .init(name: "AD", user: "tu.usuario"))
         #expect(await a.observe(io, gate: AutomationGate()) == .manual(.unknownUser))
@@ -69,15 +69,15 @@ import Testing
     }
 
     @Test func escribeLaSuyaYSiFallaLaBloquea() async {
-        let io = FakeTerminal(["admin@10.0.0.1's password:"]) { _ in ["Permission denied, please try again.", "admin@10.0.0.1's password:"] }
+        let io = FakeTerminal(["admin@192.0.2.1's password:"]) { _ in ["Permission denied, please try again.", "admin@192.0.2.1's password:"] }
         let ledger = CredentialLedger()
-        let a = make(io, MemoryCredentialStore([.device("admin", "10.0.0.1"): "pw"]), ledger)
+        let a = make(io, MemoryCredentialStore([.device("admin", "192.0.2.1"): "pw"]), ledger)
         let gate = AutomationGate()
-        #expect(await a.observe(io, gate: gate) == .typed(.device("admin", "10.0.0.1")))
+        #expect(await a.observe(io, gate: gate) == .typed(.device("admin", "192.0.2.1")))
         #expect(io.sent == ["pw\r"])
-        #expect(await a.observe(io, gate: gate) == .failed(.device("admin", "10.0.0.1")))
+        #expect(await a.observe(io, gate: gate) == .failed(.device("admin", "192.0.2.1")))
         #expect(await a.observe(io, gate: gate) == nil)                        // la misma petición: nada más
-        #expect(ledger.isBlocked(.device("admin", "10.0.0.1")))
+        #expect(ledger.isBlocked(.device("admin", "192.0.2.1")))
         #expect(io.sent.count == 1)
     }
 
@@ -91,13 +91,13 @@ import Testing
         #expect(await a.observe(io, gate: AutomationGate()) == .typed(.named("AD")))   // login de la sesión: sola
         #expect(await a.observe(io, gate: AutomationGate()) == .confirmed(.named("AD")))
         #expect(a.loggedIn)
-        io.screen += ["core-01#telnet 10.0.0.9", "Username: tu.usuario", "Password:"]
+        io.screen += ["core-01#telnet 192.0.2.9", "Username: tu.usuario", "Password:"]
         #expect(await a.observe(io, gate: AutomationGate()) == .suggested(.named("AD"))) // equipo: sugerida
     }
 
     @Test func escDuranteLaEsperaCancela() async {
-        let io = FakeTerminal(["admin@10.0.0.1's password:"])
-        let a = make(io, MemoryCredentialStore([.device("admin", "10.0.0.1"): "pw"]), CredentialLedger())
+        let io = FakeTerminal(["admin@192.0.2.1's password:"])
+        let a = make(io, MemoryCredentialStore([.device("admin", "192.0.2.1"): "pw"]), CredentialLedger())
         a.settle = .milliseconds(300)
         let gate = AutomationGate()
         let t = Task { await a.observe(io, gate: gate) }
@@ -203,7 +203,7 @@ import Testing
         let ledger = CredentialLedger()
         var tabs: [FakeTerminal] = []
         let list = JumpList(name: "prueba", jump: "bastion", user: "tu.usuario",
-                            devices: JumpList.devices(in: "10.0.0.5, 10.0.0.6 # comentario"),
+                            devices: JumpList.devices(in: "192.0.2.5, 192.0.2.6 # comentario"),
                             credential: .init(ref: .named("AD"), owners: ["tu.usuario"], origin: .sessionNamed))
         var s = JumpBatchRunner.Settings()
         s.spacing = .milliseconds(10)
@@ -225,11 +225,11 @@ import Testing
         #expect(ledger.isBlocked(.named("AD")))
         #expect(runner.status.values.contains { if case .denied = $0 { true } else { false } })
         #expect(runner.status.values.contains { if case .skipped = $0 { true } else { false } })
-        #expect(tabs.first?.sent.first == "ssh tu.usuario@10.0.0.5\r")
+        #expect(tabs.first?.sent.first == "ssh tu.usuario@192.0.2.5\r")
     }
 
     @Test func nombresPeligrososNoSeEscribenEnElSalto() async {
-        let list = JumpList(name: "x", jump: "bastion", devices: [Endpoint(host: "10.0.0.5$(id)")])
+        let list = JumpList(name: "x", jump: "bastion", devices: [Endpoint(host: "192.0.2.5$(id)")])
         let io = FakeTerminal(["tu.usuario@bastion:~$ "])
         let runner = JumpBatchRunner(list: list, store: MemoryCredentialStore(), ledger: CredentialLedger(),
                                      abort: AbortSwitch()) { _ in io }

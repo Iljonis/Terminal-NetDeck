@@ -16,11 +16,11 @@ public struct CommandButton: Hashable, Sendable, Identifiable {
 
         public var title: String {
             switch self {
-            case .run: "Ejecutar"
-            case .type: "Escribir"
-            case .pass: "Contraseña"
+            case .run: L("Ejecutar")
+            case .type: L("Escribir")
+            case .pass: L("Contraseña")
             case .login: "Login"
-            case .session: "Sesión"
+            case .session: L("Sesión")
             }
         }
     }
@@ -107,7 +107,7 @@ public struct ButtonFile: Sendable {
             seenButton = true
             let parts = raw.components(separatedBy: " :: ")
             guard parts.count >= 4 else {
-                problems.append("línea \(n + 1): el formato es «Grupo :: modo :: Nombre :: comando»")
+                problems.append(L("línea \(n + 1): el formato es «Grupo :: modo :: Nombre :: comando»"))
                 continue
             }
             let group = parts[0].trimmingCharacters(in: .whitespaces)
@@ -115,7 +115,7 @@ public struct ButtonFile: Sendable {
             var name = parts[2].trimmingCharacters(in: .whitespaces)
             var command = parts[3...].joined(separator: " :: ")
             guard let mode = CommandButton.Mode(rawValue: modeText) else {
-                problems.append("línea \(n + 1): modo «\(modeText)» (usa run, type, pass, login o sesion)")
+                problems.append(L("línea \(n + 1): modo «\(modeText)» (usa run, type, pass, login o sesion)"))
                 continue
             }
             command = mode == .type ? String(command.drop { $0 == " " }) : command.trimmingCharacters(in: .whitespaces)
@@ -123,7 +123,7 @@ public struct ButtonFile: Sendable {
             if let k = Self.key.group(1, in: name), let r = Self.key.range(in: name) {
                 name = String(name[..<r.lowerBound]).trimmingCharacters(in: .whitespaces)
                 if keys.insert(k).inserted { hotkey = k } else {
-                    problems.append("línea \(n + 1): la tecla \(k) ya la usa otro botón (éste se queda sin ella)")
+                    problems.append(L("línea \(n + 1): la tecla \(k) ya la usa otro botón (éste se queda sin ella)"))
                 }
             }
             buttons.append(CommandButton(group: group, mode: mode, name: name, command: command, hotkey: hotkey))

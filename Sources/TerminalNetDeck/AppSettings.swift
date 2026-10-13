@@ -53,7 +53,16 @@ final class AppSettings {
         }
     }
 
+    /// Idioma de la interfaz (castellano de España o inglés): se aplica al momento.
+    var language: Idioma {
+        didSet {
+            d.set(language.rawValue, forKey: Idioma.clave)
+            Idioma.actual = language
+        }
+    }
+
     init() {
+        language = Idioma.actual
         if d.object(forKey: "configured") == nil { Self.importNetDeck(into: d) }
         sessionAutoPassword = d.object(forKey: "sessionAutoPassword") as? Bool ?? true
         devicePasswordMode = PasswordAutomation.Mode(rawValue: d.string(forKey: "devicePasswordMode") ?? "") ?? .suggest

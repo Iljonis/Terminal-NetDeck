@@ -65,13 +65,13 @@ public struct HighlightConfig: Sendable {
         func flush() {
             guard let r = current else { return }
             current = nil
-            let desc = r["description"] ?? "regla \(rules.count + problems.count + 1)"
-            guard let regex = r["regex"], let color = r["color"] else { problems.append("\(desc): falta regex o color"); return }
+            let desc = r["description"] ?? L("regla \(rules.count + problems.count + 1)")
+            guard let regex = r["regex"], let color = r["color"] else { problems.append(L("\(desc): falta regex o color")); return }
             do {
                 rules.append(try HighlightRule(description: desc, regex: regex, styles: Self.styles(color),
                                                exclusive: r["exclusive"]?.lowercased() == "true"))
             } catch {
-                problems.append("\(desc): expresión no válida")
+                problems.append(L("\(desc): expresión no válida"))
             }
         }
         for raw in text.components(separatedBy: .newlines) {

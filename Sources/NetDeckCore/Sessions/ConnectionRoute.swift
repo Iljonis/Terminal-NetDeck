@@ -73,9 +73,9 @@ public enum RouteError: LocalizedError, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .loop(let s): "Los saltos de «\(s)» forman un bucle"
-        case .badJump(let s): "Salto no válido: «\(s)»"
-        case .badDevice(let s): "Equipo no válido: «\(s)»"
+        case .loop(let s): L("Los saltos de «\(s)» forman un bucle")
+        case .badJump(let s): L("Salto no válido: «\(s)»")
+        case .badDevice(let s): L("Equipo no válido: «\(s)»")
         }
     }
 }

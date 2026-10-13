@@ -12,13 +12,13 @@ final class SetupWizard {
         var id: Int { rawValue }
         var title: String {
             switch self {
-            case .welcome: "Bienvenida"
-            case .place: "Ubicación"
-            case .themes: "Temas"
-            case .fonts: "Fuentes"
-            case .passwords: "Contraseñas"
-            case .highlight: "Resaltado"
-            case .install: "Instalar"
+            case .welcome: L("Bienvenida")
+            case .place: L("Ubicación")
+            case .themes: L("Temas")
+            case .fonts: L("Fuentes")
+            case .passwords: L("Contraseñas")
+            case .highlight: L("Resaltado")
+            case .install: L("Instalar")
             }
         }
         var icon: String {
@@ -101,16 +101,16 @@ final class SetupWizard {
                 try fm.createDirectory(at: destination, withIntermediateDirectories: true)
                 if fm.fileExists(atPath: installedApp.path) { try fm.removeItem(at: installedApp) }   // (versión anterior)
                 try fm.copyItem(at: bundleURL, to: installedApp)
-                log.append("✓ App instalada en \(installedApp.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))")
+                log.append(L("✓ App instalada en \(installedApp.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))"))
             } catch {
-                log.append("✗ No se ha podido copiar la app: \(error.localizedDescription)")
+                log.append(L("✗ No se ha podido copiar la app: \(error.localizedDescription)"))
                 running = false
                 return
             }
         }
         for f in fontsToInstall.sorted() where !Fonts.isInstalled(f) {
-            log.append("… fuente «\(f)»")
-            log.append(await Fonts.install(f) ? "✓ Fuente «\(f)» instalada" : "✗ Fuente «\(f)»: no se ha podido (Homebrew)")
+            log.append(L("… fuente «\(f)»"))
+            log.append(await Fonts.install(f) ? L("✓ Fuente «\(f)» instalada") : L("✗ Fuente «\(f)»: no se ha podido (Homebrew)"))
         }
         let s = model.settings
         s.sessionAutoPassword = sessionAuto
@@ -121,7 +121,7 @@ final class SetupWizard {
         model.selectTheme(active)
         model.applyPasswordModes()
         UserDefaults.standard.set(true, forKey: "configured")
-        log.append("✓ Ajustes guardados · tema «\(model.themes.current.name)»")
+        log.append(L("✓ Ajustes guardados · tema «\(model.themes.current.name)»"))
         running = false
         finished = true
     }
@@ -235,26 +235,26 @@ struct SetupContent: View {
     private var footer: some View {
         HStack {
             if wizard.step == .welcome, wizard.needsCopy {
-                Button("Probar sin instalar", action: start).buttonStyle(.plain).font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
+                Button(L("Probar sin instalar"), action: start).buttonStyle(.plain).font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
             }
             Spacer()
             if wizard.step != .welcome, !wizard.finished {
-                NeonButton(title: "Atrás", icon: "chevron.left") { go(-1) }.disabled(wizard.running)
+                NeonButton(title: L("Atrás"), icon: "chevron.left") { go(-1) }.disabled(wizard.running)
             }
             if wizard.step == .install {
                 if wizard.finished {
-                    NeonButton(title: wizard.needsCopy ? "Abrir Terminal NetDeck" : "Empezar", icon: "play.fill",
+                    NeonButton(title: wizard.needsCopy ? L("Abrir Terminal NetDeck") : L("Empezar"), icon: "play.fill",
                                tint: t.good, active: true) {
                         wizard.needsCopy ? wizard.launchInstalled() : start()
                     }
                 } else {
-                    NeonButton(title: wizard.running ? "Instalando…" : "Instalar", icon: "arrow.down.app.fill", active: true) {
+                    NeonButton(title: wizard.running ? L("Instalando…") : L("Instalar"), icon: "arrow.down.app.fill", active: true) {
                         Task { await wizard.run(model) }
                     }
                     .disabled(wizard.running)
                 }
             } else {
-                NeonButton(title: "Siguiente", icon: "chevron.right", active: true) { go(1) }
+                NeonButton(title: L("Siguiente"), icon: "chevron.right", active: true) { go(1) }
             }
         }
         .padding(.horizontal, 28)
@@ -267,13 +267,13 @@ struct SetupContent: View {
 
     private var subtitle: String {
         switch wizard.step {
-        case .welcome: "Terminal nativo para ingenieros de red"
-        case .place: "Dónde se instala la app"
-        case .themes: "Todos vienen con la app: pasa por encima para verlo, clic para usarlo (se cambia cuando quieras)"
-        case .fonts: "Aparte de los temas: se pueden cambiar cuando quieras en Ajustes → Fuentes"
-        case .passwords: "Siempre en el Llavero de macOS (las mismas que NetDeck)"
-        case .highlight: "Colores en la salida de los equipos, como ChromaTerm"
-        case .install: wizard.finished ? "Listo" : "Revisa y pulsa «Instalar»"
+        case .welcome: L("Terminal nativo para ingenieros de red")
+        case .place: L("Dónde se instala la app")
+        case .themes: L("Todos vienen con la app: pasa por encima para verlo, clic para usarlo (se cambia cuando quieras)")
+        case .fonts: L("Aparte de los temas: se pueden cambiar cuando quieras en Ajustes → Fuentes")
+        case .passwords: L("Siempre en el Llavero de macOS (las mismas que NetDeck)")
+        case .highlight: L("Colores en la salida de los equipos, como ChromaTerm")
+        case .install: wizard.finished ? L("Listo") : L("Revisa y pulsa «Instalar»")
         }
     }
 
@@ -293,16 +293,16 @@ struct SetupContent: View {
 
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 22) {
-            PixelBanner(text: "NETDECK", cell: 13).padding(.top, 10)
+            PixelBanner(text: L("NETDECK"), cell: 13).padding(.top, 10)
             VStack(alignment: .leading, spacing: 9) {
-                bullet("bolt.horizontal.fill", "Sesiones de tu ssh_config, con saltos y contraseña automática")
-                bullet("paintpalette.fill", "Las temáticas de NetDeck, todas incluidas, con vista previa")
-                bullet("highlighter", "Resaltado de la salida tipo ChromaTerm")
-                bullet("square.grid.2x2.fill", "MultiExec, pegado seguro y listas por salto")
+                bullet("bolt.horizontal.fill", L("Sesiones de tu ssh_config, con saltos y contraseña automática"))
+                bullet("paintpalette.fill", L("Las temáticas de NetDeck, todas incluidas, con vista previa"))
+                bullet("highlighter", L("Resaltado de la salida tipo ChromaTerm"))
+                bullet("square.grid.2x2.fill", L("MultiExec, pegado seguro y listas por salto"))
             }
             if FileManager.default.fileExists(atPath: AppPaths.netdeck.path) {
-                card("NetDeck encontrado", "Se respetan su Llavero, su ssh_config, sus temas y sus ajustes "
-                     + "(\(model.sessions.profiles.count) sesiones · tema «\(model.themes.current.name)»).", t.good)
+                card(L("NetDeck encontrado"), L("Se respetan su Llavero, su ssh_config, sus temas y sus ajustes ")
+                     + L("(\(model.sessions.profiles.count) sesiones · tema «\(model.themes.current.name)»)."), t.good)
             }
         }
     }
@@ -310,15 +310,15 @@ struct SetupContent: View {
     private var place: some View {
         VStack(alignment: .leading, spacing: 14) {
             if !wizard.isAppBundle {
-                card("Desde «swift run»", "No hay .app que copiar: para instalarla usa ./install.sh (o ./install.sh --dmg). "
-                     + "Puedes seguir para elegir temas y ajustes.", t.warning)
+                card(L("Desde «swift run»"), L("No hay .app que copiar: para instalarla usa ./install.sh (o ./install.sh --dmg). ")
+                     + L("Puedes seguir para elegir temas y ajustes."), t.warning)
             } else if !wizard.needsCopy {
-                card("Ya instalada", wizard.bundleURL.path, t.good)
+                card(L("Ya instalada"), wizard.bundleURL.path, t.good)
             } else {
-                choice("/Applications", "Para todos los usuarios del Mac", URL(fileURLWithPath: "/Applications"),
+                choice("/Applications", L("Para todos los usuarios del Mac"), URL(fileURLWithPath: "/Applications"),
                        enabled: FileManager.default.isWritableFile(atPath: "/Applications"))
-                choice("~/Applications", "Sólo para ti", SetupWizard.userApplications, enabled: true)
-                Text("Si ya había una versión instalada, se sustituye. Tus temas, ajustes y contraseñas se conservan.")
+                choice("~/Applications", L("Sólo para ti"), SetupWizard.userApplications, enabled: true)
+                Text(L("Si ya había una versión instalada, se sustituye. Tus temas, ajustes y contraseñas se conservan."))
                     .font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
             }
         }
@@ -337,10 +337,10 @@ struct SetupContent: View {
         let rec = wizard.recommendedFonts(model)
         return VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 14) {
-                picker("Terminal", $wizard.terminalFont, "Automática (la del tema)", families + rec.filter { !families.contains($0) })
-                picker("Interfaz", $wizard.uiFont, "La del tema", ["system"] + families)
+                picker(L("Terminal"), $wizard.terminalFont, L("Automática (la del tema)"), families + rec.filter { !families.contains($0) })
+                picker(L("Interfaz"), $wizard.uiFont, L("La del tema"), ["system"] + families)
             }
-            section("RECOMENDADAS POR TUS TEMAS")
+            section(L("RECOMENDADAS POR TUS TEMAS"))
             ForEach(rec, id: \.self) { f in
                 let ok = Fonts.isInstalled(f)
                 HStack {
@@ -348,7 +348,7 @@ struct SetupContent: View {
                         .foregroundStyle(SwiftUI.Color(ok ? t.good : t.accent))
                     Text(f).font(ok ? .custom(f, size: 14) : t.ui(13))
                     Spacer()
-                    Text(ok ? "instalada" : (wizard.brew ? "se instalará con Homebrew" : "falta Homebrew"))
+                    Text(ok ? "instalada" : (wizard.brew ? L("se instalará con Homebrew") : L("falta Homebrew")))
                         .font(t.ui(10.5)).foregroundStyle(SwiftUI.Color(t.dim))
                 }
                 .padding(10)
@@ -364,19 +364,19 @@ struct SetupContent: View {
 
     private var passwords: some View {
         VStack(alignment: .leading, spacing: 14) {
-            toggleCard("Contraseña de las sesiones automática",
-                       "Al abrir una sesión (y sus saltos) entra sola, con el askpass de la app. Un solo intento: si falla, "
-                       + "queda bloqueada 15 min y te la pide en la pestaña.", $wizard.sessionAuto)
+            toggleCard(L("Contraseña de las sesiones automática"),
+                       L("Al abrir una sesión (y sus saltos) entra sola, con el askpass de la app. Un solo intento: si falla, ")
+                       + L("queda bloqueada 15 min y te la pide en la pestaña."), $wizard.sessionAuto)
             VStack(alignment: .leading, spacing: 8) {
-                Text("EQUIPOS (ssh / telnet desde una sesión)").font(t.ui(10, .bold)).tracking(2).foregroundStyle(SwiftUI.Color(t.accent2))
+                Text(L("EQUIPOS (ssh / telnet desde una sesión)")).font(t.ui(10, .bold)).tracking(2).foregroundStyle(SwiftUI.Color(t.accent2))
                 Picker("", selection: $wizard.deviceMode) {
-                    Text("Escribirla sola").tag(PasswordAutomation.Mode.autoType)
-                    Text("Sugerirla").tag(PasswordAutomation.Mode.suggest)
-                    Text("Nada").tag(PasswordAutomation.Mode.off)
+                    Text(L("Escribirla sola")).tag(PasswordAutomation.Mode.autoType)
+                    Text(L("Sugerirla")).tag(PasswordAutomation.Mode.suggest)
+                    Text(L("Nada")).tag(PasswordAutomation.Mode.off)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                Text("Nunca la de otro usuario: con «ssh root@…» o «Username: pepe», sólo una guardada de ese usuario.")
+                Text(L("Nunca la de otro usuario: con «ssh root@…» o «Username: pepe», sólo una guardada de ese usuario."))
                     .font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
             }
             .padding(14)
@@ -386,7 +386,7 @@ struct SetupContent: View {
 
     private var highlightPage: some View {
         VStack(alignment: .leading, spacing: 14) {
-            toggleCard("Resaltar la salida", "Reglas de NetDeck (o las tuyas): interfaces, IPs, estados, dBm, errores, prompts…",
+            toggleCard(L("Resaltar la salida"), L("Reglas de NetDeck (o las tuyas): interfaces, IPs, estados, dBm, errores, prompts…"),
                        $wizard.highlight)
             HighlightPreview(enabled: wizard.highlight)
         }
@@ -395,12 +395,12 @@ struct SetupContent: View {
     private var install: some View {
         VStack(alignment: .leading, spacing: 10) {
             if wizard.log.isEmpty {
-                summary("Ubicación", wizard.needsCopy ? wizard.installedApp.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
-                                                      : "sin copiar")
-                summary("Tema", wizard.previewTheme(model).name)
-                summary("Fuentes", wizard.fontsToInstall.isEmpty ? "ninguna nueva" : wizard.fontsToInstall.sorted().joined(separator: ", "))
-                summary("Contraseñas", "sesión \(wizard.sessionAuto ? "automática" : "a mano") · equipos: \(modeName)")
-                summary("Resaltado", wizard.highlight ? "sí" : "no")
+                summary(L("Ubicación"), wizard.needsCopy ? wizard.installedApp.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+                                                      : L("sin copiar"))
+                summary(L("Tema"), wizard.previewTheme(model).name)
+                summary(L("Fuentes"), wizard.fontsToInstall.isEmpty ? L("ninguna nueva") : wizard.fontsToInstall.sorted().joined(separator: ", "))
+                summary(L("Contraseñas"), L("sesión \(wizard.sessionAuto ? L("automática") : L("a mano")) · equipos: \(modeName)"))
+                summary(L("Resaltado"), wizard.highlight ? "sí" : "no")
             } else {
                 ForEach(Array(wizard.log.enumerated()), id: \.offset) { _, l in
                     Text(l).font(t.ui(12))
@@ -412,7 +412,7 @@ struct SetupContent: View {
     }
 
     private var modeName: String {
-        switch wizard.deviceMode { case .autoType: "escribirla sola"; case .suggest: "sugerirla"; case .off: "nada" }
+        switch wizard.deviceMode { case .autoType: L("escribirla sola"); case .suggest: L("sugerirla"); case .off: L("nada") }
     }
 
     // MARK: piezas
@@ -448,7 +448,7 @@ struct SetupContent: View {
             Image(systemName: on ? "largecircle.fill.circle" : "circle").foregroundStyle(SwiftUI.Color(t.accent))
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(t.ui(13.5, .bold))
-                Text(enabled ? sub : "sin permiso de escritura").font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
+                Text(enabled ? sub : L("sin permiso de escritura")).font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
             }
             Spacer()
         }
@@ -478,7 +478,7 @@ struct SetupContent: View {
             Text(title.uppercased()).font(t.ui(10, .bold)).tracking(2).foregroundStyle(SwiftUI.Color(t.accent2))
             Picker("", selection: value) {
                 Text(auto).tag("")
-                ForEach(options, id: \.self) { Text($0 == "system" ? "Monoespaciada del sistema" : $0).tag($0) }
+                ForEach(options, id: \.self) { Text($0 == "system" ? L("Monoespaciada del sistema") : $0).tag($0) }
             }
             .labelsHidden()
         }
@@ -501,16 +501,16 @@ struct HighlightPreview: View {
 
     static let sample = """
         admin@core-01> show interfaces terse | match "xe-|ae"
-        xe-0/0/0   up   up     inet 10.0.0.1/30
+        xe-0/0/0   up   up     inet 192.0.2.1/30
         xe-0/0/1   up   down
-        ae0        up   up     inet 10.0.0.5/30   2001:db8::1/64
+        ae0        up   up     inet 192.0.2.5/30   2001:db8::1/64
         core-01#show ip bgp summary
-        10.0.0.2   4  65001   1234   1200   Established
+        192.0.2.2   4  65001   1234   1200   Established
         Rx power: -27.80 dBm   Tx power: -2.10 dBm
         CRC errors 15, input errors 3, 0 drops
         2026-10-13 14:51:02 %LINK-3-UPDOWN: Interface GigabitEthernet0/1, changed state to down
-        tu.usuario@bastion:~$ ping -c1 10.0.0.1
-        64 bytes from 10.0.0.1: icmp_seq=1 ttl=64 time=1.23 ms --- 0% packet loss
+        tu.usuario@bastion:~$ ping -c1 192.0.2.1
+        64 bytes from 192.0.2.1: icmp_seq=1 ttl=64 time=1.23 ms --- 0% packet loss
         """
 
     var body: some View {

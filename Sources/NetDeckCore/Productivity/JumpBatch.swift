@@ -42,6 +42,20 @@ public enum DeviceStatus: Equatable, Sendable {
     /// No se intenta: contraseña bloqueada, regla de usuario, Esc…
     case skipped(String)
 
+    /// Para la barra de estado.
+    public var texto: String {
+        switch self {
+        case .pending: L("en cola")
+        case .waitingJump: L("esperando al salto")
+        case .connecting: L("conectando")
+        case .passwordSent: L("contraseña enviada")
+        case .connected: L("dentro ✓")
+        case .denied(let why): L("denegada: \(why)")
+        case .failed(let why): L("fallo: \(why)")
+        case .skipped(let why): L("sin intentar: \(why)")
+        }
+    }
+
     /// Se puede reintentar sola (nunca una denegada: bloquearía la cuenta AD).
     public var isRetryable: Bool { if case .failed = self { return true } else { return false } }
 }
@@ -93,7 +107,7 @@ public final class JumpBatchRunner {
         var tasks: [Task<Void, Never>] = []
         for d in list.devices {
             guard !abort.isTripped else { set(d, .skipped("Esc")); continue }
-            guard let io = await open(d) else { set(d, .failed("no se ha podido abrir la pestaña")); continue }
+            guard let io = await open(d) else { set(d, .failed(L("no se ha podido abrir la pestaña"))); continue }
             tasks.append(Task { @MainActor in await self.connect(d, io: io, jump: nil) })
             try? await Task.sleep(for: settings.spacing)
         }
@@ -120,11 +134,11 @@ public final class JumpBatchRunner {
             set(device, .waitingJump)
             var target = device
             if target.user == nil { target.user = list.user }
-            guard target.isShellSafe else { return set(device, .failed("nombre no válido para la shell del salto")) }
+            guard target.isShellSafe else { return set(device, .failed(L("nombre no válido para la shell del salto"))) }
             // 1. el prompt del salto
             guard let jumpLine = try await Poll.until(every: settings.poll, timeout: settings.jumpTimeout, abort: abort, {
                 DevicePrompt.generic.matches(io.cursorLine.trimmed) ? io.cursorLine.trimmed : nil
-            }) else { return set(device, .failed("el salto no ha llegado a su prompt")) }
+            }) else { return set(device, .failed(L("el salto no ha llegado a su prompt"))) }
             let jump = known ?? DevicePrompt(sample: jumpLine)
             panes[device] = (io, jump)
             // 2. ssh desde el salto
@@ -151,15 +165,15 @@ public final class JumpBatchRunner {
                 ledger.keepProbing(s.ref)
                 if PasswordPrompt.asksForPassword(line), io.cursorRow != s.row {    // otra vez: no valía
                     ledger.markFailed(s.ref)
-                    return .denied("«\(s.ref)» no ha valido: no se prueba en más equipos (15 min)")
+                    return .denied(L("«\(s.ref)» no ha valido: no se prueba en más equipos (15 min)"))
                 }
                 if jump.matches(line), moved {                                     // volvió al salto
                     if io.lines(from: s.row).contains(where: Self.denied.matches) {
                         ledger.markFailed(s.ref)
-                        return .denied("«\(s.ref)» denegada")
+                        return .denied(L("«\(s.ref)» denegada"))
                     }
                     ledger.release(s.ref)
-                    return .failed("no se ha podido conectar desde el salto")
+                    return .failed(L("no se ha podido conectar desde el salto"))
                 }
                 if DevicePrompt.generic.matches(line), moved {
                     ledger.confirm(s.ref)
@@ -170,16 +184,16 @@ public final class JumpBatchRunner {
             if let request = PasswordPrompt.detect(cursorLine: line, above: io.linesAbove(3)) {
                 let cands = [list.credential].compactMap { $0 }.filter { store.contains($0.ref) }
                 switch policy.decide(request, commandUser: target.user, candidates: cands, isBlocked: ledger.isBlocked) {
-                case .manual(.recentlyFailed(let r)): return .skipped("«\(r)» falló hace poco: la escribes tú")
-                case .manual(let why): return .skipped("contraseña a mano (\(why))")
+                case .manual(.recentlyFailed(let r)): return .skipped(L("«\(r)» falló hace poco: la escribes tú"))
+                case .manual(let why): return .skipped(L("contraseña a mano (\(Askpass.explain(why)))"))
                 case .inject(let ref):
                     switch ledger.beginProbe(ref) {
-                    case .blocked: return .skipped("«\(ref)» falló hace poco: la escribes tú")
+                    case .blocked: return .skipped(L("«\(ref)» falló hace poco: la escribes tú"))
                     case .wait: continue                                   // otra pestaña la está probando
                     case .go:
                         guard let pw = try? store.password(for: ref) else {
                             ledger.release(ref)
-                            return .failed("no está en el Llavero")
+                            return .failed(L("no está en el Llavero"))
                         }
                         try abort.check()
                         let row = io.cursorRow                  // (antes de enviar: la respuesta puede ser inmediata)
@@ -191,14 +205,14 @@ public final class JumpBatchRunner {
                 }
                 continue
             }
-            if jump.matches(line), moved { return .failed("no se ha podido conectar desde el salto") }
+            if jump.matches(line), moved { return .failed(L("no se ha podido conectar desde el salto")) }
             if DevicePrompt.generic.matches(line), moved { return .connected }           // clave pública
         }
         if let s = sent {                      // ni sí ni no: no se prueba en más equipos (para no bloquear la cuenta)
             ledger.markFailed(s.ref)
-            return .denied("sin respuesta a «\(s.ref)»")
+            return .denied(L("sin respuesta a «\(s.ref)»"))
         }
-        return .failed("el equipo no ha contestado")
+        return .failed(L("el equipo no ha contestado"))
     }
 
     private func set(_ d: Endpoint, _ s: DeviceStatus) {

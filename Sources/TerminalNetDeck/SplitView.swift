@@ -81,28 +81,28 @@ struct SplitPane: View {
             RecBadge(session: session, compact: true)
             if model.multiExecOn {
                 Button { model.toggleExcluded(session) } label: {
-                    Text(excluded ? "EXCLUIDA" : "⧉ MULTIEXEC")
+                    Text(excluded ? L("EXCLUIDA") : L("⧉ MULTIEXEC"))
                         .font(t.ui(9, .bold)).tracking(1)
                         .foregroundStyle(SwiftUI.Color(excluded ? t.dim : t.warning))
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(SwiftUI.Color(excluded ? t.dim : t.warning).opacity(0.7)))
                 }
                 .buttonStyle(.plain)
-                .help(excluded ? "Incluir en MultiExec" : "Excluir de MultiExec (lo que escribas no le llegará)")
+                .help(excluded ? L("Incluir en MultiExec") : L("Excluir de MultiExec (lo que escribas no le llegará)"))
             }
             Button { model.showSplit = false; model.selection = session.id } label: {
                 Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 10, weight: .bold))
             }
             .buttonStyle(.plain)
-            .help("Ver sola (la vista sigue en «⊞ VISTA»)")
+            .help(L("Ver sola (la vista sigue en «⊞ VISTA»)"))
             Button { model.removeFromSplit(session) } label: {
                 Image(systemName: "rectangle.badge.minus").font(.system(size: 10, weight: .bold))
             }
             .buttonStyle(.plain)
-            .help("Sacar de la vista (sigue abierta en su pestaña)")
+            .help(L("Sacar de la vista (sigue abierta en su pestaña)"))
             Button { model.close(session) } label: { Image(systemName: "xmark").font(.system(size: 9, weight: .bold)) }
                 .buttonStyle(.plain)
-                .help("Cerrar esta sesión")
+                .help(L("Cerrar esta sesión"))
         }
         .foregroundStyle(SwiftUI.Color(selected ? t.onTab : t.text))
         .padding(.horizontal, 9)
@@ -125,17 +125,17 @@ struct EmptyPane: View {
         let others = model.tabs.filter { model.split?.panes.contains($0.id) != true }
         VStack(spacing: 12) {
             Image(systemName: "plus.rectangle.on.rectangle").font(.system(size: 26)).foregroundStyle(SwiftUI.Color(t.accent2))
-            Text("PANEL LIBRE").font(t.ui(11, .bold)).tracking(3).foregroundStyle(SwiftUI.Color(t.dim))
+            Text(L("PANEL LIBRE")).font(t.ui(11, .bold)).tracking(3).foregroundStyle(SwiftUI.Color(t.dim))
             HStack(spacing: 8) {
                 if !others.isEmpty {
                     Menu {
                         ForEach(others) { s in Button(s.title) { model.addToSplit(s, at: index) } }
-                    } label: { NeonLabel(title: "Pestaña abierta", icon: "rectangle.stack") }
+                    } label: { NeonLabel(title: L("Pestaña abierta"), icon: "rectangle.stack") }
                         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
                 }
                 Menu {
                     if let cur = model.current {
-                        Button("Clonar «\(cur.title)»") { model.openInSplit(cur.route, at: index) }
+                        Button(L("Clonar «\(cur.title)»")) { model.openInSplit(cur.route, at: index) }
                         Divider()
                     }
                     ForEach(model.sessions.groups, id: \.name) { g in
@@ -147,7 +147,7 @@ struct EmptyPane: View {
                             }
                         }
                     }
-                } label: { NeonLabel(title: "Abrir sesión", icon: "bolt.horizontal.fill") }
+                } label: { NeonLabel(title: L("Abrir sesión"), icon: "bolt.horizontal.fill") }
                     .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
             }
         }

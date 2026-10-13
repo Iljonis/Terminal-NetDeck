@@ -68,8 +68,8 @@ public enum Askpass {
         // ssh vuelve a preguntar enseguida: la que le dimos no valía
         if let used = ask.recentlyGiven() {
             ledger.markFailed(used)
-            tty.say("\(red)\(marker) la contraseña guardada «\(used)» no ha funcionado en \(account): "
-                    + "no se probará sola en 15 min\(reset)\n")
+            tty.say(L("\(red)\(marker) la contraseña guardada «\(used)» no ha funcionado en \(account): ")
+                    + L("no se probará sola en 15 min\(reset)\n"))
             return ask.user(failed: used)
         }
         let request = PasswordRequest(line: question, account: account)
@@ -94,12 +94,12 @@ public enum Askpass {
                     return answer(pw)
                 case .wait where Date() < deadline:
                     if !told {
-                        tty.say("\(cyan)\(marker) otra pestaña está probando «\(ref)»: espero a ver si vale…\(reset)\n")
+                        tty.say(L("\(cyan)\(marker) otra pestaña está probando «\(ref)»: espero a ver si vale…\(reset)\n"))
                         told = true
                     }
                     Thread.sleep(forTimeInterval: 0.3)
                 case .wait, .blocked:
-                    tty.say("\(yellow)\(marker) «\(ref)» falló hace poco: no la escribo (cuenta AD)\(reset)\n")
+                    tty.say(L("\(yellow)\(marker) «\(ref)» falló hace poco: no la escribo (cuenta AD)\(reset)\n"))
                     return ask.user(failed: nil)
                 }
             }
@@ -108,12 +108,12 @@ public enum Askpass {
 
     public static func explain(_ why: ManualReason) -> String {
         switch why {
-        case .changeOrConfirm: "piden una contraseña nueva o repetida: escríbela tú"
-        case .userMismatch(let u): "ninguna guardada es de «\(u)»: escríbela tú"
-        case .conflictingUsers(let c, let p): "la orden dice «\(c)» y el prompt «\(p)»: escríbela tú"
-        case .recentlyFailed(let r): "«\(r)» falló hace poco: no se escribe sola (cuenta AD)"
-        case .unknownUser: "no se sabe qué usuario la pide: escríbela tú"
-        case .noCredential: "no hay ninguna guardada"
+        case .changeOrConfirm: L("piden una contraseña nueva o repetida: escríbela tú")
+        case .userMismatch(let u): L("ninguna guardada es de «\(u)»: escríbela tú")
+        case .conflictingUsers(let c, let p): L("la orden dice «\(c)» y el prompt «\(p)»: escríbela tú")
+        case .recentlyFailed(let r): L("«\(r)» falló hace poco: no se escribe sola (cuenta AD)")
+        case .unknownUser: L("no se sabe qué usuario la pide: escríbela tú")
+        case .noCredential: L("no hay ninguna guardada")
         }
     }
 
@@ -171,16 +171,16 @@ public enum Askpass {
 
         /// Te la pide; te ofrece guardarla (si la guardada falló, por defecto sí).
         func user(failed: CredentialRef?) -> Int32 {
-            tty.say("\(cyan)\(marker) Esc = cancelar\(reset)\n\(marker) \(account)'s password: ")
+            tty.say(L("\(cyan)\(marker) Esc = cancelar\(reset)\n\(marker) \(account)'s password: "))
             guard let pw = tty.read(secret: true) else {
-                tty.say("\(yellow)\(marker) cancelado\(reset)\n")
+                tty.say(L("\(yellow)\(marker) cancelado\(reset)\n"))
                 return 1
             }
             var saved: CredentialRef?
-            if let named, tty.yesNo("¿Guardarla como «\(named)»?", default: true) == true {
+            if let named, tty.yesNo(L("¿Guardarla como «\(named)»?"), default: true) == true {
                 saved = .named(named)
             } else if named == nil,
-                      tty.yesNo("¿Guardar la \(failed != nil ? "nueva " : "")contraseña de \(account) en el Llavero?",
+                      tty.yesNo(L("¿Guardar la \(failed != nil ? L("nueva ") : "")contraseña de \(account) en el Llavero?"),
                                 default: failed != nil) == true {
                 saved = .device(user, host)
             }
@@ -189,7 +189,7 @@ public enum Askpass {
                     try store.save(pw, for: s)
                     ledger.reset(s)
                     _ = ledger.beginProbe(s)
-                    tty.say("\(green)\(marker) guardada ✓\(reset)\n")
+                    tty.say(L("\(green)\(marker) guardada ✓\(reset)\n"))
                 } catch {
                     tty.say("\(red)\(marker) \(error.localizedDescription)\(reset)\n")
                     saved = nil
@@ -285,7 +285,7 @@ final class TTY: AskpassUI {
     }
 
     func yesNo(_ question: String, default d: Bool) -> Bool? {
-        say("\(Askpass.cyan)\(Askpass.marker) \(question) \(d ? "[S/n]" : "[s/N]") (Esc = no)\(Askpass.reset) ")
+        say(L("\(Askpass.cyan)\(Askpass.marker) \(question) \(d ? L("[S/n]") : L("[s/N]")) (Esc = no)\(Askpass.reset) "))
         guard let r = read(secret: false)?.trimmed.lowercased() else { say("\n"); return nil }
         say("\n")
         return r.isEmpty ? d : ["s", "si", "sí", "y", "yes"].contains(r)

@@ -25,12 +25,12 @@ struct LogSearchSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                SearchField(text: $query, prompt: "IP, MAC (cualquier formato), interfaz, texto…")
+                SearchField(text: $query, prompt: L("IP, MAC (cualquier formato), interfaz, texto…"))
                     .onSubmit(search)
-                Button("Buscar", action: search).keyboardShortcut(.defaultAction)
+                Button(L("Buscar"), action: search).keyboardShortcut(.defaultAction)
                 if searching { ProgressView().controlSize(.small) }
             }
-            Text("\(hits.count)\(hits.count >= 500 ? "+" : "") líneas en \(model.settings.logPath.replacingOccurrences(of: NSHomeDirectory(), with: "~"))")
+            Text(L("\(hits.count)\(hits.count >= 500 ? "+" : "") líneas en \(model.settings.logPath.replacingOccurrences(of: NSHomeDirectory(), with: "~"))"))
                 .font(.caption).foregroundStyle(.secondary)
             HSplitView {
                 List(hits, selection: $selected) { h in
@@ -57,11 +57,11 @@ struct LogSearchSheet: View {
             }
             HStack {
                 if let h = hits.first(where: { $0.id == selected }) {
-                    Button("Abrir el registro") { NSWorkspace.shared.open(h.file) }
-                    Button("Mostrar en Finder") { NSWorkspace.shared.activateFileViewerSelecting([h.file]) }
+                    Button(L("Abrir el registro")) { NSWorkspace.shared.open(h.file) }
+                    Button(L("Mostrar en Finder")) { NSWorkspace.shared.activateFileViewerSelecting([h.file]) }
                 }
                 Spacer()
-                Button("Cerrar") { task?.cancel(); dismiss() }.keyboardShortcut(.cancelAction)
+                Button(L("Cerrar")) { task?.cancel(); dismiss() }.keyboardShortcut(.cancelAction)
             }
         }
         .padding(16)

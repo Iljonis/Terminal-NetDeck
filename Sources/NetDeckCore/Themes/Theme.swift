@@ -105,7 +105,7 @@ public struct Theme: Identifiable, Hashable, Sendable {
         case badColor(String)
 
         public var errorDescription: String? {
-            switch self { case .badColor(let k): "falta o está mal el color «\(k)» (formato #rrggbb)" }
+            switch self { case .badColor(let k): L("falta o está mal el color «\(k)» (formato #rrggbb)") }
         }
     }
 

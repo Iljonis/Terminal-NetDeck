@@ -26,7 +26,7 @@ struct SessionEditor: View {
                         ImportPane(file: $file) { ids in
                             importing = false
                             selected = ids.first
-                            message = "\(ids.count) importadas: revísalas y pulsa «Guardar»"
+                            message = L("\(ids.count) importadas: revísalas y pulsa «Guardar»")
                         }
                     } else if let i = index {
                         form(i)
@@ -52,13 +52,13 @@ struct SessionEditor: View {
     private var list: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("SESIONES").font(t.ui(13, .heavy)).tracking(3).foregroundStyle(SwiftUI.Color(t.accent))
+                Text(L("SESIONES")).font(t.ui(13, .heavy)).tracking(3).foregroundStyle(SwiftUI.Color(t.accent))
                 Text("\(file.sessions.count)").font(t.ui(10)).foregroundStyle(SwiftUI.Color(t.dim))
                 Spacer()
-                if dirty { Text("● sin guardar").font(t.ui(10, .bold)).foregroundStyle(SwiftUI.Color(t.warning)) }
+                if dirty { Text(L("● sin guardar")).font(t.ui(10, .bold)).foregroundStyle(SwiftUI.Color(t.warning)) }
             }
             .padding(.horizontal, 12).padding(.top, 14)
-            SearchField(text: $query, prompt: "Filtrar").padding(10)
+            SearchField(text: $query, prompt: L("Filtrar")).padding(10)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 1) {
                     ForEach(file.groups, id: \.self) { g in
@@ -73,12 +73,12 @@ struct SessionEditor: View {
             }
             NeonLine(color: t.panel)
             HStack(spacing: 6) {
-                IconButton(icon: "plus") { add(group: index.map { file.sessions[$0].group }) }.help("Nueva sesión")
-                IconButton(icon: "plus.square.on.square") { duplicate() }.help("Duplicar").disabled(index == nil)
-                IconButton(icon: "trash") { delete() }.help("Borrar").disabled(index == nil)
+                IconButton(icon: "plus") { add(group: index.map { file.sessions[$0].group }) }.help(L("Nueva sesión"))
+                IconButton(icon: "plus.square.on.square") { duplicate() }.help(L("Duplicar")).disabled(index == nil)
+                IconButton(icon: "trash") { delete() }.help(L("Borrar")).disabled(index == nil)
                 Spacer()
-                NeonButton(title: "Importar", icon: "square.and.arrow.down", tint: t.accent2) { importing = true }
-                    .help("SecureCRT, MobaXterm, PuTTY, electerm, CSV o un ssh_config")
+                NeonButton(title: L("Importar"), icon: "square.and.arrow.down", tint: t.accent2) { importing = true }
+                    .help(L("SecureCRT, MobaXterm, PuTTY, electerm, CSV o un ssh_config"))
             }
             .padding(8)
         }
@@ -94,18 +94,18 @@ struct SessionEditor: View {
         HStack(spacing: 6) {
             Text(g.uppercased()).font(t.ui(10, .bold)).tracking(2).foregroundStyle(SwiftUI.Color(t.accent2))
             if let c = file.groupCredentials[g], !c.isEmpty {
-                Image(systemName: "key.fill").font(.system(size: 8)).foregroundStyle(SwiftUI.Color(t.warning)).help("Contraseña del grupo: \(c)")
+                Image(systemName: "key.fill").font(.system(size: 8)).foregroundStyle(SwiftUI.Color(t.warning)).help(L("Contraseña del grupo: \(c)"))
             }
             Rectangle().fill(SwiftUI.Color(t.accent2).opacity(0.25)).frame(height: 1)
             Menu {
-                Button("Nueva sesión en «\(g)»") { add(group: g) }
-                Button("Renombrar grupo…") { renameGroup(g) }
-                Menu("Contraseña del grupo") {
-                    Button("(ninguna)") { file.groupCredentials[g] = nil }
+                Button(L("Nueva sesión en «\(g)»")) { add(group: g) }
+                Button(L("Renombrar grupo…")) { renameGroup(g) }
+                Menu(L("Contraseña del grupo")) {
+                    Button(L("(ninguna)")) { file.groupCredentials[g] = nil }
                     ForEach(namedCredentials, id: \.self) { n in Button(n) { file.groupCredentials[g] = n } }
                 }
                 Divider()
-                Button("Quitar el grupo (sus sesiones pasan a General)") { removeGroup(g) }
+                Button(L("Quitar el grupo (sus sesiones pasan a General)")) { removeGroup(g) }
             } label: { Image(systemName: "ellipsis.circle").foregroundStyle(SwiftUI.Color(t.dim)) }
                 .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         }
@@ -130,8 +130,8 @@ struct SessionEditor: View {
         .contentShape(Rectangle())
         .onTapGesture { importing = false; selected = s.id; newPassword = "" }
         .contextMenu {
-            Button("Duplicar") { selected = s.id; duplicate() }
-            Button("Borrar") { selected = s.id; delete() }
+            Button(L("Duplicar")) { selected = s.id; duplicate() }
+            Button(L("Borrar")) { selected = s.id; delete() }
         }
     }
 
@@ -143,10 +143,10 @@ struct SessionEditor: View {
     private var placeholder: some View {
         VStack(spacing: 14) {
             Image(systemName: "server.rack").font(.system(size: 34)).foregroundStyle(SwiftUI.Color(t.accent2))
-            Text("Elige una sesión o crea una nueva").font(t.ui(13)).foregroundStyle(SwiftUI.Color(t.dim))
+            Text(L("Elige una sesión o crea una nueva")).font(t.ui(13)).foregroundStyle(SwiftUI.Color(t.dim))
             HStack {
-                NeonButton(title: "Nueva sesión", icon: "plus") { add(group: nil) }
-                NeonButton(title: "Importar", icon: "square.and.arrow.down", tint: t.accent2) { importing = true }
+                NeonButton(title: L("Nueva sesión"), icon: "plus") { add(group: nil) }
+                NeonButton(title: L("Importar"), icon: "square.and.arrow.down", tint: t.accent2) { importing = true }
             }
         }
     }
@@ -161,73 +161,73 @@ struct SessionEditor: View {
         return Form {
             Section {
                 HStack {
-                    TextField("Grupo", text: s.group)
+                    TextField(L("Grupo"), text: s.group)
                     Menu {
                         ForEach(file.groups, id: \.self) { g in Button(g) { file.sessions[i].group = g } }
                     } label: { Image(systemName: "chevron.down.circle") }
                         .menuStyle(.button).buttonStyle(.plain).fixedSize()
                 }
-                TextField("Nombre", text: s.name, prompt: Text("core-01 (sin espacios)"))
+                TextField(L("Nombre"), text: s.name, prompt: Text(L("core-01 (sin espacios)")))
                 if !EditableSession.isValidName(file.sessions[i].name) {
-                    Text("Sin espacios ni * ? ! (es el nombre que usa ssh)").font(.caption).foregroundStyle(SwiftUI.Color(t.bad))
+                    Text(L("Sin espacios ni * ? ! (es el nombre que usa ssh)")).font(.caption).foregroundStyle(SwiftUI.Color(t.bad))
                 }
-                TextField("Descripción", text: s.summary, prompt: Text("opcional"))
-            } header: { header("SESIÓN") }
+                TextField(L("Descripción"), text: s.summary, prompt: Text("opcional"))
+            } header: { header(L("SESIÓN")) }
 
             Section {
-                Picker("Protocolo", selection: s.telnet) {
-                    Text("SSH").tag(false)
-                    Text("Telnet").tag(true)
+                Picker(L("Protocolo"), selection: s.telnet) {
+                    Text(L("SSH")).tag(false)
+                    Text(L("Telnet")).tag(true)
                 }
                 .pickerStyle(.segmented)
-                TextField("Equipo (nombre o IP)", text: s.host, prompt: Text("10.0.0.1"))
-                TextField("Usuario", text: s.user, prompt: Text(NSUserName()))
-                TextField("Puerto", text: s.port, prompt: Text(file.sessions[i].telnet ? "23" : "22"))
-                Picker("Saltar por", selection: s.jump) {
-                    Text("Directo").tag("")
+                TextField(L("Equipo (nombre o IP)"), text: s.host, prompt: Text("192.0.2.1"))
+                TextField(L("Usuario"), text: s.user, prompt: Text(NSUserName()))
+                TextField(L("Puerto"), text: s.port, prompt: Text(file.sessions[i].telnet ? "23" : "22"))
+                Picker(L("Saltar por"), selection: s.jump) {
+                    Text(L("Directo")).tag("")
                     if !file.sessions[i].jump.isEmpty, !others.contains(file.sessions[i].jump) {
                         Text(file.sessions[i].jump).tag(file.sessions[i].jump)
                     }
                     ForEach(others, id: \.self) { Text($0).tag($0) }
                 }
                 if !file.sessions[i].jump.isEmpty {
-                    Text("Si el salto no deja reenviar (-J), la app entra en él y escribe «ssh equipo», como NetDeck.")
+                    Text(L("Si el salto no deja reenviar (-J), la app entra en él y escribe «ssh equipo», como NetDeck."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if !file.sessions[i].telnet {
                     HStack {
-                        TextField("Clave privada", text: s.keyFile, prompt: Text("(ninguna)"))
-                        Button("Elegir…") { chooseKey(i) }
+                        TextField(L("Clave privada"), text: s.keyFile, prompt: Text(L("(ninguna)")))
+                        Button(L("Elegir…")) { chooseKey(i) }
                     }
-                    Toggle("Equipo antiguo (algoritmos ssh viejos)", isOn: s.legacy)
+                    Toggle(L("Equipo antiguo (algoritmos ssh viejos)"), isOn: s.legacy)
                 }
-            } header: { header("CONEXIÓN") }
+            } header: { header(L("CONEXIÓN")) }
 
             Section {
-                Picker("Contraseña", selection: s.credential) {
-                    Text("Automática (la de \(user)@\(host) o la por defecto)").tag("")
-                    Text("La propia del equipo (-)").tag("-")
+                Picker(L("Contraseña"), selection: s.credential) {
+                    Text(L("Automática (la de \(user)@\(host) o la por defecto)")).tag("")
+                    Text(L("La propia del equipo (-)")).tag("-")
                     if !file.sessions[i].credential.isEmpty, file.sessions[i].credential != "-",
                        !namedCredentials.contains(file.sessions[i].credential) {
-                        Text("\(file.sessions[i].credential) (no está en el Llavero)").tag(file.sessions[i].credential)
+                        Text(L("\(file.sessions[i].credential) (no está en el Llavero)")).tag(file.sessions[i].credential)
                     }
                     ForEach(namedCredentials, id: \.self) { Text("🔑 \($0)").tag($0) }
                 }
-                Picker("Del grupo «\(file.sessions[i].group)»", selection: Binding(
+                Picker(L("Del grupo «\(file.sessions[i].group)»"), selection: Binding(
                     get: { file.groupCredentials[file.sessions[i].group] ?? "" },
                     set: { file.groupCredentials[file.sessions[i].group] = $0.isEmpty ? nil : $0 })) {
-                    Text("(ninguna)").tag("")
+                    Text(L("(ninguna)")).tag("")
                     ForEach(namedCredentials, id: \.self) { Text("🔑 \($0)").tag($0) }
                 }
                 HStack {
-                    SecureField("Guardar una para \(user)@\(host)", text: $newPassword)
-                    Button("Al Llavero") { savePassword(user: user, host: host) }.disabled(newPassword.isEmpty)
+                    SecureField(L("Guardar una para \(user)@\(host)"), text: $newPassword)
+                    Button(L("Al Llavero")) { savePassword(user: user, host: host) }.disabled(newPassword.isEmpty)
                 }
                 if model.store.contains(.device(user, host)) {
-                    Text("✓ Hay una guardada para \(user)@\(host)").font(.caption).foregroundStyle(SwiftUI.Color(t.good))
+                    Text(L("✓ Hay una guardada para \(user)@\(host)")).font(.caption).foregroundStyle(SwiftUI.Color(t.good))
                 }
-            } header: { header("CONTRASEÑA (LLAVERO)") } footer: {
-                Text("Nunca se escribe sola la de otro usuario: sólo la de ese mismo usuario.").font(.caption)
+            } header: { header(L("CONTRASEÑA (LLAVERO)")) } footer: {
+                Text(L("Nunca se escribe sola la de otro usuario: sólo la de ese mismo usuario.")).font(.caption)
             }
 
             Section {
@@ -236,8 +236,8 @@ struct SessionEditor: View {
                                              .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }))
                     .font(.system(.callout, design: .monospaced))
                     .frame(minHeight: 60)
-            } header: { header("OPCIONES DE SSH (AVANZADO)") } footer: {
-                Text("Una por línea: LocalForward 8080 10.0.0.1:80 · ServerAliveInterval 30 · …").font(.caption)
+            } header: { header(L("OPCIONES DE SSH (AVANZADO)")) } footer: {
+                Text(L("Una por línea: LocalForward 8080 192.0.2.1:80 · ServerAliveInterval 30 · …")).font(.caption)
             }
         }
         .formStyle(.grouped)
@@ -257,14 +257,14 @@ struct SessionEditor: View {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(SwiftUI.Color(t.bad))
                 Text(p).font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.bad)).lineLimit(2)
             } else {
-                Text(message.isEmpty ? SessionFile.defaultURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") + " · lo comparte con NetDeck" : message)
+                Text(message.isEmpty ? SessionFile.defaultURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") + L(" · lo comparte con NetDeck") : message)
                     .font(t.ui(11)).foregroundStyle(SwiftUI.Color(message.hasPrefix("✗") ? t.bad : t.dim)).lineLimit(2)
             }
             Spacer()
-            Button("Cerrar") { close() }.keyboardShortcut(.cancelAction)
-            NeonButton(title: "Guardar y conectar", icon: "bolt.horizontal.fill", tint: t.good) { save(connect: true) }
+            Button(L("Cerrar")) { close() }.keyboardShortcut(.cancelAction)
+            NeonButton(title: L("Guardar y conectar"), icon: "bolt.horizontal.fill", tint: t.good) { save(connect: true) }
                 .disabled(!problems.isEmpty || index == nil)
-            NeonButton(title: "Guardar", icon: "checkmark", active: dirty) { save(connect: false) }
+            NeonButton(title: L("Guardar"), icon: "checkmark", active: dirty) { save(connect: false) }
                 .disabled(!problems.isEmpty || !dirty)
                 .keyboardShortcut("s")
         }
@@ -319,17 +319,17 @@ struct SessionEditor: View {
     private func delete() {
         guard let i = index else { return }
         let a = NSAlert()
-        a.messageText = "¿Borrar la sesión «\(file.sessions[i].name)»?"
-        a.informativeText = "Se quita al pulsar «Guardar» (queda una copia en ssh_config.anterior). Su contraseña del Llavero no se toca."
-        a.addButton(withTitle: "Borrar")
-        a.addButton(withTitle: "Cancelar")
+        a.messageText = L("¿Borrar la sesión «\(file.sessions[i].name)»?")
+        a.informativeText = L("Se quita al pulsar «Guardar» (queda una copia en ssh_config.anterior). Su contraseña del Llavero no se toca.")
+        a.addButton(withTitle: L("Borrar"))
+        a.addButton(withTitle: L("Cancelar"))
         guard a.runModal() == .alertFirstButtonReturn else { return }
         file.sessions.remove(at: i)
         selected = file.sessions.indices.contains(i) ? file.sessions[i].id : file.sessions.last?.id
     }
 
     private func renameGroup(_ g: String) {
-        guard let n = Self.ask("Renombrar el grupo «\(g)»", value: g), !n.isEmpty, n != g else { return }
+        guard let n = Self.ask(L("Renombrar el grupo «\(g)»"), value: g), !n.isEmpty, n != g else { return }
         for i in file.sessions.indices where file.sessions[i].group == g { file.sessions[i].group = n }
         if let c = file.groupCredentials.removeValue(forKey: g) { file.groupCredentials[n] = c }
     }
@@ -353,7 +353,7 @@ struct SessionEditor: View {
             try model.store.save(newPassword, for: ref)
             model.ledger.reset(ref)
             model.keychainRevision += 1
-            message = "✓ Contraseña de \(user)@\(host) guardada en el Llavero"
+            message = L("✓ Contraseña de \(user)@\(host) guardada en el Llavero")
         } catch {
             message = "✗ \(error.localizedDescription)"
         }
@@ -367,7 +367,7 @@ struct SessionEditor: View {
                 return
             }
             saved = file
-            message = "✓ Guardadas"
+            message = L("✓ Guardadas")
         }
         if connect, let i = index, let p = model.sessions.profile(named: file.sessions[i].name) {
             model.open(p)
@@ -378,10 +378,10 @@ struct SessionEditor: View {
     private func close() {
         if dirty {
             let a = NSAlert()
-            a.messageText = "Hay cambios sin guardar"
-            a.addButton(withTitle: "Guardar")
-            a.addButton(withTitle: "Descartar")
-            a.addButton(withTitle: "Cancelar")
+            a.messageText = L("Hay cambios sin guardar")
+            a.addButton(withTitle: L("Guardar"))
+            a.addButton(withTitle: L("Descartar"))
+            a.addButton(withTitle: L("Cancelar"))
             switch a.runModal() {
             case .alertFirstButtonReturn:
                 if let err = model.saveSessions(file) { message = "✗ \(err)"; return }
@@ -398,8 +398,8 @@ struct SessionEditor: View {
         let f = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
         f.stringValue = value
         a.accessoryView = f
-        a.addButton(withTitle: "Aceptar")
-        a.addButton(withTitle: "Cancelar")
+        a.addButton(withTitle: L("Aceptar"))
+        a.addButton(withTitle: L("Cancelar"))
         a.window.initialFirstResponder = f
         return a.runModal() == .alertFirstButtonReturn ? f.stringValue.trimmingCharacters(in: .whitespaces) : nil
     }
@@ -415,22 +415,22 @@ struct ImportPane: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("IMPORTAR SESIONES").font(t.ui(16, .heavy)).tracking(3).foregroundStyle(SwiftUI.Color(t.accent))
-            Text("SecureCRT (la carpeta Sessions o un .ini), MobaXterm (.mxtsessions), PuTTY (.reg), electerm (.json), "
-                 + "CSV del inventario o un ssh_config. Las carpetas pasan a ser grupos. Nunca se importa ninguna contraseña.")
+            Text(L("IMPORTAR SESIONES")).font(t.ui(16, .heavy)).tracking(3).foregroundStyle(SwiftUI.Color(t.accent))
+            Text(L("SecureCRT (la carpeta Sessions o un .ini), MobaXterm (.mxtsessions), PuTTY (.reg), electerm (.json), ")
+                 + L("CSV del inventario o un ssh_config. Las carpetas pasan a ser grupos. Nunca se importa ninguna contraseña."))
                 .font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
             HStack(spacing: 8) {
                 ForEach(SessionImporter.suggestions(), id: \.1) { name, url in
                     NeonButton(title: name, icon: "sparkles", tint: t.accent2) { read(url) }
                 }
-                NeonButton(title: "Elegir archivo o carpeta…", icon: "folder") { pick() }
+                NeonButton(title: L("Elegir archivo o carpeta…"), icon: "folder") { pick() }
             }
             if let r = result {
                 HStack {
-                    Text("\(r.format): \(r.sessions.count) nuevas").font(t.ui(12, .bold))
-                    if !r.skipped.isEmpty { Text("· \(r.skipped.count) saltadas").font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim)) }
+                    Text(L("\(r.format): \(r.sessions.count) nuevas")).font(t.ui(12, .bold))
+                    if !r.skipped.isEmpty { Text(L("· \(r.skipped.count) saltadas")).font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim)) }
                     Spacer()
-                    Button(chosen.count == r.sessions.count ? "Ninguna" : "Todas") {
+                    Button(chosen.count == r.sessions.count ? L("Ninguna") : L("Todas")) {
                         chosen = chosen.count == r.sessions.count ? [] : Set(r.sessions.map(\.id))
                     }
                 }
@@ -443,12 +443,12 @@ struct ImportPane: View {
                                 Text("\(s.user.isEmpty ? "" : s.user + "@")\(s.host):\(s.port)\(s.jump.isEmpty ? "" : " ⟵ " + s.jump)\(s.telnet ? " · telnet" : "")")
                                     .font(t.ui(10.5)).foregroundStyle(SwiftUI.Color(t.dim))
                                 Spacer()
-                                Text(s.group).font(t.ui(10, .bold)).foregroundStyle(SwiftUI.Color(t.accent2))
+                                Text(L(nombre: s.group)).font(t.ui(10, .bold)).foregroundStyle(SwiftUI.Color(t.accent2))
                             }
                         }
                     }
                     if !r.skipped.isEmpty {
-                        Section("Saltadas") {
+                        Section(L("Saltadas")) {
                             ForEach(Array(r.skipped.enumerated()), id: \.offset) { _, x in
                                 Text("\(x.0): \(x.1)").font(t.ui(10.5)).foregroundStyle(SwiftUI.Color(t.dim))
                             }
@@ -458,7 +458,7 @@ struct ImportPane: View {
                 .scrollContentBackground(.hidden)
                 HStack {
                     Spacer()
-                    NeonButton(title: "Añadir \(chosen.count) al gestor", icon: "plus", active: !chosen.isEmpty) {
+                    NeonButton(title: L("Añadir \(chosen.count) al gestor"), icon: "plus", active: !chosen.isEmpty) {
                         let add = r.sessions.filter { chosen.contains($0.id) }
                         file.sessions += add
                         done(add.map(\.id))

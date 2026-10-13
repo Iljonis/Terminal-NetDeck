@@ -209,7 +209,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     func restart() {
         hopTask?.cancel()
         if !exited { process?.terminate() }
-        pipe.say("\r\n\u{1b}[38;5;51m[NetDeck] Reconectando…\u{1b}[0m\r\n")
+        pipe.say(L("\r\n\u{1b}[38;5;51m[NetDeck] Reconectando…\u{1b}[0m\r\n"))
         launch()
     }
 
@@ -243,7 +243,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
             }
             if !Task.isCancelled {
                 DebugLog.log("salto", "«\(self.title)»: sin prompt del salto en 90 s (última línea «\(self.cursorLine)»)")
-                self.pipe.say("\r\n\u{1b}[38;5;204m[NetDeck] El salto no ha llegado a su prompt: escribe tú «\(cmd)»\u{1b}[0m\r\n")
+                self.pipe.say(L("\r\n\u{1b}[38;5;204m[NetDeck] El salto no ha llegado a su prompt: escribe tú «\(cmd)»\u{1b}[0m\r\n"))
             }
         }
     }
@@ -255,8 +255,8 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         gate.abortAll()
         let tail = lines(from: max(0, cursorRow - 3)).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         DebugLog.log("pestaña", "«\(title)» #\(generation) termina (código \(code.map(String.init) ?? "?")) · últimas: \(tail.joined(separator: " ⏎ "))")
-        pipe.say("\r\n\u{1b}[38;5;204m[NetDeck] Sesión cerrada\(code.map { " (código \($0))" } ?? "")\u{1b}[0m"
-                 + " · \u{1b}[1mIntro\u{1b}[0m reconectar · \u{1b}[1mEsc\u{1b}[0m cerrar la pestaña\r\n")
+        pipe.say(L("\r\n\u{1b}[38;5;204m[NetDeck] Sesión cerrada\(code.map { L(" (código \($0))") } ?? "")\u{1b}[0m")
+                 + L(" · \u{1b}[1mIntro\u{1b}[0m reconectar · \u{1b}[1mEsc\u{1b}[0m cerrar la pestaña\r\n"))
     }
 
     func apply(theme t: Theme, font: NSFont) {
@@ -316,7 +316,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
             return false
         }
         DebugLog.log("salto", "«\(title)»: -J rechazado por el salto → abro «\(r.command.arguments.joined(separator: " "))» y escribo «\(r.thenCommand ?? "")»")
-        pipe.say("\r\n\u{1b}[38;5;221m[NetDeck] El salto no deja reenviar (-J): entro en el salto y escribo «\(r.thenCommand ?? "")»\u{1b}[0m\r\n")
+        pipe.say(L("\r\n\u{1b}[38;5;221m[NetDeck] El salto no deja reenviar (-J): entro en el salto y escribo «\(r.thenCommand ?? "")»\u{1b}[0m\r\n"))
         process?.terminate()
         route = r
         launch()

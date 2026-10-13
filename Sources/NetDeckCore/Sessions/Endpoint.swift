@@ -12,7 +12,7 @@ public struct Endpoint: Hashable, Sendable, Codable, CustomStringConvertible {
         self.port = port
     }
 
-    /// «admin@10.0.0.1:2222», «core-01», «admin@bastion». nil si no lo parece (vacío, una opción «-x», espacios…).
+    /// «admin@192.0.2.1:2222», «core-01», «admin@bastion». nil si no lo parece (vacío, una opción «-x», espacios…).
     public init?(parsing text: String) {
         var rest = Substring(text.trimmed)
         guard !rest.isEmpty, !rest.hasPrefix("-"), !rest.contains(where: \.isWhitespace) else { return nil }

@@ -165,12 +165,12 @@ public struct SessionFile: Sendable {
         var out: [String] = []
         var seen = Set<String>()
         for s in sessions {
-            if !EditableSession.isValidName(s.name) { out.append("«\(s.name)»: el nombre no puede llevar espacios ni * ? !") }
-            if !seen.insert(s.name.lowercased()).inserted { out.append("«\(s.name)» está repetida") }
-            if !s.port.isEmpty, Int(s.port).map({ !(1...65535).contains($0) }) ?? true { out.append("«\(s.name)»: puerto «\(s.port)»") }
-            if s.host.contains(where: { $0.isWhitespace || $0 == "\"" }) { out.append("«\(s.name)»: equipo «\(s.host)»") }
-            if s.user.contains(where: { $0.isWhitespace || $0 == "\"" }) { out.append("«\(s.name)»: usuario «\(s.user)»") }
-            if s.jump == s.name { out.append("«\(s.name)» salta por sí misma") }
+            if !EditableSession.isValidName(s.name) { out.append(L("«\(s.name)»: el nombre no puede llevar espacios ni * ? !")) }
+            if !seen.insert(s.name.lowercased()).inserted { out.append(L("«\(s.name)» está repetida")) }
+            if !s.port.isEmpty, Int(s.port).map({ !(1...65535).contains($0) }) ?? true { out.append(L("«\(s.name)»: puerto «\(s.port)»")) }
+            if s.host.contains(where: { $0.isWhitespace || $0 == "\"" }) { out.append(L("«\(s.name)»: equipo «\(s.host)»")) }
+            if s.user.contains(where: { $0.isWhitespace || $0 == "\"" }) { out.append(L("«\(s.name)»: usuario «\(s.user)»")) }
+            if s.jump == s.name { out.append(L("«\(s.name)» salta por sí misma")) }
         }
         return out
     }
@@ -193,7 +193,7 @@ public struct SessionFile: Sendable {
             let rejected = url.appendingPathExtension("rechazado")
             try? fm.removeItem(at: rejected)
             try? fm.moveItem(at: tmp, to: rejected)
-            return "ssh no lo entiende: \(err)"
+            return L("ssh no lo entiende: \(err)")
         }
         if fm.fileExists(atPath: url.path) {
             let prev = url.appendingPathExtension("anterior")
@@ -220,7 +220,7 @@ public struct SessionFile: Sendable {
         do { try p.run() } catch { return nil }
         p.waitUntilExit()
         let msg = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmed
-        return p.terminationStatus == 0 ? nil : (msg.isEmpty ? "código \(p.terminationStatus)" : msg)
+        return p.terminationStatus == 0 ? nil : (msg.isEmpty ? L("código \(p.terminationStatus)") : msg)
     }
 
     /// Que ~/.ssh/config incluya el de NetDeck (como su instalador, con copia del de antes). true si ya lo incluía o se ha añadido.

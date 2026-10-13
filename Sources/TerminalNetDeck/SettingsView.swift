@@ -8,12 +8,12 @@ struct SettingsOverlay: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
 
-    static let sections: [(id: String, title: String, icon: String)] = [
-        ("contraseñas", "Contraseñas", "key.fill"), ("temas", "Temas", "paintpalette.fill"),
-        ("fuentes", "Fuentes", "textformat"), ("resaltado", "Resaltado", "highlighter"),
-        ("botones", "Botones", "rectangle.grid.1x2.fill"), ("registro", "Registro", "record.circle"),
-        ("general", "General", "gearshape.fill"),
-    ]
+    static var sections: [(id: String, title: String, icon: String)] { [
+        ("contraseñas", L("Contraseñas"), "key.fill"), ("temas", L("Temas"), "paintpalette.fill"),
+        ("fuentes", L("Fuentes"), "textformat"), ("resaltado", L("Resaltado"), "highlighter"),
+        ("botones", L("Botones"), "rectangle.grid.1x2.fill"), ("registro", L("Registro"), "record.circle"),
+        ("general", L("General"), "gearshape.fill"),
+    ] }
 
     var body: some View {
         ZStack {
@@ -45,7 +45,7 @@ struct SettingsOverlay: View {
 
     private var nav: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(t.neon ? "AJUSTES" : "Ajustes").font(t.ui(t.neon ? 15 : 18, .heavy)).tracking(t.neon ? 3 : 0)
+            Text(t.neon ? L("AJUSTES") : L("Ajustes")).font(t.ui(t.neon ? 15 : 18, .heavy)).tracking(t.neon ? 3 : 0)
                 .foregroundStyle(SwiftUI.Color(t.neon ? t.accent : t.text))
                 .padding(.horizontal, 10).padding(.top, 18).padding(.bottom, 14)
             ForEach(Self.sections, id: \.id) { sec in
@@ -65,7 +65,7 @@ struct SettingsOverlay: View {
                 .buttonStyle(.plain)
             }
             Spacer()
-            NeonButton(title: "Cerrar", icon: "xmark") { model.showSettings = false }
+            NeonButton(title: L("Cerrar"), icon: "xmark") { model.showSettings = false }
                 .keyboardShortcut(.cancelAction)
                 .padding(10)
         }
@@ -101,31 +101,31 @@ struct PasswordSettings: View {
         @Bindable var s = model.settings
         Form {
             Section {
-                Toggle("Escribir sola la contraseña al abrir una sesión", isOn: $s.sessionAutoPassword)
-                Text("La de la sesión y la de sus saltos (-J), con el askpass de la app: no se teclea en el terminal. "
-                     + "Un solo intento: si falla, queda bloqueada 15 min en todas las pestañas y te la pide ahí mismo.")
+                Toggle(L("Escribir sola la contraseña al abrir una sesión"), isOn: $s.sessionAutoPassword)
+                Text(L("La de la sesión y la de sus saltos (-J), con el askpass de la app: no se teclea en el terminal. ")
+                     + L("Un solo intento: si falla, queda bloqueada 15 min en todas las pestañas y te la pide ahí mismo."))
                     .font(t.ui(11)).foregroundStyle(.secondary)
-            } header: { Text("Sesiones") }
+            } header: { Text(L("Sesiones")) }
 
             Section {
-                Picker("Cuando un equipo pide contraseña", selection: $s.devicePasswordMode) {
-                    Text("Escribirla sola").tag(PasswordAutomation.Mode.autoType)
-                    Text("Sugerirla (un clic)").tag(PasswordAutomation.Mode.suggest)
-                    Text("Nada").tag(PasswordAutomation.Mode.off)
+                Picker(L("Cuando un equipo pide contraseña"), selection: $s.devicePasswordMode) {
+                    Text(L("Escribirla sola")).tag(PasswordAutomation.Mode.autoType)
+                    Text(L("Sugerirla (un clic)")).tag(PasswordAutomation.Mode.suggest)
+                    Text(L("Nada")).tag(PasswordAutomation.Mode.off)
                 }
-                Text("Al hacer «ssh equipo» o «telnet» desde una sesión. Nunca la de otro usuario: con «ssh root@…» o "
-                     + "«Username: pepe», sólo una guardada de ese mismo usuario.")
+                Text(L("Al hacer «ssh equipo» o «telnet» desde una sesión. Nunca la de otro usuario: con «ssh root@…» o ")
+                     + L("«Username: pepe», sólo una guardada de ese mismo usuario."))
                     .font(t.ui(11)).foregroundStyle(.secondary)
-            } header: { Text("Equipos") }
+            } header: { Text(L("Equipos")) }
 
             Section {
-                Picker("Contraseña por defecto", selection: $s.defaultCredentialName) {
-                    Text("(ninguna)").tag("")
+                Picker(L("Contraseña por defecto"), selection: $s.defaultCredentialName) {
+                    Text(L("(ninguna)")).tag("")
                     ForEach(named, id: \.self) { Text($0).tag($0) }
                 }
-                TextField("Es del usuario", text: $s.defaultCredentialUser)
-            } header: { Text("Por defecto") } footer: {
-                Text("Sólo se escribe sola cuando piden exactamente ese usuario.").font(t.ui(11))
+                TextField(L("Es del usuario"), text: $s.defaultCredentialUser)
+            } header: { Text(L("Por defecto")) } footer: {
+                Text(L("Sólo se escribe sola cuando piden exactamente ese usuario.")).font(t.ui(11))
             }
 
             Section {
@@ -133,14 +133,14 @@ struct PasswordSettings: View {
                     HStack {
                         Image(systemName: ref.service == .named ? "key.fill" : "server.rack")
                         Text(ref.account)
-                        Text(ref.service == .named ? "con nombre" : "usuario@equipo").font(t.ui(11)).foregroundStyle(.secondary)
+                        Text(ref.service == .named ? L("con nombre") : L("usuario@equipo")).font(t.ui(11)).foregroundStyle(.secondary)
                         Spacer()
                         if model.ledger.isBlocked(ref) {
-                            Button("Desbloquear") {
+                            Button(L("Desbloquear")) {
                                 model.ledger.reset(ref)
                                 model.keychainRevision += 1
                             }
-                            .help("Ha fallado hace poco: ahora no se escribe sola (para no bloquear la cuenta AD)")
+                            .help(L("Ha fallado hace poco: ahora no se escribe sola (para no bloquear la cuenta AD)"))
                         }
                         Button(role: .destructive) { delete(ref) } label: { Image(systemName: "trash") }
                             .buttonStyle(.borderless)
@@ -148,17 +148,17 @@ struct PasswordSettings: View {
                 }
                 HStack {
                     Picker("", selection: $newService) {
-                        Text("Con nombre").tag(CredentialRef.Service.named)
-                        Text("usuario@equipo").tag(CredentialRef.Service.device)
+                        Text(L("Con nombre")).tag(CredentialRef.Service.named)
+                        Text(L("usuario@equipo")).tag(CredentialRef.Service.device)
                     }
                     .labelsHidden()
                     .frame(width: 140)
-                    TextField(newService == .named ? "Nombre (p. ej. AD)" : "tu.usuario@10.0.0.1", text: $newAccount)
-                    SecureField("Contraseña", text: $newPassword)
-                    Button("Guardar", action: save).disabled(newAccount.isEmpty || newPassword.isEmpty)
+                    TextField(newService == .named ? L("Nombre (p. ej. AD)") : L("tu.usuario@192.0.2.1"), text: $newAccount)
+                    SecureField(L("Contraseña"), text: $newPassword)
+                    Button(L("Guardar"), action: save).disabled(newAccount.isEmpty || newPassword.isEmpty)
                 }
                 if !message.isEmpty { Text(message).font(t.ui(11)) }
-            } header: { Text("Llavero (compartido con NetDeck)") }
+            } header: { Text(L("Llavero (compartido con NetDeck)")) }
         }
         .formStyle(.grouped)
         .onChange(of: s.sessionAutoPassword) { model.applyPasswordModes() }
@@ -172,7 +172,7 @@ struct PasswordSettings: View {
         do {
             try model.store.save(newPassword, for: ref)
             model.ledger.reset(ref)
-            message = "Guardada ✓ (\(ref.account))"
+            message = L("Guardada ✓ (\(ref.account))")
             newAccount = ""
         } catch {
             message = error.localizedDescription
@@ -183,10 +183,10 @@ struct PasswordSettings: View {
 
     private func delete(_ ref: CredentialRef) {
         let a = NSAlert()
-        a.messageText = "¿Borrar «\(ref.account)» del Llavero?"
-        a.informativeText = "La usa también NetDeck. No se puede deshacer."
-        a.addButton(withTitle: "Borrar")
-        a.addButton(withTitle: "Cancelar")
+        a.messageText = L("¿Borrar «\(ref.account)» del Llavero?")
+        a.informativeText = L("La usa también NetDeck. No se puede deshacer.")
+        a.addButton(withTitle: L("Borrar"))
+        a.addButton(withTitle: L("Cancelar"))
         guard a.runModal() == .alertFirstButtonReturn else { return }
         do { try model.store.delete(ref) } catch { message = error.localizedDescription }
         model.keychainRevision += 1
@@ -209,13 +209,13 @@ struct ThemeSettings: View {
                 .frame(height: 190)
                 .padding([.horizontal, .top], 14)
             HStack(spacing: 10) {
-                Toggle("Seguir al Mac (claro / oscuro)", isOn: $s.themeAuto)
+                Toggle(L("Seguir al Mac (claro / oscuro)"), isOn: $s.themeAuto)
                 if s.themeAuto {
-                    Picker("Claro", selection: $s.themeLight) { options }.frame(maxWidth: 170)
-                    Picker("Oscuro", selection: $s.themeDark) { options }.frame(maxWidth: 170)
+                    Picker(L("Claro"), selection: $s.themeLight) { options }.frame(maxWidth: 170)
+                    Picker(L("Oscuro"), selection: $s.themeDark) { options }.frame(maxWidth: 170)
                 }
                 Spacer()
-                Button("Importar .tema…", action: importFile)
+                Button(L("Importar .tema…"), action: importFile)
             }
             .font(t.ui(12))
             .padding(.horizontal, 14)
@@ -266,28 +266,28 @@ struct FontSettings: View {
         @Bindable var s = model.settings
         let th = model.themes.current
         Form {
-            Section("Terminal") {
-                Picker("Fuente", selection: $s.fontFamily) {
-                    Text("Automática: la del tema (\(Fonts.firstInstalled(th.fonts) ?? "monoespaciada del sistema"))").tag("")
+            Section(L("Terminal")) {
+                Picker(L("Fuente"), selection: $s.fontFamily) {
+                    Text(L("Automática: la del tema (\(Fonts.firstInstalled(th.fonts) ?? L("monoespaciada del sistema")))")).tag("")
                     Divider()
                     ForEach(families, id: \.self) { Text($0).tag($0) }
                 }
                 HStack {
-                    Text("Tamaño")
+                    Text(L("Tamaño"))
                     Slider(value: $s.fontSize, in: 0...26, step: 1)
-                    Text(s.fontSize == 0 ? "del tema (\(th.size - 1))" : "\(Int(s.fontSize)) pt").monospacedDigit().frame(width: 110)
+                    Text(s.fontSize == 0 ? L("del tema (\(th.size - 1))") : L("\(Int(s.fontSize)) pt")).monospacedDigit().frame(width: 110)
                 }
-                Text("core-01(config)# interface xe-0/0/1\nadmin@core-01> show bgp summary | match Estab")
+                Text(L("core-01(config)# interface xe-0/0/1\nadmin@core-01> show bgp summary | match Estab"))
                     .font(SwiftUI.Font(model.terminalFont))
                     .foregroundStyle(SwiftUI.Color(th.text))
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(SwiftUI.Color(th.background))
             }
-            Section("Interfaz") {
-                Picker("Fuente", selection: $s.uiFontFamily) {
-                    Text("La del tema (\(Fonts.firstInstalled(th.fonts) ?? "sistema"))").tag("")
-                    Text("Monoespaciada del sistema").tag("system")
+            Section(L("Interfaz")) {
+                Picker(L("Fuente"), selection: $s.uiFontFamily) {
+                    Text(L("La del tema (\(Fonts.firstInstalled(th.fonts) ?? "sistema"))")).tag("")
+                    Text(L("Monoespaciada del sistema")).tag("system")
                     Divider()
                     ForEach(families, id: \.self) { Text($0).tag($0) }
                 }
@@ -297,21 +297,21 @@ struct FontSettings: View {
                     let ok = Fonts.isInstalled(f)
                     HStack {
                         Text(f).font(ok ? .custom(f, size: 13) : .body)
-                        if f == th.fonts.first { Text("oficial de \(th.name)").font(t.ui(11)).foregroundStyle(.secondary) }
+                        if f == th.fonts.first { Text(L("oficial de \(th.name)")).font(t.ui(11)).foregroundStyle(.secondary) }
                         Spacer()
                         if ok {
-                            Button("Terminal") { s.fontFamily = f }.disabled(s.fontFamily == f)
-                            Button("Interfaz") { s.uiFontFamily = f }.disabled(s.uiFontFamily == f)
+                            Button(L("Terminal")) { s.fontFamily = f }.disabled(s.fontFamily == f)
+                            Button(L("Interfaz")) { s.uiFontFamily = f }.disabled(s.uiFontFamily == f)
                         } else if installing == f {
                             ProgressView().controlSize(.small)
                         } else {
-                            Button("Instalar") { install(f) }.disabled(installing != nil)
+                            Button(L("Instalar")) { install(f) }.disabled(installing != nil)
                         }
                     }
                 }
                 if !message.isEmpty { Text(message).font(t.ui(11)) }
-            } header: { Text("Fuentes de los temas") } footer: {
-                Text("Se instalan con Homebrew (brew install --cask font-…), como en NetDeck.").font(t.ui(11))
+            } header: { Text(L("Fuentes de los temas")) } footer: {
+                Text(L("Se instalan con Homebrew (brew install --cask font-…), como en NetDeck.")).font(t.ui(11))
             }
         }
         .formStyle(.grouped)
@@ -329,11 +329,11 @@ struct FontSettings: View {
 
     private func install(_ f: String) {
         installing = f
-        message = "Instalando «\(f)»…"
+        message = L("Instalando «\(f)»…")
         Task {
             let ok = await Fonts.install(f)
             installing = nil
-            message = ok ? "«\(f)» instalada ✓" : "No se ha podido instalar «\(f)» (¿falta Homebrew?)"
+            message = ok ? L("«\(f)» instalada ✓") : L("No se ha podido instalar «\(f)» (¿falta Homebrew?)")
             families = Fonts.monospacedFamilies()
             model.applyAppearance()
         }
@@ -351,36 +351,36 @@ struct HighlightSettings: View {
         let cfg = model.highlightConfig
         Form {
             Section {
-                Toggle("Resaltar la salida de los equipos", isOn: $s.highlightEnabled)
-                Picker("Reglas", selection: $s.highlightSource) {
-                    Text("Automático").tag(AppSettings.HighlightSource.auto)
-                    Text("Las de NetDeck (chromaterm.yml)").tag(AppSettings.HighlightSource.netdeck)
-                    Text("Las de la app").tag(AppSettings.HighlightSource.app)
-                    Text("Personalizadas").tag(AppSettings.HighlightSource.custom)
+                Toggle(L("Resaltar la salida de los equipos"), isOn: $s.highlightEnabled)
+                Picker(L("Reglas"), selection: $s.highlightSource) {
+                    Text(L("Automático")).tag(AppSettings.HighlightSource.auto)
+                    Text(L("Las de NetDeck (chromaterm.yml)")).tag(AppSettings.HighlightSource.netdeck)
+                    Text(L("Las de la app")).tag(AppSettings.HighlightSource.app)
+                    Text(L("Personalizadas")).tag(AppSettings.HighlightSource.custom)
                 }
-                Toggle("Con los colores del tema", isOn: $s.highlightThemeColors)
+                Toggle(L("Con los colores del tema"), isOn: $s.highlightThemeColors)
                 HStack {
                     Text(model.highlightFile?.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") ?? "—")
                         .font(t.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
                     Spacer()
-                    Button("Editar…") {
+                    Button(L("Editar…")) {
                         if let u = model.customizeHighlight() { NSWorkspace.shared.open(u) }
                     }
-                    .help("Crea una copia personalizada (si no la hay) y la abre en tu editor")
-                    Button("Recargar") { model.reloadHighlight() }
+                    .help(L("Crea una copia personalizada (si no la hay) y la abre en tu editor"))
+                    Button(L("Recargar")) { model.reloadHighlight() }
                 }
                 if !cfg.problems.isEmpty {
-                    Text("No se han podido leer: " + cfg.problems.joined(separator: " · ")).font(t.ui(11)).foregroundStyle(.red)
+                    Text(L("No se han podido leer: ") + cfg.problems.joined(separator: " · ")).font(t.ui(11)).foregroundStyle(.red)
                 }
-            } header: { Text("Resaltado tipo ChromaTerm") } footer: {
-                Text("Mismo formato que ChromaTerm (description, regex, color «f.cyan bold», exclusive). "
-                     + "No toca los colores que ya pone el equipo ni las pantallas completas (vi, less, top).")
+            } header: { Text(L("Resaltado tipo ChromaTerm")) } footer: {
+                Text(L("Mismo formato que ChromaTerm (description, regex, color «f.cyan bold», exclusive). ")
+                     + L("No toca los colores que ya pone el equipo ni las pantallas completas (vi, less, top)."))
                     .font(t.ui(11))
             }
-            Section("Vista previa") {
+            Section(L("Vista previa")) {
                 HighlightPreview(enabled: s.highlightEnabled).environment(\.theme, model.themes.current)
             }
-            Section("Reglas (\(cfg.rules.count))") {
+            Section(L("Reglas (\(cfg.rules.count))")) {
                 ForEach(Array(cfg.rules.enumerated()), id: \.offset) { _, r in
                     Toggle(isOn: Binding(get: { !s.highlightDisabled.contains(r.description) },
                                          set: { on in
@@ -413,12 +413,12 @@ struct LogSettings: View {
         @Bindable var s = model.settings
         Form {
             Section {
-                Toggle("Grabar todas las sesiones a un archivo", isOn: $s.logEnabled)
+                Toggle(L("Grabar todas las sesiones a un archivo"), isOn: $s.logEnabled)
                 HStack {
                     Text(s.logPath.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
                         .font(.callout.monospaced()).lineLimit(1).truncationMode(.head)
                     Spacer()
-                    Button("Elegir carpeta…") {
+                    Button(L("Elegir carpeta…")) {
                         let p = NSOpenPanel()
                         p.canChooseDirectories = true
                         p.canChooseFiles = false
@@ -426,39 +426,39 @@ struct LogSettings: View {
                         p.directoryURL = s.logURL
                         if p.runModal() == .OK, let u = p.url { s.logPath = u.path }
                     }
-                    Button("Abrir") {
+                    Button(L("Abrir")) {
                         AppPaths.ensure(s.logURL)
                         NSWorkspace.shared.open(s.logURL)
                     }
                 }
-                Button("Volver a la de NetDeck (~/Documents/netdeck-logs)") { s.logPath = SessionLogger.defaultDirectory.path }
+                Button(L("Volver a la de NetDeck (~/Documents/netdeck-logs)")) { s.logPath = SessionLogger.defaultDirectory.path }
                     .disabled(s.logPath == SessionLogger.defaultDirectory.path)
-            } header: { Text("Registro de las sesiones") } footer: {
-                Text("Texto limpio, como en NetDeck: sin colores y con los paginadores borrados, en CARPETA/AAAA-MM-DD/sesión_HH-MM-SS.log. "
-                     + "Mientras graba sale ● REC en la esquina; clic derecho en una pestaña para grabar o parar sólo esa.")
+            } header: { Text(L("Registro de las sesiones")) } footer: {
+                Text(L("Texto limpio, como en NetDeck: sin colores y con los paginadores borrados, en CARPETA/AAAA-MM-DD/sesión_HH-MM-SS.log. ")
+                     + L("Mientras graba sale ● REC en la esquina; clic derecho en una pestaña para grabar o parar sólo esa."))
                     .font(t.ui(11))
             }
-            Section("Ahora") {
+            Section(L("Ahora")) {
                 let rec = model.tabs.filter { $0.logFile != nil }
-                if rec.isEmpty { Text("Ninguna pestaña grabando").foregroundStyle(.secondary) }
+                if rec.isEmpty { Text(L("Ninguna pestaña grabando")).foregroundStyle(.secondary) }
                 ForEach(rec) { t in
                     HStack {
                         Text("● \(t.title)").foregroundStyle(.red)
                         Spacer()
-                        Button("Abrir") { t.logFile.map { _ = NSWorkspace.shared.open($0) } }
-                        Button("Parar") { model.toggleLog(t) }
+                        Button(L("Abrir")) { t.logFile.map { _ = NSWorkspace.shared.open($0) } }
+                        Button(L("Parar")) { model.toggleLog(t) }
                     }
                 }
             }
             Section {
-                Toggle("Registro de depuración", isOn: $s.debugLog)
+                Toggle(L("Registro de depuración"), isOn: $s.debugLog)
                 HStack {
                     Text(DebugLog.file.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")).font(.caption.monospaced())
                     Spacer()
-                    Button("Abrir") { DebugLog.flush(); NSWorkspace.shared.open(DebugLog.file) }
+                    Button(L("Abrir")) { DebugLog.flush(); NSWorkspace.shared.open(DebugLog.file) }
                 }
-            } header: { Text("Depuración") } footer: {
-                Text("Qué hace la app (pestañas, saltos, MultiExec, decisiones de contraseña…), nunca contraseñas.").font(t.ui(11))
+            } header: { Text(L("Depuración")) } footer: {
+                Text(L("Qué hace la app (pestañas, saltos, MultiExec, decisiones de contraseña…), nunca contraseñas.")).font(t.ui(11))
             }
         }
         .formStyle(.grouped)
@@ -474,23 +474,29 @@ struct GeneralSettings: View {
     var body: some View {
         @Bindable var s = model.settings
         Form {
-            Section("Sesiones") {
+            Section(L("Idioma")) {
+                Picker(L("Idioma de la interfaz"), selection: $s.language) {
+                    ForEach(Idioma.allCases) { Text($0.nombre).tag($0) }
+                }
+                .pickerStyle(.segmented)
+            }
+            Section(L("Sesiones")) {
                 HStack {
                     TextField("ssh_config", text: $s.sshConfigPath)
-                    Button("Elegir…") {
+                    Button(L("Elegir…")) {
                         let p = NSOpenPanel()
                         p.showsHiddenFiles = true
                         p.directoryURL = s.sshConfigURL.deletingLastPathComponent()
                         if p.runModal() == .OK, let u = p.url { s.sshConfigPath = u.path }
                     }
-                    Button("Recargar") { model.reloadSessions() }
+                    Button(L("Recargar")) { model.reloadSessions() }
                 }
-                Text("\(model.sessions.profiles.count) sesiones · anotaciones de NetDeck: # @grupo, # @clave, # @clave-grupo, # @desc, # @telnet")
+                Text(L("\(model.sessions.profiles.count) sesiones · anotaciones de NetDeck: # @grupo, # @clave, # @clave-grupo, # @desc, # @telnet"))
                     .font(t.ui(11)).foregroundStyle(.secondary)
             }
-            Section("Ventana") {
-                Toggle("Mostrar la lista de sesiones", isOn: $s.sidebarVisible)
-                Toggle("Efecto CRT en la portada (rejilla y líneas de barrido)", isOn: $s.crtEffect)
+            Section(L("Ventana")) {
+                Toggle(L("Mostrar la lista de sesiones"), isOn: $s.sidebarVisible)
+                Toggle(L("Efecto CRT en la portada (rejilla y líneas de barrido)"), isOn: $s.crtEffect)
             }
         }
         .formStyle(.grouped)

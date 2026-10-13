@@ -25,8 +25,8 @@ final class DialogAskpass: AskpassUI {
         let f: NSTextField = secret ? NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
                                     : NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
         a.accessoryView = f
-        a.addButton(withTitle: "Aceptar")
-        a.addButton(withTitle: "Cancelar")
+        a.addButton(withTitle: L("Aceptar"))
+        a.addButton(withTitle: L("Cancelar"))
         a.window.initialFirstResponder = f
         return a.runModal() == .alertFirstButtonReturn ? f.stringValue : nil
     }
@@ -34,8 +34,8 @@ final class DialogAskpass: AskpassUI {
     func yesNo(_ question: String, default d: Bool) -> Bool? {
         let a = NSAlert()
         a.messageText = question
-        a.addButton(withTitle: "Sí")
-        a.addButton(withTitle: "No")
+        a.addButton(withTitle: L("Sí"))
+        a.addButton(withTitle: L("No"))
         return a.runModal() == .alertFirstButtonReturn
     }
 }

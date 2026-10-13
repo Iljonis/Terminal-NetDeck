@@ -46,7 +46,7 @@ public final class KeychainPasswordAuthenticator: NIOSSHClientUserAuthentication
 public enum NativeSSHError: LocalizedError {
     case notImplemented
 
-    public var errorDescription: String? { "SSH nativo: pendiente (fase 2); se usa /usr/bin/ssh" }
+    public var errorDescription: String? { L("SSH nativo: pendiente (fase 2); se usa /usr/bin/ssh") }
 }
 
 /// Pendiente: ClientBootstrap + NIOSSHHandler(role: .client(…)) + canal «session» con pty, unido a `TerminalIO`;

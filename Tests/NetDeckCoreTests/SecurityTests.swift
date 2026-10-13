@@ -4,14 +4,14 @@ import Testing
 
 @Suite struct PasswordPromptTests {
     @Test(arguments: [
-        ("admin@10.0.0.1's password:", "admin"),
-        ("(admin@10.0.0.1) Enter password:", "admin"),
-        ("(admin@10.0.0.1) Password:", "admin"),
+        ("admin@192.0.2.1's password:", "admin"),
+        ("(admin@192.0.2.1) Enter password:", "admin"),
+        ("(admin@192.0.2.1) Password:", "admin"),
     ])
     func usuarioDeLaPeticion(line: String, user: String) throws {
         let r = try #require(PasswordPrompt.detect(cursorLine: line, above: []))
         #expect(r.user == user)
-        #expect(r.account == "\(user)@10.0.0.1")
+        #expect(r.account == "\(user)@192.0.2.1")
     }
 
     @Test func usuarioTecleadoEnUsername() throws {
@@ -29,21 +29,21 @@ import Testing
     }
 
     @Test func usuarioDeLaOrden() {
-        #expect(CommandLineUser.parse("ssh root@10.0.0.1")?.user == "root")
-        #expect(CommandLineUser.parse("ssh -p 2222 -l pepe 10.0.0.1") == Endpoint(user: "pepe", host: "10.0.0.1", port: 2222))
-        #expect(CommandLineUser.parse("tu.usuario@bastion:~$ ssh -J bastion admin@10.0.0.5")?.user == "admin")
-        #expect(CommandLineUser.parse("$ telnet -l admin 10.0.0.5 23") == Endpoint(user: "admin", host: "10.0.0.5", port: 23))
-        #expect(CommandLineUser.parse("ssh -oUser=root 10.0.0.1")?.user == "root")
+        #expect(CommandLineUser.parse("ssh root@192.0.2.1")?.user == "root")
+        #expect(CommandLineUser.parse("ssh -p 2222 -l pepe 192.0.2.1") == Endpoint(user: "pepe", host: "192.0.2.1", port: 2222))
+        #expect(CommandLineUser.parse("tu.usuario@bastion:~$ ssh -J bastion admin@192.0.2.5")?.user == "admin")
+        #expect(CommandLineUser.parse("$ telnet -l admin 192.0.2.5 23") == Endpoint(user: "admin", host: "192.0.2.5", port: 23))
+        #expect(CommandLineUser.parse("ssh -oUser=root 192.0.2.1")?.user == "root")
         #expect(CommandLineUser.parse("ls -la") == nil)
     }
 
     @Test func usuariosDeLosSaltosDeLaOrden() {
-        #expect(CommandLineUser.jumpUsers("ssh -J tu.usuario@bastion,ops@b2:2222 admin@10.0.0.5") == ["tu.usuario", "ops"])
-        #expect(CommandLineUser.jumpUsers("ssh -Jtu.usuario@bastion admin@10.0.0.5") == ["tu.usuario"])
-        #expect(CommandLineUser.jumpUsers("ssh -o ProxyJump=ops@bastion 10.0.0.5") == ["ops"])
-        #expect(CommandLineUser.jumpUsers("ssh -J bastion admin@10.0.0.5") == [])       // sin usuario: no se sabe
-        #expect(CommandLineUser.jumpUsers("ssh admin@10.0.0.5 -J x@y") == [])          // (eso es la orden remota)
-        #expect(CommandLineUser.jumpUsers("telnet 10.0.0.5") == [])
+        #expect(CommandLineUser.jumpUsers("ssh -J tu.usuario@bastion,ops@b2:2222 admin@192.0.2.5") == ["tu.usuario", "ops"])
+        #expect(CommandLineUser.jumpUsers("ssh -Jtu.usuario@bastion admin@192.0.2.5") == ["tu.usuario"])
+        #expect(CommandLineUser.jumpUsers("ssh -o ProxyJump=ops@bastion 192.0.2.5") == ["ops"])
+        #expect(CommandLineUser.jumpUsers("ssh -J bastion admin@192.0.2.5") == [])       // sin usuario: no se sabe
+        #expect(CommandLineUser.jumpUsers("ssh admin@192.0.2.5 -J x@y") == [])          // (eso es la orden remota)
+        #expect(CommandLineUser.jumpUsers("telnet 192.0.2.5") == [])
     }
 }
 
@@ -51,7 +51,7 @@ import Testing
 @Suite struct CredentialPolicyTests {
     let policy = CredentialPolicy()
     let porDefecto = CredentialCandidate(ref: .named("AD"), owners: ["tu.usuario"], origin: .defaultCredential)
-    let deAdmin = CredentialCandidate(ref: .device("admin", "10.0.0.1"), owners: ["admin"], origin: .device)
+    let deAdmin = CredentialCandidate(ref: .device("admin", "192.0.2.1"), owners: ["admin"], origin: .device)
 
     func decide(_ line: String, above: [String] = [], command: String? = nil, _ c: [CredentialCandidate],
                 blocked: Set<CredentialRef> = []) -> InjectionDecision {
@@ -64,18 +64,18 @@ import Testing
     }
 
     @Test func otroUsuarioEnElPromptNoRecibeLaPorDefecto() {
-        #expect(decide("root@10.0.0.1's password:", [porDefecto]) == .manual(.userMismatch(requested: "root")))
-        #expect(decide("(pepe@10.0.0.1) Enter password:", [porDefecto]) == .manual(.userMismatch(requested: "pepe")))
+        #expect(decide("root@192.0.2.1's password:", [porDefecto]) == .manual(.userMismatch(requested: "root")))
+        #expect(decide("(pepe@192.0.2.1) Enter password:", [porDefecto]) == .manual(.userMismatch(requested: "pepe")))
         #expect(decide("Password:", above: ["Username: pepe"], [porDefecto]) == .manual(.userMismatch(requested: "pepe")))
     }
 
     @Test func coincidenciaExacta() {
-        #expect(decide("tu.usuario@10.0.0.1's password:", [porDefecto]) == .inject(.named("AD")))
-        #expect(decide("Tu.Usuario@10.0.0.1's password:", [porDefecto]) == .manual(.userMismatch(requested: "Tu.Usuario")))
+        #expect(decide("tu.usuario@192.0.2.1's password:", [porDefecto]) == .inject(.named("AD")))
+        #expect(decide("Tu.Usuario@192.0.2.1's password:", [porDefecto]) == .manual(.userMismatch(requested: "Tu.Usuario")))
     }
 
     @Test func saltaLasDeOtrosYTomaLaSuya() {
-        #expect(decide("admin@10.0.0.1's password:", [porDefecto, deAdmin]) == .inject(.device("admin", "10.0.0.1")))
+        #expect(decide("admin@192.0.2.1's password:", [porDefecto, deAdmin]) == .inject(.device("admin", "192.0.2.1")))
     }
 
     @Test func ordenYPromptSeContradicen() {
@@ -95,12 +95,12 @@ import Testing
 
     /// El equipo no puede desviar la contraseña: tras «ssh root@…» un «tu.usuario@…'s password:» falso no la recibe.
     @Test func elPromptNoContradiceALaOrden() {
-        #expect(decide("tu.usuario@10.0.0.1's password:", command: "root", [porDefecto])
+        #expect(decide("tu.usuario@192.0.2.1's password:", command: "root", [porDefecto])
                 == .manual(.conflictingUsers(command: "root", prompt: "tu.usuario")))
-        #expect(decide("(tu.usuario@10.0.0.1) Password:", command: "root", [porDefecto])
+        #expect(decide("(tu.usuario@192.0.2.1) Password:", command: "root", [porDefecto])
                 == .manual(.conflictingUsers(command: "root", prompt: "tu.usuario")))
-        #expect(decide("admin@10.0.0.1's password:", command: "admin", [porDefecto, deAdmin])
-                == .inject(.device("admin", "10.0.0.1")))
+        #expect(decide("admin@192.0.2.1's password:", command: "admin", [porDefecto, deAdmin])
+                == .inject(.device("admin", "192.0.2.1")))
     }
 
     /// «ssh -J tu.usuario@bastion admin@…»: el salto pide la suya (otro usuario) y vale, porque la orden lo dice.
@@ -157,18 +157,18 @@ final class Clock: @unchecked Sendable {
 
 @Suite struct AskpassTests {
     @Test func loQueEscribeNoEsUnaPeticion() {
-        #expect(!PasswordPrompt.asksForPassword("[NetDeck] admin@10.0.0.1's password: "))
+        #expect(!PasswordPrompt.asksForPassword("[NetDeck] admin@192.0.2.1's password: "))
     }
 
     @Test func preguntasDeSSH() {
         let q = Askpass.questions
-        #expect(q[0].group(1, in: "admin@10.0.0.1's password: ") == "admin@10.0.0.1")
-        #expect(q[1].group(1, in: "(admin@10.0.0.1) Password:") == "admin@10.0.0.1")
+        #expect(q[0].group(1, in: "admin@192.0.2.1's password: ") == "admin@192.0.2.1")
+        #expect(q[1].group(1, in: "(admin@192.0.2.1) Password:") == "admin@192.0.2.1")
         #expect(Askpass.git.matches("Password for 'https://git.example': "))
     }
 
     @Test func idaYVuelta() {
-        let r = CredentialRef.device("tu.usuario", "10.0.0.1")
+        let r = CredentialRef.device("tu.usuario", "192.0.2.1")
         #expect(Askpass.decode(Askpass.encode(r)) == r)
         let env = Askpass.environment(executable: "/x", configPath: nil, defaultCredential: .init(name: "AD", user: "tu.usuario"),
                                       session: UUID())

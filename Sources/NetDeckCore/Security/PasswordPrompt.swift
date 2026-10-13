@@ -3,7 +3,7 @@ import Foundation
 /// Una petición de contraseña en pantalla.
 public struct PasswordRequest: Equatable, Sendable {
     public var line: String
-    /// usuario@equipo si la petición lo dice: «admin@10.0.0.1's password:», «(admin@10.0.0.1) Enter password:»
+    /// usuario@equipo si la petición lo dice: «admin@192.0.2.1's password:», «(admin@192.0.2.1) Enter password:»
     public var account: String?
     /// El tecleado en «Username:»/«login:»/«User:»/«login as:» justo antes (telnet, consolas, TACACS…).
     public var typedUser: String?
@@ -60,7 +60,7 @@ public enum PasswordPrompt {
 public enum CommandLineUser {
     private static let sshOptionsWithArgument = Set("BbcDEeFIiJLlmOoPpQRSWw")
 
-    /// «admin@bastion:~$ ssh -p 2222 -l root 10.0.0.1» → root@10.0.0.1:2222. «-l» gana a «usuario@» (como ssh).
+    /// «admin@bastion:~$ ssh -p 2222 -l root 192.0.2.1» → root@192.0.2.1:2222. «-l» gana a «usuario@» (como ssh).
     public static func parse(_ commandLine: String) -> Endpoint? { scan(commandLine).target }
 
     /// Los usuarios explícitos de los saltos: «ssh -J tu.usuario@bastion,ops@b2 admin@…» → tu.usuario, ops.

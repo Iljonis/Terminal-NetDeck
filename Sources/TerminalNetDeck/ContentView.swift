@@ -107,37 +107,37 @@ struct TopBar: View {
             }
             .fixedSize(horizontal: model.tabs.count < 6, vertical: false)
             IconButton(icon: "plus") { model.sheet = .connect }
-                .help("Conexión rápida o por un salto (⌘K)")
+                .help(L("Conexión rápida o por un salto (⌘K)"))
             Spacer(minLength: 12)
             IconButton(icon: "doc.on.clipboard.fill") { model.sheet = .paste }
-                .help("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)")
+                .help(L("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)"))
             IconMenu(icon: "rectangle.split.3x1.fill", active: model.split != nil) {
                 ForEach(Split.Layout.allCases) { l in Button(l.title) { model.makeSplit(l) } }
                 Divider()
-                Button("Volver a pestañas sueltas") { model.unsplit() }.disabled(model.split == nil)
+                Button(L("Volver a pestañas sueltas")) { model.unsplit() }.disabled(model.split == nil)
             }
-            .help("Dividir la pantalla")
+            .help(L("Dividir la pantalla"))
             IconMenu(icon: "key.fill") {
                 if let s = model.current {
-                    Section("Escribir en «\(s.title)»") {
+                    Section(L("Escribir en «\(s.title)»")) {
                         ForEach(model.keychainAccounts, id: \.self) { ref in
                             Button(ref.account) { model.typePassword(ref, in: s) }
                         }
                     }
                     Divider()
                 }
-                Button("Contraseñas y Llavero…") { model.openSettings("contraseñas") }
+                Button(L("Contraseñas y Llavero…")) { model.openSettings("contraseñas") }
             }
-            .help("Escribir una contraseña del Llavero en la pestaña actual")
+            .help(L("Escribir una contraseña del Llavero en la pestaña actual"))
             IconButton(icon: "square.stack.3d.forward.dottedline.fill", tint: t.warning, active: model.multiExecOn,
                        badge: model.multiExecOn ? "\(model.multiExecTargets.count)" : nil) { model.multiExecOn.toggle() }
-                .help("MultiExec: lo que escribes va a la vez a los paneles (⇧⌘M). Clic derecho en un panel → excluirlo")
+                .help(L("MultiExec: lo que escribes va a la vez a los paneles (⇧⌘M). Clic derecho en un panel → excluirlo"))
             IconButton(icon: "stop.circle.fill", tint: t.bad) { model.abortAll() }
-                .help("Corta cualquier secuencia automática (Esc o Ctrl+C en el terminal, ⌘.)")
+                .help(L("Corta cualquier secuencia automática (Esc o Ctrl+C en el terminal, ⌘.)"))
             IconButton(icon: "sidebar.left", active: model.settings.sidebarVisible) { model.settings.sidebarVisible.toggle() }
-                .help("Mostrar/ocultar sesiones (⌃⌘S)")
+                .help(L("Mostrar/ocultar sesiones (⌃⌘S)"))
             IconButton(icon: "gearshape.fill") { model.openSettings() }
-                .help("Ajustes (⌘,)")
+                .help(L("Ajustes (⌘,)"))
         }
         .padding(.leading, model.fullScreen ? 10 : 80)
         .padding(.trailing, 10)
@@ -157,8 +157,8 @@ struct Brand: View {
             HStack(spacing: 7) {
                 Image(systemName: t.style == .fluent ? "terminal" : "apple.terminal.fill")
                     .font(.system(size: 15, weight: .semibold)).foregroundStyle(SwiftUI.Color(t.accent))
-                Text("NetDeck").font(t.ui(15, .bold)).foregroundStyle(SwiftUI.Color(t.text))
-                Text("Terminal").font(t.ui(13)).foregroundStyle(SwiftUI.Color(t.dim))
+                Text(L("NetDeck")).font(t.ui(15, .bold)).foregroundStyle(SwiftUI.Color(t.text))
+                Text(L("Terminal")).font(t.ui(13)).foregroundStyle(SwiftUI.Color(t.dim))
             }
             .allowsHitTesting(false)
         }
@@ -167,12 +167,12 @@ struct Brand: View {
     private var neon: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text("▚").font(.system(size: 15, weight: .black)).foregroundStyle(SwiftUI.Color(t.accent2))
-            Text("NETDECK")
+            Text(L("NETDECK"))
                 .font(t.ui(16, .heavy)).tracking(3)
                 .foregroundStyle(SwiftUI.Color(t.accent))
                 .shadow(color: SwiftUI.Color(t.accent).opacity(0.8), radius: t.glow(6))
             Text("//").font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
-            Text("TERMINAL").font(t.ui(10, .bold)).tracking(2.5).foregroundStyle(SwiftUI.Color(t.accent2))
+            Text(L("TERMINAL")).font(t.ui(10, .bold)).tracking(2.5).foregroundStyle(SwiftUI.Color(t.accent2))
         }
         .allowsHitTesting(false)
     }
@@ -269,7 +269,7 @@ struct TabChip: View {
         .contentShape(Rectangle())
         .onTapGesture { model.show(session) }
         .onHover { hover = $0 }
-        .help(session.route.thenCommand.map { "\(session.title) · en el salto: \($0)" } ?? session.title)
+        .help(session.route.thenCommand.map { L("\(session.title) · en el salto: \($0)") } ?? session.title)
         .contextMenu { SessionTabMenu(session: session) }
     }
 
@@ -288,27 +288,27 @@ struct SessionTabMenu: View {
     let session: TerminalSession
 
     var body: some View {
-        Button("Reconectar") { model.reconnect(session) }
-        Button("Clonar (otra pestaña igual)") { model.duplicate(session) }
+        Button(L("Reconectar")) { model.reconnect(session) }
+        Button(L("Clonar (otra pestaña igual)")) { model.duplicate(session) }
         Divider()
         if model.split?.panes.contains(session.id) == true {
-            Button("Quitar de la vista dividida") { model.removeFromSplit(session) }
+            Button(L("Quitar de la vista dividida")) { model.removeFromSplit(session) }
         } else {
-            Button("Añadir a la vista dividida") { model.addToSplit(session) }
+            Button(L("Añadir a la vista dividida")) { model.addToSplit(session) }
         }
         if model.multiExecOn || model.split != nil {
-            Button(model.excluded.contains(session.id) ? "Incluir en MultiExec" : "Excluir de MultiExec") {
+            Button(model.excluded.contains(session.id) ? L("Incluir en MultiExec") : L("Excluir de MultiExec")) {
                 model.toggleExcluded(session)
             }
         }
         Divider()
-        Button("Buscar… (⌘F)") { session.view.showFind() }
-        Button(session.logFile == nil ? "● Grabar registro" : "■ Parar el registro") { model.toggleLog(session) }
+        Button(L("Buscar… (⌘F)")) { session.view.showFind() }
+        Button(session.logFile == nil ? L("● Grabar registro") : L("■ Parar el registro")) { model.toggleLog(session) }
         if let f = session.logFile {
-            Button("Abrir el registro") { NSWorkspace.shared.open(f) }
+            Button(L("Abrir el registro")) { NSWorkspace.shared.open(f) }
         }
         Divider()
-        Button("Cerrar") { model.close(session) }
+        Button(L("Cerrar")) { model.close(session) }
     }
 }
 
@@ -322,17 +322,17 @@ struct RecBadge: View {
     var body: some View {
         if let f = session.logFile {
             Menu {
-                Button("Abrir el registro") { NSWorkspace.shared.open(f) }
-                Button("Mostrar en Finder") { NSWorkspace.shared.activateFileViewerSelecting([f]) }
+                Button(L("Abrir el registro")) { NSWorkspace.shared.open(f) }
+                Button(L("Mostrar en Finder")) { NSWorkspace.shared.activateFileViewerSelecting([f]) }
                 Divider()
-                Button("Parar el registro") { model.toggleLog(session) }
+                Button(L("Parar el registro")) { model.toggleLog(session) }
             } label: {
                 TimelineView(.periodic(from: .now, by: 1)) { ctx in
                     let on = Int(ctx.date.timeIntervalSince1970) % 2 == 0
                     HStack(spacing: 5) {
                         Circle().fill(SwiftUI.Color(t.bad)).frame(width: 8, height: 8).opacity(on ? 1 : 0.35)
                             .shadow(color: SwiftUI.Color(t.bad), radius: t.glow(4))
-                        if !compact { Text("REC").font(t.ui(10, .heavy)).tracking(1.5).foregroundStyle(SwiftUI.Color(t.bad)) }
+                        if !compact { Text(L("REC")).font(t.ui(10, .heavy)).tracking(1.5).foregroundStyle(SwiftUI.Color(t.bad)) }
                     }
                     .padding(.horizontal, compact ? 4 : 8).padding(.vertical, 3)
                     .background(Capsule().fill(SwiftUI.Color(t.background.opaque).opacity(0.85)))
@@ -340,7 +340,7 @@ struct RecBadge: View {
                 }
             }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-            .help("Grabando en \(f.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))")
+            .help(L("Grabando en \(f.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))"))
         }
     }
 }
@@ -355,7 +355,7 @@ struct SplitChip: View {
         let on = model.showSplit
         HStack(spacing: 6) {
             Image(systemName: split.layout.icon).font(.system(size: 11, weight: .bold))
-            Text("VISTA ×\(split.panes.count)").font(t.ui(11, .bold)).tracking(1)
+            Text(L("VISTA ×\(split.panes.count)")).font(t.ui(11, .bold)).tracking(1)
         }
         .foregroundStyle(SwiftUI.Color(on ? t.background : t.accent))
         .padding(.horizontal, 11)
@@ -368,9 +368,9 @@ struct SplitChip: View {
             if let f = split.panes.first, !split.panes.contains(model.selection ?? UUID()) { model.selection = f }
         }
         .contextMenu {
-            Button("Volver a pestañas sueltas") { model.unsplit() }
+            Button(L("Volver a pestañas sueltas")) { model.unsplit() }
         }
-        .help("Pantalla dividida · clic derecho: volver a pestañas sueltas")
+        .help(L("Pantalla dividida · clic derecho: volver a pestañas sueltas"))
     }
 }
 
@@ -414,7 +414,7 @@ struct PasswordNotice: View {
             Text(text).font(t.ui(12)).foregroundStyle(SwiftUI.Color(t.text)).lineLimit(2)
             Spacer()
             if case .suggested(let ref) = event {
-                NeonButton(title: "Escribir «\(ref.account)»", icon: "return", tint: t.good) { model.typePassword(ref, in: session) }
+                NeonButton(title: L("Escribir «\(ref.account)»"), icon: "return", tint: t.good) { model.typePassword(ref, in: session) }
             }
             IconButton(icon: "xmark") { model.notices[session.id] = nil }
         }
@@ -425,9 +425,9 @@ struct PasswordNotice: View {
 
     private var text: String {
         switch event {
-        case .suggested(let r): "Piden contraseña: «\(r.account)» es de ese usuario"
-        case .manual(let why): "Piden contraseña: \(Askpass.explain(why)) · o elígela en 🔑"
-        case .failed(let r): "«\(r.account)» no ha valido: bloqueada 15 min en todas las pestañas (cuenta AD)"
+        case .suggested(let r): L("Piden contraseña: «\(r.account)» es de ese usuario")
+        case .manual(let why): L("Piden contraseña: \(Askpass.explain(why)) · o elígela en 🔑")
+        case .failed(let r): L("«\(r.account)» no ha valido: bloqueada 15 min en todas las pestañas (cuenta AD)")
         default: ""
         }
     }
@@ -489,14 +489,14 @@ struct StatusBar: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: "chevron.right.2").foregroundStyle(SwiftUI.Color(t.accent))
-            Text(model.themes.busy ?? (model.status.isEmpty ? "Listo" : model.status))
+            Text(model.themes.busy ?? (model.status.isEmpty ? L("Listo") : model.status))
                 .foregroundStyle(SwiftUI.Color(t.text))
                 .lineLimit(1).truncationMode(.middle)
             Spacer()
             if model.multiExecOn {
-                Tag(text: "MULTIEXEC ×\(model.multiExecTargets.count)", color: t.warning)
+                Tag(text: L("MULTIEXEC ×\(model.multiExecTargets.count)"), color: t.warning)
             }
-            Tag(text: "🔑 SESIÓN \(model.settings.sessionAutoPassword ? "AUTO" : "MANUAL") · EQUIPOS \(modeText)", color: t.accent2)
+            Tag(text: L("🔑 SESIÓN \(model.settings.sessionAutoPassword ? "AUTO" : "MANUAL") · EQUIPOS \(modeText)"), color: t.accent2)
             Text(model.themes.current.name.uppercased()).tracking(1.5).foregroundStyle(SwiftUI.Color(t.dim))
             TimelineView(.everyMinute) { ctx in
                 Text(t.clockText(ctx.date)).foregroundStyle(SwiftUI.Color(t.accent))
@@ -511,9 +511,9 @@ struct StatusBar: View {
 
     private var modeText: String {
         switch model.settings.devicePasswordMode {
-        case .autoType: "AUTO"
-        case .suggest: "SUGERIR"
-        case .off: "NO"
+        case .autoType: L("AUTO")
+        case .suggest: L("SUGERIR")
+        case .off: L("NO")
         }
     }
 }

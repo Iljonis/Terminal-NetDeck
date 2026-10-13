@@ -12,13 +12,13 @@ struct ConnectSheet: View {
 
     var body: some View {
         Form {
-            TextField("Equipo", text: $device, prompt: Text("10.0.0.5 · admin@core-01 · core-01:2222"))
-            Picker("Salto", selection: $jump) {
-                Text("Directo").tag("")
+            TextField(L("Equipo"), text: $device, prompt: Text(L("192.0.2.5 · admin@core-01 · core-01:2222")))
+            Picker(L("Salto"), selection: $jump) {
+                Text(L("Directo")).tag("")
                 ForEach(model.sessions.profiles) { Text($0.name).tag($0.name) }
             }
-            TextField("Usuario", text: $user, prompt: Text("(el del equipo o el de la sesión)"))
-            Picker("Protocolo", selection: $transport) {
+            TextField(L("Usuario"), text: $user, prompt: Text(L("(el del equipo o el de la sesión)")))
+            Picker(L("Protocolo"), selection: $transport) {
                 ForEach(SessionProfile.Transport.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
@@ -26,9 +26,9 @@ struct ConnectSheet: View {
         .formStyle(.grouped)
         .frame(width: 440)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
+            ToolbarItem(placement: .cancellationAction) { Button(L("Cancelar")) { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Conectar") {
+                Button(L("Conectar")) {
                     connect()
                     dismiss()
                 }
@@ -61,21 +61,21 @@ struct PasteSheet: View {
     var body: some View {
         let dangerous = PasteRules.dangerousLines(in: text)
         VStack(alignment: .leading, spacing: 10) {
-            Text("Una a una, esperando al equipo. Se para si da error, si pagina o con Esc.")
+            Text(L("Una a una, esperando al equipo. Se para si da error, si pagina o con Esc."))
                 .font(.callout).foregroundStyle(.secondary)
             TextEditor(text: $text)
                 .font(.system(.body, design: .monospaced))
                 .frame(minHeight: 220)
             if !dangerous.isEmpty {
-                Toggle("Confirmo \(dangerous.count) peligrosa(s): \(dangerous.prefix(3).joined(separator: " · "))",
+                Toggle(L("Confirmo \(dangerous.count) peligrosa(s): \(dangerous.prefix(3).joined(separator: " · "))"),
                        isOn: $confirmDangerous)
                     .foregroundStyle(.red)
             }
-            Toggle("A todas las pestañas (MultiExec)", isOn: $toAll)
+            Toggle(L("A todas las pestañas (MultiExec)"), isOn: $toAll)
             HStack {
                 Spacer()
-                Button("Cancelar") { dismiss() }
-                Button("Enviar \(PasteRules.lines(of: text).count) líneas") {
+                Button(L("Cancelar")) { dismiss() }
+                Button(L("Enviar \(PasteRules.lines(of: text).count) líneas")) {
                     let (t, all, ok) = (text, toAll, confirmDangerous)
                     dismiss()
                     Task { await model.paste(t, allowDangerous: ok, toAll: all) }
@@ -101,28 +101,28 @@ struct ListSheet: View {
 
     var body: some View {
         Form {
-            TextField("Nombre", text: $name)
-            Picker("Salto", selection: $jump) {
+            TextField(L("Nombre"), text: $name)
+            Picker(L("Salto"), selection: $jump) {
                 ForEach(model.sessions.profiles) { Text($0.name).tag($0.name) }
             }
-            TextField("Usuario en los equipos", text: $user, prompt: Text("tu.usuario"))
-            Picker("Contraseña", selection: $credential) {
-                Text("(a mano)").tag("")
+            TextField(L("Usuario en los equipos"), text: $user, prompt: Text("tu.usuario"))
+            Picker(L("Contraseña"), selection: $credential) {
+                Text(L("(a mano)")).tag("")
                 ForEach(model.keychainAccounts, id: \.self) { Text($0.account).tag($0.account) }
             }
             TextEditor(text: $devices)
                 .font(.system(.body, design: .monospaced))
                 .frame(minHeight: 140)
-            Text("\(JumpList.devices(in: devices).count) equipos · una sola pestaña prueba la contraseña a la vez; si falla, no se escribe en las demás")
+            Text(L("\(JumpList.devices(in: devices).count) equipos · una sola pestaña prueba la contraseña a la vez; si falla, no se escribe en las demás"))
                 .font(.caption).foregroundStyle(.secondary)
         }
         .formStyle(.grouped)
         .frame(width: 500)
         .onAppear { jump = model.sessions.profiles.first?.name ?? "" }
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
+            ToolbarItem(placement: .cancellationAction) { Button(L("Cancelar")) { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Abrir") {
+                Button(L("Abrir")) {
                     let list = makeList()
                     dismiss()
                     Task { await model.run(list) }
