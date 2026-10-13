@@ -1184,5 +1184,27 @@ enum Ingles {
             "The startup session can also be set by right-clicking it in the list and opened with ⌥⌘K; the local terminal, with ⌘T.",
         "Listas":
             "Lists",
+        "puerto serie no válido":
+            "invalid serial port",
+        "«%@»: puerto serie «%@»":
+            "“%@”: serial port “%@”",
+        "«%@»: saltos de línea en el grupo o las notas":
+            "“%@”: line breaks in the group or the notes",
+        "«%@»: una nota no puede empezar por @grupo ni @clave-grupo":
+            "“%@”: a note can't start with @grupo or @clave-grupo",
+        "Puerto serie no válido: «%@»":
+            "Invalid serial port: “%@”",
+        "No está /usr/bin/screen en este Mac: hace falta para el puerto serie":
+            "/usr/bin/screen is not on this Mac: it's needed for the serial port",
+        "No está «%@»: ¿está conectado el adaptador USB-serie?":
+            "“%@” is not there: is the USB-serial adapter plugged in?",
+        "FTP se abre en el Finder, no en una pestaña":
+            "FTP opens in the Finder, not in a tab",
+        "No está %@ en este Mac":
+            "%@ is not on this Mac",
+        "Serie":
+            "Serial",
+        "Local":
+            "Local",
     ]
 }

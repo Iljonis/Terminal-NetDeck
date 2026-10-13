@@ -1,7 +1,8 @@
 import Foundation
 
 /// Importar sesiones de tu programa anterior (como «importar» de NetDeck): SecureCRT (Config/Sessions o un .ini),
-/// MobaXterm (.mxtsessions / MobaXterm.ini), PuTTY (.reg), electerm (.json), CSV del inventario y ~/.ssh/config.
+/// MobaXterm (.mxtsessions / MobaXterm.ini), PuTTY (.reg), electerm (.json), CSV del inventario, ~/.ssh/config y el JSON
+/// que exporta el propio gestor (`SessionExport`).
 /// Las carpetas pasan a ser grupos; los nombres repetidos quedan como core-01-2. Nunca se importa ninguna contraseña.
 public enum SessionImporter {
     public struct Found: Hashable, Sendable {
@@ -18,6 +19,10 @@ public enum SessionImporter {
         public var keyFile = ""
         public var legacy = false
         public var extra: [String] = []
+        /// SFTP, FTP, serie, local… (telnet también vale con `telnet`).
+        public var kind = SessionProfile.Transport.ssh
+        public var serial: SerialLine?
+        public var notes: [String] = []
     }
 
     public struct Result: Sendable {
@@ -72,6 +77,9 @@ public enum SessionImporter {
             let (f, s) = mobaXterm(text); return ("MobaXterm", f, s)
         }
         if name.hasSuffix(".reg"), head.contains("SimonTatham") { let (f, s) = putty(text); return ("PuTTY", f, s) }
+        if name.hasSuffix(".json"), head.contains(SessionExport.format), let f = SessionExport.found(text) {
+            return ("Terminal NetDeck", f, [])
+        }
         if name.hasSuffix(".json"), head.contains("\"bookmarks\"") { let (f, s) = electerm(text); return ("electerm", f, s) }
         if name.hasSuffix(".ini"), head.contains("S:\"Hostname\"") { let (f, s) = secureCRT(url); return ("SecureCRT", f, s) }
         if name.hasSuffix(".csv") || name.hasSuffix(".txt") { return ("CSV", csv(text), []) }
@@ -79,9 +87,10 @@ public enum SessionImporter {
         if !file.sessions.isEmpty {
             return ("ssh_config", file.sessions.map {
                 Found(group: $0.group == "General" ? "ssh_config" : $0.group, original: $0.name,
-                      host: $0.host.isEmpty ? $0.name : $0.host, user: $0.user, port: $0.port, jump: $0.jump,
-                      ref: $0.name, summary: $0.summary, telnet: $0.telnet, keyFile: $0.keyFile, legacy: $0.legacy,
-                      extra: $0.extra)
+                      host: $0.host.isEmpty && $0.kind.isNetwork ? $0.name : $0.host, user: $0.user, port: $0.port,
+                      jump: $0.jump, ref: $0.name, summary: $0.summary, telnet: $0.telnet, keyFile: $0.keyFile,
+                      legacy: $0.legacy, extra: $0.extra, kind: $0.kind, serial: $0.kind == .serial ? $0.serial : nil,
+                      notes: $0.notes)
             }, [])
         }
         return ("desconocido", [], [(url.lastPathComponent, L("no reconozco el formato"))])
@@ -94,6 +103,8 @@ public enum SessionImporter {
     static let dangerousOptions: Set<String> = ["proxycommand", "localcommand", "permitlocalcommand", "knownhostscommand",
                                                 "remotecommand", "match", "include", "sendenv", "setenv", "forwardagent",
                                                 "forwardx11", "forwardx11trusted", "pkcs11provider", "securitykeyprovider"]
+
+    static let reservedNotes = ["grupo", "clave", "tipo", "serie", "telnet", "desc", "antiguo"]
 
     static func safeExtra(_ lines: [String], session: String) -> [String] {
         lines.filter { line in
@@ -286,6 +297,7 @@ public enum SessionImporter {
         "usuario": "usuario", "user": "usuario", "username": "usuario", "puerto": "puerto", "port": "puerto",
         "salto": "salto", "jump": "salto", "proxyjump": "salto", "bastion": "salto",
         "descripcion": "desc", "description": "desc", "desc": "desc",
+        "tipo": "tipo", "type": "tipo", "protocolo": "tipo", "protocol": "tipo",
     ]
 
     /// CSV del inventario (de Excel, con «;» o «,»): grupo;nombre;host;usuario;puerto;salto, o con cabecera en cualquier
@@ -303,15 +315,18 @@ public enum SessionImporter {
         }
         var rows = lines.map(cells)
         var head = rows[0].map { columns[$0.folding(options: .diacriticInsensitive, locale: nil).lowercased().trimmed] }
-        if head.contains("host") { rows.removeFirst() } else { head = ["grupo", "nombre", "host", "usuario", "puerto", "salto", "desc"] }
+        if head.contains("host") { rows.removeFirst() } else { head = ["grupo", "nombre", "host", "usuario", "puerto", "salto", "desc", "tipo"] }
         return rows.map { r in
             var v: [String: String] = [:]
             for (i, c) in head.enumerated() { if let c, i < r.count { v[c] = r[i] } }
             let host = v["host"] ?? ""
-            return Found(group: v["grupo"].flatMap { $0.isEmpty ? nil : $0 } ?? "Importadas",
-                         original: v["nombre"].flatMap { $0.isEmpty ? nil : $0 } ?? host, host: host,
-                         user: v["usuario"] ?? "", port: v["puerto"].flatMap { $0.isEmpty ? nil : $0 } ?? "22",
-                         jump: v["salto"] ?? "", ref: v["nombre"], summary: v["desc"] ?? "")
+            var f = Found(group: v["grupo"].flatMap { $0.isEmpty ? nil : $0 } ?? "Importadas",
+                          original: v["nombre"].flatMap { $0.isEmpty ? nil : $0 } ?? host, host: host,
+                          user: v["usuario"] ?? "", port: v["puerto"].flatMap { $0.isEmpty ? nil : $0 } ?? "22",
+                          jump: v["salto"] ?? "", ref: v["nombre"], summary: v["desc"] ?? "")
+            // (del CSV sólo los de red: serie y local necesitan más datos que sus columnas)
+            if let k = v["tipo"].flatMap(SessionProfile.Transport.init(annotation:)), k.isNetwork { f.kind = k }
+            return f
         }
     }
 
@@ -331,20 +346,37 @@ public enum SessionImporter {
     /// resuelve los saltos (a otra importada, a una que ya tenías, o «usuario@host:puerto»).
     static func prepare(_ found: [Found], existing: [EditableSession]) -> ([EditableSession], [(String, String)]) {
         var have: [String: String] = [:]
-        for s in existing { have["\(s.host.lowercased())|\(s.user)|\(s.port)"] = s.name }
+        for s in existing {
+            switch s.kind {
+            case .serial: have["serie|\(s.serial.device)"] = s.name
+            case .local: have["local|\(s.name.lowercased())"] = s.name
+            case .ssh, .telnet, .sftp, .ftp:
+                have["\(s.kind == .ssh ? "" : s.kind.annotation + "|")\(s.host.lowercased())|\(s.user)|\(s.port)"] = s.name
+            }
+        }
         var used = Set(existing.map { $0.name.lowercased() })
         var out: [(EditableSession, String)] = []
         var skipped: [(String, String)] = []
         var byRef: [String: String] = [:]
         for e in found {
+            let kind: SessionProfile.Transport = e.telnet ? .telnet : e.kind
             let host = e.host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-            guard !host.isEmpty else { skipped.append((e.original, L("sin host"))); continue }
-            guard hostRule.matches(host), e.user.isEmpty || userRule.matches(e.user),
-                  let p = Int(e.port), (1...65535).contains(p) else {
-                skipped.append((e.original, L("host, usuario o puerto no válidos")))
-                continue
+            let key: String
+            switch kind {
+            case .serial:
+                guard let line = e.serial, line.isValid else { skipped.append((e.original, L("puerto serie no válido"))); continue }
+                key = "serie|\(line.device)"
+            case .local:
+                key = "local|\(e.original.lowercased())"
+            case .ssh, .telnet, .sftp, .ftp:
+                guard !host.isEmpty else { skipped.append((e.original, L("sin host"))); continue }
+                guard hostRule.matches(host), e.user.isEmpty || userRule.matches(e.user),
+                      let p = Int(e.port), (1...65535).contains(p) else {
+                    skipped.append((e.original, L("host, usuario o puerto no válidos")))
+                    continue
+                }
+                key = "\(kind == .ssh ? "" : kind.annotation + "|")\(host.lowercased())|\(e.user)|\(e.port)"
             }
-            let key = "\(host.lowercased())|\(e.user)|\(e.port)"
             if let n = have[key] {
                 if let r = e.ref, byRef[r] == nil { byRef[r] = n }
                 skipped.append((e.original, L("ya la tienes como «\(n)»")))
@@ -361,11 +393,20 @@ public enum SessionImporter {
             if s.group.isEmpty { s.group = "Importadas" }
             s.summary = e.summary.replacingOccurrences(of: #"[\x00-\x1f\x7f]"#, with: "", options: .regularExpression).trimmed
             if s.summary.isEmpty, name != e.original { s.summary = String(e.original.prefix(60)) }
-            s.host = host
-            s.user = e.user
-            s.port = e.port
-            s.telnet = e.telnet
-            s.keyFile = e.keyFile
+            let clean = { (t: String) in t.replacingOccurrences(of: #"[\x00-\x1f\x7f]"#, with: "", options: .regularExpression).trimmed }
+            s.kind = kind
+            if kind.isNetwork {
+                s.host = host
+                s.user = e.user
+                s.port = e.port
+            }
+            if kind == .serial, let line = e.serial { s.serial = line }
+            // (una nota «@clave X» o «@tipo local» cambiaría la sesión al volver a leerla: ésas no se traen)
+            s.notes = e.notes.map(clean).filter { n in
+                !n.isEmpty && !Self.reservedNotes.contains { n.lowercased().hasPrefix("@" + $0) }
+            }
+            // (una ruta con comillas o saltos de línea rompería el bloque: se descarta)
+            s.keyFile = e.keyFile.contains(where: { $0 == "\"" || $0.isNewline || $0.asciiValue.map { $0 < 32 } == true }) ? "" : e.keyFile
             s.legacy = e.legacy
             s.extra = Self.safeExtra(e.extra, session: name)
             if let r = e.ref, byRef[r] == nil { byRef[r] = name }

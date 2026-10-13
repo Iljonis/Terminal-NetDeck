@@ -8,6 +8,8 @@ import Foundation
 ///   # @desc …           (dentro del bloque) descripción
 ///   # @antiguo          (dentro del bloque) algoritmos antiguos
 ///   # @telnet           (dentro del bloque) se entra por telnet (a través del salto, si lo hay)
+///   # @tipo X           (dentro del bloque) sftp, ftp, serie o local (sin él: ssh)
+///   # @serie DEV VEL 8N1  (dentro del bloque) el puerto serie de una sesión «@tipo serie»
 public struct SSHConfigParser: Sendable {
     public init() {}
 
@@ -89,11 +91,12 @@ public struct SSHConfigParser: Sendable {
             user: opt["user"],
             port: opt["port"].flatMap(Int.init),
             proxyJump: jumps,
-            transport: note("telnet") != nil ? .telnet : .ssh,
+            transport: note("telnet") != nil ? .telnet : note("tipo").flatMap(SessionProfile.Transport.init(annotation:)) ?? .ssh,
             group: own.first?.group,
             summary: note("desc"),
             namedCredential: note("clave"),
-            legacy: note("antiguo") != nil)
+            legacy: note("antiguo") != nil,
+            serial: note("serie").flatMap(SerialLine.init(annotation:)))
     }
 
     // MARK: - utilidades

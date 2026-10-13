@@ -76,10 +76,23 @@ public final class SessionManager {
     // MARK: - rutas
 
     public func route(to p: SessionProfile) throws -> ConnectionRoute {
+        switch p.transport {
+        case .local:
+            var r = ConnectionRoute.local()
+            r.title = p.name
+            r.sessionName = p.name
+            return r
+        case .serial:
+            guard let line = p.serial, line.isValid else { throw RouteError.badDevice(p.serial?.device ?? p.name) }
+            return .serial(line, title: p.name, sessionName: p.name)
+        case .ssh, .telnet, .sftp, .ftp:
+            break
+        }
         // (nombre, equipo o usuario que empiecen por «-» serían opciones de ssh/telnet: -oProxyCommand=…)
         for v in [p.name, p.endpoint.host, p.endpoint.user ?? ""] where v.hasPrefix("-") { throw RouteError.badDevice(v) }
+        let alias = p.transport == .ssh || p.transport == .sftp ? p.name : nil      // (sftp lee el mismo ssh_config)
         return ConnectionRoute(title: p.name, target: p.endpoint, jumps: try resolve(p.proxyJump, seen: [p.name]),
-                        transport: p.transport, alias: p.transport == .ssh ? p.name : nil, sessionName: p.name)
+                        transport: p.transport, alias: alias, sessionName: p.name)
     }
 
     /// Acceso directo de salto, como NetDeck: se abre la sesión del salto y, al salir su prompt, se escribe

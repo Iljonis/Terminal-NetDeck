@@ -20,6 +20,8 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     public var thenUser: String?
     /// Terminal local: la shell de inicio del Mac (sin ssh, sin askpass ni contraseñas automáticas). nil = remota.
     public var localShell: String?
+    /// Sesión de consola por puerto serie (transport .serial).
+    public var serial: SerialLine?
 
     public init(title: String, target: Endpoint, jumps: [Endpoint] = [], transport: SessionProfile.Transport = .ssh,
                 alias: String? = nil, jumpSpec: [String]? = nil, sessionName: String? = nil) {
@@ -37,10 +39,50 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
                              allowed: [String] = ConnectionRoute.systemShells) -> ConnectionRoute {
         var r = ConnectionRoute(title: L("Terminal local"), target: Endpoint(user: NSUserName(), host: "localhost"))
         r.localShell = loginShell(shell, allowed: allowed)
+        r.transport = .local
         return r
     }
 
-    public var isLocal: Bool { localShell != nil }
+    /// Consola por puerto serie (screen); no es un equipo de red.
+    public static func serial(_ line: SerialLine, title: String, sessionName: String? = nil) -> ConnectionRoute {
+        var r = ConnectionRoute(title: title, target: Endpoint(host: line.device), transport: .serial, sessionName: sessionName)
+        r.serial = line
+        return r
+    }
+
+    public var isLocal: Bool { localShell != nil || transport == .local }
+
+    /// MultiExec sólo escribe en equipos (ssh/telnet): ni en el Mac, ni en el prompt de sftp, ni en una consola serie.
+    public var acceptsMultiExec: Bool { !isLocal && (transport == .ssh || transport == .telnet) }
+
+    /// Askpass y contraseñas automáticas: sólo lo que pide la contraseña de un equipo (ssh, telnet y sftp, que es ssh).
+    public var usesPasswords: Bool { !isLocal && transport != .serial && transport != .ftp }
+
+    /// FTP: macOS no trae cliente; se abre «ftp://usuario@equipo:puerto» en el Finder (sólo lectura). nil si no es FTP o
+    /// el equipo no es válido.
+    public var ftpURL: URL? {
+        guard transport == .ftp, Endpoint(user: target.user, host: target.host).isShellSafe else { return nil }
+        var c = URLComponents()
+        c.scheme = "ftp"
+        c.host = target.host
+        c.user = target.user
+        c.port = target.port == 21 ? nil : target.port
+        return c.url
+    }
+
+    /// Por qué no se puede abrir la pestaña (falta el programa o el puerto serie), o nil. `exists`: para los tests.
+    public func launchProblem(exists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }) -> String? {
+        if transport == .serial {
+            let dev = serial?.device ?? ""
+            guard let s = serial, s.isValid else { return L("Puerto serie no válido: «\(dev)»") }
+            if !exists(SerialLine.screen) { return L("No está /usr/bin/screen en este Mac: hace falta para el puerto serie") }
+            if !exists(s.device) { return L("No está «\(s.device)»: ¿está conectado el adaptador USB-serie?") }
+            return nil
+        }
+        if transport == .ftp { return L("FTP se abre en el Finder, no en una pestaña") }
+        let exe = command.executable
+        return exists(exe) ? nil : L("No está \(exe) en este Mac")
+    }
 
     /// Las shells de /etc/shells (las que macOS deja como shell de inicio).
     public static var systemShells: [String] {
@@ -71,12 +113,15 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
             return device.port.map { "ssh -p \($0) \(dest)" } ?? "ssh \(dest)"
         case .telnet:
             return "telnet \(device.host)" + (device.port.map { " \($0)" } ?? "")
+        case .sftp, .ftp, .serial, .local:
+            return nil
         }
     }
 
     /// Orden que abre la pestaña. Telnet con salto: «ssh -t salto telnet equipo puerto» (transparente para el usuario).
+    /// sftp: como ssh (alias del ssh_config o -P/-J usuario@equipo). Serie: screen. FTP no abre pestaña (/usr/bin/false).
     public var command: (executable: String, arguments: [String]) {
-        if let localShell { return (Self.loginShell(localShell, allowed: Self.systemShells), ["-l"]) }
+        if isLocal { return (Self.loginShell(localShell, allowed: Self.systemShells), ["-l"]) }
         switch transport {
         case .ssh:
             var a: [String] = []
@@ -95,6 +140,22 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
             var a = ["-t"]
             if jumps.count > 1 { a += ["-J", jumps.dropLast().map(\.description).joined(separator: ",")] }
             return ("/usr/bin/ssh", a + [last.description, "telnet"] + telnet)
+        case .sftp:
+            var a: [String] = []
+            if let j = jumpSpec, !j.isEmpty { a += ["-J", j.joined(separator: ",")] }
+            if let alias {
+                a.append(alias)
+            } else {
+                if let p = target.port { a += ["-P", String(p)] }
+                let h = target.host.contains(":") ? "[\(target.host)]" : target.host       // (IPv6)
+                a.append((target.user.map { "\($0)@" } ?? "") + h)
+            }
+            return ("/usr/bin/sftp", a)
+        case .serial:
+            guard let s = serial, s.isValid else { return ("/usr/bin/false", []) }
+            return (SerialLine.screen, s.screenArguments)
+        case .ftp, .local:
+            return ("/usr/bin/false", [])
         }
     }
 }

@@ -20,7 +20,7 @@ struct ConnectSheet: View {
             }
             TextField(L("Usuario"), text: $user, prompt: Text(L("(el del equipo o el de la sesión)")))
             Picker(L("Protocolo"), selection: $transport) {
-                ForEach(SessionProfile.Transport.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                ForEach([SessionProfile.Transport.ssh, .telnet], id: \.self) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
         }

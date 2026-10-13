@@ -2,7 +2,7 @@ import Foundation
 
 /// Una sesión tal y como la edita el gestor de Sesiones (los mismos campos que el de NetDeck).
 public struct EditableSession: Hashable, Sendable, Identifiable {
-    public let id = UUID()
+    public var id = UUID()
     public var group: String
     public var name: String
     public var summary = ""
@@ -16,9 +16,19 @@ public struct EditableSession: Hashable, Sendable, Identifiable {
     public var legacy = false
     /// Contraseña con nombre («# @clave AD»); «-» = la propia del equipo.
     public var credential = ""
-    public var telnet = false
+    /// SSH, Telnet, SFTP, FTP, serie o local («# @telnet» / «# @tipo …»).
+    public var kind = SessionProfile.Transport.ssh
+    /// «# @serie …» (sólo cuenta si `kind` es .serial).
+    public var serial = SerialLine()
+    /// Comentarios libres del bloque («# lo que sea», «# @proyecto X»): se conservan tal cual, sin el «# ».
+    public var notes: [String] = []
     /// Opciones que el editor no gestiona: se conservan tal cual.
     public var extra: [String] = []
+
+    public var telnet: Bool {
+        get { kind == .telnet }
+        set { kind = newValue ? .telnet : (kind == .telnet ? .ssh : kind) }
+    }
 
     public init(group: String = "General", name: String) {
         self.group = group
@@ -27,7 +37,8 @@ public struct EditableSession: Hashable, Sendable, Identifiable {
 
     public static func == (a: Self, b: Self) -> Bool {
         (a.group, a.name, a.summary, a.host, a.user, a.port) == (b.group, b.name, b.summary, b.host, b.user, b.port)
-            && (a.jump, a.keyFile, a.legacy, a.credential, a.telnet, a.extra) == (b.jump, b.keyFile, b.legacy, b.credential, b.telnet, b.extra)
+            && (a.jump, a.keyFile, a.legacy, a.credential, a.kind, a.extra) == (b.jump, b.keyFile, b.legacy, b.credential, b.kind, b.extra)
+            && (a.serial, a.notes) == (b.serial, b.notes)
     }
 
     public func hash(into h: inout Hasher) { h.combine(name) }
@@ -35,6 +46,14 @@ public struct EditableSession: Hashable, Sendable, Identifiable {
     /// Nombre válido para un «Host» (sin espacios ni comodines).
     public static func isValidName(_ n: String) -> Bool { Self.nameRule.matches(n) }
     private static let nameRule = Pattern(#"^[A-Za-z0-9_][A-Za-z0-9_.@:+-]*$"#, ignoreCase: false)
+
+    /// Una copia con otro nombre (y otro id: es otra sesión).
+    public func copy(named n: String) -> EditableSession {
+        var c = self
+        c.id = UUID()
+        c.name = n
+        return c
+    }
 }
 
 /// El ssh_config de sesiones de NetDeck (~/.config/netdeck/ssh_config): se lee y se escribe con el mismo formato que
@@ -66,6 +85,9 @@ public struct SessionFile: Sendable {
         #    # @antiguo           equipo antiguo (algoritmos ssh viejos)
         #    # @clave NOMBRE      usa la contraseña con nombre NOMBRE (p. ej. «AD ES»); «-» = la propia del equipo
         #    # @clave-grupo NOMBRE   (debajo de @grupo) la contraseña con nombre de todo el grupo
+        #    # @telnet · # @tipo sftp|ftp|serie|local   tipo de sesión (sin nada: ssh)
+        #    # @serie /dev/cu.usbserial-0001 9600 8N1    puerto serie (con «@tipo serie»)
+        #  Un grupo con «/» (Clientes/Madrid/Core) se ve como carpetas dentro de carpetas.
         #  Los bloques «Host *», «Host a b» o «Match» no son sesiones: se conservan tal cual,
         #  al final (o al principio si estaban antes de la primera sesión).
         # ─────────────────────────────────────────────────────────────
@@ -107,9 +129,16 @@ public struct SessionFile: Sendable {
                 if s.isEmpty || s == Self.free { continue }
                 if s.hasPrefix("# @desc ") { sessions[i].summary = String(s.dropFirst(8)).trimmed }
                 else if s == "# @antiguo" { sessions[i].legacy = true }
-                else if s == "# @telnet" { sessions[i].telnet = true }
+                else if s == "# @telnet" { sessions[i].kind = .telnet }
+                else if s.hasPrefix("# @tipo "), let k = SessionProfile.Transport(annotation: String(s.dropFirst(8))) {
+                    sessions[i].kind = k
+                }
+                else if s.hasPrefix("# @serie "), let l = SerialLine(annotation: String(s.dropFirst(9))) { sessions[i].serial = l }
                 else if s.hasPrefix("# @clave ") { sessions[i].credential = String(s.dropFirst(9)).trimmed }
-                else if s.hasPrefix("#") { continue }
+                else if s.hasPrefix("#") {
+                    let n = String(s.dropFirst()).trimmed
+                    if !n.isEmpty { sessions[i].notes.append(n) }
+                }
                 else {
                     switch key {
                     case "hostname": sessions[i].host = value
@@ -130,6 +159,35 @@ public struct SessionFile: Sendable {
     public var groups: [String] {
         var seen = Set<String>()
         return sessions.map(\.group).filter { seen.insert($0).inserted }
+    }
+
+    /// Sube (-1) o baja (+1) una sesión dentro de su grupo: el orden de la lista es el del archivo. false si ya está
+    /// en el borde.
+    @discardableResult
+    public mutating func move(_ id: UUID, by step: Int) -> Bool {
+        guard let i = sessions.firstIndex(where: { $0.id == id }) else { return false }
+        let g = sessions[i].group
+        let near = step < 0 ? sessions[..<i].lastIndex { $0.group == g }
+                            : sessions[(i + 1)...].firstIndex { $0.group == g }
+        guard let j = near else { return false }
+        sessions.swapAt(i, j)
+        return true
+    }
+
+    /// Arrastrar: la pone justo delante de `target` (en su grupo) o, si `after`, justo detrás.
+    public mutating func move(_ id: UUID, to target: UUID, after: Bool = false) {
+        guard id != target, let i = sessions.firstIndex(where: { $0.id == id }) else { return }
+        var s = sessions.remove(at: i)
+        guard let j = sessions.firstIndex(where: { $0.id == target }) else { sessions.insert(s, at: i); return }
+        s.group = sessions[j].group
+        sessions.insert(s, at: after ? j + 1 : j)
+    }
+
+    /// «core-01-2», «core-01-3»… el primero libre (sin mirar mayúsculas).
+    public func uniqueName(_ base: String) -> String {
+        var n = base, k = 2
+        while sessions.contains(where: { $0.name.lowercased() == n.lowercased() }) { n = "\(base)-\(k)"; k += 1 }
+        return n
     }
 
     /// Quién usa una contraseña con nombre: las sesiones con «# @clave NOMBRE» y los grupos con «# @clave-grupo NOMBRE».
@@ -160,7 +218,9 @@ public struct SessionFile: Sendable {
                 out += "\nHost \(s.name)\n"
                 if !s.summary.isEmpty { out += "    # @desc \(s.summary)\n" }
                 if !s.credential.isEmpty { out += "    # @clave \(s.credential)\n" }
-                if s.telnet { out += "    # @telnet\n" }
+                if s.kind == .telnet { out += "    # @telnet\n" } else if s.kind != .ssh { out += "    # @tipo \(s.kind.annotation)\n" }
+                if s.kind == .serial { out += "    # @serie \(s.serial.annotation)\n" }
+                out += s.notes.map { "    # \($0)\n" }.joined()
                 if !s.host.isEmpty { out += "    HostName \(s.host)\n" }     // (un «HostName» vacío rompe ssh)
                 if !s.user.isEmpty { out += "    User \(s.user)\n" }
                 if !s.port.isEmpty, s.port != "22" { out += "    Port \(s.port)\n" }
@@ -185,6 +245,13 @@ public struct SessionFile: Sendable {
             if s.host.contains(where: { $0.isWhitespace || $0 == "\"" }) { out.append(L("«\(s.name)»: equipo «\(s.host)»")) }
             if s.user.contains(where: { $0.isWhitespace || $0 == "\"" }) { out.append(L("«\(s.name)»: usuario «\(s.user)»")) }
             if s.jump == s.name { out.append(L("«\(s.name)» salta por sí misma")) }
+            if s.kind == .serial, !s.serial.isValid { out.append(L("«\(s.name)»: puerto serie «\(s.serial.device)»")) }
+            if s.notes.contains(where: { $0.contains(where: \.isNewline) }) || s.group.contains(where: \.isNewline) {
+                out.append(L("«\(s.name)»: saltos de línea en el grupo o las notas"))
+            }
+            if s.notes.contains(where: { $0.hasPrefix("@grupo") || $0.hasPrefix("@clave-grupo") }) {
+                out.append(L("«\(s.name)»: una nota no puede empezar por @grupo ni @clave-grupo"))
+            }
         }
         return out
     }

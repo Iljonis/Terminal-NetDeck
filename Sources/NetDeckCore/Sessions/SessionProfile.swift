@@ -2,7 +2,34 @@ import Foundation
 
 /// Una sesión de NetDeck: un «Host» del ssh_config (con sus anotaciones) o una conexión rápida.
 public struct SessionProfile: Identifiable, Hashable, Sendable {
-    public enum Transport: String, Sendable, Codable, CaseIterable { case ssh, telnet }
+    /// Tipo de sesión. ssh y telnet llegan al equipo (directo o por salto); sftp es ssh por debajo (mismo alias, saltos y
+    /// askpass); ftp se abre en el Finder (macOS no trae cliente); serie, con screen; local, la shell del Mac.
+    public enum Transport: String, Sendable, Codable, CaseIterable {
+        case ssh, telnet, sftp, ftp, serial, local
+
+        /// Cómo se escribe en el ssh_config («# @tipo …»; telnet sigue siendo «# @telnet»).
+        public var annotation: String { self == .serial ? "serie" : rawValue }
+
+        public init?(annotation: String) {
+            let a = annotation.trimmed.lowercased()
+            guard let t = a == "serie" ? .serial : Self(rawValue: a) else { return nil }
+            self = t
+        }
+
+        public var label: String {
+            switch self {
+            case .ssh: "SSH"
+            case .telnet: "Telnet"
+            case .sftp: "SFTP"
+            case .ftp: "FTP"
+            case .serial: L("Serie")
+            case .local: L("Local")
+            }
+        }
+
+        /// Llega a un equipo por red con usuario y equipo (los demás campos de conexión sobran).
+        public var isNetwork: Bool { self != .serial && self != .local }
+    }
 
     public var id: String { name }
     /// Alias del «Host».
@@ -21,10 +48,13 @@ public struct SessionProfile: Identifiable, Hashable, Sendable {
     public var namedCredential: String?
     /// «# @antiguo»: equipo con algoritmos SSH antiguos.
     public var legacy: Bool
+    /// «# @serie /dev/cu.… 9600 8N1» (sesiones de consola por puerto serie).
+    public var serial: SerialLine?
 
     public init(name: String, hostName: String? = nil, user: String? = nil, port: Int? = nil,
                 proxyJump: [String] = [], transport: Transport = .ssh, group: String? = nil,
-                summary: String? = nil, namedCredential: String? = nil, legacy: Bool = false) {
+                summary: String? = nil, namedCredential: String? = nil, legacy: Bool = false,
+                serial: SerialLine? = nil) {
         self.name = name
         self.hostName = hostName
         self.user = user
@@ -35,6 +65,7 @@ public struct SessionProfile: Identifiable, Hashable, Sendable {
         self.summary = summary
         self.namedCredential = namedCredential
         self.legacy = legacy
+        self.serial = serial
     }
 
     public var endpoint: Endpoint { Endpoint(user: user, host: hostName ?? name, port: port) }
