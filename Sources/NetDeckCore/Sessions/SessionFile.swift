@@ -195,16 +195,16 @@ public struct SessionFile: Sendable {
             try? fm.moveItem(at: tmp, to: rejected)
             return L("ssh no lo entiende: \(err)")
         }
-        if fm.fileExists(atPath: url.path) {
-            let prev = url.appendingPathExtension("anterior")
-            try? fm.removeItem(at: prev)
-            try? fm.copyItem(at: url, to: prev)
-        }
         do {
-            _ = try fm.replaceItemAt(url, withItemAt: tmp)
+            try SafeFile.backup(url)                     // (si no se puede leer o copiar, no se toca)
+            if fm.fileExists(atPath: url.path) {
+                _ = try fm.replaceItemAt(url, withItemAt: tmp)
+            } else {
+                try fm.moveItem(at: tmp, to: url)
+            }
         } catch {
-            try? fm.removeItem(at: url)
-            do { try fm.moveItem(at: tmp, to: url) } catch { return error.localizedDescription }
+            try? fm.removeItem(at: tmp)
+            return error.localizedDescription
         }
         DebugLog.log("sesiones", "guardadas \(sessions.count) en \(url.path)")
         return nil
@@ -228,14 +228,23 @@ public struct SessionFile: Sendable {
     public static func ensureInclude(sshConfig: URL = AppPaths.home.appendingPathComponent(".ssh/config")) -> Bool {
         let fm = FileManager.default
         let line = "Include ~/.config/netdeck/ssh_config"
-        let old = (try? String(contentsOf: sshConfig, encoding: .utf8)) ?? ""
+        let old: String
+        do { old = try SafeFile.read(sshConfig) ?? "" } catch {
+            DebugLog.log("sesiones", "\(sshConfig.path) no se puede leer: no añado el Include")
+            return false
+        }
         if old.contains(line) { return true }
         try? fm.createDirectory(at: sshConfig.deletingLastPathComponent(), withIntermediateDirectories: true,
                                 attributes: [.posixPermissions: 0o700])
         if fm.fileExists(atPath: sshConfig.path) {
             let f = DateFormatter()
             f.dateFormat = "yyyyMMdd-HHmmss"
-            try? fm.copyItem(at: sshConfig, to: sshConfig.appendingPathExtension("antes-netdeck-\(f.string(from: Date()))"))
+            do {
+                try fm.copyItem(at: sshConfig, to: sshConfig.appendingPathExtension("antes-netdeck-\(f.string(from: Date()))"))
+            } catch {
+                DebugLog.log("sesiones", "sin copia de \(sshConfig.path): no lo toco")
+                return false
+            }
         }
         let text = "# Sesiones de NetDeck (☰ Menú → Sesiones, o comando: sesiones)\n\(line)\n\n" + old
         do {

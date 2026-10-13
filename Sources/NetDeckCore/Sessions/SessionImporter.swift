@@ -87,9 +87,28 @@ public enum SessionImporter {
         return ("desconocido", [], [(url.lastPathComponent, L("no reconozco el formato"))])
     }
 
+    static let maxFileSize = 20_000_000
+
+    /// Opciones de ssh que ejecutan órdenes o abren la puerta a ello: de un archivo importado no se copian nunca
+    /// (un ssh_config descargado podría ejecutar algo al conectar). Las tuyas en tu propio ssh_config no se tocan.
+    static let dangerousOptions: Set<String> = ["proxycommand", "localcommand", "permitlocalcommand", "knownhostscommand",
+                                                "remotecommand", "match", "include", "sendenv", "setenv", "forwardagent",
+                                                "forwardx11", "forwardx11trusted", "pkcs11provider", "securitykeyprovider"]
+
+    static func safeExtra(_ lines: [String], session: String) -> [String] {
+        lines.filter { line in
+            let key = SSHConfigParser.option(line.trimmed)?.0 ?? ""
+            guard dangerousOptions.contains(key) else { return true }
+            DebugLog.log("importar", "«\(session)»: quitada la opción «\(key)» (ejecuta órdenes)")
+            return false
+        }
+    }
+
     /// UTF-16 (los .reg), UTF-8 con o sin BOM, o Windows-1252.
     static func text(of url: URL) -> String {
-        guard let d = try? Data(contentsOf: url) else { return "" }
+        // (un archivo de sesiones no ocupa decenas de megas: si es tan grande no es eso, y no se carga entero)
+        let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0
+        guard size <= maxFileSize, let d = try? Data(contentsOf: url) else { return "" }
         if d.starts(with: [0xFF, 0xFE]) || d.starts(with: [0xFE, 0xFF]) { return String(data: d, encoding: .utf16) ?? "" }
         if let s = String(data: d, encoding: .utf8) { return s.hasPrefix("\u{FEFF}") ? String(s.dropFirst()) : s }
         return String(data: d, encoding: .windowsCP1252) ?? ""
@@ -107,8 +126,10 @@ public enum SessionImporter {
             for sub in ["Sessions", "Config/Sessions"] where fm.fileExists(atPath: url.appendingPathComponent(sub).path) {
                 root = url.appendingPathComponent(sub)
             }
-            let e = fm.enumerator(at: root, includingPropertiesForKeys: nil)
-            while let f = e?.nextObject() as? URL {
+            let e = fm.enumerator(at: root, includingPropertiesForKeys: [.isSymbolicLinkKey])
+            while let f = e?.nextObject() as? URL, files.count < 20_000 {
+                // (sin seguir enlaces: no se sale de la carpeta elegida)
+                if (try? f.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true { e?.skipDescendants(); continue }
                 if f.pathExtension == "ini", !f.lastPathComponent.hasPrefix("__") { files.append(f) }
             }
             files.sort { $0.path < $1.path }
@@ -346,7 +367,7 @@ public enum SessionImporter {
             s.telnet = e.telnet
             s.keyFile = e.keyFile
             s.legacy = e.legacy
-            s.extra = e.extra
+            s.extra = Self.safeExtra(e.extra, session: name)
             if let r = e.ref, byRef[r] == nil { byRef[r] = name }
             out.append((s, e.jump))
         }

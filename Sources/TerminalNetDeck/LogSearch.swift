@@ -133,20 +133,32 @@ struct LogSearchSheet: View {
 
     private func loadContext() {
         guard let h = hits.first(where: { $0.id == selected }) else { context = []; return }
+        let id = h.id
+        Task {
+            // (fuera del hilo principal: un registro grande o comprimido no congela la ventana)
+            let lines = await Task.detached { Self.readLines(h.file) }.value
+            guard selected == id else { return }
+            let lo = max(0, h.line - 13), hi = min(lines.count, h.line + 12)
+            context = lo < hi ? (lo..<hi).map { ($0 + 1 == h.line ? "▶ " : "  ") + lines[$0] } : []
+        }
+    }
+
+    nonisolated static func readLines(_ file: URL) -> [String] {
         let text: String
-        if h.file.pathExtension == "gz" {
+        if file.pathExtension == "gz" {
             let p = Process()
             p.executableURL = URL(fileURLWithPath: "/usr/bin/gzcat")
-            p.arguments = [h.file.path]
+            p.arguments = [file.path]
             let pipe = Pipe()
             p.standardOutput = pipe
-            try? p.run()
-            text = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            p.standardError = FileHandle.nullDevice
+            guard (try? p.run()) != nil else { return [] }
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            p.waitUntilExit()
+            text = String(decoding: data, as: UTF8.self)
         } else {
-            text = (try? String(contentsOf: h.file, encoding: .utf8)) ?? ""
+            text = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
         }
-        let lines = text.components(separatedBy: "\n")
-        let lo = max(0, h.line - 13), hi = min(lines.count, h.line + 12)
-        context = (lo..<hi).map { ($0 + 1 == h.line ? "▶ " : "  ") + lines[$0] }
+        return text.components(separatedBy: "\n")
     }
 }

@@ -40,6 +40,9 @@ final class DialogAskpass: AskpassUI {
     }
 }
 
+// Escribir en una tubería ya cerrada (security, ssh, gzcat que terminan antes) da error, no cierra la app.
+signal(SIGPIPE, SIG_IGN)
+
 // El mismo ejecutable es el SSH_ASKPASS de las pestañas (contraseña de sesión automática): sin interfaz.
 if ProcessInfo.processInfo.environment[Askpass.flag] == "1" {
     let code = MainActor.assumeIsolated {

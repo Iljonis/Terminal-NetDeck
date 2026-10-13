@@ -114,7 +114,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
-codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || echo "   ${A}(sin firmar)${N}"
+# Firma ad hoc con «hardened runtime» (sin derechos extra: la app no carga código de fuera, y el askpass, que es el
+# mismo ejecutable, no hereda variables DYLD_*)
+codesign --force --options runtime --sign - "$APP" >/dev/null 2>&1 || echo "   ${A}(sin firmar)${N}"
 
 if [ $asistente = 1 ]; then
   echo "${V}✓${N} Abriendo el asistente desde build/ (no se instala nada hasta que pulses «Instalar»)"

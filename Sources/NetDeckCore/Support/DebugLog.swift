@@ -21,7 +21,9 @@ public enum DebugLog {
         let line = "\(stamp.string(from: Date())) [\(getpid())] \(area): \(message())\n"
         queue.async {
             let fm = FileManager.default
-            try? fm.createDirectory(at: directory, withIntermediateDirectories: true)
+            if !fm.fileExists(atPath: directory.path) {
+                try? fm.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            }
             if let a = try? fm.attributesOfItem(atPath: file.path), (a[.size] as? Int ?? 0) > 5_000_000 {
                 let old = directory.appendingPathComponent("debug.anterior.log")
                 try? fm.removeItem(at: old)

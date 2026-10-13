@@ -75,12 +75,17 @@ public struct KeychainStore: CredentialStore {
         let inp = Pipe()
         if input != nil { p.standardInput = inp }
         try p.run()
+        // (las dos salidas a la vez: si una llena su tubería mientras se lee la otra, se quedaría colgado)
+        nonisolated(unsafe) var e = Data()
+        let reading = DispatchGroup()
+        DispatchQueue.global().async(group: reading) { e = err.fileHandleForReading.readDataToEndOfFile() }
         if let input {
-            inp.fileHandleForWriting.write(Data(input.utf8))
+            // (con «throws»: si security se cierra antes, error en vez de una excepción que tumba la app)
+            do { try inp.fileHandleForWriting.write(contentsOf: Data(input.utf8)) } catch { DebugLog.log("llavero", "security no ha leído la orden") }
             try? inp.fileHandleForWriting.close()
         }
         let o = out.fileHandleForReading.readDataToEndOfFile()
-        let e = err.fileHandleForReading.readDataToEndOfFile()
+        reading.wait()
         p.waitUntilExit()
         return (p.terminationStatus, String(decoding: o, as: UTF8.self), String(decoding: e, as: UTF8.self).trimmed)
     }

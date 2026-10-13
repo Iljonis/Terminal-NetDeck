@@ -149,7 +149,7 @@ public final class SessionManager {
                 continue
             }
             guard !seen.contains(name) else { throw RouteError.loop(name) }
-            let p = profile(named: name)!
+            guard let p = profile(named: name) else { throw RouteError.badJump(s) }
             out += try resolve(p.proxyJump, seen: seen.union([name]))
             var end = p.endpoint
             if let u = e?.user, profile(named: s) == nil { end.user = u }     // «admin@bastion»: el usuario escrito

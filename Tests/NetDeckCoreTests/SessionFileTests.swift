@@ -145,3 +145,37 @@ private let netdeckFile = """
         #expect(SessionImporter.validName("Almería Core 1") == "Almeria-Core-1")
     }
 }
+
+@Suite struct SafeFileTests {
+    func carpeta() throws -> URL {
+        let d = FileManager.default.temporaryDirectory.appendingPathComponent("safefile-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
+        return d
+    }
+
+    @Test func noPisaUnArchivoQueNoSePuedeLeer() throws {
+        let f = try carpeta().appendingPathComponent("ssh_config")
+        try Data([0xFF, 0xFE, 0x00, 0xD8]).write(to: f)                 // no es UTF-8
+        #expect(throws: SafeFile.Unreadable.self) { try SafeFile.backup(f) }
+        let err = SessionFile(text: "Host a\n  HostName 192.0.2.1\n").save(to: f, validate: false)
+        #expect(err != nil)
+        #expect(FileManager.default.contents(atPath: f.path) == Data([0xFF, 0xFE, 0x00, 0xD8]))
+    }
+
+    @Test func guardaElOriginalYElAnterior() throws {
+        let f = try carpeta().appendingPathComponent("botones.txt")
+        try SafeFile.write("uno", to: f)
+        try SafeFile.backup(f); try SafeFile.write("dos", to: f)
+        try SafeFile.backup(f); try SafeFile.write("tres", to: f)
+        #expect(try SafeFile.read(f.appendingPathExtension("original")) == "uno")
+        #expect(try SafeFile.read(f.appendingPathExtension("anterior")) == "dos")
+        #expect(try SafeFile.read(f) == "tres")
+        let modo = try FileManager.default.attributesOfItem(atPath: f.path)[.posixPermissions] as? Int
+        #expect(modo == 0o600)
+    }
+
+    @Test func alImportarSeQuitanLasOpcionesQueEjecutan() {
+        let extra = ["ProxyCommand nc %h %p", "LocalCommand touch /tmp/x", "ServerAliveInterval 30", "forwardagent yes"]
+        #expect(SessionImporter.safeExtra(extra, session: "x") == ["ServerAliveInterval 30"])
+    }
+}

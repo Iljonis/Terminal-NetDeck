@@ -274,8 +274,11 @@ final class AppModel {
     func toggleFavorite(_ name: String) {
         if favorites.contains(name) { favorites.removeAll { $0 == name } } else { favorites.append(name) }
         AppPaths.ensure(AppPaths.netdeck)
-        try? (favorites.joined(separator: "\n") + (favorites.isEmpty ? "" : "\n"))
-            .write(to: Self.favoritesFile, atomically: true, encoding: .utf8)
+        do {
+            try SafeFile.write(favorites.joined(separator: "\n") + (favorites.isEmpty ? "" : "\n"), to: Self.favoritesFile)
+        } catch {
+            DebugLog.log("favoritas", "no se han podido guardar: \(error.localizedDescription)")
+        }
     }
 
     private func noteRecent(_ name: String) {
@@ -748,7 +751,12 @@ final class AppModel {
             return
         }
         AppPaths.ensure(AppPaths.support)
-        try? JSONEncoder().encode(routes).write(to: Self.openTabsFile)
+        do {
+            try JSONEncoder().encode(routes).write(to: Self.openTabsFile, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Self.openTabsFile.path)
+        } catch {
+            DebugLog.log("app", "no se han podido guardar las pestañas abiertas: \(error.localizedDescription)")
+        }
     }
 
     private static func readOpenTabs() -> [ConnectionRoute] {
@@ -814,7 +822,7 @@ final class AppModel {
         saveOpenTabs()
         let log = DebugLog.directory.appendingPathComponent("actualizar.log")
         AppPaths.ensure(DebugLog.directory)
-        FileManager.default.createFile(atPath: log.path, contents: nil)
+        FileManager.default.createFile(atPath: log.path, contents: nil, attributes: [.posixPermissions: 0o600])
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/bash")
         p.arguments = [dir.appendingPathComponent("actualizar.sh").path]

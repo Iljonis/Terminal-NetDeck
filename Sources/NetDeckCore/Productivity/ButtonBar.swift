@@ -156,12 +156,8 @@ public struct ButtonFile: Sendable {
 
     public func save(to url: URL = ButtonFile.defaultURL) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if FileManager.default.fileExists(atPath: url.path) {
-            let prev = url.appendingPathExtension("anterior")
-            try? FileManager.default.removeItem(at: prev)
-            try? FileManager.default.copyItem(at: url, to: prev)
-        }
-        try render().write(to: url, atomically: true, encoding: .utf8)
+        try SafeFile.backup(url)                         // (si no se puede leer o copiar, no se toca)
+        try SafeFile.write(render(), to: url)
     }
 
     static let defaultHeader = """

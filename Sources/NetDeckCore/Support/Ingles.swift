@@ -1016,5 +1016,7 @@ enum Ingles {
             "⬆ Version %@ available",
         "Hay una versión nueva de Terminal NetDeck: clic para verla":
             "A new version of Terminal NetDeck is available: click to see it",
+        "No se puede leer %@: no lo sobrescribo (¿no es UTF-8?). Revísalo o muévelo y vuelve a probar.":
+            "Can't read %@: not overwriting it (is it not UTF-8?). Check or move it and try again.",
     ]
 }

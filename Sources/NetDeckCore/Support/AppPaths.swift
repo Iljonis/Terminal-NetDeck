@@ -27,6 +27,8 @@ public enum AppPaths {
     public static func ensure(_ dir: URL) -> URL {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true,
                                                  attributes: [.posixPermissions: 0o700])
+        // (también si ya existía con otros permisos: sólo tú)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dir.path)
         return dir
     }
 
