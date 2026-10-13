@@ -49,6 +49,25 @@ import Testing
         #expect(io.sent.isEmpty)
     }
 
+    @Test func promptFalsoTrasLaOrdenNoRecibeNada() async {
+        let io = FakeTerminal(["$ ssh root@10.0.0.1", "(tu.usuario@10.0.0.1) Password:"])
+        let a = make(io, MemoryCredentialStore([.named("AD"): "x"]), CredentialLedger(),
+                     default: .init(name: "AD", user: "tu.usuario"))
+        a.commandUser = "root"
+        #expect(await a.observe(io, gate: AutomationGate()) == .manual(.conflictingUsers(command: "root", prompt: "tu.usuario")))
+        a.commandJumpUsers = ["tu.usuario"]
+        io.screen += ["(tu.usuario@bastion) Password:"]
+        #expect(await a.observe(io, gate: AutomationGate()) == .typed(.named("AD")))
+    }
+
+    @Test func passwordASecasSinUsuarioNoSeEscribe() async {
+        let io = FakeTerminal(["$ telnet 10.0.0.9", "Password:"])
+        let a = make(io, MemoryCredentialStore([.named("AD"): "x"]), CredentialLedger(),
+                     default: .init(name: "AD", user: "tu.usuario"))
+        #expect(await a.observe(io, gate: AutomationGate()) == .manual(.unknownUser))
+        #expect(io.sent.isEmpty)
+    }
+
     @Test func escribeLaSuyaYSiFallaLaBloquea() async {
         let io = FakeTerminal(["admin@10.0.0.1's password:"]) { _ in ["Permission denied, please try again.", "admin@10.0.0.1's password:"] }
         let ledger = CredentialLedger()

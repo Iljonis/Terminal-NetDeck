@@ -112,6 +112,7 @@ public enum Askpass {
         case .userMismatch(let u): "ninguna guardada es de «\(u)»: escríbela tú"
         case .conflictingUsers(let c, let p): "la orden dice «\(c)» y el prompt «\(p)»: escríbela tú"
         case .recentlyFailed(let r): "«\(r)» falló hace poco: no se escribe sola (cuenta AD)"
+        case .unknownUser: "no se sabe qué usuario la pide: escríbela tú"
         case .noCredential: "no hay ninguna guardada"
         }
     }

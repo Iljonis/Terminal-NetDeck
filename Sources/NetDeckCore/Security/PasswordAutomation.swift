@@ -28,6 +28,8 @@ public final class PasswordAutomation {
     public var settle: Duration = .milliseconds(150)
     /// Usuario de la última orden «ssh/telnet …» tecleada aquí (lo pone la vista al pulsar Intro).
     public var commandUser: String?
+    /// Los usuarios explícitos de los saltos de esa orden (`ssh -J tu.usuario@bastion …`).
+    public var commandJumpUsers: Set<String> = []
     /// Candidatas para cada petición (las da la app con lo que sabe de la sesión: `SessionManager`).
     public var candidates: (PasswordRequest) -> [CredentialCandidate]
 
@@ -70,7 +72,7 @@ public final class PasswordAutomation {
             return .failed(p.ref)
         }
         let cands = candidates(request).filter { store.contains($0.ref) }
-        let decision = policy.decide(request, commandUser: commandUser, candidates: cands,
+        let decision = policy.decide(request, commandUser: commandUser, jumpUsers: commandJumpUsers, candidates: cands,
                                      isBlocked: ledger.isBlocked)
         guard case .inject(let ref) = decision else {
             if case .manual(let why) = decision { return .manual(why) }

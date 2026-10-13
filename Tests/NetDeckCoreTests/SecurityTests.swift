@@ -36,6 +36,15 @@ import Testing
         #expect(CommandLineUser.parse("ssh -oUser=root 10.0.0.1")?.user == "root")
         #expect(CommandLineUser.parse("ls -la") == nil)
     }
+
+    @Test func usuariosDeLosSaltosDeLaOrden() {
+        #expect(CommandLineUser.jumpUsers("ssh -J tu.usuario@bastion,ops@b2:2222 admin@10.0.0.5") == ["tu.usuario", "ops"])
+        #expect(CommandLineUser.jumpUsers("ssh -Jtu.usuario@bastion admin@10.0.0.5") == ["tu.usuario"])
+        #expect(CommandLineUser.jumpUsers("ssh -o ProxyJump=ops@bastion 10.0.0.5") == ["ops"])
+        #expect(CommandLineUser.jumpUsers("ssh -J bastion admin@10.0.0.5") == [])       // sin usuario: no se sabe
+        #expect(CommandLineUser.jumpUsers("ssh admin@10.0.0.5 -J x@y") == [])          // (eso es la orden remota)
+        #expect(CommandLineUser.jumpUsers("telnet 10.0.0.5") == [])
+    }
 }
 
 /// REGLA CRÍTICA: nunca la por defecto (ni ninguna) a un usuario que no es el suyo.
@@ -74,11 +83,33 @@ import Testing
                 == .manual(.conflictingUsers(command: "admin", prompt: "pepe")))
     }
 
-    @Test func sinUsuarioConocidoValeLaPrimera() {
-        #expect(decide("Password:", [porDefecto]) == .inject(.named("AD")))
-        #expect(CredentialPolicy(allowWhenUserUnknown: false).decide(
+    /// v0.4: estricta por defecto. Sin saber qué usuario la pide, nada se escribe solo.
+    @Test func sinUsuarioConocidoNadaSeEscribe() {
+        #expect(decide("Password:", [porDefecto]) == .manual(.unknownUser))
+        let sinDueño = CredentialCandidate(ref: .named("X"), owners: [], origin: .sessionNamed)
+        #expect(decide("Password:", [sinDueño]) == .manual(.unknownUser))
+        #expect(CredentialPolicy(allowWhenUserUnknown: true).decide(
             PasswordRequest(line: "Password:"), commandUser: nil, candidates: [porDefecto], isBlocked: { _ in false })
-                == .manual(.noCredential))
+                == .inject(.named("AD")))
+    }
+
+    /// El equipo no puede desviar la contraseña: tras «ssh root@…» un «tu.usuario@…'s password:» falso no la recibe.
+    @Test func elPromptNoContradiceALaOrden() {
+        #expect(decide("tu.usuario@10.0.0.1's password:", command: "root", [porDefecto])
+                == .manual(.conflictingUsers(command: "root", prompt: "tu.usuario")))
+        #expect(decide("(tu.usuario@10.0.0.1) Password:", command: "root", [porDefecto])
+                == .manual(.conflictingUsers(command: "root", prompt: "tu.usuario")))
+        #expect(decide("admin@10.0.0.1's password:", command: "admin", [porDefecto, deAdmin])
+                == .inject(.device("admin", "10.0.0.1")))
+    }
+
+    /// «ssh -J tu.usuario@bastion admin@…»: el salto pide la suya (otro usuario) y vale, porque la orden lo dice.
+    @Test func losSaltosDeLaOrdenCuentan() {
+        let r = PasswordPrompt.detect(cursorLine: "tu.usuario@bastion's password:", above: [])!
+        #expect(policy.decide(r, commandUser: "admin", jumpUsers: ["tu.usuario"], candidates: [porDefecto],
+                              isBlocked: { _ in false }) == .inject(.named("AD")))
+        #expect(policy.decide(r, commandUser: "admin", jumpUsers: ["ops"], candidates: [porDefecto],
+                              isBlocked: { _ in false }) == .manual(.conflictingUsers(command: "admin", prompt: "tu.usuario")))
     }
 
     @Test func bloqueadaPorFalloReciente() {

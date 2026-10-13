@@ -234,6 +234,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
                 let line = self.cursorLine.trimmingCharacters(in: .whitespaces)
                 if !line.hasPrefix(Askpass.marker), DevicePrompt.generic.matches(line) {
                     self.passwords.commandUser = self.route.thenUser
+                    self.passwords.commandJumpUsers = []
                     DebugLog.log("salto", "«\(self.title)»: prompt del salto «\(line)» → «\(cmd)»")
                     self.sendLine(cmd)
                     return
@@ -273,7 +274,10 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
 
     /// Intro del usuario: si era «ssh …»/«telnet …», su usuario cuenta para la regla de la contraseña.
     func noteCommand() {
-        if let e = CommandLineUser.parse(cursorLine) { passwords.commandUser = e.user }
+        if let e = CommandLineUser.parse(cursorLine) {
+            passwords.commandUser = e.user
+            passwords.commandJumpUsers = CommandLineUser.jumpUsers(cursorLine)
+        }
     }
 
     private func outputChanged() async {

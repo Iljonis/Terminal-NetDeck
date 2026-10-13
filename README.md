@@ -32,6 +32,8 @@ Contraseñas, por separado:
   bloqueada 15 min en todas partes y te la pide en la pestaña (`[NetDeck] …`, Esc cancela) ofreciendo guardarla.
 - **Equipos** (`ssh`/`telnet` desde una sesión): escribir sola, sugerir o nada (Ajustes → Contraseñas).
 - Siempre la regla de usuario: sólo una contraseña de ese mismo usuario (`ssh root@…`, `Username: pepe`, `(admin@equipo) Password:`).
+  Estricta: con un `Password:` a secas sin usuario conocido no se escribe nada, y si la orden dice `ssh root@…` el
+  prompt no puede pedir la de otro usuario (salvo los saltos explícitos de la orden: `ssh -J tu.usuario@bastion …`).
 
 Ajustes (⌘,): Contraseñas · Temas · Fuentes (terminal e interfaz, aparte de los temas) · Resaltado · General.
 

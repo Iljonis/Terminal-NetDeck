@@ -577,6 +577,7 @@ final class AppModel {
                 let sw = s.gate.begin()
                 defer { s.gate.end(sw) }
                 s.passwords.commandUser = parts[0]
+                s.passwords.commandJumpUsers = []
                 let r = await InputScript.login(user: parts[0], credential: .named(parts[1])).run(on: s, store: store, abort: sw)
                 status = "🔑 Login «\(b.name)»: \(r)"
             }

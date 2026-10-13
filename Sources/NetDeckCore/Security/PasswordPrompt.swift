@@ -61,11 +61,22 @@ public enum CommandLineUser {
     private static let sshOptionsWithArgument = Set("BbcDEeFIiJLlmOoPpQRSWw")
 
     /// «admin@bastion:~$ ssh -p 2222 -l root 10.0.0.1» → root@10.0.0.1:2222. «-l» gana a «usuario@» (como ssh).
-    public static func parse(_ commandLine: String) -> Endpoint? {
+    public static func parse(_ commandLine: String) -> Endpoint? { scan(commandLine).target }
+
+    /// Los usuarios explícitos de los saltos: «ssh -J tu.usuario@bastion,ops@b2 admin@…» → tu.usuario, ops.
+    /// (Un salto sin «usuario@» no cuenta: no se sabe quién es.)
+    public static func jumpUsers(_ commandLine: String) -> Set<String> {
+        Set(scan(commandLine).jumps.compactMap(\.user))
+    }
+
+    private static func scan(_ commandLine: String) -> (target: Endpoint?, jumps: [Endpoint]) {
         let t = commandLine.split(whereSeparator: \.isWhitespace).map(String.init)
-        guard let s = t.lastIndex(where: { ["ssh", "telnet"].contains(($0 as NSString).lastPathComponent) }) else { return nil }
+        guard let s = t.lastIndex(where: { ["ssh", "telnet"].contains(($0 as NSString).lastPathComponent) }) else { return (nil, []) }
         let isSSH = (t[s] as NSString).lastPathComponent == "ssh"
-        var user: String?, port: Int?, host: Endpoint?
+        var user: String?, port: Int?, host: Endpoint?, jumps: [Endpoint] = []
+        func addJumps(_ arg: String?) {
+            jumps += (arg ?? "").split(separator: ",").compactMap { Endpoint(parsing: String($0)) }
+        }
         var i = s + 1
         while i < t.count {
             let tok = t[i]
@@ -78,6 +89,8 @@ public enum CommandLineUser {
                     switch flag.first! {
                     case "l": user = arg
                     case "p": port = arg.flatMap { Int($0) }
+                    case "J": addJumps(arg)
+                    case "o" where arg?.lowercased().hasPrefix("proxyjump=") == true: addJumps(String(arg!.dropFirst(10)))
                     case "o" where arg?.lowercased().hasPrefix("user=") == true: user = String(arg!.dropFirst(5))
                     case "o" where arg?.lowercased().hasPrefix("port=") == true: port = Int(arg!.dropFirst(5))
                     default: break
@@ -85,7 +98,7 @@ public enum CommandLineUser {
                 }
             } else if host == nil {
                 host = Endpoint(parsing: tok)
-                if host == nil { return nil }
+                if host == nil { return (nil, []) }
             } else if !isSSH, port == nil, let p = Int(tok) {
                 port = p
             } else {
@@ -93,9 +106,9 @@ public enum CommandLineUser {
             }
             i += 1
         }
-        guard var e = host else { return nil }
+        guard var e = host else { return (nil, []) }
         if let user { e.user = user }
         if e.port == nil { e.port = port }
-        return e
+        return (e, jumps)
     }
 }
