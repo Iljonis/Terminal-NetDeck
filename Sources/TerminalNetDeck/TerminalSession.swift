@@ -161,7 +161,19 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
 
     private func launch() {
         let (exe, args) = route.command
-        var env = TerminalEnvironment.prepare(ProcessInfo.processInfo.environment, forSSH: exe == "/usr/bin/ssh",
+        if let problem = route.launchProblem() {             // (falta screen, el adaptador serie o el programa)
+            _ = pipe.next()
+            state = .exited(nil)
+            DebugLog.log("pestaña", "«\(title)» no arranca: \(problem)")
+            pipe.say("\u{1b}[38;5;204m[NetDeck] \(problem)\u{1b}[0m"
+                     + L(" · \u{1b}[1mIntro\u{1b}[0m reconectar · \u{1b}[1mEsc\u{1b}[0m cerrar la pestaña\r\n"))
+            return
+        }
+        if route.transport == .serial {
+            pipe.say("\u{1b}[38;5;51m[NetDeck] " + L("screen: para salir, Ctrl-A y luego k") + "\u{1b}[0m\r\n")
+        }
+        // (sftp es ssh por debajo: tampoco le llega el idioma del Mac)
+        var env = TerminalEnvironment.prepare(ProcessInfo.processInfo.environment, forSSH: exe == "/usr/bin/ssh" || exe == "/usr/bin/sftp",
                                               sendLocale: UserDefaults.standard.bool(forKey: AppSettings.sendLocaleKey))
         env[Askpass.flag] = nil
         env.merge(environment) { $1 }

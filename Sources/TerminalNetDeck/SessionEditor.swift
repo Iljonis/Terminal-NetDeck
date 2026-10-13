@@ -16,6 +16,8 @@ struct SessionEditor: View {
     @Stored private var importing = false
     @Stored private var newPassword = ""
     @Stored private var changing: CredentialRef?
+    /// Puertos /dev/cu.* de este Mac (se buscan al abrir y con ↻).
+    @Stored private var ports: [String] = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -42,7 +44,7 @@ struct SessionEditor: View {
         }
         .frame(width: 940, height: 640)
         .background(SwiftUI.Color(t.background))
-        .onAppear(perform: load)
+        .onAppear { load(); ports = SerialLine.devices() }
         .sheet(isPresented: Binding(get: { changing != nil }, set: { if !$0 { changing = nil } })) {
             if let ref = changing { PasswordChangeSheet(ref: ref) { message = $0 } }
         }
@@ -80,9 +82,21 @@ struct SessionEditor: View {
                 IconButton(icon: "plus") { add(group: index.map { file.sessions[$0].group }) }.help(L("Nueva sesión"))
                 IconButton(icon: "plus.square.on.square") { duplicate() }.help(L("Duplicar")).disabled(index == nil)
                 IconButton(icon: "trash") { delete() }.help(L("Borrar")).disabled(index == nil)
+                IconButton(icon: "chevron.up") { move(-1) }.help(L("Subir (dentro de su grupo)")).disabled(index == nil)
+                IconButton(icon: "chevron.down") { move(1) }.help(L("Bajar (dentro de su grupo)")).disabled(index == nil)
                 Spacer()
+                Menu {
+                    Button(L("Todas (JSON)…")) { export(groups: nil, csv: false) }
+                    Button(L("Todas (CSV)…")) { export(groups: nil, csv: true) }
+                    if !file.groups.isEmpty {
+                        Divider()
+                        ForEach(file.groups, id: \.self) { g in Button(L("Grupo «\(g)» (JSON)…")) { export(groups: [g], csv: false) } }
+                    }
+                } label: { Image(systemName: "square.and.arrow.up") }
+                    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+                    .help(L("Exportar (sin contraseñas)"))
                 NeonButton(title: L("Importar"), icon: "square.and.arrow.down", tint: t.accent2) { importing = true }
-                    .help(L("SecureCRT, MobaXterm, PuTTY, electerm, CSV o un ssh_config"))
+                    .help(L("SecureCRT, MobaXterm, PuTTY, electerm, CSV, un ssh_config o un JSON exportado"))
             }
             .padding(8)
         }
@@ -91,7 +105,8 @@ struct SessionEditor: View {
 
     private func matches(_ s: EditableSession) -> Bool {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        return q.isEmpty || [s.name, s.host, s.user, s.summary, s.group].contains { $0.lowercased().contains(q) }
+        return q.isEmpty || [s.name, s.host, s.user, s.summary, s.group, s.kind.label, s.serial.device]
+            .contains { $0.lowercased().contains(q) }
     }
 
     private func groupHeader(_ g: String) -> some View {
@@ -104,6 +119,8 @@ struct SessionEditor: View {
             Menu {
                 Button(L("Nueva sesión en «\(g)»")) { add(group: g) }
                 Button(L("Renombrar grupo…")) { renameGroup(g) }
+                Button(L("Exportar el grupo (JSON)…")) { export(groups: [g], csv: false) }
+                Button(L("Exportar el grupo (CSV)…")) { export(groups: [g], csv: true) }
                 Menu(L("Contraseña del grupo")) {
                     Button(L("(ninguna)")) { file.groupCredentials[g] = nil }
                     ForEach(namedCredentials, id: \.self) { n in Button(n) { file.groupCredentials[g] = n } }
@@ -119,7 +136,7 @@ struct SessionEditor: View {
     private func row(_ s: EditableSession) -> some View {
         let on = s.id == selected
         return HStack(spacing: 8) {
-            Image(systemName: s.telnet ? "cable.connector" : (s.jump.isEmpty ? "terminal.fill" : "arrow.triangle.turn.up.right.diamond.fill"))
+            Image(systemName: s.kind.icon(jump: !s.jump.isEmpty))
                 .font(.system(size: 10)).foregroundStyle(SwiftUI.Color(on ? t.onTab : t.accent2)).frame(width: 16)
             VStack(alignment: .leading, spacing: 1) {
                 Text(s.name).font(t.ui(12, .semibold)).lineLimit(1)
@@ -136,15 +153,32 @@ struct SessionEditor: View {
         .background(RoundedRectangle(cornerRadius: 6).fill(on ? SwiftUI.Color(t.tab) : SwiftUI.Color.clear))
         .contentShape(Rectangle())
         .onTapGesture { importing = false; selected = s.id; newPassword = "" }
+        // (arrastrar una sobre otra: se pone delante, en su grupo; el orden es el del archivo)
+        .draggable(s.id.uuidString)
+        .dropDestination(for: String.self) { items, _ in
+            guard let id = items.first.flatMap(UUID.init(uuidString:)), id != s.id else { return false }
+            file.move(id, to: s.id)
+            selected = id
+            return true
+        }
         .contextMenu {
+            Button(L("Subir")) { selected = s.id; move(-1) }
+            Button(L("Bajar")) { selected = s.id; move(1) }
+            Divider()
             Button(L("Duplicar")) { selected = s.id; duplicate() }
             Button(L("Borrar")) { selected = s.id; delete() }
         }
     }
 
     private func endpoint(_ s: EditableSession) -> String {
-        (s.user.isEmpty ? "" : "\(s.user)@") + (s.host.isEmpty ? s.name : s.host) + (s.port == "22" || s.port.isEmpty ? "" : ":\(s.port)")
-            + (s.jump.isEmpty ? "" : "  ⟵ \(s.jump)")
+        switch s.kind {
+        case .serial: return "\(s.serial.device) · \(s.serial.speed) \(s.serial.frame)"
+        case .local: return L("Este Mac")
+        case .ssh, .telnet, .sftp, .ftp:
+            return (s.user.isEmpty ? "" : "\(s.user)@") + (s.host.isEmpty ? s.name : s.host)
+                + (s.port == "22" || s.port.isEmpty ? "" : ":\(s.port)") + (s.jump.isEmpty ? "" : "  ⟵ \(s.jump)")
+                + (s.kind == .ssh ? "" : " · \(s.kind.label)")
+        }
     }
 
     private var placeholder: some View {
@@ -163,8 +197,6 @@ struct SessionEditor: View {
     private func form(_ i: Int) -> some View {
         let s = $file.sessions[i]
         let others = file.sessions.map(\.name).filter { $0 != file.sessions[i].name }
-        let user = file.sessions[i].user.isEmpty ? NSUserName() : file.sessions[i].user
-        let host = file.sessions[i].host.isEmpty ? file.sessions[i].name : file.sessions[i].host
         return Form {
             Section {
                 HStack {
@@ -185,35 +217,114 @@ struct SessionEditor: View {
             } header: { header(L("SESIÓN")) }
 
             Section {
-                Picker(L("Protocolo"), selection: s.telnet) {
-                    Text(L("SSH")).tag(false)
-                    Text(L("Telnet")).tag(true)
+                let k = file.sessions[i].kind
+                Picker(L("Tipo"), selection: s.kind) {
+                    ForEach(SessionProfile.Transport.allCases, id: \.self) { Label($0.label, systemImage: $0.icon(jump: false)).tag($0) }
                 }
-                .pickerStyle(.segmented)
-                TextField(L("Equipo (nombre o IP)"), text: s.host, prompt: Text("192.0.2.1"))
-                TextField(L("Usuario"), text: s.user, prompt: Text(NSUserName()))
-                TextField(L("Puerto"), text: s.port, prompt: Text(file.sessions[i].telnet ? "23" : "22"))
-                Picker(L("Saltar por"), selection: s.jump) {
-                    Text(L("Directo")).tag("")
-                    if !file.sessions[i].jump.isEmpty, !others.contains(file.sessions[i].jump) {
-                        Text(file.sessions[i].jump).tag(file.sessions[i].jump)
+                if k.isNetwork {
+                    TextField(L("Equipo (nombre o IP)"), text: s.host, prompt: Text("192.0.2.1"))
+                    TextField(L("Usuario"), text: s.user, prompt: Text(NSUserName()))
+                    TextField(L("Puerto"), text: s.port, prompt: Text(k == .telnet ? "23" : k == .ftp ? "21" : "22"))
+                }
+                if k.isNetwork, k != .ftp {
+                    Picker(L("Saltar por"), selection: s.jump) {
+                        Text(L("Directo")).tag("")
+                        if !file.sessions[i].jump.isEmpty, !others.contains(file.sessions[i].jump) {
+                            Text(file.sessions[i].jump).tag(file.sessions[i].jump)
+                        }
+                        ForEach(others, id: \.self) { Text($0).tag($0) }
                     }
-                    ForEach(others, id: \.self) { Text($0).tag($0) }
                 }
-                if !file.sessions[i].jump.isEmpty {
+                if k == .ssh, !file.sessions[i].jump.isEmpty {
                     Text(L("Si el salto no deja reenviar (-J), la app entra en él y escribe «ssh equipo»."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                if !file.sessions[i].telnet {
+                if k == .ssh || k == .sftp {
                     HStack {
                         TextField(L("Clave privada"), text: s.keyFile, prompt: Text(L("(ninguna)")))
                         Button(L("Elegir…")) { chooseKey(i) }
                     }
                     Toggle(L("Equipo antiguo (algoritmos ssh viejos)"), isOn: s.legacy)
                 }
+                switch k {
+                case .sftp: note(L("Abre /usr/bin/sftp con el mismo alias, salto, puerto y usuario que ssh; la contraseña, como en ssh."))
+                case .ftp: note(L("macOS no trae cliente FTP: se abre en el Finder, sólo lectura (para subir archivos, usa SFTP). La contraseña la pide el Finder."))
+                case .local: note(L("Tu shell de inicio en este Mac (como ⌘T): sin contraseñas ni MultiExec."))
+                case .serial: serialFields(i)
+                case .ssh, .telnet: EmptyView()
+                }
             } header: { header(L("CONEXIÓN")) }
 
+            if [.ssh, .telnet, .sftp].contains(file.sessions[i].kind) { passwordSection(i) }
+
+            if [.ssh, .sftp].contains(file.sessions[i].kind) {
+                Section {
+                    TextEditor(text: Binding(get: { file.sessions[i].extra.joined(separator: "\n") },
+                                             set: { file.sessions[i].extra = $0.components(separatedBy: .newlines)
+                                                 .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }))
+                        .font(.system(.callout, design: .monospaced))
+                        .frame(minHeight: 60)
+                } header: { header(L("OPCIONES DE SSH (AVANZADO)")) } footer: {
+                    Text(L("Una por línea: LocalForward 8080 192.0.2.1:80 · ServerAliveInterval 30 · …")).font(.caption)
+                }
+            }
+
             Section {
+                TextEditor(text: Binding(get: { file.sessions[i].notes.joined(separator: "\n") },
+                                         set: { file.sessions[i].notes = $0.components(separatedBy: .newlines)
+                                             .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }))
+                    .font(.system(.callout, design: .monospaced))
+                    .frame(minHeight: 44)
+            } header: { header(L("NOTAS")) } footer: {
+                Text(L("Una por línea; se guardan como comentarios «# …» de la sesión (p. ej. «@proyecto despliegue»).")).font(.caption)
+            }
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(text).font(.caption).foregroundStyle(.secondary)
+    }
+
+    /// Puerto serie: los /dev/cu.* que hay ahora (o la ruta a mano), velocidad y trama.
+    @ViewBuilder private func serialFields(_ i: Int) -> some View {
+        let line = $file.sessions[i].serial
+        let cur = file.sessions[i].serial.device
+        HStack {
+            Picker(L("Puerto serie"), selection: line.device) {
+                Text(L("(elige uno)")).tag("")
+                if !cur.isEmpty, !ports.contains(cur) { Text(L("\(cur) (no conectado)")).tag(cur) }
+                ForEach(ports, id: \.self) { Text($0).tag($0) }
+            }
+            IconButton(icon: "arrow.clockwise") { ports = SerialLine.devices() }.help(L("Volver a buscar puertos"))
+        }
+        TextField(L("Ruta del puerto"), text: line.device, prompt: Text("/dev/cu.usbserial-0001"))
+        if !cur.isEmpty, !SerialLine.isValidDevice(cur) {
+            Text(L("Sólo /dev/cu.* o /dev/tty.*, sin espacios ni símbolos")).font(.caption).foregroundStyle(SwiftUI.Color(t.bad))
+        }
+        Picker(L("Velocidad"), selection: line.speed) {
+            ForEach(SerialLine.speeds, id: \.self) { Text("\($0)").tag($0) }
+        }
+        Picker(L("Bits de datos"), selection: line.dataBits) { Text("8").tag(8); Text("7").tag(7) }.pickerStyle(.segmented)
+        Picker(L("Paridad"), selection: line.parity) {
+            Text(L("Ninguna")).tag(SerialLine.Parity.none)
+            Text(L("Par")).tag(SerialLine.Parity.even)
+            Text(L("Impar")).tag(SerialLine.Parity.odd)
+        }
+        .pickerStyle(.segmented)
+        Picker(L("Bits de parada"), selection: line.stopBits) { Text("1").tag(1); Text("2").tag(2) }.pickerStyle(.segmented)
+        note(L("Se abre con /usr/bin/screen (para salir: Ctrl-A y luego k). screen sólo aplica la velocidad y los bits de datos: la paridad y los bits de parada quedan como los deje el sistema."))
+        if !FileManager.default.fileExists(atPath: SerialLine.screen) {
+            Text(L("Este Mac no tiene /usr/bin/screen: la pestaña no podrá abrir el puerto.")).font(.caption).foregroundStyle(SwiftUI.Color(t.bad))
+        }
+    }
+
+    private func passwordSection(_ i: Int) -> some View {
+        let s = $file.sessions[i]
+        let user = file.sessions[i].user.isEmpty ? NSUserName() : file.sessions[i].user
+        let host = file.sessions[i].host.isEmpty ? file.sessions[i].name : file.sessions[i].host
+        return Section {
                 Picker(L("Contraseña"), selection: s.credential) {
                     Text(L("Automática (la de \(user)@\(host) o la por defecto)")).tag("")
                     Text(L("La propia del equipo (-)")).tag("-")
@@ -242,19 +353,6 @@ struct SessionEditor: View {
             } header: { header(L("CONTRASEÑA (LLAVERO)")) } footer: {
                 Text(L("Nunca se escribe sola la de otro usuario: sólo la de ese mismo usuario.")).font(.caption)
             }
-
-            Section {
-                TextEditor(text: Binding(get: { file.sessions[i].extra.joined(separator: "\n") },
-                                         set: { file.sessions[i].extra = $0.components(separatedBy: .newlines)
-                                             .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }))
-                    .font(.system(.callout, design: .monospaced))
-                    .frame(minHeight: 60)
-            } header: { header(L("OPCIONES DE SSH (AVANZADO)")) } footer: {
-                Text(L("Una por línea: LocalForward 8080 192.0.2.1:80 · ServerAliveInterval 30 · …")).font(.caption)
-            }
-        }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
     }
 
     /// Cuál usará de verdad (en el orden en que se prueban) y «Cambiar contraseña…» para sustituirla.
@@ -318,6 +416,9 @@ struct SessionEditor: View {
         switch model.editorFocus {
         case .session(let n): selected = file.sessions.first { $0.name == n }?.id
         case .new(let g): add(group: g)
+        case .duplicate(let n):
+            selected = file.sessions.first { $0.name == n }?.id
+            duplicate()
         case .importing: importing = true
         case nil: selected = file.sessions.first?.id
         }
@@ -326,9 +427,7 @@ struct SessionEditor: View {
 
     private func add(group: String?) {
         let g = group ?? file.groups.first ?? "General"
-        var n = "nueva", k = 2
-        while file.sessions.contains(where: { $0.name.lowercased() == n }) { n = "nueva-\(k)"; k += 1 }
-        let s = EditableSession(group: g, name: n)
+        let s = EditableSession(group: g, name: file.uniqueName("nueva"))
         let at = (file.sessions.lastIndex { $0.group == g }).map { $0 + 1 } ?? file.sessions.count
         file.sessions.insert(s, at: at)
         selected = s.id
@@ -337,16 +436,32 @@ struct SessionEditor: View {
 
     private func duplicate() {
         guard let i = index else { return }
-        var c = file.sessions[i]
-        var n = "\(c.name)-2", k = 3
-        while file.sessions.contains(where: { $0.name.lowercased() == n.lowercased() }) { n = "\(c.name)-\(k)"; k += 1 }
-        let copy = EditableSession(group: c.group, name: n)
-        c.name = n
-        var d = copy
-        (d.summary, d.host, d.user, d.port, d.jump, d.keyFile) = (c.summary, c.host, c.user, c.port, c.jump, c.keyFile)
-        (d.legacy, d.credential, d.telnet, d.extra) = (c.legacy, c.credential, c.telnet, c.extra)
+        let d = file.sessions[i].copy(named: file.uniqueName("\(file.sessions[i].name)-2"))
         file.sessions.insert(d, at: i + 1)
         selected = d.id
+        importing = false
+    }
+
+    private func move(_ step: Int) {
+        guard let id = selected else { return }
+        file.move(id, by: step)
+    }
+
+    /// JSON (todos los campos) o CSV (las columnas del importador) de todas o de unos grupos. Nunca contraseñas.
+    private func export(groups: Set<String>?, csv: Bool) {
+        let list = SessionExport.select(file.sessions, groups: groups)
+        guard !list.isEmpty else { message = L("✗ No hay sesiones que exportar"); return }
+        let p = NSSavePanel()
+        let base = groups.flatMap { $0.count == 1 ? $0.first : nil }.map(SessionImporter.validName) ?? "sesiones"
+        p.nameFieldStringValue = base + (csv ? ".csv" : ".json")
+        guard p.runModal() == .OK, let u = p.url else { return }
+        do {
+            if csv { try SessionExport.csv(list).write(to: u, atomically: true, encoding: .utf8) }
+            else { try SessionExport.json(list).write(to: u, options: .atomic) }
+            message = L("✓ \(list.count) exportadas a \(u.lastPathComponent) (sin contraseñas)")
+        } catch {
+            message = "✗ \(error.localizedDescription)"
+        }
     }
 
     private func delete() {
@@ -450,7 +565,7 @@ struct ImportPane: View {
         VStack(alignment: .leading, spacing: 14) {
             Text(L("IMPORTAR SESIONES")).font(t.ui(16, .heavy)).tracking(3).foregroundStyle(SwiftUI.Color(t.accent))
             Text(L("SecureCRT (la carpeta Sessions o un .ini), MobaXterm (.mxtsessions), PuTTY (.reg), electerm (.json), ")
-                 + L("CSV del inventario o un ssh_config. Las carpetas pasan a ser grupos. Nunca se importa ninguna contraseña."))
+                 + L("CSV del inventario, un ssh_config o un JSON exportado desde aquí. Las carpetas pasan a ser grupos. Nunca se importa ninguna contraseña."))
                 .font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
             HStack(spacing: 8) {
                 ForEach(SessionImporter.suggestions(), id: \.1) { name, url in
@@ -473,7 +588,7 @@ struct ImportPane: View {
                                              set: { if $0 { chosen.insert(s.id) } else { chosen.remove(s.id) } })) {
                             HStack {
                                 Text(s.name).font(t.ui(12, .semibold))
-                                Text("\(s.user.isEmpty ? "" : s.user + "@")\(s.host):\(s.port)\(s.jump.isEmpty ? "" : " ⟵ " + s.jump)\(s.telnet ? " · telnet" : "")")
+                                Text("\(s.user.isEmpty ? "" : s.user + "@")\(s.host):\(s.port)\(s.jump.isEmpty ? "" : " ⟵ " + s.jump)\(s.kind == .ssh ? "" : " · " + s.kind.label)")
                                     .font(t.ui(10.5)).foregroundStyle(SwiftUI.Color(t.dim))
                                 Spacer()
                                 Text(L(nombre: s.group)).font(t.ui(10, .bold)).foregroundStyle(SwiftUI.Color(t.accent2))
@@ -517,5 +632,19 @@ struct ImportPane: View {
         let r = SessionImporter.read(u, existing: file.sessions)
         result = r
         chosen = Set(r.sessions.map(\.id))
+    }
+}
+
+extension SessionProfile.Transport {
+    /// Icono de la lista: el de su tipo (ssh con salto, con la flecha).
+    func icon(jump: Bool) -> String {
+        switch self {
+        case .ssh: jump ? "arrow.triangle.turn.up.right.diamond.fill" : "terminal.fill"
+        case .telnet: "cable.connector"
+        case .sftp: "folder.fill"
+        case .ftp: "externaldrive.connected.to.line.below"
+        case .serial: "cable.connector.horizontal"
+        case .local: "apple.terminal"
+        }
     }
 }

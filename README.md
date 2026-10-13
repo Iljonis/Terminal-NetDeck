@@ -10,8 +10,12 @@ Swift 6 · SwiftUI · [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm). E
 
 ## Qué hace
 
-- **Sesiones** de tu `~/.ssh/config` (comodines, `Include`, `ProxyJump`), por grupos, con favoritas y recientes.
-  Anotaciones propias en comentarios: `# @grupo`, `# @clave`, `# @clave-grupo`, `# @desc`, `# @telnet`.
+- **Sesiones** de tu `~/.ssh/config` (comodines, `Include`, `ProxyJump`), por grupos (con `/`, carpetas dentro de
+  carpetas: `Clientes/Madrid/Core`), con favoritas y recientes. Se crean, editan, duplican, borran y ordenan en el gestor.
+  Anotaciones propias en comentarios: `# @grupo`, `# @clave`, `# @clave-grupo`, `# @desc`, `# @telnet`,
+  `# @tipo sftp|ftp|serie|local`, `# @serie /dev/cu.usbserial-0001 9600 8N1`.
+- **Tipos de sesión**: SSH, Telnet, SFTP (`/usr/bin/sftp` con el mismo alias y saltos), FTP (en el Finder, sólo
+  lectura: macOS no trae cliente), terminal local y consola por puerto serie (`/usr/bin/screen`).
 - **Saltos**: `ssh -J`; si el salto no deja reenviar, la app entra en él y escribe `ssh equipo` por ti. Telnet por el salto.
 - **Contraseñas sólo en el Llavero** de macOS. La de la sesión entra sola (askpass); las de los equipos, escritas solas,
   sugeridas o nada. **Regla de usuario**: nunca se escribe la contraseña de otro usuario, y si una falla queda bloqueada
@@ -25,6 +29,7 @@ Swift 6 · SwiftUI · [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm). E
 - **Barra de botones** (órdenes, textos, contraseñas, logins), **registro** de sesiones a texto limpio y **búsqueda**
   en todos los registros (IP, MAC en cualquier formato, interfaz…).
 - **Importar** sesiones de SecureCRT, MobaXterm, PuTTY, electerm, CSV u otro `ssh_config` (nunca contraseñas).
+  **Exportar** todas o unos grupos a JSON (todos los campos) o CSV, sin contraseñas; el JSON se vuelve a importar.
 - **Resaltado** de la salida con reglas tipo ChromaTerm, con los colores del tema.
 
 | Temas | Resaltado |

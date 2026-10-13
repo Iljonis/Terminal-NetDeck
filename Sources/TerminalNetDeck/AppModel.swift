@@ -14,6 +14,7 @@ final class AppModel {
     enum EditorFocus: Equatable {
         case session(String)
         case new(group: String?)
+        case duplicate(String)
         case importing
     }
 
@@ -210,7 +211,7 @@ final class AppModel {
     }
 
     func applyPasswordModes() {
-        for t in tabs where !t.route.isLocal {
+        for t in tabs where t.route.usesPasswords {
             t.passwords.mode = settings.devicePasswordMode
             t.passwords.sessionMode = settings.sessionAutoPassword ? .autoType : nil
         }
@@ -226,7 +227,8 @@ final class AppModel {
 
     func open(_ profile: SessionProfile) {
         do {
-            open(try sessions.route(to: profile))
+            let r = try sessions.route(to: profile)
+            if r.transport == .ftp { openFTP(r) } else { open(r) }
             noteRecent(profile.name)
         } catch {
             status = error.localizedDescription
@@ -322,14 +324,37 @@ final class AppModel {
         if settings.startupLocalTerminal, tabs.isEmpty { openLocal() }
     }
 
+    /// FTP: macOS no trae cliente; el Finder lo monta (sólo lectura) y pide él la contraseña.
+    func openFTP(_ r: ConnectionRoute) {
+        guard let url = r.ftpURL else { status = L("Equipo no válido: «\(r.target.host)»"); return }
+        DebugLog.log("ftp", "«\(r.title)» → Finder")
+        NSWorkspace.shared.open(url)
+        status = L("FTP «\(r.title)»: se abre en el Finder (sólo lectura)")
+    }
+
+    /// Borrar una sesión desde la lista (pregunta antes; queda copia en ssh_config.anterior).
+    func deleteSession(_ name: String) {
+        var f = sessionFile
+        guard let i = f.sessions.firstIndex(where: { $0.name == name }) else { return }
+        let a = NSAlert()
+        a.messageText = L("¿Borrar la sesión «\(name)»?")
+        a.informativeText = L("Queda una copia en ssh_config.anterior. Su contraseña del Llavero no se toca.")
+        a.addButton(withTitle: L("Borrar"))
+        a.addButton(withTitle: L("Cancelar"))
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        f.sessions.remove(at: i)
+        if let err = saveSessions(f) { status = "✗ \(err)"; return }
+        if favorites.contains(name) { toggleFavorite(name) }
+    }
+
     /// Terminal local: tu shell de inicio, como shell de login, en tu carpeta.
     func openLocal() { open(ConnectionRoute.local()) }
 
     @discardableResult
     func open(_ route: ConnectionRoute) -> TerminalSession {
-        // (la local no es un equipo: ni askpass ni contraseñas automáticas)
-        let pw = PasswordAutomation(mode: route.isLocal ? .off : settings.devicePasswordMode, store: store, policy: policy, ledger: ledger)
-        pw.sessionMode = settings.sessionAutoPassword && !route.isLocal ? .autoType : nil
+        // (la local y la consola serie no son un equipo por red: ni askpass ni contraseñas automáticas)
+        let pw = PasswordAutomation(mode: route.usesPasswords ? settings.devicePasswordMode : .off, store: store, policy: policy, ledger: ledger)
+        pw.sessionMode = settings.sessionAutoPassword && route.usesPasswords ? .autoType : nil
         let s = TerminalSession(route: route, passwords: pw, ledger: ledger)
         pw.candidates = { [weak self] req in
             self?.sessions.credentialCandidates(for: req, route: route, defaultCredential: self?.settings.defaultCredential) ?? []
@@ -350,14 +375,14 @@ final class AppModel {
         selection = s.id
         syncMultiExec()
         saveOpenTabs()
-        let askpass = settings.sessionAutoPassword && !route.isLocal
+        let askpass = settings.sessionAutoPassword && route.usesPasswords
             ? Askpass.environment(executable: Bundle.main.executablePath ?? CommandLine.arguments[0],
                                   configPath: settings.sshConfigURL.path,
                                   defaultCredential: settings.defaultCredential, session: s.id)
             : [:]
         if settings.logEnabled { s.startLog(in: settings.logURL) }
         s.start(extraEnvironment: askpass)
-        status = route.isLocal ? "" : L("Conectando a \(route.title)…")
+        status = route.usesPasswords ? L("Conectando a \(route.title)…") : ""
         return s
     }
 
@@ -684,8 +709,8 @@ final class AppModel {
     /// Dónde escribe MultiExec: los paneles de la vista dividida (si se ve) o todas las pestañas; sin las excluidas.
     var multiExecTargets: [TerminalSession] {
         let pool = showSplit && split != nil ? (split?.panes ?? []).compactMap(tab) : tabs
-        // (nunca una terminal local: lo que va a los equipos no se ejecuta en tu Mac)
-        return pool.filter { !$0.route.isLocal && !excluded.contains($0.id) && !$0.exited }
+        // (nunca una terminal local, ni sftp ni una consola serie: lo que va a los equipos no se ejecuta en tu Mac)
+        return pool.filter { $0.route.acceptsMultiExec && !excluded.contains($0.id) && !$0.exited }
     }
 
     func tab(_ id: TerminalSession.ID) -> TerminalSession? { tabs.first { $0.id == id } }

@@ -456,8 +456,6 @@ enum Ingles {
             "Duplicate",
         "Importar":
             "Import",
-        "SecureCRT, MobaXterm, PuTTY, electerm, CSV o un ssh_config":
-            "SecureCRT, MobaXterm, PuTTY, electerm, CSV or an ssh_config",
         "Contraseña del grupo: %@":
             "Group password: %@",
         "Nueva sesión en «%@»":
@@ -548,8 +546,6 @@ enum Ingles {
             "IMPORT SESSIONS",
         "SecureCRT (la carpeta Sessions o un .ini), MobaXterm (.mxtsessions), PuTTY (.reg), electerm (.json), ":
             "SecureCRT (the Sessions folder or an .ini), MobaXterm (.mxtsessions), PuTTY (.reg), electerm (.json), ",
-        "CSV del inventario o un ssh_config. Las carpetas pasan a ser grupos. Nunca se importa ninguna contraseña.":
-            "inventory CSV or an ssh_config. Folders become groups. No password is ever imported.",
         "Elegir archivo o carpeta…":
             "Choose file or folder…",
         "%@: %@ nuevas":
@@ -912,8 +908,6 @@ enum Ingles {
             "Duplicate…",
         "Copiar orden ssh":
             "Copy ssh command",
-        " · telnet":
-            " · telnet",
         "EXCLUIDA":
             "EXCLUDED",
         "⧉ MULTIEXEC":
@@ -1206,5 +1200,83 @@ enum Ingles {
             "Serial",
         "Local":
             "Local",
+        "Subir (dentro de su grupo)":
+            "Move up (within its group)",
+        "Bajar (dentro de su grupo)":
+            "Move down (within its group)",
+        "Todas (JSON)…":
+            "All (JSON)…",
+        "Todas (CSV)…":
+            "All (CSV)…",
+        "Grupo «%@» (JSON)…":
+            "Group “%@” (JSON)…",
+        "Exportar (sin contraseñas)":
+            "Export (no passwords)",
+        "SecureCRT, MobaXterm, PuTTY, electerm, CSV, un ssh_config o un JSON exportado":
+            "SecureCRT, MobaXterm, PuTTY, electerm, CSV, an ssh_config or an exported JSON",
+        "Exportar el grupo (JSON)…":
+            "Export the group (JSON)…",
+        "Exportar el grupo (CSV)…":
+            "Export the group (CSV)…",
+        "Este Mac":
+            "This Mac",
+        "Tipo":
+            "Type",
+        "Abre /usr/bin/sftp con el mismo alias, salto, puerto y usuario que ssh; la contraseña, como en ssh.":
+            "Opens /usr/bin/sftp with the same alias, jump host, port and user as ssh; the password works as in ssh.",
+        "macOS no trae cliente FTP: se abre en el Finder, sólo lectura (para subir archivos, usa SFTP). La contraseña la pide el Finder.":
+            "macOS has no FTP client: it opens in the Finder, read-only (to upload files, use SFTP). The Finder asks for the password.",
+        "Tu shell de inicio en este Mac (como ⌘T): sin contraseñas ni MultiExec.":
+            "Your login shell on this Mac (like ⌘T): no passwords and no MultiExec.",
+        "NOTAS":
+            "NOTES",
+        "Una por línea; se guardan como comentarios «# …» de la sesión (p. ej. «@proyecto despliegue»).":
+            "One per line; saved as “# …” comments of the session (e.g. “@proyecto rollout”).",
+        "Puerto serie":
+            "Serial port",
+        "(elige uno)":
+            "(choose one)",
+        "%@ (no conectado)":
+            "%@ (not connected)",
+        "Volver a buscar puertos":
+            "Look for ports again",
+        "Ruta del puerto":
+            "Port path",
+        "Sólo /dev/cu.* o /dev/tty.*, sin espacios ni símbolos":
+            "Only /dev/cu.* or /dev/tty.*, no spaces or symbols",
+        "Velocidad":
+            "Speed",
+        "Bits de datos":
+            "Data bits",
+        "Paridad":
+            "Parity",
+        "Par":
+            "Even",
+        "Impar":
+            "Odd",
+        "Bits de parada":
+            "Stop bits",
+        "Se abre con /usr/bin/screen (para salir: Ctrl-A y luego k). screen sólo aplica la velocidad y los bits de datos: la paridad y los bits de parada quedan como los deje el sistema.":
+            "Opens with /usr/bin/screen (to quit: Ctrl-A then k). screen only applies the speed and data bits: parity and stop bits stay as the system leaves them.",
+        "Este Mac no tiene /usr/bin/screen: la pestaña no podrá abrir el puerto.":
+            "This Mac has no /usr/bin/screen: the tab won't be able to open the port.",
+        "✗ No hay sesiones que exportar":
+            "✗ No sessions to export",
+        "✓ %@ exportadas a %@ (sin contraseñas)":
+            "✓ %@ exported to %@ (no passwords)",
+        "CSV del inventario, un ssh_config o un JSON exportado desde aquí. Las carpetas pasan a ser grupos. Nunca se importa ninguna contraseña.":
+            "an inventory CSV, an ssh_config or a JSON exported from here. Folders become groups. No password is ever imported.",
+        "FTP «%@»: se abre en el Finder (sólo lectura)":
+            "FTP “%@”: opening in the Finder (read-only)",
+        "Queda una copia en ssh_config.anterior. Su contraseña del Llavero no se toca.":
+            "A copy stays in ssh_config.anterior. Its Keychain password is not touched.",
+        "Buscar sesión, equipo, IP, usuario o tipo":
+            "Search session, device, IP, user or type",
+        "Nueva sesión en este grupo…":
+            "New session in this group…",
+        "Copiar orden sftp":
+            "Copy sftp command",
+        "screen: para salir, Ctrl-A y luego k":
+            "screen: to quit, Ctrl-A then k",
     ]
 }

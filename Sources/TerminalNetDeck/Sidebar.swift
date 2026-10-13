@@ -2,8 +2,8 @@ import AppKit
 import NetDeckCore
 import SwiftUI
 
-/// Sesiones del ssh_config por grupos («# @grupo»), con ★ favoritas, ↻ recientes y buscador. Clic derecho: editar,
-/// duplicar, favorita… · en un grupo: abrir todas, nueva sesión, renombrar…
+/// Sesiones del ssh_config por grupos («# @grupo»; con «/», carpetas dentro de carpetas), con ★ favoritas, ↻ recientes
+/// y buscador. Clic derecho: editar, duplicar, borrar, favorita… · en una carpeta: abrir todas, nueva sesión…
 struct Sidebar: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
@@ -12,7 +12,7 @@ struct Sidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SearchField(text: $query, prompt: L("Buscar sesión, equipo o IP"))
+            SearchField(text: $query, prompt: L("Buscar sesión, equipo, IP, usuario o tipo"))
                 .padding(10)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
@@ -29,10 +29,12 @@ struct Sidebar: View {
                             ForEach(recents) { SessionRow(profile: $0).id("rec:" + $0.name) }
                         }
                     }
-                    ForEach(groups, id: \.name) { g in
-                        header(L(nombre: g.name).uppercased(), count: g.profiles.count, group: g.name)
-                        if !collapsed.contains(g.name) || !query.isEmpty {
-                            ForEach(g.profiles) { SessionRow(profile: $0) }
+                    ForEach(rows) { r in
+                        switch r.row {
+                        case .folder(let path, let name, let depth, let count):
+                            header(L(nombre: name).uppercased(), count: count, group: path, depth: depth)
+                        case .item(let p, let depth):
+                            SessionRow(profile: p, depth: depth)
                         }
                     }
                 }
@@ -63,7 +65,7 @@ struct Sidebar: View {
         .background(SwiftUI.Color(t.bar))
     }
 
-    private func header(_ title: String, count: Int, group: String?) -> some View {
+    private func header(_ title: String, count: Int, group: String?, depth: Int = 0) -> some View {
         HStack(spacing: 6) {
             if let g = group {
                 Image(systemName: collapsed.contains(g) ? "chevron.right" : "chevron.down")
@@ -75,7 +77,8 @@ struct Sidebar: View {
             Text("\(count)").font(t.ui(9.5)).foregroundStyle(SwiftUI.Color(t.dim))
         }
         .padding(.horizontal, 6)
-        .padding(.top, 12)
+        .padding(.leading, CGFloat(depth) * 12)
+        .padding(.top, depth == 0 ? 12 : 6)
         .padding(.bottom, 4)
         .contentShape(Rectangle())
         .onTapGesture {
@@ -83,7 +86,7 @@ struct Sidebar: View {
             if collapsed.contains(g) { collapsed.remove(g) } else { collapsed.insert(g) }
         }
         .contextMenu {
-            if let g = group, let ps = model.sessions.groups.first(where: { $0.name == g })?.profiles {
+            if let g = group, case let ps = profiles(under: g), !ps.isEmpty {
                 Button(L("Abrir las \(ps.count)")) { ps.forEach(model.open) }
                 Button(L("Abrir las \(ps.count) en vista dividida")) {
                     let before = Set(model.tabs.map(\.id))
@@ -101,14 +104,32 @@ struct Sidebar: View {
         }
     }
 
-    private var groups: [(name: String, profiles: [SessionProfile])] {
+    /// Las sesiones de una carpeta y de sus subcarpetas (para «Abrir las N»).
+    private func profiles(under path: String) -> [SessionProfile] {
+        model.sessions.groups.filter { $0.name == path || GroupTree.contains(path, $0.name) }.flatMap(\.profiles)
+    }
+
+    private struct Row: Identifiable {
+        let id: String
+        let row: GroupTree.Row<SessionProfile>
+    }
+
+    /// Carpetas (anidadas con «/») y sesiones; buscando, todo abierto y sólo lo que encaja (nombre, equipo, usuario,
+    /// descripción, grupo, tipo o puerto serie).
+    private var rows: [Row] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return model.sessions.groups }
-        return model.sessions.groups.compactMap { g in
-            let ps = g.profiles.filter {
-                [$0.name, $0.endpoint.description, $0.summary ?? "", $0.group ?? ""].contains { $0.lowercased().contains(q) }
+        let groups: [(name: String, items: [SessionProfile])] = model.sessions.groups.compactMap { g in
+            let ps = q.isEmpty ? g.profiles : g.profiles.filter { p in
+                [p.name, p.endpoint.description, p.user ?? "", p.summary ?? "", p.group ?? "", p.transport.label,
+                 p.transport.rawValue, p.serial?.device ?? ""].contains { $0.lowercased().contains(q) }
             }
             return ps.isEmpty ? nil : (g.name, ps)
+        }
+        return GroupTree.rows(groups, collapsed: q.isEmpty ? collapsed : []).map { r in
+            switch r {
+            case .folder(let path, _, _, _): Row(id: "g:" + path, row: r)
+            case .item(let p, _): Row(id: "s:" + p.name, row: r)
+            }
         }
     }
 }
@@ -145,6 +166,8 @@ struct SessionRow: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
     let profile: SessionProfile
+    /// Sangría dentro de las carpetas anidadas (1 = en una carpeta de primer nivel).
+    var depth = 1
     @Stored private var hover = false
 
     var body: some View {
@@ -172,6 +195,7 @@ struct SessionRow: View {
             }
             .padding(.vertical, 5)
             .padding(.horizontal, 6)
+            .padding(.leading, CGFloat(max(0, depth - 1)) * 12)
             .background(RoundedRectangle(cornerRadius: 6).fill(SwiftUI.Color(t.panel).opacity(hover ? 0.55 : 0)))
             .overlay(alignment: .leading) {
                 Rectangle().fill(SwiftUI.Color(t.accent)).frame(width: 2).opacity(hover ? 1 : 0)
@@ -184,8 +208,10 @@ struct SessionRow: View {
         .help(profile.summary ?? profile.endpoint.description)
         .contextMenu {
             Button(L("Conectar")) { model.open(profile) }
-            Button(L("Conectar en la vista dividida")) {
-                if let r = try? model.sessions.route(to: profile) { model.addToSplit(model.open(r)) }
+            if profile.transport != .ftp {
+                Button(L("Conectar en la vista dividida")) {
+                    if let r = try? model.sessions.route(to: profile) { model.addToSplit(model.open(r)) }
+                }
             }
             Divider()
             Button(model.favorites.contains(profile.name) ? L("Quitar de ★ favoritas") : L("★ Favorita")) {
@@ -194,25 +220,32 @@ struct SessionRow: View {
             Button(model.settings.startupSession == profile.name ? L("No abrir al arrancar") : L("⏻ Abrir al arrancar")) {
                 model.toggleStartup(profile.name)
             }
-            Button(L("Editar…")) { model.editSessions(.session(profile.name)) }
-            Button(L("Duplicar…")) { model.editSessions(.session(profile.name)) }
             Divider()
-            Button(L("Copiar orden ssh")) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString("ssh \(profile.name)", forType: .string)
+            Button(L("Editar…")) { model.editSessions(.session(profile.name)) }
+            Button(L("Duplicar…")) { model.editSessions(.duplicate(profile.name)) }
+            Button(L("Nueva sesión en este grupo…")) { model.editSessions(.new(group: profile.group)) }
+            Button(L("Borrar…")) { model.deleteSession(profile.name) }
+            if profile.transport == .ssh || profile.transport == .sftp {
+                Divider()
+                Button(profile.transport == .ssh ? L("Copiar orden ssh") : L("Copiar orden sftp")) {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString("\(profile.transport.rawValue) \(profile.name)", forType: .string)
+                }
             }
         }
     }
 
-    private var icon: String {
-        if profile.transport == .telnet { return "cable.connector" }
-        return profile.proxyJump.isEmpty ? "terminal.fill" : "arrow.triangle.turn.up.right.diamond.fill"
-    }
+    private var icon: String { profile.transport.icon(jump: !profile.proxyJump.isEmpty) }
 
     private var subtitle: String {
-        var s = profile.endpoint.description
-        if !profile.proxyJump.isEmpty { s += "  ⟵ " + profile.proxyJump.joined(separator: ", ") }
-        if profile.transport == .telnet { s += L(" · telnet") }
-        return s
+        switch profile.transport {
+        case .serial: return profile.serial.map { "\($0.device) · \($0.speed) \($0.frame)" } ?? L("Serie")
+        case .local: return L("Este Mac")
+        case .ssh, .telnet, .sftp, .ftp:
+            var s = profile.endpoint.description
+            if !profile.proxyJump.isEmpty { s += "  ⟵ " + profile.proxyJump.joined(separator: ", ") }
+            if profile.transport != .ssh { s += " · " + profile.transport.label }
+            return s
+        }
     }
 }
