@@ -271,7 +271,7 @@ struct SetupContent: View {
         case .place: L("Dónde se instala la app")
         case .themes: L("Todos vienen con la app: pasa por encima para verlo, clic para usarlo (se cambia cuando quieras)")
         case .fonts: L("Aparte de los temas: se pueden cambiar cuando quieras en Ajustes → Fuentes")
-        case .passwords: L("Siempre en el Llavero de macOS (las mismas que NetDeck)")
+        case .passwords: L("Siempre en el Llavero de macOS")
         case .highlight: L("Colores en la salida de los equipos, como ChromaTerm")
         case .install: wizard.finished ? L("Listo") : L("Revisa y pulsa «Instalar»")
         }
@@ -296,12 +296,12 @@ struct SetupContent: View {
             PixelBanner(text: L("NETDECK"), cell: 13).padding(.top, 10)
             VStack(alignment: .leading, spacing: 9) {
                 bullet("bolt.horizontal.fill", L("Sesiones de tu ssh_config, con saltos y contraseña automática"))
-                bullet("paintpalette.fill", L("Las temáticas de NetDeck, todas incluidas, con vista previa"))
+                bullet("paintpalette.fill", L("Todas las temáticas incluidas, con vista previa"))
                 bullet("highlighter", L("Resaltado de la salida tipo ChromaTerm"))
                 bullet("square.grid.2x2.fill", L("MultiExec, pegado seguro y listas por salto"))
             }
             if FileManager.default.fileExists(atPath: AppPaths.netdeck.path) {
-                card(L("NetDeck encontrado"), L("Se respetan su Llavero, su ssh_config, sus temas y sus ajustes ")
+                card(L("Configuración existente encontrada"), L("Se respetan el Llavero, el ssh_config, los temas y los ajustes que ya tenías ")
                      + L("(\(model.sessions.profiles.count) sesiones · tema «\(model.themes.current.name)»)."), t.good)
             }
         }
@@ -386,7 +386,7 @@ struct SetupContent: View {
 
     private var highlightPage: some View {
         VStack(alignment: .leading, spacing: 14) {
-            toggleCard(L("Resaltar la salida"), L("Reglas de NetDeck (o las tuyas): interfaces, IPs, estados, dBm, errores, prompts…"),
+            toggleCard(L("Resaltar la salida"), L("Reglas incluidas (o las tuyas): interfaces, IPs, estados, dBm, errores, prompts…"),
                        $wizard.highlight)
             HighlightPreview(enabled: wizard.highlight)
         }

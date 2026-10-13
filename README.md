@@ -19,7 +19,9 @@ Swift 6 · SwiftUI · [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm). E
 - **MultiExec** y **vista dividida**: lo que escribes va a la vez a varios paneles (excluye los que quieras).
 - **Pegado seguro**: línea a línea esperando al prompt; se para ante errores de la CLI, paginadores, órdenes peligrosas
   sin confirmar (`reload`, `delete`…) o si el equipo pide una contraseña.
-- **Listas por salto**: la misma orden en muchos equipos detrás de un salto, probando la contraseña de uno en uno.
+- **Listas de equipos** (Herramientas → Listas de equipos, ⇧⌘L): la misma orden en muchos equipos detrás de un salto,
+  probando la contraseña de uno en uno.
+- **Terminal local** (⌘T) y **sesión de inicio** (clic derecho → Abrir al arrancar; ⌥⌘K para abrirla).
 - **Barra de botones** (órdenes, textos, contraseñas, logins), **registro** de sesiones a texto limpio y **búsqueda**
   en todos los registros (IP, MAC en cualquier formato, interfaz…).
 - **Importar** sesiones de SecureCRT, MobaXterm, PuTTY, electerm, CSV u otro `ssh_config` (nunca contraseñas).
@@ -99,8 +101,8 @@ tools/capturas.sh                      # regenera docs/capturas con datos de eje
 
 Las convenciones (textos traducibles, datos de ejemplo, contraseñas) están en [CLAUDE.md](CLAUDE.md).
 
-Compatible con NetDeck (bash + tmux): mismo Llavero, mismo `ssh_config` con sus anotaciones, mismos `.tema` y botones;
-la primera vez importa `clave.conf` y `tema.conf`.
+Archivos de configuración en `~/.config/netdeck/` (`ssh_config` de sesiones, `botones.txt`, temas
+`.tema`); la primera vez se leen `clave.conf` y `tema.conf` si existen.
 
 ---
 
@@ -116,7 +118,8 @@ available in Spanish (Spain) and English: **Settings → General → Language** 
   user being asked for; a failed one is locked for 15 minutes in every tab, so AD accounts don't get locked out.
 - **Safe paste** sends line by line, waiting for the prompt, and stops on CLI errors, pagers, unconfirmed dangerous
   commands or a password prompt.
-- **MultiExec, split view, lists via a jump host, command buttons, session logging and log search.**
+- **MultiExec, split view, device lists via a jump host, command buttons, session logging and log search.**
+- **Local terminal** (⌘T) and a **startup session** that opens at launch (⌥⌘K opens it on demand).
 - **Import** sessions from SecureCRT, MobaXterm, PuTTY, electerm, CSV or another `ssh_config` (never passwords).
 
 Install: download `Terminal-NetDeck.dmg` from Releases and drag the app to Applications (data lives in

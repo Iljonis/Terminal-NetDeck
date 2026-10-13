@@ -32,8 +32,10 @@ struct NetDeckCommands: Commands {
     var body: some Commands {
         let _ = model.settings.language                     // (los menús, también en el idioma nuevo)
         CommandGroup(replacing: .newItem) {
+            Button(L("Nueva terminal local")) { model.openLocal() }.keyboardShortcut("t")
             Button(L("Conectar / Salto…")) { model.sheet = .connect }.keyboardShortcut("k")
-            Button(L("Lista por salto…")) { model.sheet = .list }.keyboardShortcut("l", modifiers: [.command, .shift])
+            Button(L("Abrir la sesión de inicio")) { model.openStartupSession() }.keyboardShortcut("k", modifiers: [.command, .option])
+                .disabled(model.startupProfile == nil)
             Button(L("Sesiones…")) { model.editSessions() }.keyboardShortcut("e", modifiers: [.command, .shift])
             Divider()
             Button(L("Cerrar pestaña")) { model.closeCurrent() }.keyboardShortcut("w")
@@ -47,7 +49,6 @@ struct NetDeckCommands: Commands {
         }
         CommandGroup(after: .textEditing) {
             Button(L("Buscar en la salida…")) { model.current?.view.showFind() }.keyboardShortcut("f")
-            Button(L("Buscar en todos los registros…")) { model.sheet = .logs }.keyboardShortcut("f", modifiers: [.command, .shift])
         }
         CommandGroup(replacing: .help) {
             Button(L("Abrir el registro de depuración")) {
@@ -58,7 +59,6 @@ struct NetDeckCommands: Commands {
         }
         // (contraseñas, dividir y ajustes van en la barra de la ventana; aquí solo lo que tiene atajo)
         CommandMenu(L("Terminal")) {
-            Button(L("Pegado seguro…")) { model.sheet = .paste }.keyboardShortcut("v", modifiers: [.command, .shift])
             Toggle(L("MultiExec"), isOn: Binding(get: { model.multiExecOn }, set: { model.multiExecOn = $0 }))
                 .keyboardShortcut("m", modifiers: [.command, .shift])
             Toggle(L("Resaltado"), isOn: Binding(get: { model.settings.highlightEnabled },
@@ -75,6 +75,11 @@ struct NetDeckCommands: Commands {
             Divider()
             Button(L("Cancelar lo automático (Esc)")) { model.abortAll() }.keyboardShortcut(".")
             Button(L("Recargar ssh_config")) { model.reloadSessions() }.keyboardShortcut("r", modifiers: [.command, .shift])
+        }
+        CommandMenu(L("Herramientas")) {
+            Button(L("Listas de equipos…")) { model.sheet = .list }.keyboardShortcut("l", modifiers: [.command, .shift])
+            Button(L("Pegado seguro…")) { model.sheet = .paste }.keyboardShortcut("v", modifiers: [.command, .shift])
+            Button(L("Buscar en todos los registros…")) { model.sheet = .logs }.keyboardShortcut("f", modifiers: [.command, .shift])
         }
     }
 }

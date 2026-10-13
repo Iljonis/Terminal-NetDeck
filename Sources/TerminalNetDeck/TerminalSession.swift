@@ -88,7 +88,7 @@ final class NetDeckTerminalView: TerminalView {
     }
 }
 
-/// Una pestaña: proceso (ssh/telnet) + vista + resaltado + automatización de contraseña. Es el `TerminalIO` del núcleo.
+/// Una pestaña: proceso (ssh/telnet o la shell local) + vista + resaltado + automatización de contraseña. Es el `TerminalIO` del núcleo.
 @MainActor @Observable
 final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     enum State: Equatable { case connecting, connected, exited(Int32?) }
@@ -172,7 +172,8 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         process = p
         state = .connecting
         loggedIn = false
-        p.startProcess(executable: exe, args: args, environment: env.map { "\($0.key)=\($0.value)" })
+        p.startProcess(executable: exe, args: args, environment: env.map { "\($0.key)=\($0.value)" },
+                       currentDirectory: route.isLocal ? AppPaths.home.path : nil)     // (la local, en tu carpeta)
         DebugLog.log("pestaña", "«\(title)» #\(gen) arranca: \(exe) \(args.joined(separator: " "))"
                      + (route.thenCommand.map { " · luego en el salto: «\($0)»" } ?? "")
                      + (p.running ? "" : " · NO ARRANCA"))
@@ -302,7 +303,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         }
     }
 
-    /// El salto no deja reenviar (-J): se pasa a abrir el salto y escribir allí el ssh, como NetDeck.
+    /// El salto no deja reenviar (-J): se pasa a abrir el salto y escribir allí el ssh.
     private func forwardingRefused() -> Bool {
         let recent = lines(from: max(0, cursorRow - 6)).joined(separator: "\n").lowercased()
         guard recent.contains("administratively prohibited") || recent.contains("stdio forwarding failed") else { return false }

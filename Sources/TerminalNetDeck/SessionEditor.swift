@@ -2,8 +2,8 @@ import AppKit
 import NetDeckCore
 import SwiftUI
 
-/// Gestor de Sesiones (como el de NetDeck / el Session Manager de SecureCRT): crear, editar, duplicar, borrar,
-/// grupos y su contraseña, importar. Guarda en ~/.config/netdeck/ssh_config (el mismo que NetDeck).
+/// Gestor de Sesiones (como el Session Manager de SecureCRT): crear, editar, duplicar, borrar,
+/// grupos y su contraseña, importar. Guarda en ~/.config/netdeck/ssh_config.
 struct SessionEditor: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
@@ -126,6 +126,9 @@ struct SessionEditor: View {
                 Text(endpoint(s)).font(t.ui(9.5)).opacity(0.7).lineLimit(1)
             }
             Spacer(minLength: 0)
+            if model.settings.startupSession == s.name {
+                Image(systemName: "power").font(.system(size: 9)).foregroundStyle(SwiftUI.Color(t.warning)).help(L("Se abre al arrancar (⌥⌘K)"))
+            }
             if model.favorites.contains(s.name) { Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(SwiftUI.Color(t.warning)) }
         }
         .foregroundStyle(SwiftUI.Color(on ? t.onTab : t.text))
@@ -176,6 +179,9 @@ struct SessionEditor: View {
                     Text(L("Sin espacios ni * ? ! (es el nombre que usa ssh)")).font(.caption).foregroundStyle(SwiftUI.Color(t.bad))
                 }
                 TextField(L("Descripción"), text: s.summary, prompt: Text("opcional"))
+                Toggle(L("⏻ Abrir al arrancar (sólo una; ⌥⌘K la abre cuando quieras)"), isOn: Binding(
+                    get: { model.settings.startupSession == file.sessions[i].name },
+                    set: { model.settings.startupSession = $0 ? file.sessions[i].name : "" }))
             } header: { header(L("SESIÓN")) }
 
             Section {
@@ -195,7 +201,7 @@ struct SessionEditor: View {
                     ForEach(others, id: \.self) { Text($0).tag($0) }
                 }
                 if !file.sessions[i].jump.isEmpty {
-                    Text(L("Si el salto no deja reenviar (-J), la app entra en él y escribe «ssh equipo», como NetDeck."))
+                    Text(L("Si el salto no deja reenviar (-J), la app entra en él y escribe «ssh equipo»."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if !file.sessions[i].telnet {
@@ -284,7 +290,7 @@ struct SessionEditor: View {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(SwiftUI.Color(t.bad))
                 Text(p).font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.bad)).lineLimit(2)
             } else {
-                Text(message.isEmpty ? SessionFile.defaultURL.path.replacingOccurrences(of: AppPaths.home.path, with: "~") + L(" · lo comparte con NetDeck") : message)
+                Text(message.isEmpty ? SessionFile.defaultURL.path.replacingOccurrences(of: AppPaths.home.path, with: "~") : message)
                     .font(t.ui(11)).foregroundStyle(SwiftUI.Color(message.hasPrefix("✗") ? t.bad : t.dim)).lineLimit(2)
             }
             Spacer()

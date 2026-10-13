@@ -63,6 +63,9 @@ final class AppSettings {
 
     /// Buscar versiones nuevas en segundo plano (una vez al día, en silencio).
     var autoUpdateCheck: Bool { didSet { d.set(autoUpdateCheck, forKey: "autoUpdateCheck") } }
+    /// Sesión que se abre al arrancar (su nombre; "" = ninguna) y terminal local si no queda ninguna pestaña abierta.
+    var startupSession: String { didSet { d.set(startupSession, forKey: "startupSession") } }
+    var startupLocalTerminal: Bool { didSet { d.set(startupLocalTerminal, forKey: "startupLocalTerminal") } }
 
     /// Mandar el idioma del Mac (LANG, LC_*) a los servidores por ssh. Desactivado: así no salen avisos de locale en
     /// servidores Linux que no lo tienen.
@@ -72,6 +75,8 @@ final class AppSettings {
     init() {
         sendLocale = d.bool(forKey: Self.sendLocaleKey)
         autoUpdateCheck = d.object(forKey: "autoUpdateCheck") as? Bool ?? true
+        startupSession = d.string(forKey: "startupSession") ?? ""
+        startupLocalTerminal = d.object(forKey: "startupLocalTerminal") as? Bool ?? false
         language = Idioma.actual
         if d.object(forKey: "configured") == nil { Self.importNetDeck(into: d) }
         sessionAutoPassword = d.object(forKey: "sessionAutoPassword") as? Bool ?? true

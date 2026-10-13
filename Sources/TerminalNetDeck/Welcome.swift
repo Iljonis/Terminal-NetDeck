@@ -77,7 +77,7 @@ struct Welcome: View {
 
     private var shortcuts: some View {
         HStack(spacing: 8) {
-            ForEach([("⌘K", L("Conectar")), ("⇧⌘L", L("Lista")), ("⇧⌘V", L("Pegado seguro")), ("⇧⌘M", L("MultiExec")),
+            ForEach([("⌘K", L("Conectar")), ("⌘T", L("Terminal local")), ("⇧⌘L", L("Listas")), ("⇧⌘V", L("Pegado seguro")), ("⇧⌘M", L("MultiExec")),
                      (L("Esc"), L("Cancelar")), ("⌘,", L("Ajustes"))], id: \.0) { k, v in
                 HStack(spacing: 5) {
                     Text(k).font(t.ui(10, .bold)).foregroundStyle(SwiftUI.Color(t.accent))

@@ -108,6 +108,8 @@ struct TopBar: View {
             .fixedSize(horizontal: model.tabs.count < 6, vertical: false)
             IconButton(icon: "plus") { model.sheet = .connect }
                 .help(L("Conexión rápida o por un salto (⌘K)"))
+            IconButton(icon: "apple.terminal") { model.openLocal() }
+                .help(L("Nueva terminal local: tu shell en este Mac (⌘T)"))
             Spacer(minLength: 12)
             IconButton(icon: "doc.on.clipboard.fill") { model.sheet = .paste }
                 .help(L("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)"))

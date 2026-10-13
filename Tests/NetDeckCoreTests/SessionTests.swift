@@ -177,3 +177,25 @@ private let config = """
         #expect(TerminalEnvironment.prepare([:], forSSH: false, sendLocale: false)["LANG"] == "en_US.UTF-8")
     }
 }
+
+@Suite struct LocalTerminalTests {
+    @Test func laLocalEsUnaShellDeLoginYSeReabre() throws {
+        let r = ConnectionRoute.local(shell: "/bin/bash", allowed: ["/bin/zsh", "/bin/bash"])
+        #expect(r.isLocal)
+        #expect(r.localShell == "/bin/bash")
+        #expect(!r.isLoopback)                                           // (no es un ssh a este Mac: se guarda)
+        #expect(r.sessionName == nil && r.jumps.isEmpty)
+        // (una shell que no está en /etc/shells, o ninguna: /bin/zsh)
+        #expect(ConnectionRoute.local(shell: "/tmp/x", allowed: ["/bin/zsh"]).localShell == "/bin/zsh")
+        #expect(ConnectionRoute.local(shell: nil, allowed: []).localShell == "/bin/zsh")
+        #expect(ConnectionRoute.loginShell("/bin/zsh", allowed: []) == "/bin/zsh")
+        // (guardada en abiertas.json y leída de vuelta, sigue siendo local y de login)
+        let back = try JSONDecoder().decode(ConnectionRoute.self, from: JSONEncoder().encode(r))
+        #expect(back.isLocal && back.command.arguments == ["-l"])
+        // (las guardadas antes, sin el campo, se siguen leyendo como remotas)
+        let ssh = ConnectionRoute(title: "core-01", target: Endpoint(host: "192.0.2.11"))
+        let old = #"{"title":"core-01","target":{"host":"192.0.2.11"},"jumps":[],"transport":"ssh"}"#
+        #expect(try !JSONDecoder().decode(ConnectionRoute.self, from: Data(old.utf8)).isLocal)
+        #expect(ssh.command.executable == "/usr/bin/ssh")
+    }
+}

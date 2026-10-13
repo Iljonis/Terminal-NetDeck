@@ -144,8 +144,6 @@ enum Ingles {
             "Native SSH: pending (phase 2); using /usr/bin/ssh",
         "Conectar / Salto…":
             "Connect / Jump…",
-        "Lista por salto…":
-            "List via jump host…",
         "Sesiones…":
             "Sessions…",
         "Cerrar pestaña":
@@ -276,8 +274,8 @@ enum Ingles {
             "Switch button group",
         "Sin botones · ✎ para crear":
             "No buttons · ✎ to create",
-        "Editar los botones (los mismos que NetDeck)":
-            "Edit buttons (the same as NetDeck)",
+        "Editar los botones":
+            "Edit buttons",
         "contraseña «%@»":
             "password “%@”",
         " · en todas (MultiExec)":
@@ -308,8 +306,8 @@ enum Ingles {
             "Reload",
         "Guardar":
             "Save",
-        "✓ Guardados (NetDeck los ve al momento)":
-            "✓ Saved (NetDeck sees them right away)",
+        "✓ Guardados":
+            "✓ Saved",
         "Nuevo botón":
             "New button",
         "Borrar":
@@ -496,8 +494,8 @@ enum Ingles {
             "Jump via",
         "Directo":
             "Direct",
-        "Si el salto no deja reenviar (-J), la app entra en él y escribe «ssh equipo», como NetDeck.":
-            "If the jump host doesn't allow forwarding (-J), the app logs into it and types “ssh device”, like NetDeck.",
+        "Si el salto no deja reenviar (-J), la app entra en él y escribe «ssh equipo».":
+            "If the jump host doesn't allow forwarding (-J), the app logs into it and types “ssh device”.",
         "Clave privada":
             "Private key",
         "Elegir…":
@@ -528,8 +526,6 @@ enum Ingles {
             "SSH OPTIONS (ADVANCED)",
         "Una por línea: LocalForward 8080 192.0.2.1:80 · ServerAliveInterval 30 · …":
             "One per line: LocalForward 8080 192.0.2.1:80 · ServerAliveInterval 30 · …",
-        " · lo comparte con NetDeck":
-            " · shared with NetDeck",
         "Guardar y conectar":
             "Save and Connect",
         "¿Borrar la sesión «%@»?":
@@ -628,14 +624,14 @@ enum Ingles {
             "Name (e.g. AD)",
         "tu.usuario@192.0.2.1":
             "your.user@192.0.2.1",
-        "Llavero (compartido con NetDeck)":
-            "Keychain (shared with NetDeck)",
+        "Llavero":
+            "Keychain",
         "Guardada ✓ (%@)":
             "Saved ✓ (%@)",
         "¿Borrar «%@» del Llavero?":
             "Delete “%@” from the Keychain?",
-        "La usa también NetDeck. No se puede deshacer.":
-            "NetDeck uses it too. This can't be undone.",
+        "No se puede deshacer.":
+            "This can't be undone.",
         "Seguir al Mac (claro / oscuro)":
             "Follow the Mac (light / dark)",
         "Claro":
@@ -670,8 +666,8 @@ enum Ingles {
             "Install",
         "Fuentes de los temas":
             "Theme fonts",
-        "Se instalan con Homebrew (brew install --cask font-…), como en NetDeck.":
-            "Installed with Homebrew (brew install --cask font-…), like in NetDeck.",
+        "Se instalan mediante Homebrew (brew install --cask font-…).":
+            "Installed via Homebrew (brew install --cask font-…).",
         "Instalando «%@»…":
             "Installing “%@”…",
         "«%@» instalada ✓":
@@ -684,8 +680,8 @@ enum Ingles {
             "Rules",
         "Automático":
             "Automatic",
-        "Las de NetDeck (chromaterm.yml)":
-            "NetDeck's (chromaterm.yml)",
+        "Reglas incluidas (chromaterm.yml)":
+            "Built-in rules (chromaterm.yml)",
         "Las de la app":
             "The app's",
         "Personalizadas":
@@ -712,12 +708,12 @@ enum Ingles {
             "Choose folder…",
         "Abrir":
             "Open",
-        "Volver a la de NetDeck (~/Documents/netdeck-logs)":
-            "Back to NetDeck's (~/Documents/netdeck-logs)",
+        "Volver a la predeterminada (~/Documents/netdeck-logs)":
+            "Back to the default (~/Documents/netdeck-logs)",
         "Registro de las sesiones":
             "Session logging",
-        "Texto limpio, como en NetDeck: sin colores y con los paginadores borrados, en CARPETA/AAAA-MM-DD/sesión_HH-MM-SS.log. ":
-            "Clean text, like NetDeck: no colors and with pagers removed, in FOLDER/YYYY-MM-DD/session_HH-MM-SS.log. ",
+        "Texto limpio: sin colores y con los paginadores borrados, en CARPETA/AAAA-MM-DD/sesión_HH-MM-SS.log. ":
+            "Clean text: no colors and with pagers removed, in FOLDER/YYYY-MM-DD/session_HH-MM-SS.log. ",
         "Mientras graba sale ● REC en la esquina; clic derecho en una pestaña para grabar o parar sólo esa.":
             "While recording, ● REC shows in the corner; right-click a tab to record or stop just that one.",
         "Ahora":
@@ -736,8 +732,8 @@ enum Ingles {
             "Language",
         "Idioma de la interfaz":
             "Interface language",
-        "%@ sesiones · anotaciones de NetDeck: # @grupo, # @clave, # @clave-grupo, # @desc, # @telnet":
-            "%@ sessions · NetDeck annotations: # @grupo, # @clave, # @clave-grupo, # @desc, # @telnet",
+        "%@ sesiones · anotaciones: # @grupo, # @clave, # @clave-grupo, # @desc, # @telnet":
+            "%@ sessions · annotations: # @grupo, # @clave, # @clave-grupo, # @desc, # @telnet",
         "Ventana":
             "Window",
         "Mostrar la lista de sesiones":
@@ -780,24 +776,24 @@ enum Ingles {
             "All of them come with the app: hover to preview, click to use it (change it whenever you like)",
         "Aparte de los temas: se pueden cambiar cuando quieras en Ajustes → Fuentes":
             "Separate from themes: you can change them anytime in Settings → Fonts",
-        "Siempre en el Llavero de macOS (las mismas que NetDeck)":
-            "Always in the macOS Keychain (the same as NetDeck)",
+        "Siempre en el Llavero de macOS":
+            "Always in the macOS Keychain",
         "Colores en la salida de los equipos, como ChromaTerm":
             "Colors in device output, like ChromaTerm",
         "Revisa y pulsa «Instalar»":
             "Review and press “Install”",
         "Sesiones de tu ssh_config, con saltos y contraseña automática":
             "Sessions from your ssh_config, with jump hosts and automatic password",
-        "Las temáticas de NetDeck, todas incluidas, con vista previa":
-            "NetDeck's themes, all included, with preview",
+        "Todas las temáticas incluidas, con vista previa":
+            "All themes included, with preview",
         "Resaltado de la salida tipo ChromaTerm":
             "ChromaTerm-style output highlighting",
         "MultiExec, pegado seguro y listas por salto":
             "MultiExec, safe paste and lists via jump host",
-        "NetDeck encontrado":
-            "NetDeck found",
-        "Se respetan su Llavero, su ssh_config, sus temas y sus ajustes ":
-            "Its Keychain, ssh_config, themes and settings are respected ",
+        "Configuración existente encontrada":
+            "Existing configuration found",
+        "Se respetan el Llavero, el ssh_config, los temas y los ajustes que ya tenías ":
+            "Your existing Keychain, ssh_config, themes and settings are kept ",
         "(%@ sesiones · tema «%@»).":
             "(%@ sessions · theme “%@”).",
         "Desde «swift run»":
@@ -838,8 +834,8 @@ enum Ingles {
             "Never another user's: with “ssh root@…” or “Username: pepe”, only one saved for that user.",
         "Resaltar la salida":
             "Highlight output",
-        "Reglas de NetDeck (o las tuyas): interfaces, IPs, estados, dBm, errores, prompts…":
-            "NetDeck's rules (or yours): interfaces, IPs, states, dBm, errors, prompts…",
+        "Reglas incluidas (o las tuyas): interfaces, IPs, estados, dBm, errores, prompts…":
+            "Built-in rules (or yours): interfaces, IPs, states, dBm, errors, prompts…",
         "sin copiar":
             "not copied",
         "Tema":
@@ -958,8 +954,8 @@ enum Ingles {
             "Remove (imported)",
         "importado":
             "imported",
-        "de NetDeck":
-            "from NetDeck",
+        "local":
+            "local",
         "Tema «%@» importado":
             "Theme “%@” imported",
         "TERMINAL NATIVO PARA INGENIEROS DE RED":
@@ -972,8 +968,6 @@ enum Ingles {
             "CONNECT",
         "COINCIDEN":
             "MATCHES",
-        "Lista":
-            "List",
         "Pegado seguro":
             "Safe paste",
         "Esc":
@@ -1018,8 +1012,8 @@ enum Ingles {
             "A new version of Terminal NetDeck is available: click to see it",
         "No se puede leer %@: no lo sobrescribo (¿no es UTF-8?). Revísalo o muévelo y vuelve a probar.":
             "Can't read %@: not overwriting it (is it not UTF-8?). Check or move it and try again.",
-        "Cambiar la contraseña guardada (la usa también NetDeck)":
-            "Change the saved password (NetDeck uses it too)",
+        "Cambiar la contraseña guardada":
+            "Change the saved password",
         "sesiones: %@%@":
             "sessions: %@%@",
         "grupos: %@":
@@ -1038,8 +1032,8 @@ enum Ingles {
             "Change “%@”",
         "Guardar «%@»":
             "Save “%@”",
-        "Se guarda sólo en el Llavero (la ve también NetDeck) y se olvida su bloqueo por fallo.":
-            "It's saved only in the Keychain (NetDeck sees it too) and its failure lock is cleared.",
+        "Se guarda sólo en el Llavero y se olvida su bloqueo por fallo.":
+            "It's saved only in the Keychain and its failure lock is cleared.",
         "Sustituir":
             "Replace",
         "Categoría: renombrar, ordenar, borrar…":
@@ -1154,5 +1148,41 @@ enum Ingles {
             "Send the Mac's language to servers (LANG, LC_*)",
         "Desactivado, los servidores usan su propio idioma y no salen avisos como «setlocale: LC_CTYPE». Se aplica a las conexiones nuevas.":
             "When off, servers use their own language and warnings like “setlocale: LC_CTYPE” don't appear. Applies to new connections.",
+        "Terminal local":
+            "Local terminal",
+        "No hay sesión de inicio: márcala con clic derecho en una sesión":
+            "No startup session: set one by right-clicking a session",
+        "Nueva terminal local":
+            "New Local Terminal",
+        "Abrir la sesión de inicio":
+            "Open Startup Session",
+        "Herramientas":
+            "Tools",
+        "Listas de equipos…":
+            "Device Lists…",
+        "Nueva terminal local: tu shell en este Mac (⌘T)":
+            "New local terminal: your shell on this Mac (⌘T)",
+        "Listas de equipos: la misma orden en muchos equipos por un salto (⇧⌘L)":
+            "Device lists: the same command on many devices via a jump host (⇧⌘L)",
+        "Se abre al arrancar (⌥⌘K)":
+            "Opens at startup (⌥⌘K)",
+        "No abrir al arrancar":
+            "Don't open at startup",
+        "⏻ Abrir al arrancar":
+            "⏻ Open at startup",
+        "⏻ Abrir al arrancar (sólo una; ⌥⌘K la abre cuando quieras)":
+            "⏻ Open at startup (only one; ⌥⌘K opens it any time)",
+        "Al arrancar":
+            "At startup",
+        "Sesión de inicio":
+            "Startup session",
+        "%@ (ya no existe)":
+            "%@ (no longer exists)",
+        "Abrir una terminal local al arrancar si no hay otras pestañas":
+            "Open a local terminal at startup if there are no other tabs",
+        "La sesión de inicio también se marca con clic derecho en la lista y se abre con ⌥⌘K; la terminal local, con ⌘T.":
+            "The startup session can also be set by right-clicking it in the list and opened with ⌥⌘K; the local terminal, with ⌘T.",
+        "Listas":
+            "Lists",
     ]
 }

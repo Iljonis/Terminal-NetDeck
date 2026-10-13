@@ -103,6 +103,7 @@ final class AppModel {
         reloadButtons()
         if CommandLine.arguments.contains("--reabrir") { DispatchQueue.main.async { self.reopenLast() } }
         if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil {
+            DispatchQueue.main.async { self.openStartupTabs() }                   // (después de reabrir, si toca)
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.updates.start() }   // (sin estorbar al arrancar)
         }
     }
@@ -209,7 +210,7 @@ final class AppModel {
     }
 
     func applyPasswordModes() {
-        for t in tabs {
+        for t in tabs where !t.route.isLocal {
             t.passwords.mode = settings.devicePasswordMode
             t.passwords.sessionMode = settings.sessionAutoPassword ? .autoType : nil
         }
@@ -296,10 +297,39 @@ final class AppModel {
         if recents.count > 10 { recents.removeLast() }
     }
 
+    // MARK: - al arrancar: sesión de inicio y terminal local
+
+    /// La sesión marcada «Abrir al arrancar» (si sigue existiendo).
+    var startupProfile: SessionProfile? {
+        settings.startupSession.isEmpty ? nil : sessions.profile(named: settings.startupSession)
+    }
+
+    /// Marcar (o desmarcar, si ya lo era) la sesión que se abre al arrancar.
+    func toggleStartup(_ name: String) {
+        settings.startupSession = settings.startupSession == name ? "" : name
+    }
+
+    func openStartupSession() {
+        if let p = startupProfile { open(p) } else { status = L("No hay sesión de inicio: márcala con clic derecho en una sesión") }
+    }
+
+    /// La sesión de inicio (si no la ha abierto ya «reabrir») y, si no hay ninguna pestaña, la terminal local.
+    private func openStartupTabs() {
+        if let p = startupProfile, !tabs.contains(where: { $0.route.sessionName == p.name }) {
+            DebugLog.log("app", "sesión de inicio «\(p.name)»")
+            open(p)
+        }
+        if settings.startupLocalTerminal, tabs.isEmpty { openLocal() }
+    }
+
+    /// Terminal local: tu shell de inicio, como shell de login, en tu carpeta.
+    func openLocal() { open(ConnectionRoute.local()) }
+
     @discardableResult
     func open(_ route: ConnectionRoute) -> TerminalSession {
-        let pw = PasswordAutomation(mode: settings.devicePasswordMode, store: store, policy: policy, ledger: ledger)
-        pw.sessionMode = settings.sessionAutoPassword ? .autoType : nil
+        // (la local no es un equipo: ni askpass ni contraseñas automáticas)
+        let pw = PasswordAutomation(mode: route.isLocal ? .off : settings.devicePasswordMode, store: store, policy: policy, ledger: ledger)
+        pw.sessionMode = settings.sessionAutoPassword && !route.isLocal ? .autoType : nil
         let s = TerminalSession(route: route, passwords: pw, ledger: ledger)
         pw.candidates = { [weak self] req in
             self?.sessions.credentialCandidates(for: req, route: route, defaultCredential: self?.settings.defaultCredential) ?? []
@@ -320,14 +350,14 @@ final class AppModel {
         selection = s.id
         syncMultiExec()
         saveOpenTabs()
-        let askpass = settings.sessionAutoPassword
+        let askpass = settings.sessionAutoPassword && !route.isLocal
             ? Askpass.environment(executable: Bundle.main.executablePath ?? CommandLine.arguments[0],
                                   configPath: settings.sshConfigURL.path,
                                   defaultCredential: settings.defaultCredential, session: s.id)
             : [:]
         if settings.logEnabled { s.startLog(in: settings.logURL) }
         s.start(extraEnvironment: askpass)
-        status = L("Conectando a \(route.title)…")
+        status = route.isLocal ? "" : L("Conectando a \(route.title)…")
         return s
     }
 

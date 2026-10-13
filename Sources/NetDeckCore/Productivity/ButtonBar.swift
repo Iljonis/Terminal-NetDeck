@@ -254,7 +254,7 @@ public struct ButtonFile: Sendable {
 
     static let defaultHeader = """
         # ─────────────────────────────────────────────────────────────
-        #  Botones de la barra (los mismos que NetDeck: Ajustes → Botones o «botones»)
+        #  Botones de la barra (se editan en Ajustes → Botones)
         #
         #  Formato:   Grupo :: modo :: Nombre :: comando
         #  modo:  run (escribe y pulsa Intro; varias con " ;; ") · type (sólo escribe) · pass (contraseña del Llavero

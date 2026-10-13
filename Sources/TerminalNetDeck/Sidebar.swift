@@ -47,6 +47,8 @@ struct Sidebar: View {
                     .help(L("Gestionar sesiones y grupos"))
                 IconButton(icon: "square.and.arrow.down") { model.editSessions(.importing) }
                     .help(L("Importar de SecureCRT, MobaXterm, PuTTY, CSV…"))
+                IconButton(icon: "list.bullet.rectangle") { model.sheet = .list }
+                    .help(L("Listas de equipos: la misma orden en muchos equipos por un salto (⇧⌘L)"))
                 Text(model.sessions.source?.path.replacingOccurrences(of: AppPaths.home.path, with: "~") ?? L("sesiones de ejemplo"))
                     .lineLimit(1).truncationMode(.head)
                     .foregroundStyle(SwiftUI.Color(t.dim))
@@ -156,6 +158,10 @@ struct SessionRow: View {
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 4) {
                         Text(profile.name).font(t.ui(12.5, .semibold)).foregroundStyle(SwiftUI.Color(t.text))
+                        if model.settings.startupSession == profile.name {
+                            Image(systemName: "power").font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(SwiftUI.Color(t.warning)).help(L("Se abre al arrancar (⌥⌘K)"))
+                        }
                         if model.tabs.contains(where: { $0.route.sessionName == profile.name }) {
                             Circle().fill(SwiftUI.Color(t.good)).frame(width: 5, height: 5).help(L("Abierta"))
                         }
@@ -184,6 +190,9 @@ struct SessionRow: View {
             Divider()
             Button(model.favorites.contains(profile.name) ? L("Quitar de ★ favoritas") : L("★ Favorita")) {
                 model.toggleFavorite(profile.name)
+            }
+            Button(model.settings.startupSession == profile.name ? L("No abrir al arrancar") : L("⏻ Abrir al arrancar")) {
+                model.toggleStartup(profile.name)
             }
             Button(L("Editar…")) { model.editSessions(.session(profile.name)) }
             Button(L("Duplicar…")) { model.editSessions(.session(profile.name)) }

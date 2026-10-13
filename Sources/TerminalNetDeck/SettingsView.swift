@@ -145,7 +145,7 @@ struct PasswordSettings: View {
                         }
                         Spacer()
                         Button(L("Editar…")) { editing = ref }
-                            .help(L("Cambiar la contraseña guardada (la usa también NetDeck)"))
+                            .help(L("Cambiar la contraseña guardada"))
                         if model.ledger.isBlocked(ref) {
                             Button(L("Desbloquear")) {
                                 model.ledger.reset(ref)
@@ -169,7 +169,7 @@ struct PasswordSettings: View {
                     Button(L("Guardar"), action: save).disabled(newAccount.isEmpty || newPassword.isEmpty)
                 }
                 if !message.isEmpty { Text(message).font(t.ui(11)) }
-            } header: { Text(L("Llavero (compartido con NetDeck)")) }
+            } header: { Text(L("Llavero")) }
         }
         .formStyle(.grouped)
         .sheet(isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
@@ -215,7 +215,7 @@ struct PasswordSettings: View {
     private func delete(_ ref: CredentialRef) {
         let a = NSAlert()
         a.messageText = L("¿Borrar «\(ref.account)» del Llavero?")
-        a.informativeText = L("La usa también NetDeck. No se puede deshacer.")
+        a.informativeText = L("No se puede deshacer.")
         a.addButton(withTitle: L("Borrar"))
         a.addButton(withTitle: L("Cancelar"))
         guard a.runModal() == .alertFirstButtonReturn else { return }
@@ -248,7 +248,7 @@ struct PasswordChangeSheet: View {
             } header: {
                 Text(exists ? L("Cambiar «\(ref.account)»") : L("Guardar «\(ref.account)»"))
             } footer: {
-                Text(L("Se guarda sólo en el Llavero (la ve también NetDeck) y se olvida su bloqueo por fallo."))
+                Text(L("Se guarda sólo en el Llavero y se olvida su bloqueo por fallo."))
                     .font(.caption)
             }
         }
@@ -396,7 +396,7 @@ struct FontSettings: View {
                 }
                 if !message.isEmpty { Text(message).font(t.ui(11)) }
             } header: { Text(L("Fuentes de los temas")) } footer: {
-                Text(L("Se instalan con Homebrew (brew install --cask font-…), como en NetDeck.")).font(t.ui(11))
+                Text(L("Se instalan mediante Homebrew (brew install --cask font-…).")).font(t.ui(11))
             }
         }
         .formStyle(.grouped)
@@ -439,7 +439,7 @@ struct HighlightSettings: View {
                 Toggle(L("Resaltar la salida de los equipos"), isOn: $s.highlightEnabled)
                 Picker(L("Reglas"), selection: $s.highlightSource) {
                     Text(L("Automático")).tag(AppSettings.HighlightSource.auto)
-                    Text(L("Las de NetDeck (chromaterm.yml)")).tag(AppSettings.HighlightSource.netdeck)
+                    Text(L("Reglas incluidas (chromaterm.yml)")).tag(AppSettings.HighlightSource.netdeck)
                     Text(L("Las de la app")).tag(AppSettings.HighlightSource.app)
                     Text(L("Personalizadas")).tag(AppSettings.HighlightSource.custom)
                 }
@@ -516,10 +516,10 @@ struct LogSettings: View {
                         NSWorkspace.shared.open(s.logURL)
                     }
                 }
-                Button(L("Volver a la de NetDeck (~/Documents/netdeck-logs)")) { s.logPath = SessionLogger.defaultDirectory.path }
+                Button(L("Volver a la predeterminada (~/Documents/netdeck-logs)")) { s.logPath = SessionLogger.defaultDirectory.path }
                     .disabled(s.logPath == SessionLogger.defaultDirectory.path)
             } header: { Text(L("Registro de las sesiones")) } footer: {
-                Text(L("Texto limpio, como en NetDeck: sin colores y con los paginadores borrados, en CARPETA/AAAA-MM-DD/sesión_HH-MM-SS.log. ")
+                Text(L("Texto limpio: sin colores y con los paginadores borrados, en CARPETA/AAAA-MM-DD/sesión_HH-MM-SS.log. ")
                      + L("Mientras graba sale ● REC en la esquina; clic derecho en una pestaña para grabar o parar sólo esa."))
                     .font(t.ui(11))
             }
@@ -576,7 +576,19 @@ struct GeneralSettings: View {
                     }
                     Button(L("Recargar")) { model.reloadSessions() }
                 }
-                Text(L("\(model.sessions.profiles.count) sesiones · anotaciones de NetDeck: # @grupo, # @clave, # @clave-grupo, # @desc, # @telnet"))
+                Text(L("\(model.sessions.profiles.count) sesiones · anotaciones: # @grupo, # @clave, # @clave-grupo, # @desc, # @telnet"))
+                    .font(t.ui(11)).foregroundStyle(.secondary)
+            }
+            Section(L("Al arrancar")) {
+                Picker(L("Sesión de inicio"), selection: $s.startupSession) {
+                    Text(L("(ninguna)")).tag("")
+                    if !s.startupSession.isEmpty, model.startupProfile == nil {
+                        Text(L("\(s.startupSession) (ya no existe)")).tag(s.startupSession)
+                    }
+                    ForEach(model.sessions.profiles.map(\.name), id: \.self) { Text($0).tag($0) }
+                }
+                Toggle(L("Abrir una terminal local al arrancar si no hay otras pestañas"), isOn: $s.startupLocalTerminal)
+                Text(L("La sesión de inicio también se marca con clic derecho en la lista y se abre con ⌥⌘K; la terminal local, con ⌘T."))
                     .font(t.ui(11)).foregroundStyle(.secondary)
             }
             Section(L("Actualizaciones")) {
@@ -601,7 +613,7 @@ struct GeneralSettings: View {
     }
 }
 
-// MARK: - botones (la barra de NetDeck)
+// MARK: - botones (la barra)
 
 struct ButtonSettings: View {
     @Environment(\.theme) private var t
