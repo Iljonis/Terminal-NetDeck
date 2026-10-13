@@ -1,0 +1,23 @@
+# Sakura — Clara y suave, para fondo blanco.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Sakura
+grupo     = Kawaii
+orden     = 16
+fuentes   = DM Mono, M PLUS 1 Code, Fragment Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #fff7fb                  # fondo de la ventana de Terminal
+texto         = #3a2a3a                  # texto normal
+barra         = #fde6f0                  # barra de pestañas y de botones
+panel         = #f6d3e3                  # pestañas y botones inactivos
+pestaña       = #d6336c                  # pestaña activa
+sobre_pestaña = #ffffff                  # texto sobre la pestaña activa
+acento        = #9c2a6a                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #0f7b8a                  # IPs, rutas, enlaces
+bien          = #1a8a4a                  # up, established, 0% loss
+mal           = #c8102e                  # down, errores, alarmas
+especial      = #7b2cbf                  # dBm, MAC, rosa/morado
+apagado       = #a08597                  # fechas, descripciones, @ del prompt
+menu          = ✿ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = 桜 %H:%M                  # formato del reloj (%H:%M = hora:minutos)

@@ -1,0 +1,23 @@
+# Vaporwave — Turquesa y rosa pastel sobre violeta, estética noventera.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Vaporwave
+grupo     = Cyberpunk
+orden     = 06
+fuentes   = Nova Mono, VT323, Doto      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #1d1433                  # fondo de la ventana de Terminal
+texto         = #f8f0ff                  # texto normal
+barra         = #170f29                  # barra de pestañas y de botones
+panel         = #2f2150                  # pestañas y botones inactivos
+pestaña       = #01cdfe                  # pestaña activa
+sobre_pestaña = #1d1433                  # texto sobre la pestaña activa
+acento        = #fffb96                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #05ffa1                  # IPs, rutas, enlaces
+bien          = #05ffa1                  # up, established, 0% loss
+mal           = #ff71ce                  # down, errores, alarmas
+especial      = #b967ff                  # dBm, MAC, rosa/morado
+apagado       = #8e7bb0                  # fechas, descripciones, @ del prompt
+menu          = ▣ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = ＡＥＳＴＨＥＴＩＣ %H:%M          # formato del reloj (%H:%M = hora:minutos)

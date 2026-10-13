@@ -1,0 +1,23 @@
+# Grafito — oscura suave para trabajar con el Mac en modo claro: gris carbón en vez de negro, no deslumbra al pasar de una ventana clara a la terminal.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Grafito
+grupo     = Sobrias
+orden     = 32
+fuentes   = JetBrains Mono, IBM Plex Mono, Fira Code# la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #23262b                  # fondo de la ventana de Terminal
+texto         = #e4e6ea                  # texto normal
+barra         = #2c3036                  # barra de pestañas y de botones
+panel         = #383d45                  # pestañas y botones inactivos
+pestaña       = #5b9bd5                  # pestaña activa
+sobre_pestaña = #0e1116                  # texto sobre la pestaña activa
+acento        = #7cb8ff                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #8fd3c7                  # IPs, rutas, enlaces
+bien          = #7fd18b                  # up, established, 0% loss
+mal           = #ff7b72                  # down, errores, alarmas
+especial      = #d2a8ff                  # dBm, MAC, rosa/morado
+apagado       = #8b949e                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú
+reloj         = %H:%M                    # formato del reloj

@@ -1,0 +1,23 @@
+# Kawaii futurista — Lavanda oscuro, rosa, menta y lila. Detalles ♡ ✧.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Kawaii futurista
+grupo     = Kawaii
+orden     = 15
+fuentes   = Spline Sans Mono, M PLUS 1 Code, DM Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #1b1726                  # fondo de la ventana de Terminal
+texto         = #f4ecff                  # texto normal
+barra         = #15121f                  # barra de pestañas y de botones
+panel         = #2a2340                  # pestañas y botones inactivos
+pestaña       = #ff8fd1                  # pestaña activa
+sobre_pestaña = #1b1726                  # texto sobre la pestaña activa
+acento        = #ff8fd1                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #7cf5c8                  # IPs, rutas, enlaces
+bien          = #7cf5c8                  # up, established, 0% loss
+mal           = #ff6b8b                  # down, errores, alarmas
+especial      = #b9a3ff                  # dBm, MAC, rosa/morado
+apagado       = #8a7fa8                  # fechas, descripciones, @ del prompt
+menu          = ✧ Menú ✧                 # texto del botón de menú (arriba a la derecha)
+reloj         = ♡ %H:%M                  # formato del reloj (%H:%M = hora:minutos)

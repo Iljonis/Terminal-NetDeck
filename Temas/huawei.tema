@@ -1,0 +1,24 @@
+# Huawei — Rojo Huawei (#CF0A2C) y su negro (#232527).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+# (Colores inspirados en la marca; ajusta los #hex si tienes el manual de marca de tu empresa.)
+
+nombre    = Huawei
+grupo     = Corporativas
+orden     = 29
+fuentes   = Noto Sans Mono, Source Code Pro, JetBrains Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #151617                  # fondo de la ventana de Terminal
+texto         = #ececec                  # texto normal
+barra         = #232527                  # barra de pestañas y de botones
+panel         = #2f3234                  # pestañas y botones inactivos
+pestaña       = #cf0a2c                  # pestaña activa
+sobre_pestaña = #ffffff                  # texto sobre la pestaña activa
+acento        = #ffcf70                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #6fc8ff                  # IPs, rutas, enlaces
+bien          = #5ad18f                  # up, established, 0% loss
+mal           = #ff4060                  # down, errores, alarmas
+especial      = #ff7ab6                  # dBm, MAC, rosa/morado
+apagado       = #8c9196                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)

@@ -1,0 +1,23 @@
+# Grid — Negro absoluto con cian eléctrico y naranja (estilo Tron).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Grid
+grupo     = Cyberpunk
+orden     = 05
+fuentes   = Kode Mono, Doto, Martian Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #000000                  # fondo de la ventana de Terminal
+texto         = #d8fbff                  # texto normal
+barra         = #000000                  # barra de pestañas y de botones
+panel         = #00262e                  # pestañas y botones inactivos
+pestaña       = #00e1ff                  # pestaña activa
+sobre_pestaña = #000000                  # texto sobre la pestaña activa
+acento        = #00e1ff                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #7ff6ff                  # IPs, rutas, enlaces
+bien          = #39ff9e                  # up, established, 0% loss
+mal           = #ff7b00                  # down, errores, alarmas
+especial      = #ff9e3d                  # dBm, MAC, rosa/morado
+apagado       = #1f6f7d                  # fechas, descripciones, @ del prompt
+menu          = ◇ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = // %H:%M                 # formato del reloj (%H:%M = hora:minutos)

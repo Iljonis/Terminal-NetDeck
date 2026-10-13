@@ -1,0 +1,24 @@
+# Oracle — Rojo Oracle (#C74634) sobre el gris cálido de Redwood (#312D2A).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+# (Colores inspirados en la marca; ajusta los #hex si tienes el manual de marca de tu empresa.)
+
+nombre    = Oracle
+grupo     = Corporativas
+orden     = 26
+fuentes   = Source Code Pro, Red Hat Mono, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #1f1c1a                  # fondo de la ventana de Terminal
+texto         = #f1efed                  # texto normal
+barra         = #312d2a                  # barra de pestañas y de botones
+panel         = #3d3835                  # pestañas y botones inactivos
+pestaña       = #c74634                  # pestaña activa
+sobre_pestaña = #ffffff                  # texto sobre la pestaña activa
+acento        = #e5b36f                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #86c1d6                  # IPs, rutas, enlaces
+bien          = #8fcf8f                  # up, established, 0% loss
+mal           = #ff5a4a                  # down, errores, alarmas
+especial      = #f08a78                  # dBm, MAC, rosa/morado
+apagado       = #9a918a                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)

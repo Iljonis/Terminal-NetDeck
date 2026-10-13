@@ -1,0 +1,23 @@
+# Ámbar — Terminal ámbar de los 80, cálida para muchas horas.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Ámbar
+grupo     = Retro
+orden     = 18
+fuentes   = Sometype Mono, VT323, Courier Prime      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #0d0700                  # fondo de la ventana de Terminal
+texto         = #ffc66d                  # texto normal
+barra         = #090500                  # barra de pestañas y de botones
+panel         = #2a1700                  # pestañas y botones inactivos
+pestaña       = #ffb000                  # pestaña activa
+sobre_pestaña = #0d0700                  # texto sobre la pestaña activa
+acento        = #ffe0a3                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #ffb000                  # IPs, rutas, enlaces
+bien          = #d6ff8a                  # up, established, 0% loss
+mal           = #ff5a36                  # down, errores, alarmas
+especial      = #ff9d4d                  # dBm, MAC, rosa/morado
+apagado       = #8a6020                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = // %H:%M                 # formato del reloj (%H:%M = hora:minutos)

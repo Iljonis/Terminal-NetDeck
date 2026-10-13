@@ -1,0 +1,23 @@
+# Neo-Tokyo — Cyberpunk japonés: índigo profundo, magenta y cian.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Neo-Tokyo
+grupo     = Cyberpunk
+orden     = 03
+fuentes   = M PLUS 1 Code, DotGothic16, Kode Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #0b0a1f                  # fondo de la ventana de Terminal
+texto         = #e6e3ff                  # texto normal
+barra         = #07061a                  # barra de pestañas y de botones
+panel         = #1a1740                  # pestañas y botones inactivos
+pestaña       = #ff2e88                  # pestaña activa
+sobre_pestaña = #0b0a1f                  # texto sobre la pestaña activa
+acento        = #00e5ff                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #ff2e88                  # IPs, rutas, enlaces
+bien          = #5cffb0                  # up, established, 0% loss
+mal           = #ff3b5c                  # down, errores, alarmas
+especial      = #b18cff                  # dBm, MAC, rosa/morado
+apagado       = #6b66a8                  # fechas, descripciones, @ del prompt
+menu          = ネオ東京 · ☰ Menú            # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M 東京                 # formato del reloj (%H:%M = hora:minutos)

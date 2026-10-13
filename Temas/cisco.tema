@@ -1,0 +1,24 @@
+# Cisco — Azul Cisco (#049FD9) sobre azul noche, con los colores de estado de Cisco.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+# (Colores inspirados en la marca; ajusta los #hex si tienes el manual de marca de tu empresa.)
+
+nombre    = Cisco
+grupo     = Corporativas
+orden     = 27
+fuentes   = Roboto Mono, Source Code Pro, Inconsolata      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #0b1622                  # fondo de la ventana de Terminal
+texto         = #e6eef5                  # texto normal
+barra         = #0e1c2b                  # barra de pestañas y de botones
+panel         = #17293d                  # pestañas y botones inactivos
+pestaña       = #049fd9                  # pestaña activa
+sobre_pestaña = #04121c                  # texto sobre la pestaña activa
+acento        = #3fc1f0                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #7ad3c9                  # IPs, rutas, enlaces
+bien          = #6cc04a                  # up, established, 0% loss
+mal           = #ff4a3d                  # down, errores, alarmas
+especial      = #fbab18                  # dBm, MAC, rosa/morado
+apagado       = #6f879e                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)

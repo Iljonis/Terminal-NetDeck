@@ -1,0 +1,23 @@
+# Medianoche — Azules y violetas suaves (estilo Tokyo Night).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Medianoche
+grupo     = Sobrias
+orden     = 20
+fuentes   = Geist Mono, JetBrains Mono, Fira Code      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #1a1b26                  # fondo de la ventana de Terminal
+texto         = #d7dcf5                  # texto normal
+barra         = #16161e                  # barra de pestañas y de botones
+panel         = #24283b                  # pestañas y botones inactivos
+pestaña       = #7aa2f7                  # pestaña activa
+sobre_pestaña = #16161e                  # texto sobre la pestaña activa
+acento        = #e0af68                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #7dcfff                  # IPs, rutas, enlaces
+bien          = #9ece6a                  # up, established, 0% loss
+mal           = #f7768e                  # down, errores, alarmas
+especial      = #bb9af7                  # dBm, MAC, rosa/morado
+apagado       = #646d96                  # fechas, descripciones, @ del prompt
+menu          = ☾ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = ☾ %H:%M                  # formato del reloj (%H:%M = hora:minutos)

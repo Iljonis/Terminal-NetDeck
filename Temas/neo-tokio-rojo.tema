@@ -1,0 +1,23 @@
+# Neo-Tokio rojo — Rojo moto, negro y blanco con kanji (estilo Akira).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Neo-Tokio rojo
+grupo     = Anime y cine
+orden     = 09
+fuentes   = M PLUS 1 Code, Azeret Mono, DotGothic16      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #0c0a0a                  # fondo de la ventana de Terminal
+texto         = #fff4ef                  # texto normal
+barra         = #070505                  # barra de pestañas y de botones
+panel         = #2b0f0f                  # pestañas y botones inactivos
+pestaña       = #ff1e1e                  # pestaña activa
+sobre_pestaña = #ffffff                  # texto sobre la pestaña activa
+acento        = #ffffff                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #ff5a3d                  # IPs, rutas, enlaces
+bien          = #5cf5ff                  # up, established, 0% loss
+mal           = #ff1e1e                  # down, errores, alarmas
+especial      = #ffb3a7                  # dBm, MAC, rosa/morado
+apagado       = #8d6b67                  # fechas, descripciones, @ del prompt
+menu          = 健康 · ☰ Menú              # texto del botón de menú (arriba a la derecha)
+reloj         = ネオ東京 %H:%M               # formato del reloj (%H:%M = hora:minutos)

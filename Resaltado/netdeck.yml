@@ -1,0 +1,165 @@
+# ═══════════════════════════════════════════════════════════════════════
+#  Resaltado NetDeck · Neón 2077 · redes y servidores (ChromaTerm)
+#  Se aplica a todo ssh dentro de NetDeck (las sesiones nuevas lo cogen solas).
+#  color: "f.nombre" texto · "b.nombre" fondo · bold / underline / italic
+#  exclusive: true → esa zona ya no la colorea ninguna otra regla
+# ═══════════════════════════════════════════════════════════════════════
+palette:  # >>> paleta (la escribe «tema»)
+  yellow:  '#fcee0a'
+  cyan:    '#00f0ff'
+  red:     '#ff003c'
+  green:   '#00ff9f'
+  magenta: '#ff2bd6'
+  orange:  '#fe7723'
+  blue:    '#7397ed'
+  dark:    '#08090d'
+  dim:     '#5e8a94'
+# <<< paleta
+
+rules:
+# >>> prompts (los escribe «tema»)
+# ── PROMPTS · estilo HUD: usuario cian · @ apagado · equipo amarillo · > rojo ─
+- description: Prompt Linux (usuario@equipo:ruta$)
+  regex: (?m)^([\w.-]+)(@)([\w.-]+)(:)([^\s$#]*)([$#])(?=\s|$)
+  color: {1: f.cyan bold, 2: f.dim, 3: f.yellow bold, 4: f.dim, 5: f.blue, 6: f.red bold}
+  exclusive: true
+- description: Prompt RHEL/CentOS ([usuario@equipo ruta]$)
+  regex: (?m)^(\[)([\w.-]+)(@)([\w.-]+)( [^\]]*)?(\])([$#])
+  color: {1: f.dim, 2: f.cyan bold, 3: f.dim, 4: f.yellow bold, 5: f.blue, 6: f.dim, 7: f.red bold}
+  exclusive: true
+- description: Prompt Juniper (usuario@equipo>)
+  regex: (?m)^([\w.-]+)(@)([\w.-]+)([>#%])(?=\s|$)
+  color: {1: f.cyan bold, 2: f.dim, 3: f.yellow bold, 4: f.red bold}
+  exclusive: true
+- description: Prompt Huawei <EQUIPO>
+  regex: (?m)^(<)([~*]?[\w.-]+)(>)
+  color: {1: f.red bold, 2: f.yellow bold, 3: f.red bold}
+  exclusive: true
+- description: Prompt Huawei [~EQUIPO-modo]
+  regex: (?m)^(\[)([~*]?[\w.-]+(?:-[\w./-]+)?)(\])
+  color: {1: f.red bold, 2: f.yellow bold, 3: f.red bold}
+  exclusive: true
+- description: Prompt Cisco/HP/Edge-Core EQUIPO(config)#
+  regex: (?m)^([A-Za-z][\w/:.-]*)(\([\w-]+\))?(#)(?=\s|$|\w)
+  color: {1: f.yellow bold, 2: f.magenta, 3: f.red bold}
+  exclusive: true
+# <<< prompts
+
+# ── ÓPTICA · rojo si peor que -25 dBm (o sin luz) ──────────────────────────
+- description: dBm malo
+  regex: (?i)-(2[5-9]|[3-9]\d)(\.\d+)?\s?dbm|-40\.00
+  color: f.red bold underline
+  exclusive: true
+- description: dBm
+  regex: (?i)[-+]?\d+(\.\d+)?\s?dbm
+  color: f.magenta bold
+  exclusive: true
+
+# ── PING / TRACEROUTE ──────────────────────────────────────────────────────
+- description: Sin pérdida
+  regex: \b0(\.0+)?% (packet )?loss
+  color: f.green bold
+  exclusive: true
+- description: Pérdida total
+  regex: \b100(\.0+)?% (packet )?loss
+  color: f.red bold underline
+  exclusive: true
+- description: Pérdida parcial
+  regex: \b\d{1,2}(\.\d+)?% (packet )?loss
+  color: f.orange bold
+  exclusive: true
+- description: Latencia
+  regex: (?i)\btime[=<]\s?\d+(\.\d+)?\s?ms\b|\b\d+(\.\d+)?\s?ms\b
+  color: f.cyan
+- description: Traceroute sin respuesta
+  regex: (\*\s+){2}\*
+  color: f.red bold
+
+# ── ERRORES Y CONTADORES ────────────────────────────────────────────────────
+- description: Contador de errores distinto de cero
+  regex: (?i)\b(input errors|output errors|errors?|crc|drops?|dropped|discards?|collisions|overruns?|runts|giants|frame|ignored|aborts?|resets?|flaps?)(\s*[:=]?\s*)([1-9][\d,]*)\b
+  color: {1: f.orange, 3: f.red bold}
+  exclusive: true
+- description: Errores de Linux
+  regex: (?i)permission denied|no such file or directory|command not found|connection refused|connection timed out|no route to host|host is unreachable|network is unreachable|name or service not known|segmentation fault|out of memory|killed process|traceback \(most recent call last\)|read-only file system|no space left on device|authentication failed|access denied
+  color: f.red bold
+- description: Niveles de log graves
+  regex: \b(EMERG(ENCY)?|ALERT|CRIT(ICAL)?|ERR(OR)?|FATAL|PANIC|FAIL(ED|URE)?)\b
+  color: f.red bold
+- description: Niveles de log aviso
+  regex: \b(WARN(ING)?|NOTICE|DEPRECATED)\b
+  color: f.orange bold
+- description: Niveles de log informativos
+  regex: \b(INFO|DEBUG|TRACE)\b
+  color: f.dim
+
+# ── ESTADOS ─────────────────────────────────────────────────────────────────
+- description: systemd activo
+  regex: active \(running\)|active \(exited\)|enabled;
+  color: f.green bold
+  exclusive: true
+- description: systemd parado
+  regex: inactive \(dead\)|disabled;|activating \([\w-]+\)|deactivating
+  color: f.orange bold
+  exclusive: true
+- description: Estados malos
+  regex: (?i)\b(down|\*down|\^down|admin-?down|disabled|err-?disabled|notconnect|not ?present|absent|failed|failure|fail|unreachable|timeout|timed out|denied|rejected?|shutdown|offline|los|lof|idle|connect|opensent|openconfirm|invalid|no light|exited|unhealthy|dead|blocking|blk|discarding|unselected|isolated|lost|critical|major)\b
+  color: f.red bold
+- description: Avisos
+  regex: (?i)\b(warn(ing)?|minor|flap(ping)?|degraded|loss|retrans\w*|half|half-duplex|mismatch|2way|exstart|exchange|loading|init|learning|lrn|standby|suspended|pending|restarting|paused|time_wait|close_wait|syn_sent|syn_recv|fin_wait\d?)\b
+  color: f.orange bold
+- description: Estados buenos
+  regex: (?i)\b(up|established|estab|connected|enabled?|online|ok|success(ful)?|normal|forwarding|fwd|full|full-duplex|present|running|reachable|active-up|healthy|listen|bndl|selected|synced|in sync|master|primary)\b
+  color: f.green bold
+
+# ── DIRECCIONES ─────────────────────────────────────────────────────────────
+- description: IPv4 / prefijo / puerto
+  regex: \b(?<![\d.])(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}(/\d{1,2})?(:\d{1,5})?(?![\d.])
+  color: f.cyan bold
+- description: IPv6
+  regex: (?i)(?<![\w:])(([0-9a-f]{1,4}:){7}[0-9a-f]{1,4}|([0-9a-f]{1,4}:){1,6}(:[0-9a-f]{1,4}){1,6}|([0-9a-f]{1,4}:){1,7}:|::([0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})(/\d{1,3})?(?![\w:])
+  color: f.cyan
+  exclusive: true
+- description: MAC
+  regex: (?i)\b([0-9a-f]{2}[:-]){5}[0-9a-f]{2}\b|\b([0-9a-f]{4}[.-]){2}[0-9a-f]{4}\b
+  color: f.magenta
+  exclusive: true
+- description: URL
+  regex: (?i)\b(https?|ftp|ssh|tftp|snmp)://[^\s'"<>]+
+  color: f.blue underline
+  exclusive: true
+
+# ── INTERFACES (Juniper, Huawei, Cisco, HPE, Dell, UfiSpace, Edge-Core, Linux) ─
+- description: Interfaces
+  regex: (?i)\b((xe|ge|et|mge|ae|irb|lo|em|fxp|me|gr|st|ps)-?\d+(/\d+)*(\.\d+)?|(x|xx|25|40|50|100|400)?gigabitethernet\s?\d+(/\d+)*(\.\d+)?|(ten|twenty five|forty|hundred|fourhundred)gig(abit)?e?\s?\d+(/\d+)*(\.\d+)?|(gi|te|tw|fo|hu|xg|ge|fa|eth|xge|mge|25ge|100ge|10ge|40ge)\d+(/\d+)+(\.\d+)?|eth-trunk\s?\d+(\.\d+)?|vlanif\s?\d+|vlan\s?\d+|bundle-ether\s?\d+(\.\d+)?|loopback\s?\d+|port-channel\s?\d+|po\d+|bridge-aggregation\s?\d+|ethernet\s?\d+(/\d+)+|phy-eth\s?\d+(/\d+)+|eth\s?\d+/\s?\d+|trunk\s+\d+|eth\d+(\.\d+)?|ens\d+\w*|enp\w+|eno\d+|bond\d+|vmbr\d+|veth\w+|docker\d+|br-\w+|tun\d+|tap\d+|wg\d+|wwan\d+|mobile\d*)\b
+  color: f.yellow bold
+
+# ── PROTOCOLOS / ROUTING ────────────────────────────────────────────────────
+- description: Protocolos
+  regex: \b(BGP|OSPF|OSPFv3|ISIS|IS-IS|LDP|RSVP|MPLS|SR|SRv6|LACP|LLDP|CDP|BFD|VRRP|HSRP|STP|RSTP|MSTP|EVPN|VXLAN|VPLS|L2VPN|L3VPN|VRF|PIM|IGMP|NTP|SNMP|SSH|TACACS\+?|RADIUS|DHCP|DNS|ARP|ND|ICMP|TCP|UDP|GRE|IPsec|NAT)\b|\bvpn-instance\b|\brouting-instance\b
+  color: f.blue bold
+- description: AS
+  regex: (?i)\b(AS|asn?)\s?\d{1,10}\b
+  color: f.blue
+
+# ── SERVIDORES ──────────────────────────────────────────────────────────────
+- description: Uso alto (disco, CPU, memoria)
+  regex: \b(9\d|100)(\.\d+)?%
+  color: f.red bold
+- description: Uso medio
+  regex: \b[78]\d(\.\d+)?%
+  color: f.orange bold
+- description: Usuario root
+  regex: \broot\b
+  color: f.magenta bold
+- description: Rutas de ficheros
+  regex: (?<![\w.:/-])(~|/)[\w.@-]+(/[\w.@-]+)+/?
+  color: f.blue
+- description: Fechas y horas
+  regex: \b\d{4}-\d\d-\d\d([ T]\d\d:\d\d(:\d\d)?(\.\d+)?(Z|[+-]\d\d:?\d\d)?)?\b|\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d\d:\d\d:\d\d\b|\b\d\d:\d\d:\d\d\b
+  color: f.dim
+
+# ── DESCRIPCIONES TÍPICAS ───────────────────────────────────────────────────
+- description: ADM / reservado
+  regex: \b(ADM|RESERVADO|LIBRE|FREE|UNUSED)\b
+  color: f.dim

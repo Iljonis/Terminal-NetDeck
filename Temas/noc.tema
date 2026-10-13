@@ -1,0 +1,23 @@
+# NOC — para pantallas de guardia: todo lo normal en tonos apagados y las alarmas (down, errores, pérdidas) saltando a la vista.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = NOC
+grupo     = Prácticas
+orden     = 34
+fuentes   = JetBrains Mono, Roboto Mono, Fira Code# la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #0a0e14                  # fondo de la ventana de Terminal
+texto         = #c8d0da                  # texto normal
+barra         = #0f141b                  # barra de pestañas y de botones
+panel         = #1a212b                  # pestañas y botones inactivos
+pestaña       = #39bae6                  # pestaña activa
+sobre_pestaña = #0a0e14                  # texto sobre la pestaña activa
+acento        = #39bae6                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #95e6cb                  # IPs, rutas, enlaces
+bien          = #7fd962                  # up, established, 0% loss
+mal           = #ff3333                  # down, errores, alarmas
+especial      = #ffb454                  # dBm, MAC, rosa/morado
+apagado       = #4d5566                  # fechas, descripciones, @ del prompt
+menu          = ◉ Menú                   # texto del botón de menú
+reloj         = NOC %H:%M                # formato del reloj

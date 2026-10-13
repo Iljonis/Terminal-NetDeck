@@ -1,0 +1,24 @@
+# Papel — clara y muy legible: para oficinas con mucha luz, el proyector o compartir pantalla en una reunión.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Papel
+grupo     = Prácticas
+orden     = 33
+fuentes   = IBM Plex Mono, JetBrains Mono, Fira Code# la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+prompt    = plano                        # prompts como en Terminal: usuario@equipo en negrita, el resto en texto normal
+
+fondo         = #fbfaf7                  # fondo de la ventana de Terminal
+texto         = #1f2328                  # texto normal
+barra         = #ecebe6                  # barra de pestañas y de botones
+panel         = #dfddd6                  # pestañas y botones inactivos
+pestaña       = #0b62c4                  # pestaña activa
+sobre_pestaña = #ffffff                  # texto sobre la pestaña activa
+acento        = #0b62c4                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #0a7f6f                  # IPs, rutas, enlaces
+bien          = #1a7f37                  # up, established, 0% loss
+mal           = #cf222e                  # down, errores, alarmas
+especial      = #8250df                  # dBm, MAC, rosa/morado
+apagado       = #6e7781                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú
+reloj         = %H:%M                    # formato del reloj

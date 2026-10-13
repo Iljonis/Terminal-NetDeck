@@ -1,0 +1,23 @@
+# Alto contraste — Blanco puro sobre negro y colores al máximo.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Alto contraste
+grupo     = Prácticas
+orden     = 24
+fuentes   = Atkinson Hyperlegible Mono, B612 Mono, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 15
+
+fondo         = #000000                  # fondo de la ventana de Terminal
+texto         = #ffffff                  # texto normal
+barra         = #000000                  # barra de pestañas y de botones
+panel         = #1a1a1a                  # pestañas y botones inactivos
+pestaña       = #ffffff                  # pestaña activa
+sobre_pestaña = #000000                  # texto sobre la pestaña activa
+acento        = #ffff00                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #00ffff                  # IPs, rutas, enlaces
+bien          = #00ff00                  # up, established, 0% loss
+mal           = #ff3030                  # down, errores, alarmas
+especial      = #ff66ff                  # dBm, MAC, rosa/morado
+apagado       = #b0b0b0                  # fechas, descripciones, @ del prompt
+menu          = ☰ MENÚ                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)

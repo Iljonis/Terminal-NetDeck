@@ -1,0 +1,23 @@
+# Otoño retro — cálida y con poco azul, inspirada en Gruvbox: buena para la noche.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Otoño retro
+grupo     = Retro
+orden     = 37
+fuentes   = Fira Code, JetBrains Mono, IBM Plex Mono# la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #282828                  # fondo de la ventana de Terminal
+texto         = #ebdbb2                  # texto normal
+barra         = #32302f                  # barra de pestañas y de botones
+panel         = #3c3836                  # pestañas y botones inactivos
+pestaña       = #d79921                  # pestaña activa
+sobre_pestaña = #282828                  # texto sobre la pestaña activa
+acento        = #fabd2f                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #8ec07c                  # IPs, rutas, enlaces
+bien          = #b8bb26                  # up, established, 0% loss
+mal           = #fb4934                  # down, errores, alarmas
+especial      = #d3869b                  # dBm, MAC, rosa/morado
+apagado       = #928374                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú
+reloj         = %H:%M                    # formato del reloj

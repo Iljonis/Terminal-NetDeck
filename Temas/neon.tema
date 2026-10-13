@@ -1,0 +1,23 @@
+# Neón 2077 — Amarillo portada, cian y rojo neón.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Neón 2077
+grupo     = Cyberpunk
+orden     = 01
+fuentes   = Space Mono, Kode Mono, Doto      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #08090d                  # fondo de la ventana de Terminal
+texto         = #eef6f7                  # texto normal
+barra         = #090b10                  # barra de pestañas y de botones
+panel         = #161925                  # pestañas y botones inactivos
+pestaña       = #00f0ff                  # pestaña activa
+sobre_pestaña = #090b10                  # texto sobre la pestaña activa
+acento        = #fcee0a                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #00f0ff                  # IPs, rutas, enlaces
+bien          = #00ff9f                  # up, established, 0% loss
+mal           = #ff003c                  # down, errores, alarmas
+especial      = #ff2bd6                  # dBm, MAC, rosa/morado
+apagado       = #5e8a94                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = // %H:%M                 # formato del reloj (%H:%M = hora:minutos)

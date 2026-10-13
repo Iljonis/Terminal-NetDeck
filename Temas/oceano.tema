@@ -1,0 +1,23 @@
+# Océano profundo — Azul abisal con brillos aguamarina y coral.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Océano profundo
+grupo     = Sobrias
+orden     = 22
+fuentes   = Fira Code, Source Code Pro, JetBrains Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #04131f                  # fondo de la ventana de Terminal
+texto         = #e2f6ff                  # texto normal
+barra         = #020d16                  # barra de pestañas y de botones
+panel         = #0b2a40                  # pestañas y botones inactivos
+pestaña       = #00ffd5                  # pestaña activa
+sobre_pestaña = #04131f                  # texto sobre la pestaña activa
+acento        = #7af0ff                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #00ffd5                  # IPs, rutas, enlaces
+bien          = #5dff9b                  # up, established, 0% loss
+mal           = #ff6f61                  # down, errores, alarmas
+especial      = #ff9ecb                  # dBm, MAC, rosa/morado
+apagado       = #4f7a91                  # fechas, descripciones, @ del prompt
+menu          = ≈ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = ≈ %H:%M                  # formato del reloj (%H:%M = hora:minutos)

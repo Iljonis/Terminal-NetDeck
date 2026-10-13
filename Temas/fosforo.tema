@@ -1,0 +1,23 @@
+# Fósforo — Monitor clásico de fósforo verde.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Fósforo
+grupo     = Retro
+orden     = 17
+fuentes   = VT323, Doto, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 17
+
+fondo         = #030a04                  # fondo de la ventana de Terminal
+texto         = #7dff9a                  # texto normal
+barra         = #020702                  # barra de pestañas y de botones
+panel         = #0c1f10                  # pestañas y botones inactivos
+pestaña       = #3dff6e                  # pestaña activa
+sobre_pestaña = #030a04                  # texto sobre la pestaña activa
+acento        = #c8ffb0                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #3dff6e                  # IPs, rutas, enlaces
+bien          = #3dff6e                  # up, established, 0% loss
+mal           = #ff5c5c                  # down, errores, alarmas
+especial      = #b6ff6b                  # dBm, MAC, rosa/morado
+apagado       = #2f7a43                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = // %H:%M                 # formato del reloj (%H:%M = hora:minutos)

@@ -1,0 +1,23 @@
+# Ártico — Sobria con contraste: hielo, aurora y ámbar.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Ártico
+grupo     = Sobrias
+orden     = 19
+fuentes   = JetBrains Mono, IBM Plex Mono, Geist Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #161b22                  # fondo de la ventana de Terminal
+texto         = #f2f6fa                  # texto normal
+barra         = #10141a                  # barra de pestañas y de botones
+panel         = #232b36                  # pestañas y botones inactivos
+pestaña       = #5fd4ff                  # pestaña activa
+sobre_pestaña = #10141a                  # texto sobre la pestaña activa
+acento        = #ffd36b                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #5fd4ff                  # IPs, rutas, enlaces
+bien          = #5dffb1                  # up, established, 0% loss
+mal           = #ff5f6d                  # down, errores, alarmas
+especial      = #c79bff                  # dBm, MAC, rosa/morado
+apagado       = #7c8a9c                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = ❄ %H:%M                  # formato del reloj (%H:%M = hora:minutos)

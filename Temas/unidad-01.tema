@@ -1,0 +1,23 @@
+# Unidad-01 — Morado y verde neón, avisos en naranja (estilo EVA-01).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Unidad-01
+grupo     = Anime y cine
+orden     = 07
+fuentes   = Share Tech Mono, Doto, Azeret Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #120a1f                  # fondo de la ventana de Terminal
+texto         = #efe7ff                  # texto normal
+barra         = #0c0616                  # barra de pestañas y de botones
+panel         = #24123d                  # pestañas y botones inactivos
+pestaña       = #8cff3f                  # pestaña activa
+sobre_pestaña = #120a1f                  # texto sobre la pestaña activa
+acento        = #8cff3f                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #b57bff                  # IPs, rutas, enlaces
+bien          = #8cff3f                  # up, established, 0% loss
+mal           = #ff5a1f                  # down, errores, alarmas
+especial      = #ff8a00                  # dBm, MAC, rosa/morado
+apagado       = #7d6a9c                  # fechas, descripciones, @ del prompt
+menu          = UNIT-01 · ☰ Menú         # texto del botón de menú (arriba a la derecha)
+reloj         = 起動 %H:%M                 # formato del reloj (%H:%M = hora:minutos)

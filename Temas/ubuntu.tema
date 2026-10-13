@@ -1,0 +1,24 @@
+# Ubuntu — Naranja Ubuntu (#E95420) sobre berenjena (#300A24), como su terminal.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+# (Colores inspirados en la marca; ajusta los #hex si tienes el manual de marca de tu empresa.)
+
+nombre    = Ubuntu
+grupo     = Corporativas
+orden     = 30
+fuentes   = Ubuntu Mono, Ubuntu Sans Mono, JetBrains Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #300a24                  # fondo de la ventana de Terminal
+texto         = #ffffff                  # texto normal
+barra         = #2c001e                  # barra de pestañas y de botones
+panel         = #4b1c3f                  # pestañas y botones inactivos
+pestaña       = #e95420                  # pestaña activa
+sobre_pestaña = #2c001e                  # texto sobre la pestaña activa
+acento        = #ff7d40                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #73c7ff                  # IPs, rutas, enlaces
+bien          = #8ae234                  # up, established, 0% loss
+mal           = #ff4b4b                  # down, errores, alarmas
+especial      = #d59fd0                  # dBm, MAC, rosa/morado
+apagado       = #a7899f                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)

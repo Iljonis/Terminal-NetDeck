@@ -1,0 +1,23 @@
+# Replicante — Neblina naranja y azul petróleo (estilo Blade Runner).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Replicante
+grupo     = Anime y cine
+orden     = 11
+fuentes   = Chivo Mono, Red Hat Mono, Geist Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #0e0f12                  # fondo de la ventana de Terminal
+texto         = #f1e3cf                  # texto normal
+barra         = #0a0b0d                  # barra de pestañas y de botones
+panel         = #1f2329                  # pestañas y botones inactivos
+pestaña       = #ff7a2f                  # pestaña activa
+sobre_pestaña = #0e0f12                  # texto sobre la pestaña activa
+acento        = #ffb36b                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #3fc1c9                  # IPs, rutas, enlaces
+bien          = #7ed9a8                  # up, established, 0% loss
+mal           = #ff4f3a                  # down, errores, alarmas
+especial      = #d98cff                  # dBm, MAC, rosa/morado
+apagado       = #6f7782                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = 2049 · %H:%M             # formato del reloj (%H:%M = hora:minutos)

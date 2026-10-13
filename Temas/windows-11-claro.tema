@@ -1,0 +1,27 @@
+# Windows 11 Claro — Fluent de día: Mica clara, acento azul y la paleta «One Half Light» de Windows Terminal (legible en claro).
+# Temática de la app (estilo «fluent»).
+
+nombre    = Windows 11 Claro
+grupo     = Sistemas
+orden     = 21
+estilo    = fluent
+material  = mica
+fuentes   = Cascadia Mono, Cascadia Code, Consolas
+fuente_interfaz = Segoe UI Variable, Segoe UI, sistema
+tamaño    = 14
+
+fondo         = #f3f3f3e6
+texto         = #1a1a1a
+barra         = #eeeeeecc
+panel         = #ffffffd9
+pestaña       = #005fb8
+sobre_pestaña = #ffffff
+acento        = #005fb8
+acento2       = #03787c
+bien          = #0f7b0f
+mal           = #c42b1c
+especial      = #8764b8
+apagado       = #616161
+menu          = ⊞ NetDeck
+reloj         = %H:%M
+ansi          = #383a42, #e45649, #50a14f, #c18301, #0184bc, #a626a4, #0997b3, #696c77, #4f525d, #df6c75, #3e8e3d, #b07800, #4078f2, #c577dd, #0e7c93, #383a42

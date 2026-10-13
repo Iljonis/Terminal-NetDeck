@@ -1,0 +1,23 @@
+# Solar oscuro — la paleta clásica Solarized en oscuro: poco contraste, descansa la vista en turnos largos.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Solar oscuro
+grupo     = Sobrias
+orden     = 35
+fuentes   = Source Code Pro, JetBrains Mono, Fira Code# la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #002b36                  # fondo de la ventana de Terminal
+texto         = #a7b6b6                  # texto normal
+barra         = #073642                  # barra de pestañas y de botones
+panel         = #0d4452                  # pestañas y botones inactivos
+pestaña       = #268bd2                  # pestaña activa
+sobre_pestaña = #fdf6e3                  # texto sobre la pestaña activa
+acento        = #b58900                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #2aa198                  # IPs, rutas, enlaces
+bien          = #859900                  # up, established, 0% loss
+mal           = #dc322f                  # down, errores, alarmas
+especial      = #d33682                  # dBm, MAC, rosa/morado
+apagado       = #657b83                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú
+reloj         = %H:%M                    # formato del reloj

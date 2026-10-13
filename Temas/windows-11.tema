@@ -1,0 +1,27 @@
+# Windows 11 — Fluent y Mica: gris oscuro con un toque translúcido, acento azul, Cascadia Mono y la paleta Campbell de Windows Terminal.
+# Temática de la app (estilo «fluent»: esquinas de 4–6 px, sin brillos).
+
+nombre    = Windows 11
+grupo     = Sistemas
+orden     = 20
+estilo    = fluent
+material  = mica                         # como Mica: deja ver un poco el escritorio
+fuentes   = Cascadia Mono, Cascadia Code, Consolas
+fuente_interfaz = Segoe UI Variable, Segoe UI, sistema
+tamaño    = 14
+
+fondo         = #1c1c1ce6                # (e6 ≈ 90 %)
+texto         = #ffffff
+barra         = #202020cc
+panel         = #2d2d2de6
+pestaña       = #60cdff                  # acento de Windows 11 en modo oscuro
+sobre_pestaña = #000000
+acento        = #60cdff
+acento2       = #99ebff
+bien          = #6ccb5f
+mal           = #ff99a4
+especial      = #d59dff
+apagado       = #9d9d9d
+menu          = ⊞ NetDeck
+reloj         = %H:%M
+ansi          = #0c0c0c, #e74856, #16c60c, #f9f1a5, #3b78ff, #b4009e, #61d6d6, #cccccc, #767676, #e74856, #16c60c, #f9f1a5, #3b78ff, #b4009e, #61d6d6, #f2f2f2

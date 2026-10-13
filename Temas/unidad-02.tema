@@ -1,0 +1,23 @@
+# Unidad-02 — Rojo y naranja intensos con verde lima (estilo EVA-02).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Unidad-02
+grupo     = Anime y cine
+orden     = 08
+fuentes   = Azeret Mono, Share Tech Mono, Chivo Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #140607                  # fondo de la ventana de Terminal
+texto         = #ffecea                  # texto normal
+barra         = #0d0304                  # barra de pestañas y de botones
+panel         = #2a0c0f                  # pestañas y botones inactivos
+pestaña       = #ff2b3d                  # pestaña activa
+sobre_pestaña = #ffffff                  # texto sobre la pestaña activa
+acento        = #ff7a1a                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #ffb000                  # IPs, rutas, enlaces
+bien          = #c6ff3d                  # up, established, 0% loss
+mal           = #ff2b3d                  # down, errores, alarmas
+especial      = #ff6f91                  # dBm, MAC, rosa/morado
+apagado       = #8a5a5e                  # fechas, descripciones, @ del prompt
+menu          = UNIT-02 · ☰ Menú         # texto del botón de menú (arriba a la derecha)
+reloj         = 戦闘 %H:%M                 # formato del reloj (%H:%M = hora:minutos)

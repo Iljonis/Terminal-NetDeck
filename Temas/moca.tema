@@ -1,0 +1,23 @@
+# Moca — pasteles suaves sobre fondo oscuro, inspirada en Catppuccin Mocha.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Moca
+grupo     = Sobrias
+orden     = 38
+fuentes   = JetBrains Mono, Fira Code, IBM Plex Mono# la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #1e1e2e                  # fondo de la ventana de Terminal
+texto         = #cdd6f4                  # texto normal
+barra         = #181825                  # barra de pestañas y de botones
+panel         = #313244                  # pestañas y botones inactivos
+pestaña       = #cba6f7                  # pestaña activa
+sobre_pestaña = #1e1e2e                  # texto sobre la pestaña activa
+acento        = #89b4fa                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #94e2d5                  # IPs, rutas, enlaces
+bien          = #a6e3a1                  # up, established, 0% loss
+mal           = #f38ba8                  # down, errores, alarmas
+especial      = #f5c2e7                  # dBm, MAC, rosa/morado
+apagado       = #7f849c                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú
+reloj         = %H:%M                    # formato del reloj

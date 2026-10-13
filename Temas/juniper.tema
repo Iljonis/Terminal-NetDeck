@@ -1,0 +1,24 @@
+# Juniper — Verde Juniper (#84B135) y lima (#CCDB2A) sobre gris pizarra.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+# (Colores inspirados en la marca; ajusta los #hex si tienes el manual de marca de tu empresa.)
+
+nombre    = Juniper
+grupo     = Corporativas
+orden     = 28
+fuentes   = JetBrains Mono, Fira Code, Source Code Pro      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #0f1410                  # fondo de la ventana de Terminal
+texto         = #e8efe4                  # texto normal
+barra         = #131a14                  # barra de pestañas y de botones
+panel         = #1f2a20                  # pestañas y botones inactivos
+pestaña       = #84b135                  # pestaña activa
+sobre_pestaña = #0f1410                  # texto sobre la pestaña activa
+acento        = #ccdb2a                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #58c4dc                  # IPs, rutas, enlaces
+bien          = #4fd08a                  # up, established, 0% loss
+mal           = #ff5b5b                  # down, errores, alarmas
+especial      = #c792ea                  # dBm, MAC, rosa/morado
+apagado       = #7f8f7a                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)

@@ -1,0 +1,27 @@
+# Liquid Glass — como macOS 27: cristal transparente y desenfocado, con los colores del sistema. Legible sobre cualquier fondo.
+# Temática de la app (estilo «cristal»: cápsulas de vidrio, esquinas redondeadas y la letra del Mac).
+
+nombre    = Liquid Glass
+grupo     = Sistemas
+orden     = 10
+estilo    = cristal                      # cristal (macOS) · fluent (Windows 11) · neon (NetDeck)
+material  = cristal                      # desenfoca lo que hay detrás de la ventana
+fuentes   = SF Mono, Menlo               # (SF Mono es la del sistema aunque no salga en la lista)
+fuente_interfaz = sistema                # la del Mac (SF Pro)
+tamaño    = 14
+
+fondo         = #1c1c1e8c                # #rrggbbaa: el último par es la opacidad (8c ≈ 55 %)
+texto         = #f5f5f7
+barra         = #2c2c2e59
+panel         = #48484a80
+pestaña       = #0a84ff
+sobre_pestaña = #ffffff
+acento        = #0a84ff                  # azul del sistema
+acento2       = #64d2ff                  # cian
+bien          = #30d158
+mal           = #ff453a
+especial      = #bf5af2
+apagado       = #a1a1a6
+menu          =  NetDeck
+reloj         = %H:%M
+ansi          = #3a3a3c, #ff453a, #30d158, #ffd60a, #0a84ff, #bf5af2, #64d2ff, #e5e5ea, #8e8e93, #ff6961, #4ee07c, #ffe55c, #409cff, #da8fff, #8de2ff, #ffffff

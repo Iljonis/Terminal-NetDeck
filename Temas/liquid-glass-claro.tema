@@ -1,0 +1,27 @@
+# Liquid Glass Claro — macOS 27 de día: vidrio claro y desenfocado, texto oscuro bien legible.
+# Temática de la app (estilo «cristal»).
+
+nombre    = Liquid Glass Claro
+grupo     = Sistemas
+orden     = 11
+estilo    = cristal
+material  = cristal
+fuentes   = SF Mono, Menlo
+fuente_interfaz = sistema
+tamaño    = 14
+
+fondo         = #f5f5f7b3                # (b3 ≈ 70 %)
+texto         = #1d1d1f
+barra         = #ffffff66
+panel         = #ffffff99
+pestaña       = #007aff
+sobre_pestaña = #ffffff
+acento        = #0063d1
+acento2       = #00799e
+bien          = #1f7a35
+mal           = #d70015
+especial      = #8944ab
+apagado       = #6e6e73
+menu          =  NetDeck
+reloj         = %H:%M
+ansi          = #1d1d1f, #d70015, #1f7a35, #a05a00, #0040dd, #8944ab, #00799e, #48484a, #6e6e73, #ff3b30, #248a3d, #c93400, #0063d1, #af52de, #0071a4, #1d1d1f

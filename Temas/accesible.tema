@@ -1,0 +1,23 @@
+# Accesible — Para daltonismo: bien en azul, mal en naranja.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Accesible
+grupo     = Prácticas
+orden     = 23
+fuentes   = Atkinson Hyperlegible Mono, B612 Mono, JetBrains Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 15
+
+fondo         = #0f1114                  # fondo de la ventana de Terminal
+texto         = #f4f4f4                  # texto normal
+barra         = #0b0c0e                  # barra de pestañas y de botones
+panel         = #1f2329                  # pestañas y botones inactivos
+pestaña       = #4da3ff                  # pestaña activa
+sobre_pestaña = #0b0c0e                  # texto sobre la pestaña activa
+acento        = #ffd166                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #4da3ff                  # IPs, rutas, enlaces
+bien          = #4da3ff                  # up, established, 0% loss
+mal           = #ff8c00                  # down, errores, alarmas
+especial      = #e0b0ff                  # dBm, MAC, rosa/morado
+apagado       = #8a8f98                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)

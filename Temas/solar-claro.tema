@@ -1,0 +1,24 @@
+# Solar claro — la misma paleta Solarized en claro: pareja de Solar oscuro (ideal en modo Auto).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Solar claro
+grupo     = Sobrias
+orden     = 36
+fuentes   = Source Code Pro, JetBrains Mono, Fira Code# la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+prompt    = plano                        # prompts como en Terminal: usuario@equipo en negrita, el resto en texto normal
+
+fondo         = #fdf6e3                  # fondo de la ventana de Terminal
+texto         = #4f6168                  # texto normal
+barra         = #eee8d5                  # barra de pestañas y de botones
+panel         = #e4dcc4                  # pestañas y botones inactivos
+pestaña       = #268bd2                  # pestaña activa
+sobre_pestaña = #fdf6e3                  # texto sobre la pestaña activa
+acento        = #cb4b16                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #1c7f77                  # IPs, rutas, enlaces
+bien          = #5f7400                  # up, established, 0% loss
+mal           = #dc322f                  # down, errores, alarmas
+especial      = #6c71c4                  # dBm, MAC, rosa/morado
+apagado       = #7a8a8c                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú
+reloj         = %H:%M                    # formato del reloj

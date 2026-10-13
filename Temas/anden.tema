@@ -1,0 +1,23 @@
+# Andén — Panel LED naranja de estación japonesa.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Andén
+grupo     = Anime y cine
+orden     = 14
+fuentes   = DotGothic16, Doto, VT323      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 16
+
+fondo         = #050505                  # fondo de la ventana de Terminal
+texto         = #ffb347                  # texto normal
+barra         = #000000                  # barra de pestañas y de botones
+panel         = #1c1206                  # pestañas y botones inactivos
+pestaña       = #ff9a1f                  # pestaña activa
+sobre_pestaña = #050505                  # texto sobre la pestaña activa
+acento        = #ffd60a                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #ff9a1f                  # IPs, rutas, enlaces
+bien          = #3dff7a                  # up, established, 0% loss
+mal           = #ff3b30                  # down, errores, alarmas
+especial      = #ffcf7a                  # dBm, MAC, rosa/morado
+apagado       = #7a5a2a                  # fechas, descripciones, @ del prompt
+menu          = ◉ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = 発車 %H:%M                 # formato del reloj (%H:%M = hora:minutos)
