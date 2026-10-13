@@ -148,7 +148,7 @@ public struct SSHConfigParser: Sendable {
 
     /// Rutas de un «Include» (comodines, «~», relativas a ~/.ssh).
     static func expand(_ value: String, sshDirectory: URL?) -> [URL] {
-        let base = sshDirectory ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".ssh")
+        let base = sshDirectory ?? AppPaths.home.appendingPathComponent(".ssh")
         return value.split(whereSeparator: \.isWhitespace).flatMap { tok -> [URL] in
             var path = (String(tok) as NSString).expandingTildeInPath
             if !path.hasPrefix("/") { path = base.appendingPathComponent(path).path }

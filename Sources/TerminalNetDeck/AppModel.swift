@@ -549,7 +549,7 @@ final class AppModel {
         do {
             try f.save()
             reloadButtons()
-            status = L("Botones guardados (\(f.buttons.count)) en \(ButtonFile.defaultURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))")
+            status = L("Botones guardados (\(f.buttons.count)) en \(ButtonFile.defaultURL.path.replacingOccurrences(of: AppPaths.home.path, with: "~"))")
             return nil
         } catch {
             return error.localizedDescription

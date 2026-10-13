@@ -80,7 +80,7 @@ extension ContentView {
         }
         if a.hasPrefix("settings") { model.openSettings(a.split(separator: ":").dropFirst().first.map(String.init) ?? "contraseñas") }
         if a.hasPrefix("split") {                    // «split»: 3 pestañas en 1 + 2 con MultiExec
-            for h in ["127.0.0.1", "127.0.0.2", "127.0.0.3"] { model.quickConnect(h) }
+            for h in ["admin@192.0.2.11", "admin@192.0.2.12", "admin@192.0.2.21"] { model.quickConnect(h) }
             model.makeSplit(.onePlusTwo)
             model.multiExecOn = true
             if let s = model.tabs.last { model.toggleExcluded(s) }
@@ -340,7 +340,7 @@ struct RecBadge: View {
                 }
             }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-            .help(L("Grabando en \(f.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))"))
+            .help(L("Grabando en \(f.path.replacingOccurrences(of: AppPaths.home.path, with: "~"))"))
         }
     }
 }

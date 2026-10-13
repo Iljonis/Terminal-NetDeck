@@ -9,7 +9,7 @@ public final class SessionManager {
     public private(set) var loadError: String?
 
     public static var defaultConfigURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".ssh/config")
+        AppPaths.home.appendingPathComponent(".ssh/config")
     }
 
     public init(profiles: [SessionProfile] = []) {

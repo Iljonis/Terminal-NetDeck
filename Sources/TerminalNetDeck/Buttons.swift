@@ -216,7 +216,7 @@ struct ButtonEditor: View {
                 .frame(width: 240)
                 Toggle(L("Por grupos (☰)"), isOn: $s.buttonBarGrouped)
                 Spacer()
-                Text(ButtonFile.defaultURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+                Text(ButtonFile.defaultURL.path.replacingOccurrences(of: AppPaths.home.path, with: "~"))
                     .font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
             }
             .padding(14)

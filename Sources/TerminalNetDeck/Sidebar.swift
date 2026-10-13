@@ -47,7 +47,7 @@ struct Sidebar: View {
                     .help(L("Gestionar sesiones y grupos"))
                 IconButton(icon: "square.and.arrow.down") { model.editSessions(.importing) }
                     .help(L("Importar de SecureCRT, MobaXterm, PuTTY, CSV…"))
-                Text(model.sessions.source?.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") ?? L("sesiones de ejemplo"))
+                Text(model.sessions.source?.path.replacingOccurrences(of: AppPaths.home.path, with: "~") ?? L("sesiones de ejemplo"))
                     .lineLimit(1).truncationMode(.head)
                     .foregroundStyle(SwiftUI.Color(t.dim))
                 Spacer()

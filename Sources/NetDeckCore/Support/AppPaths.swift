@@ -2,7 +2,11 @@ import Foundation
 
 /// Dónde guarda sus cosas la app (nada de contraseñas: ésas, sólo en el Llavero).
 public enum AppPaths {
-    public static var home: URL { FileManager.default.homeDirectoryForCurrentUser }
+    /// La carpeta personal. Desarrollo: NETDECK_HOME=/otra/carpeta (capturas con datos de ejemplo, sin tocar los tuyos).
+    public static var home: URL {
+        if let h = ProcessInfo.processInfo.environment["NETDECK_HOME"], !h.isEmpty { return URL(fileURLWithPath: h, isDirectory: true) }
+        return FileManager.default.homeDirectoryForCurrentUser
+    }
 
     /// ~/Library/Application Support/Terminal NetDeck
     public static var support: URL {

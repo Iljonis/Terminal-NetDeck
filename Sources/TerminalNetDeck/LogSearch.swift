@@ -30,7 +30,7 @@ struct LogSearchSheet: View {
                 Button(L("Buscar"), action: search).keyboardShortcut(.defaultAction)
                 if searching { ProgressView().controlSize(.small) }
             }
-            Text(L("\(hits.count)\(hits.count >= 500 ? "+" : "") líneas en \(model.settings.logPath.replacingOccurrences(of: NSHomeDirectory(), with: "~"))"))
+            Text(L("\(hits.count)\(hits.count >= 500 ? "+" : "") líneas en \(model.settings.logPath.replacingOccurrences(of: AppPaths.home.path, with: "~"))"))
                 .font(.caption).foregroundStyle(.secondary)
             HSplitView {
                 List(hits, selection: $selected) { h in
