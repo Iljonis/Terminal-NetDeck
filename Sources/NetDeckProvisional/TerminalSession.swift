@@ -381,16 +381,15 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     func bell(source: TerminalView) { NSSound.beep() }
 
     func requestOpenLink(source: TerminalView, link: String, params: [String: String]) {
-        if let u = URL(string: link), ["http", "https", "ssh"].contains(u.scheme ?? "") { NSWorkspace.shared.open(u) }
+        // (el enlace lo pone el equipo: nada de «ssh://» a donde él quiera)
+        if let u = URL(string: link), ["http", "https"].contains(u.scheme ?? "") { NSWorkspace.shared.open(u) }
     }
 
-    func clipboardCopy(source: TerminalView, content: Data) {
-        guard let s = String(data: content, encoding: .utf8) else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(s, forType: .string)
-    }
+    // OSC 52: el equipo remoto no lee ni cambia el portapapeles del Mac (podría llevarse una contraseña copiada o
+    // dejar una orden maliciosa para pegarla en otro sitio).
+    func clipboardCopy(source: TerminalView, content: Data) {}
 
-    func clipboardRead(source: TerminalView) -> Data? { NSPasteboard.general.string(forType: .string)?.data(using: .utf8) }
+    func clipboardRead(source: TerminalView) -> Data? { nil }
 
     func kittyClipboardCapabilities(source: TerminalView) -> KittyClipboardCapabilities { [] }
     func kittyClipboardAvailableMimeTypes(source: TerminalView, location: KittyClipboardLocation) -> [String]? { nil }

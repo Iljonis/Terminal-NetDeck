@@ -176,3 +176,10 @@ final class Clock: @unchecked Sendable {
         #expect(env["NETDECK_DEFAULT"] == "AD\ttu.usuario")
     }
 }
+
+@Suite struct KeychainQuotingTests {
+    /// La contraseña va por la entrada de «security -i», entre comillas: «"» y «\» escapados, lo demás tal cual.
+    @Test func comillasParaSecurityInteractivo() {
+        #expect(KeychainStore.quoted(#"a"b\c d'e$f"#) == #""a\"b\\c d'e$f""#)
+    }
+}

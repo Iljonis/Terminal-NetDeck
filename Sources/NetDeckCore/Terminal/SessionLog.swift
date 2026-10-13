@@ -164,7 +164,7 @@ public final class SessionLogger: @unchecked Sendable {
         url = dir.appendingPathComponent("\(safe)_\(time.string(from: date)).log")
         let fm = FileManager.default
         do {
-            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             if !fm.fileExists(atPath: url.path) {
                 fm.createFile(atPath: url.path, contents: nil, attributes: [.posixPermissions: 0o600])
             }

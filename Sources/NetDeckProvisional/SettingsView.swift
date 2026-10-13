@@ -24,6 +24,7 @@ struct SettingsOverlay: View {
                 nav
                 NeonLine(vertical: true, color: t.panel)
                 content
+                    .font(t.ui(13))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .scrollContentBackground(.hidden)
             }
@@ -89,6 +90,7 @@ struct SettingsOverlay: View {
 // MARK: - contraseñas
 
 struct PasswordSettings: View {
+    @Environment(\.theme) private var t
     @Environment(AppModel.self) private var model
     @Stored private var newService = CredentialRef.Service.named
     @Stored private var newAccount = ""
@@ -102,7 +104,7 @@ struct PasswordSettings: View {
                 Toggle("Escribir sola la contraseña al abrir una sesión", isOn: $s.sessionAutoPassword)
                 Text("La de la sesión y la de sus saltos (-J), con el askpass de la app: no se teclea en el terminal. "
                      + "Un solo intento: si falla, queda bloqueada 15 min en todas las pestañas y te la pide ahí mismo.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(t.ui(11)).foregroundStyle(.secondary)
             } header: { Text("Sesiones") }
 
             Section {
@@ -113,7 +115,7 @@ struct PasswordSettings: View {
                 }
                 Text("Al hacer «ssh equipo» o «telnet» desde una sesión. Nunca la de otro usuario: con «ssh root@…» o "
                      + "«Username: pepe», sólo una guardada de ese mismo usuario.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(t.ui(11)).foregroundStyle(.secondary)
             } header: { Text("Equipos") }
 
             Section {
@@ -123,7 +125,7 @@ struct PasswordSettings: View {
                 }
                 TextField("Es del usuario", text: $s.defaultCredentialUser)
             } header: { Text("Por defecto") } footer: {
-                Text("Sólo se escribe sola cuando piden exactamente ese usuario.").font(.caption)
+                Text("Sólo se escribe sola cuando piden exactamente ese usuario.").font(t.ui(11))
             }
 
             Section {
@@ -131,7 +133,7 @@ struct PasswordSettings: View {
                     HStack {
                         Image(systemName: ref.service == .named ? "key.fill" : "server.rack")
                         Text(ref.account)
-                        Text(ref.service == .named ? "con nombre" : "usuario@equipo").font(.caption).foregroundStyle(.secondary)
+                        Text(ref.service == .named ? "con nombre" : "usuario@equipo").font(t.ui(11)).foregroundStyle(.secondary)
                         Spacer()
                         if model.ledger.isBlocked(ref) {
                             Button("Desbloquear") {
@@ -155,7 +157,7 @@ struct PasswordSettings: View {
                     SecureField("Contraseña", text: $newPassword)
                     Button("Guardar", action: save).disabled(newAccount.isEmpty || newPassword.isEmpty)
                 }
-                if !message.isEmpty { Text(message).font(.caption) }
+                if !message.isEmpty { Text(message).font(t.ui(11)) }
             } header: { Text("Llavero (compartido con NetDeck)") }
         }
         .formStyle(.grouped)
@@ -194,6 +196,7 @@ struct PasswordSettings: View {
 // MARK: - temas
 
 struct ThemeSettings: View {
+    @Environment(\.theme) private var t
     @Environment(AppModel.self) private var model
     @Stored private var hovered: String?
     @Stored private var message = ""
@@ -214,10 +217,10 @@ struct ThemeSettings: View {
                 Spacer()
                 Button("Importar .tema…", action: importFile)
             }
-            .font(.callout)
+            .font(t.ui(12))
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            if !message.isEmpty { Text(message).font(.caption).padding(.horizontal, 14) }
+            if !message.isEmpty { Text(message).font(t.ui(11)).padding(.horizontal, 14) }
             ScrollView {
                 ThemeGallery(active: themes.current.id,
                              select: { id in
@@ -253,6 +256,7 @@ struct ThemeSettings: View {
 // MARK: - fuentes (aparte de los temas: se cambian cuando quieras)
 
 struct FontSettings: View {
+    @Environment(\.theme) private var t
     @Environment(AppModel.self) private var model
     @Stored private var families: [String] = []
     @Stored private var message = ""
@@ -293,7 +297,7 @@ struct FontSettings: View {
                     let ok = Fonts.isInstalled(f)
                     HStack {
                         Text(f).font(ok ? .custom(f, size: 13) : .body)
-                        if f == th.fonts.first { Text("oficial de \(th.name)").font(.caption).foregroundStyle(.secondary) }
+                        if f == th.fonts.first { Text("oficial de \(th.name)").font(t.ui(11)).foregroundStyle(.secondary) }
                         Spacer()
                         if ok {
                             Button("Terminal") { s.fontFamily = f }.disabled(s.fontFamily == f)
@@ -305,9 +309,9 @@ struct FontSettings: View {
                         }
                     }
                 }
-                if !message.isEmpty { Text(message).font(.caption) }
+                if !message.isEmpty { Text(message).font(t.ui(11)) }
             } header: { Text("Fuentes de los temas") } footer: {
-                Text("Se instalan con Homebrew (brew install --cask font-…), como en NetDeck.").font(.caption)
+                Text("Se instalan con Homebrew (brew install --cask font-…), como en NetDeck.").font(t.ui(11))
             }
         }
         .formStyle(.grouped)
@@ -339,6 +343,7 @@ struct FontSettings: View {
 // MARK: - resaltado (tipo ChromaTerm)
 
 struct HighlightSettings: View {
+    @Environment(\.theme) private var t
     @Environment(AppModel.self) private var model
 
     var body: some View {
@@ -356,7 +361,7 @@ struct HighlightSettings: View {
                 Toggle("Con los colores del tema", isOn: $s.highlightThemeColors)
                 HStack {
                     Text(model.highlightFile?.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") ?? "—")
-                        .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
+                        .font(t.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
                     Spacer()
                     Button("Editar…") {
                         if let u = model.customizeHighlight() { NSWorkspace.shared.open(u) }
@@ -365,12 +370,12 @@ struct HighlightSettings: View {
                     Button("Recargar") { model.reloadHighlight() }
                 }
                 if !cfg.problems.isEmpty {
-                    Text("No se han podido leer: " + cfg.problems.joined(separator: " · ")).font(.caption).foregroundStyle(.red)
+                    Text("No se han podido leer: " + cfg.problems.joined(separator: " · ")).font(t.ui(11)).foregroundStyle(.red)
                 }
             } header: { Text("Resaltado tipo ChromaTerm") } footer: {
                 Text("Mismo formato que ChromaTerm (description, regex, color «f.cyan bold», exclusive). "
                      + "No toca los colores que ya pone el equipo ni las pantallas completas (vi, less, top).")
-                    .font(.caption)
+                    .font(t.ui(11))
             }
             Section("Vista previa") {
                 HighlightPreview(enabled: s.highlightEnabled).environment(\.theme, model.themes.current)
@@ -401,6 +406,7 @@ struct HighlightSettings: View {
 // MARK: - registro de las sesiones
 
 struct LogSettings: View {
+    @Environment(\.theme) private var t
     @Environment(AppModel.self) private var model
 
     var body: some View {
@@ -430,7 +436,7 @@ struct LogSettings: View {
             } header: { Text("Registro de las sesiones") } footer: {
                 Text("Texto limpio, como en NetDeck: sin colores y con los paginadores borrados, en CARPETA/AAAA-MM-DD/sesión_HH-MM-SS.log. "
                      + "Mientras graba sale ● REC en la esquina; clic derecho en una pestaña para grabar o parar sólo esa.")
-                    .font(.caption)
+                    .font(t.ui(11))
             }
             Section("Ahora") {
                 let rec = model.tabs.filter { $0.logFile != nil }
@@ -452,7 +458,7 @@ struct LogSettings: View {
                     Button("Abrir") { DebugLog.flush(); NSWorkspace.shared.open(DebugLog.file) }
                 }
             } header: { Text("Depuración") } footer: {
-                Text("Qué hace la app (pestañas, saltos, MultiExec, decisiones de contraseña…), nunca contraseñas.").font(.caption)
+                Text("Qué hace la app (pestañas, saltos, MultiExec, decisiones de contraseña…), nunca contraseñas.").font(t.ui(11))
             }
         }
         .formStyle(.grouped)
@@ -462,6 +468,7 @@ struct LogSettings: View {
 // MARK: - general
 
 struct GeneralSettings: View {
+    @Environment(\.theme) private var t
     @Environment(AppModel.self) private var model
 
     var body: some View {
@@ -479,7 +486,7 @@ struct GeneralSettings: View {
                     Button("Recargar") { model.reloadSessions() }
                 }
                 Text("\(model.sessions.profiles.count) sesiones · anotaciones de NetDeck: # @grupo, # @clave, # @clave-grupo, # @desc, # @telnet")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(t.ui(11)).foregroundStyle(.secondary)
             }
             Section("Ventana") {
                 Toggle("Mostrar la lista de sesiones", isOn: $s.sidebarVisible)
@@ -493,5 +500,6 @@ struct GeneralSettings: View {
 // MARK: - botones (la barra de NetDeck)
 
 struct ButtonSettings: View {
+    @Environment(\.theme) private var t
     var body: some View { ButtonEditor() }
 }

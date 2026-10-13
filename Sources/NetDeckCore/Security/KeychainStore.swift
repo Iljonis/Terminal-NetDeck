@@ -25,9 +25,12 @@ public struct KeychainStore: CredentialStore {
 
     public func save(_ password: String, for ref: CredentialRef) throws {
         let label = ref.service == .device ? "NetDeck ssh \(ref.account)" : "NetDeck \(ref.account)"
-        let r = try Self.security(["add-generic-password", "-U", "-s", ref.service.rawValue, "-a", ref.account,
-                                   "-l", label, "-w", password])
-        guard r.status == 0 else { throw KeychainError(message: r.error) }
+        guard !password.contains(where: \.isNewline) else { throw KeychainError(message: "la contraseña lleva un salto de línea") }
+        // Por la entrada estándar («security -i»), no en los argumentos: ahí la vería cualquiera con «ps».
+        let cmd = ["add-generic-password", "-U", "-s", ref.service.rawValue, "-a", ref.account, "-l", label, "-w", password]
+            .map(Self.quoted).joined(separator: " ")
+        let r = try Self.security(["-i"], input: cmd + "\n")
+        guard r.status == 0, !r.error.contains("error") else { throw KeychainError(message: r.error) }
     }
 
     public func delete(_ ref: CredentialRef) throws {
@@ -57,14 +60,25 @@ public struct KeychainStore: CredentialStore {
          kSecAttrAccount as String: ref.account]
     }
 
-    static func security(_ args: [String]) throws -> (status: Int32, output: String, error: String) {
+    /// Entre comillas para «security -i» (dentro, sólo «"» y «\\» se escapan).
+    static func quoted(_ s: String) -> String {
+        "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+    }
+
+    static func security(_ args: [String], input: String? = nil) throws -> (status: Int32, output: String, error: String) {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: tool)
         p.arguments = args
         let out = Pipe(), err = Pipe()
         p.standardOutput = out
         p.standardError = err
+        let inp = Pipe()
+        if input != nil { p.standardInput = inp }
         try p.run()
+        if let input {
+            inp.fileHandleForWriting.write(Data(input.utf8))
+            try? inp.fileHandleForWriting.close()
+        }
         let o = out.fileHandleForReading.readDataToEndOfFile()
         let e = err.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()

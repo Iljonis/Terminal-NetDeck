@@ -116,3 +116,20 @@ private let config = """
         #expect(c.last?.ref == .named("AD"))
     }
 }
+
+@Suite struct UpdateCheckTests {
+    @Test func versionesPorNumeros() {
+        #expect(UpdateCheck.isNewer("0.10.0", than: "0.4.1"))
+        #expect(UpdateCheck.isNewer("0.4.1", than: "0.4"))
+        #expect(!UpdateCheck.isNewer("0.4.0", than: "0.4"))
+        #expect(!UpdateCheck.isNewer("0.3.9", than: "0.4.0"))
+    }
+
+    @Test func releaseDeGitHub() throws {
+        let json = #"{"tag_name":"v0.5.0","html_url":"https://github.com/u/r/releases/tag/v0.5.0","assets":[{"browser_download_url":"https://github.com/u/r/releases/download/v0.5.0/Terminal-NetDeck.dmg"}]}"#
+        let r = try #require(UpdateCheck.parse(Data(json.utf8)))
+        #expect(r.version == "0.5.0")
+        #expect(r.dmg?.lastPathComponent == "Terminal-NetDeck.dmg")
+        #expect(UpdateCheck.parse(Data(#"{"tag_name":"v1","html_url":"http://x"}"#.utf8)) == nil)   // sólo https
+    }
+}

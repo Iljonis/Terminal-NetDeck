@@ -161,7 +161,8 @@ final class AppModel {
         if FileManager.default.fileExists(atPath: settings.sshConfigURL.path) {
             sessions.load(from: settings.sshConfigURL)
         }
-        if sessions.profiles.isEmpty { sessions.loadSamples() }
+        // Instalación limpia: sin ssh_config no hay sesiones (los ejemplos, sólo para capturas: NETDECK_SAMPLES=1).
+        if sessions.profiles.isEmpty, ProcessInfo.processInfo.environment["NETDECK_SAMPLES"] != nil { sessions.loadSamples() }
     }
 
     // MARK: - ajustes en vivo
@@ -440,12 +441,14 @@ final class AppModel {
         let paster = SafePaster(allowDangerous: allowDangerous)
         if toAll {
             let sw = sharedGate.begin()
-            defer { sharedGate.end(sw) }
+            pasteTargets = Set(multiExec.terminals.compactMap { ($0 as? TerminalSession)?.id })
+            defer { sharedGate.end(sw); pasteTargets = [] }
             let reports = await multiExec.paste(text, paster: paster, abort: sw)
             status = "Pegado en \(reports.count): " + reports.map { describe($0) }.joined(separator: " · ")
         } else if let s = current {
             let sw = s.gate.begin()
-            defer { s.gate.end(sw) }
+            pasteTargets = [s.id]
+            defer { s.gate.end(sw); pasteTargets = [] }
             status = describe(await paster.paste(text, into: s, abort: sw))
         }
     }
@@ -483,6 +486,9 @@ final class AppModel {
         }
     }
 
+    /// Las pestañas en las que está pegando el pegado a todas.
+    @ObservationIgnored private var pasteTargets: Set<TerminalSession.ID> = []
+
     func abortAll() {
         sharedGate.abortAll()
         tabs.forEach { $0.gate.abortAll() }
@@ -508,6 +514,12 @@ final class AppModel {
             sharedGate.abortAll()
             status = "⎋ Cancelado: no se envía nada más"
             if !bytes.contains(AbortKey.ctrlC) { return true }        // (Ctrl+C sí llega al equipo)
+        }
+        // Mientras se pega, lo tecleado no se mezcla con las líneas que se envían (sólo en el pegado: esperando un
+        // salto puede tocar escribir una contraseña a mano).
+        if pasteTargets.contains(s.id) {
+            status = "⏳ Enviando… Esc para cortar (lo que tecleas no se envía)"
+            return true
         }
         if let k = FunctionKey.name(bytes), let b = buttons.button(forKey: k) {      // F5, Mayús+F6…
             DebugLog.log("botones", "\(k) → «\(b.name)»")
@@ -736,6 +748,33 @@ final class AppModel {
         var u = URL(fileURLWithPath: #filePath)
         for _ in 0..<3 { u.deleteLastPathComponent() }
         return FileManager.default.fileExists(atPath: u.appendingPathComponent("actualizar.sh").path) ? u : nil
+    }
+
+    /// La última release en GitHub: si hay una más nueva, ofrece abrir su descarga (no instala nada sola).
+    func checkForUpdates() {
+        guard let repo = UpdateCheck.repo else {
+            status = "Sin repositorio de actualizaciones (NETDECK_REPO al instalar)"
+            return
+        }
+        status = "Buscando actualizaciones…"
+        Task {
+            let alert = NSAlert()
+            do {
+                if let r = try await UpdateCheck.check(repo: repo) {
+                    alert.messageText = "Terminal NetDeck \(r.version) disponible"
+                    alert.informativeText = "Tienes la \(UpdateCheck.currentVersion). Descarga el .dmg y sustituye la app: "
+                        + "tus sesiones, ajustes y el Llavero se conservan."
+                    alert.addButton(withTitle: r.dmg == nil ? "Abrir la página" : "Descargar")
+                    alert.addButton(withTitle: "Más tarde")
+                    status = "Hay una versión nueva: \(r.version)"
+                    if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(r.dmg ?? r.page) }
+                } else {
+                    status = "Estás al día (\(UpdateCheck.currentVersion))"
+                }
+            } catch {
+                status = "No se ha podido comprobar: \(error.localizedDescription)"
+            }
+        }
     }
 
     /// Compila, sustituye la app instalada y la vuelve a abrir con las mismas pestañas.

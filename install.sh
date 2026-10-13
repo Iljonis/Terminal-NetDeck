@@ -19,6 +19,8 @@ NOMBRE="Terminal NetDeck"
 PRODUCTO=NetDeckProvisional
 ID=io.netdeck.terminal
 VERSION=0.4.0
+# Repositorio de GitHub («usuario/repo») para «Buscar actualizaciones…»; vacío = sin publicar.
+REPO="${NETDECK_REPO:-}"
 SOPORTE="$HOME/Library/Application Support/$NOMBRE"
 TEMAS_USUARIO="$SOPORTE/Temas"
 C=$'\e[38;5;51m'; M=$'\e[38;5;204m'; V=$'\e[38;5;48m'; A=$'\e[38;5;221m'; N=$'\e[0m'
@@ -97,6 +99,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>NetDeckRepo</key><string>$REPO</string>
   <key>CFBundleVersion</key><string>$(date +%Y%m%d%H%M)</string>
   <key>LSMinimumSystemVersion</key><string>15.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>

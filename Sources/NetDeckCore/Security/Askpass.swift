@@ -121,7 +121,7 @@ public enum Askpass {
 
     /// Un archivo por cada ssh (su PID): qué contraseña guardada se le dio. Si vuelve a preguntar, no valía.
     static func stateFile() -> URL {
-        let dir = URL(fileURLWithPath: ProcessInfo.processInfo.environment["TMPDIR"] ?? "/tmp")
+        let dir = AppPaths.ensure(AppPaths.sessions)
         if let old = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]) {
             for f in old where f.lastPathComponent.hasPrefix("ndapp-askpass.") {
                 let m = (try? f.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate

@@ -31,7 +31,6 @@ struct ContentView: View {
                     NeonLine(vertical: true, color: t.panel)
                 }
                 VStack(spacing: 0) {
-                    if !model.tabs.isEmpty { TabStrip() }
                     MainArea()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -91,45 +90,40 @@ extension ContentView {
 
 // MARK: - barra superior
 
+/// Una sola fila en la barra de título: pestañas y, a la derecha, lo de uso continuo. Lo demás (contraseñas, listas,
+/// pegado, dividir, ajustes) está en el menú de la app, con sus atajos.
 struct TopBar: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
 
     var body: some View {
-        HStack(spacing: 8) {
-            Brand()
-            Spacer().frame(width: 10)
-            NeonButton(title: "Conectar", icon: "bolt.horizontal.fill") { model.sheet = .connect }
-                .help("Conexión rápida o por un salto (⌘K)")
-            NeonButton(title: "Lista", icon: "square.stack.3d.up.fill") { model.sheet = .list }
-                .help("Varios equipos detrás de un salto (⇧⌘L)")
-            PasswordMenu()
-            NeonButton(title: "Pegar", icon: "text.line.first.and.arrowtriangle.forward") { model.sheet = .paste }
-                .disabled(model.current == nil)
-                .opacity(model.current == nil ? 0.4 : 1)
-                .help("Pegado seguro línea a línea (⇧⌘V)")
-            SplitMenu()
-            NeonButton(title: model.multiExecOn ? "MultiExec ×\(model.multiExecTargets.count)" : "MultiExec",
-                       icon: "square.stack.3d.forward.dottedline.fill", tint: t.warning, active: model.multiExecOn) {
-                model.multiExecOn.toggle()
+        HStack(spacing: 6) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    if let sp = model.split { SplitChip(split: sp) }
+                    ForEach(model.tabs) { TabChip(session: $0) }
+                }
+                .padding(.vertical, 4)
             }
-            .help("Lo que escribes va a la vez a los paneles de la vista dividida (o a todas las pestañas). "
-                  + "Clic derecho en un panel → excluirlo (⇧⌘M)")
+            .fixedSize(horizontal: model.tabs.count < 6, vertical: false)
+            IconButton(icon: "plus") { model.sheet = .connect }
+                .help("Conexión rápida o por un salto (⌘K)")
             Spacer(minLength: 12)
-            NeonButton(title: "Esc", icon: "stop.circle.fill", tint: t.bad) { model.abortAll() }
-                .help("Corta cualquier secuencia automática (también Esc o Ctrl+C en el terminal)")
-            IconButton(icon: "sidebar.left") { model.settings.sidebarVisible.toggle() }
+            IconButton(icon: "square.stack.3d.forward.dottedline.fill", tint: t.warning, active: model.multiExecOn,
+                       badge: model.multiExecOn ? "\(model.multiExecTargets.count)" : nil) { model.multiExecOn.toggle() }
+                .help("MultiExec: lo que escribes va a la vez a los paneles (⇧⌘M). Clic derecho en un panel → excluirlo")
+            IconButton(icon: "stop.circle.fill", tint: t.bad) { model.abortAll() }
+                .help("Corta cualquier secuencia automática (Esc o Ctrl+C en el terminal, ⌘.)")
+            IconButton(icon: "sidebar.left", active: model.settings.sidebarVisible) { model.settings.sidebarVisible.toggle() }
                 .help("Mostrar/ocultar sesiones (⌃⌘S)")
-            NeonButton(title: "Ajustes", icon: "gearshape.fill") { model.openSettings() }
-                .help("Ajustes: contraseñas, temas, fuentes, resaltado, registro… (⌘,)")
         }
-        .padding(.leading, model.fullScreen ? 14 : 84)
-        .padding(.trailing, 12)
-        .frame(height: 50)
+        .padding(.leading, model.fullScreen ? 10 : 80)
+        .padding(.trailing, 10)
+        .frame(height: 38)
         .background(SwiftUI.Color(t.bar)
             .gesture(WindowDragGesture())
             .simultaneousGesture(TapGesture(count: 2).onEnded { model.toggleFill() }))
-        .overlay(alignment: .bottom) { NeonLine() }
+        .overlay(alignment: .bottom) { Rectangle().fill(SwiftUI.Color(t.tab)).frame(height: 2) }
     }
 }
 
@@ -165,82 +159,33 @@ struct Brand: View {
 struct IconButton: View {
     @Environment(\.theme) private var t
     let icon: String
+    var tint: RGB?
+    var active = false
+    var badge: String?
     var action: () -> Void
     @Stored private var hover = false
 
     var body: some View {
+        let color = tint ?? t.accent
         Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(SwiftUI.Color(hover ? t.accent : t.text))
-                .frame(width: 30, height: 26)
-                .background(RoundedRectangle(cornerRadius: 6).fill(SwiftUI.Color(t.panel).opacity(hover ? 0.9 : 0.4)))
-                .contentShape(Rectangle())
+            HStack(spacing: 3) {
+                Image(systemName: icon).font(.system(size: 13, weight: .semibold))
+                if let badge { Text(badge).font(t.ui(11, .bold)) }
+            }
+            .foregroundStyle(SwiftUI.Color(active ? t.background : (hover ? color : (tint ?? t.text))))
+            .padding(.horizontal, 7)
+            .frame(minWidth: 30, minHeight: 26)
+            .background(RoundedRectangle(cornerRadius: t.corner ?? 6)
+                .fill(SwiftUI.Color(active ? color : t.panel).opacity(active ? 1 : (hover ? 0.9 : 0.4))))
+            .shadow(color: SwiftUI.Color(color).opacity(active ? 0.6 : 0), radius: t.glow(6))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
     }
 }
 
-/// 🔑: la de sesión (automática) y la de equipos por separado, y elegir una a mano.
-struct PasswordMenu: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        @Bindable var settings = model.settings
-        Menu {
-            Toggle("Sesiones: contraseña automática al abrir", isOn: $settings.sessionAutoPassword)
-            Picker("Equipos (ssh desde una sesión)", selection: $settings.devicePasswordMode) {
-                Text("Escribir sola").tag(PasswordAutomation.Mode.autoType)
-                Text("Sugerir (un clic)").tag(PasswordAutomation.Mode.suggest)
-                Text("Nada").tag(PasswordAutomation.Mode.off)
-            }
-            if let s = model.current {
-                Section("Escribir en «\(s.title)»") {
-                    ForEach(model.keychainAccounts, id: \.self) { ref in
-                        Button(ref.account) { model.typePassword(ref, in: s) }
-                    }
-                }
-            }
-            Divider()
-            Button("Contraseñas y Llavero…") { model.openSettings("contraseñas") }
-        } label: {
-            NeonLabel(title: "Contraseña", icon: "key.fill")
-        }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .onChange(of: settings.sessionAutoPassword) { model.applyPasswordModes() }
-        .onChange(of: settings.devicePasswordMode) { model.applyPasswordModes() }
-    }
-}
-
 // MARK: - pestañas
-
-struct TabStrip: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.theme) private var t
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
-                    if let sp = model.split { SplitChip(split: sp) }
-                    ForEach(model.tabs) { TabChip(session: $0) }
-                }
-                .padding(.horizontal, 8)
-                .padding(.top, 7)
-            }
-            IconButton(icon: "plus") { model.sheet = .connect }
-                .padding(.trailing, 8)
-                .padding(.top, 5)
-        }
-        .frame(height: 38)
-        .background(SwiftUI.Color(t.bar))
-        .overlay(alignment: .bottom) { Rectangle().fill(SwiftUI.Color(t.tab)).frame(height: 2) }
-    }
-}
 
 struct TabChip: View {
     @Environment(AppModel.self) private var model
@@ -384,29 +329,6 @@ struct SplitChip: View {
     }
 }
 
-/// ⊞ Dividir: las formas de NetDeck.
-struct SplitMenu: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        Menu {
-            ForEach(Split.Layout.allCases) { l in
-                Button { model.makeSplit(l) } label: { Label(l.title, systemImage: l.icon) }
-            }
-            if model.split != nil {
-                Divider()
-                Button("Volver a pestañas sueltas") { model.unsplit() }
-            }
-        } label: {
-            NeonLabel(title: "Dividir", icon: "rectangle.split.2x2.fill", active: model.showSplit)
-        }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help("Pantalla dividida (como ⊞ Split de NetDeck): la pestaña actual y las siguientes")
-    }
-}
 
 // MARK: - terminal
 

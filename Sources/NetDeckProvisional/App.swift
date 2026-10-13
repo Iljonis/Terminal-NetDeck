@@ -39,6 +39,7 @@ struct NetDeckCommands: Commands {
         CommandGroup(replacing: .appSettings) {
             Button("Ajustes…") { model.openSettings() }.keyboardShortcut(",")
             Button("Asistente de instalación…") { model.showSetup = true }
+            Button("Buscar actualizaciones…") { model.checkForUpdates() }
             Button("Actualizar desde el código…") { model.updateFromSource() }
                 .disabled(AppModel.sourceFolder == nil)
         }
@@ -52,6 +53,27 @@ struct NetDeckCommands: Commands {
                 NSWorkspace.shared.open(DebugLog.file)
             }
             Button("Carpeta de registros") { NSWorkspace.shared.open(DebugLog.directory) }
+        }
+        CommandMenu("Contraseñas") {
+            Toggle("Sesiones: contraseña automática al abrir", isOn: Binding(
+                get: { model.settings.sessionAutoPassword },
+                set: { model.settings.sessionAutoPassword = $0; model.applyPasswordModes() }))
+            Picker("Equipos (ssh desde una sesión)", selection: Binding(
+                get: { model.settings.devicePasswordMode },
+                set: { model.settings.devicePasswordMode = $0; model.applyPasswordModes() })) {
+                Text("Escribir sola").tag(PasswordAutomation.Mode.autoType)
+                Text("Sugerir (un clic)").tag(PasswordAutomation.Mode.suggest)
+                Text("Nada").tag(PasswordAutomation.Mode.off)
+            }
+            if let s = model.current {
+                Section("Escribir en «\(s.title)»") {
+                    ForEach(model.keychainAccounts, id: \.self) { ref in
+                        Button(ref.account) { model.typePassword(ref, in: s) }
+                    }
+                }
+            }
+            Divider()
+            Button("Contraseñas y Llavero…") { model.openSettings("contraseñas") }
         }
         CommandMenu("NetDeck") {
             Button("Pegado seguro…") { model.sheet = .paste }.keyboardShortcut("v", modifiers: [.command, .shift])
