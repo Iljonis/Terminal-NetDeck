@@ -132,6 +132,20 @@ public struct SessionFile: Sendable {
         return sessions.map(\.group).filter { seen.insert($0).inserted }
     }
 
+    /// Quién usa una contraseña con nombre: las sesiones con «# @clave NOMBRE» y los grupos con «# @clave-grupo NOMBRE».
+    public func usage(ofNamed name: String) -> (sessions: [String], groups: [String]) {
+        (sessions.filter { $0.credential == name }.map(\.name),
+         groups.filter { groupCredentials[$0] == name })
+    }
+
+    /// La con nombre que usa una sesión (la suya o la de su grupo) y de dónde sale. nil: ninguna o «-» (la propia).
+    public func namedCredential(of s: EditableSession) -> (name: String, fromGroup: Bool)? {
+        if s.credential == "-" { return nil }
+        if !s.credential.isEmpty { return (s.credential, false) }
+        if let g = groupCredentials[s.group], !g.isEmpty { return (g, true) }
+        return nil
+    }
+
     /// El texto del archivo, igual que lo escribe el gestor de Sesiones de NetDeck.
     public func render() -> String {
         func block(_ lines: [String]) -> String {

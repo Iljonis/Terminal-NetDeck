@@ -96,9 +96,11 @@ struct PasswordSettings: View {
     @Stored private var newAccount = ""
     @Stored private var newPassword = ""
     @Stored private var message = ""
+    @Stored private var editing: CredentialRef?
 
     var body: some View {
         @Bindable var s = model.settings
+        let sessions = model.sessionFile
         Form {
             Section {
                 Toggle(L("Escribir sola la contraseña al abrir una sesión"), isOn: $s.sessionAutoPassword)
@@ -132,9 +134,18 @@ struct PasswordSettings: View {
                 ForEach(model.keychainAccounts, id: \.self) { ref in
                     HStack {
                         Image(systemName: ref.service == .named ? "key.fill" : "server.rack")
-                        Text(ref.account)
-                        Text(ref.service == .named ? L("con nombre") : L("usuario@equipo")).font(t.ui(11)).foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                Text(ref.account)
+                                Text(ref.service == .named ? L("con nombre") : L("usuario@equipo")).font(t.ui(11)).foregroundStyle(.secondary)
+                            }
+                            if let u = usage(ref, sessions) {
+                                Text(u).font(t.ui(10.5)).foregroundStyle(.secondary).lineLimit(2)
+                            }
+                        }
                         Spacer()
+                        Button(L("Editar…")) { editing = ref }
+                            .help(L("Cambiar la contraseña guardada (la usa también NetDeck)"))
                         if model.ledger.isBlocked(ref) {
                             Button(L("Desbloquear")) {
                                 model.ledger.reset(ref)
@@ -161,11 +172,31 @@ struct PasswordSettings: View {
             } header: { Text(L("Llavero (compartido con NetDeck)")) }
         }
         .formStyle(.grouped)
+        .sheet(isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
+            if let ref = editing { PasswordChangeSheet(ref: ref) { message = $0 } }
+        }
         .onChange(of: s.sessionAutoPassword) { model.applyPasswordModes() }
         .onChange(of: s.devicePasswordMode) { model.applyPasswordModes() }
     }
 
     private var named: [String] { model.keychainAccounts.filter { $0.service == .named }.map(\.account) }
+
+    /// «Sesiones: core-01, core-02 · grupos: Core · por defecto».
+    private func usage(_ ref: CredentialRef, _ file: SessionFile) -> String? {
+        var parts: [String] = []
+        if ref.service == .named {
+            let u = file.usage(ofNamed: ref.account)
+            if !u.sessions.isEmpty { parts.append(L("sesiones: \(u.sessions.prefix(6).joined(separator: ", "))\(u.sessions.count > 6 ? "…" : "")")) }
+            if !u.groups.isEmpty { parts.append(L("grupos: \(u.groups.joined(separator: ", "))")) }
+            if model.settings.defaultCredentialName == ref.account { parts.append(L("por defecto")) }
+        } else {
+            let s = file.sessions.filter {
+                "\($0.user.isEmpty ? NSUserName() : $0.user)@\($0.host.isEmpty ? $0.name : $0.host)" == ref.account
+            }.map(\.name)
+            if !s.isEmpty { parts.append(L("sesiones: \(s.prefix(6).joined(separator: ", "))\(s.count > 6 ? "…" : "")")) }
+        }
+        return parts.isEmpty ? nil : L("La usan: ") + parts.joined(separator: " · ")
+    }
 
     private func save() {
         let ref = CredentialRef(service: newService, account: newAccount.trimmingCharacters(in: .whitespaces))
@@ -190,6 +221,60 @@ struct PasswordSettings: View {
         guard a.runModal() == .alertFirstButtonReturn else { return }
         do { try model.store.delete(ref) } catch { message = error.localizedDescription }
         model.keychainRevision += 1
+    }
+}
+
+/// Cambiar una contraseña del Llavero (la sustituye: `save` actualiza si ya existe). Dos veces, para no equivocarse.
+/// Nunca se guarda ni se registra en otro sitio.
+struct PasswordChangeSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let ref: CredentialRef
+    var done: (String) -> Void = { _ in }
+    @Stored private var first = ""
+    @Stored private var second = ""
+    @Stored private var error = ""
+
+    var body: some View {
+        let exists = model.store.contains(ref)
+        Form {
+            Section {
+                SecureField(L("Contraseña nueva"), text: $first)
+                SecureField(L("Repítela"), text: $second)
+                if !second.isEmpty, first != second {
+                    Text(L("No coinciden")).font(.caption).foregroundStyle(.orange)
+                }
+                if !error.isEmpty { Text(error).font(.caption).foregroundStyle(.red) }
+            } header: {
+                Text(exists ? L("Cambiar «\(ref.account)»") : L("Guardar «\(ref.account)»"))
+            } footer: {
+                Text(L("Se guarda sólo en el Llavero (la ve también NetDeck) y se olvida su bloqueo por fallo."))
+                    .font(.caption)
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 420)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) { Button(L("Cancelar")) { dismiss() } }
+            ToolbarItem(placement: .confirmationAction) {
+                Button(exists ? L("Sustituir") : L("Guardar")) { save() }
+                    .disabled(first.isEmpty || first != second)
+            }
+        }
+    }
+
+    private func save() {
+        do {
+            try model.store.save(first, for: ref)
+            model.ledger.reset(ref)
+            model.keychainRevision += 1
+            done(L("Guardada ✓ (\(ref.account))"))
+            first = ""; second = ""
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+            first = ""; second = ""
+        }
     }
 }
 

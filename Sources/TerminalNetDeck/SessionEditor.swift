@@ -15,6 +15,7 @@ struct SessionEditor: View {
     @Stored private var message = ""
     @Stored private var importing = false
     @Stored private var newPassword = ""
+    @Stored private var changing: CredentialRef?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -42,6 +43,9 @@ struct SessionEditor: View {
         .frame(width: 940, height: 640)
         .background(SwiftUI.Color(t.background))
         .onAppear(perform: load)
+        .sheet(isPresented: Binding(get: { changing != nil }, set: { if !$0 { changing = nil } })) {
+            if let ref = changing { PasswordChangeSheet(ref: ref) { message = $0 } }
+        }
     }
 
     private var index: Int? { file.sessions.firstIndex { $0.id == selected } }
@@ -219,13 +223,16 @@ struct SessionEditor: View {
                     Text(L("(ninguna)")).tag("")
                     ForEach(namedCredentials, id: \.self) { Text("🔑 \($0)").tag($0) }
                 }
+                let hasDevice = model.store.contains(.device(user, host))
                 HStack {
-                    SecureField(L("Guardar una para \(user)@\(host)"), text: $newPassword)
+                    SecureField(hasDevice ? L("Sustituir la de \(user)@\(host)") : L("Guardar una para \(user)@\(host)"),
+                                text: $newPassword)
                     Button(L("Al Llavero")) { savePassword(user: user, host: host) }.disabled(newPassword.isEmpty)
                 }
-                if model.store.contains(.device(user, host)) {
+                if hasDevice {
                     Text(L("✓ Hay una guardada para \(user)@\(host)")).font(.caption).foregroundStyle(SwiftUI.Color(t.good))
                 }
+                inUse(file.sessions[i], user: user, host: host, hasDevice: hasDevice)
             } header: { header(L("CONTRASEÑA (LLAVERO)")) } footer: {
                 Text(L("Nunca se escribe sola la de otro usuario: sólo la de ese mismo usuario.")).font(.caption)
             }
@@ -242,6 +249,26 @@ struct SessionEditor: View {
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+    }
+
+    /// Cuál usará de verdad (en el orden en que se prueban) y «Cambiar contraseña…» para sustituirla.
+    @ViewBuilder private func inUse(_ se: EditableSession, user: String, host: String, hasDevice: Bool) -> some View {
+        let named = file.namedCredential(of: se)
+        let ref: CredentialRef? = se.credential == "-" ? nil
+            : named.map { .named($0.name) } ?? (hasDevice ? .device(user, host) : nil)
+        HStack {
+            Text(se.credential == "-" ? L("Usa: la propia del equipo (la escribes tú)")
+                 : named.map { $0.fromGroup ? L("Usa: 🔑 \($0.name) (la del grupo)") : L("Usa: 🔑 \($0.name)") }
+                 ?? (hasDevice ? L("Usa: la de \(user)@\(host)") : L("Usa: la por defecto o ninguna (a mano)")))
+                .font(.caption).foregroundStyle(.secondary)
+            if let ref, !model.store.contains(ref) {
+                Text(L("(no está en el Llavero)")).font(.caption).foregroundStyle(.orange)
+            }
+            Spacer()
+            if let ref {
+                Button(model.store.contains(ref) ? L("Cambiar contraseña…") : L("Guardarla…")) { changing = ref }
+            }
+        }
     }
 
     private func header(_ s: String) -> some View {
