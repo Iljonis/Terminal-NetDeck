@@ -1,4 +1,4 @@
-# Terminal NetDeck (provisional)
+# Terminal NetDeck
 
 App nativa de macOS (Swift 6 / SwiftUI + SwiftTerm) que sustituirá a NetDeck (bash + tmux). Respeta lo de NetDeck:
 mismo Llavero, mismo `ssh_config` con sus anotaciones, mismas temáticas `.tema`, y la primera vez importa
@@ -11,7 +11,7 @@ mismo Llavero, mismo `ssh_config` con sus anotaciones, mismas temáticas `.tema`
 ./install.sh --tema neo-tokyo   # un tema, por su cuenta
 ./install.sh --fuente "Kode Mono"  # una fuente, con Homebrew (aparte de los temas)
 ./desinstalar.sh [--todo]       # quita la app (--todo: también temas, marcas y ajustes; el Llavero no se toca)
-swift run NetDeckProvisional    # desarrollo
+swift run TerminalNetDeck    # desarrollo
 ./test.sh                       # tests del núcleo
 ```
 
@@ -23,7 +23,7 @@ swift run NetDeckProvisional    # desarrollo
 | `NetDeckCore/Highlight` | Resaltado tipo ChromaTerm: lee el `chromaterm.yml` de NetDeck (o el de la app, o uno propio) con los colores del tema |
 | `NetDeckCore/Input` · `Productivity` | Esc / Ctrl+C, pegado seguro, MultiExec, listas por salto |
 | `NetDeckSSH` | SSH nativo con SwiftNIO SSH (fase 2) |
-| `NetDeckProvisional` | La app: barra superior, sesiones, pestañas, portada, Ajustes (⌘,) |
+| `TerminalNetDeck` | La app: barra superior, sesiones, pestañas, portada, Ajustes (⌘,) |
 | `Temas/` | Catálogo (no se instala nada hasta que lo pides) |
 | `Resaltado/` | Reglas de la app (las de NetDeck) |
 

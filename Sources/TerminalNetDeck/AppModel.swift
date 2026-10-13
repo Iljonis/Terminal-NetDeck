@@ -52,9 +52,10 @@ final class AppModel {
     var excluded: Set<TerminalSession.ID> = [] {
         didSet { syncMultiExec() }
     }
-    /// Ventana: pantalla completa (la barra de título de macOS tapa la de arriba: se deja su hueco).
+    /// Ventana: pantalla completa. Ahí macOS esconde su barra de título (y la de menús) y la baja al acercar el ratón:
+    /// sólo mientras está bajada tapa la de arriba y se deja su hueco (`titlebarReveal`); escondida, nada.
     var fullScreen = false
-    var titlebarHeight: CGFloat = 28
+    var titlebarReveal: CGFloat = 0
     @ObservationIgnored weak var window: NSWindow?
     @ObservationIgnored private var focusWatch: NSKeyValueObservation?
     @ObservationIgnored private var appearanceWatch: NSKeyValueObservation?
@@ -502,6 +503,8 @@ final class AppModel {
         case .pager(let l): "✗ paginador en la línea \(l) (falta «terminal length 0»)"
         case .timeout(let l): "✗ sin prompt tras la línea \(l)"
         case .dangerousNotConfirmed(let l, let c): "✗ línea \(l) peligrosa sin confirmar: \(c)"
+        case .passwordPrompt(0): "🔑 piden contraseña: no pego nada ahí"
+        case .passwordPrompt(let l): "🔑 piden contraseña tras la línea \(l): paro (la siguiente iría como contraseña)"
         }
     }
 
@@ -668,7 +671,6 @@ final class AppModel {
         w.isMovableByWindowBackground = false
         styleWindows()
         fullScreen = w.styleMask.contains(.fullScreen)
-        if !fullScreen { titlebarHeight = max(24, w.frame.height - w.contentLayoutRect.height) }
         // clic en un panel de la vista dividida → es la pestaña activa
         appearanceWatch = NSApp.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
             DispatchQueue.main.async { self?.followAppearance() }
@@ -685,14 +687,27 @@ final class AppModel {
         nc.addObserver(forName: NSWindow.willEnterFullScreenNotification, object: w, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                self.titlebarHeight = max(24, w.frame.height - w.contentLayoutRect.height)
                 self.fullScreen = true
+                self.titlebarReveal = 0
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self.styleWindows() }
-                DebugLog.log("ventana", "pantalla completa (barra de título \(self.titlebarHeight))")
+                DebugLog.log("ventana", "pantalla completa")
             }
         }
         nc.addObserver(forName: NSWindow.willExitFullScreenNotification, object: w, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.fullScreen = false }
+            MainActor.assumeIsolated { self?.fullScreen = false; self?.titlebarReveal = 0 }
+        }
+        // (la barra de título en pantalla completa es otra ventana que baja y sube: lo que tapa de la nuestra)
+        nc.addObserver(forName: NSWindow.didMoveNotification, object: nil, queue: .main) { [weak self] n in
+            nonisolated(unsafe) let moved = n.object as? NSWindow     // (cola principal)
+            MainActor.assumeIsolated {
+                guard let self, self.fullScreen, let bar = moved, bar !== w,
+                      bar.className.contains("FullScreen") || bar.className.contains("Titlebar") else { return }
+                let covered = max(0, w.frame.maxY - bar.frame.minY)
+                let reveal = covered < 4 || covered > 160 ? 0 : covered
+                guard abs(reveal - self.titlebarReveal) >= 1 else { return }
+                self.titlebarReveal = reveal
+                DebugLog.log("ventana", "barra de título de pantalla completa (\(bar.className)): tapa \(Int(covered)) → hueco \(Int(reveal))")
+            }
         }
         DebugLog.log("ventana", "marco \(w.frame) · contenido \(w.contentLayoutRect) · pantalla \(w.screen?.visibleFrame ?? .zero)")
     }

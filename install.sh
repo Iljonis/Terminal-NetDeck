@@ -16,7 +16,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 NOMBRE="Terminal NetDeck"
-PRODUCTO=NetDeckProvisional
+PRODUCTO=TerminalNetDeck
+ANTIGUO=NetDeckProvisional          # (nombre del ejecutable hasta la v0.4)
 ID=io.netdeck.terminal
 VERSION=0.4.0
 # Repositorio de GitHub («usuario/repo») para «Buscar actualizaciones…»; vacío = sin publicar.
@@ -129,13 +130,14 @@ if [ $dmg = 1 ]; then
 fi
 
 abierta=0
-if pgrep -xq "$PRODUCTO"; then
+for p in "$ANTIGUO" "$PRODUCTO"; do if pgrep -xq "$p"; then PRODUCTO_ABIERTO=$p; fi; done
+if [ -n "${PRODUCTO_ABIERTO:-}" ]; then
   abierta=1
   if [ $actualizar = 1 ]; then          # se cierra y se reabre con sus pestañas (la app las guarda al abrir/cerrar)
     echo "   cerrando la app (sus pestañas ya están guardadas)…"
-    pkill -TERM -x "$PRODUCTO" 2>/dev/null || true
-    for _ in $(seq 1 40); do pgrep -xq "$PRODUCTO" || break; sleep 0.25; done
-    pkill -KILL -x "$PRODUCTO" 2>/dev/null || true
+    pkill -TERM -x "$PRODUCTO_ABIERTO" 2>/dev/null || true
+    for _ in $(seq 1 40); do pgrep -xq "$PRODUCTO_ABIERTO" || break; sleep 0.25; done
+    pkill -KILL -x "$PRODUCTO_ABIERTO" 2>/dev/null || true
   fi
 fi
 echo "   copiando a $destino…"

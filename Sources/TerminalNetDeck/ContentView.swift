@@ -19,9 +19,9 @@ struct ContentView: View {
     private var main: some View {
         @Bindable var model = model
         return VStack(spacing: 0) {
-            if model.fullScreen {
-                // (en pantalla completa macOS pone ahí su barra de título: que no tape los botones)
-                SwiftUI.Color(t.bar).frame(height: model.titlebarHeight)
+            if model.fullScreen, model.titlebarReveal > 0 {
+                // (pantalla completa con la barra de título de macOS bajada: que no tape los botones)
+                SwiftUI.Color(t.bar).frame(height: model.titlebarReveal)
             }
             TopBar()
             if model.settings.buttonBar == "arriba" { ButtonBarView() }
@@ -90,8 +90,8 @@ extension ContentView {
 
 // MARK: - barra superior
 
-/// Una sola fila en la barra de título: pestañas y, a la derecha, lo de uso continuo. Lo demás (contraseñas, listas,
-/// pegado, dividir, ajustes) está en el menú de la app, con sus atajos.
+/// Una sola fila en la barra de título: pestañas y, a la derecha, los accesos directos (pegado, dividir, Llavero,
+/// MultiExec, cortar, sesiones, ajustes). El menú de la app solo guarda las órdenes con atajo.
 struct TopBar: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
@@ -109,6 +109,26 @@ struct TopBar: View {
             IconButton(icon: "plus") { model.sheet = .connect }
                 .help("Conexión rápida o por un salto (⌘K)")
             Spacer(minLength: 12)
+            IconButton(icon: "doc.on.clipboard.fill") { model.sheet = .paste }
+                .help("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)")
+            IconMenu(icon: "rectangle.split.3x1.fill", active: model.split != nil) {
+                ForEach(Split.Layout.allCases) { l in Button(l.title) { model.makeSplit(l) } }
+                Divider()
+                Button("Volver a pestañas sueltas") { model.unsplit() }.disabled(model.split == nil)
+            }
+            .help("Dividir la pantalla")
+            IconMenu(icon: "key.fill") {
+                if let s = model.current {
+                    Section("Escribir en «\(s.title)»") {
+                        ForEach(model.keychainAccounts, id: \.self) { ref in
+                            Button(ref.account) { model.typePassword(ref, in: s) }
+                        }
+                    }
+                    Divider()
+                }
+                Button("Contraseñas y Llavero…") { model.openSettings("contraseñas") }
+            }
+            .help("Escribir una contraseña del Llavero en la pestaña actual")
             IconButton(icon: "square.stack.3d.forward.dottedline.fill", tint: t.warning, active: model.multiExecOn,
                        badge: model.multiExecOn ? "\(model.multiExecTargets.count)" : nil) { model.multiExecOn.toggle() }
                 .help("MultiExec: lo que escribes va a la vez a los paneles (⇧⌘M). Clic derecho en un panel → excluirlo")
@@ -116,6 +136,8 @@ struct TopBar: View {
                 .help("Corta cualquier secuencia automática (Esc o Ctrl+C en el terminal, ⌘.)")
             IconButton(icon: "sidebar.left", active: model.settings.sidebarVisible) { model.settings.sidebarVisible.toggle() }
                 .help("Mostrar/ocultar sesiones (⌃⌘S)")
+            IconButton(icon: "gearshape.fill") { model.openSettings() }
+                .help("Ajustes (⌘,)")
         }
         .padding(.leading, model.fullScreen ? 10 : 80)
         .padding(.trailing, 10)
@@ -181,6 +203,29 @@ struct IconButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { hover = $0 }
+    }
+}
+
+/// Como `IconButton`, pero abre un menú.
+struct IconMenu<Content: View>: View {
+    @Environment(\.theme) private var t
+    let icon: String
+    var active = false
+    @ViewBuilder var content: () -> Content
+    @Stored private var hover = false
+
+    var body: some View {
+        Menu(content: content) {
+            Image(systemName: icon).font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(SwiftUI.Color(active ? t.background : (hover ? t.accent : t.text)))
+                .padding(.horizontal, 7)
+                .frame(minWidth: 30, minHeight: 26)
+                .background(RoundedRectangle(cornerRadius: t.corner ?? 6)
+                    .fill(SwiftUI.Color(active ? t.accent : t.panel).opacity(active ? 1 : (hover ? 0.9 : 0.4))))
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .onHover { hover = $0 }
     }
 }

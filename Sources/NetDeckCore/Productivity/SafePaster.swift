@@ -25,6 +25,7 @@ public struct PasteReport: Equatable, Sendable {
         case pager(line: Int)                          // «--More--»: falta «terminal length 0»
         case timeout(line: Int)
         case dangerousNotConfirmed(line: Int, command: String)
+        case passwordPrompt(line: Int)                 // «Password:» tras esa línea (0 = ya estaba): nada se escribe ahí
     }
 
     public var sent: Int
@@ -34,6 +35,8 @@ public struct PasteReport: Equatable, Sendable {
 
 /// Pegado seguro: línea a línea, cada una espera al prompt del equipo (o a que la salida lleve `quiet` quieta) y se
 /// para ante un error de la CLI, un paginador o Esc. Las peligrosas (reload, delete…) sólo con `allowDangerous`.
+/// Si el equipo pide una contraseña («enable», «ssh …») se para: la línea siguiente iría como contraseña (se vería en
+/// el registro del equipo y contaría como intento fallido de la cuenta).
 public struct SafePaster: Sendable {
     public var lineTimeout: Duration = .seconds(20)
     public var quiet: Duration = .milliseconds(500)
@@ -44,7 +47,7 @@ public struct SafePaster: Sendable {
         self.allowDangerous = allowDangerous
     }
 
-    enum Wait { case ready, error(String), pager, timeout }
+    enum Wait { case ready, error(String), pager, password, timeout }
 
     @MainActor
     public func paste(_ text: String, into io: TerminalIO, abort: AbortSwitch) async -> PasteReport {
@@ -57,6 +60,7 @@ public struct SafePaster: Sendable {
                 return report(i, .dangerousNotConfirmed(line: i + 1, command: line))
             }
             if abort.isTripped { return report(i, .aborted) }
+            if PasswordPrompt.asksForPassword(io.cursorLine) { return report(i, .passwordPrompt(line: i)) }
             let mark = io.cursorRow
             io.sendLine(line)
             let w: Wait
@@ -69,6 +73,7 @@ public struct SafePaster: Sendable {
             case .ready: continue
             case .error(let out): return report(i + 1, .deviceError(line: i + 1, output: out))
             case .pager: return report(i + 1, .pager(line: i + 1))
+            case .password: return report(i + 1, .passwordPrompt(line: i + 1))
             case .timeout: return report(i + 1, .timeout(line: i + 1))
             }
         }
@@ -88,6 +93,7 @@ public struct SafePaster: Sendable {
             let cur = io.cursorLine
             if PasteRules.pager.matches(cur) { return .pager }
             guard io.cursorRow > mark else { return nil }
+            if PasswordPrompt.asksForPassword(cur) { return .password }
             if prompt.matches(cur), clock.now - changed >= poll { return .ready }
             if rev != start, clock.now - changed >= quiet { return .ready }     // prompt desconocido: salida quieta
             return nil

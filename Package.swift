@@ -1,12 +1,12 @@
 // swift-tools-version:6.0
-// Terminal NetDeck (provisional): app nativa de macOS que sustituirá a NetDeck (bash + tmux).
+// Terminal NetDeck: app nativa de macOS que sustituirá a NetDeck (bash + tmux).
 import PackageDescription
 
 let package = Package(
     name: "TerminalNetDeck",
     platforms: [.macOS(.v15)],
     products: [
-        .executable(name: "NetDeckProvisional", targets: ["NetDeckProvisional"]),
+        .executable(name: "TerminalNetDeck", targets: ["TerminalNetDeck"]),
         .library(name: "NetDeckCore", targets: ["NetDeckCore"]),
     ],
     dependencies: [
@@ -26,7 +26,7 @@ let package = Package(
             .product(name: "NIOCore", package: "swift-nio"),
         ]),
         // La app (SwiftUI)
-        .executableTarget(name: "NetDeckProvisional", dependencies: [
+        .executableTarget(name: "TerminalNetDeck", dependencies: [
             "NetDeckCore",
             "NetDeckSSH",
             .product(name: "SwiftTerm", package: "SwiftTerm"),

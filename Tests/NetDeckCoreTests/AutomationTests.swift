@@ -152,6 +152,20 @@ import Testing
         #expect(io.sent.count == 1)
     }
 
+    @Test func seParaSiPidenContraseña() async {
+        let io = FakeTerminal(["core-01>"]) { cmd in cmd == "enable" ? ["Password:"] : ["core-01#"] }
+        let r = await paster.paste("enable\nconfigure terminal\nhostname x", into: io, abort: AbortSwitch())
+        #expect(r.outcome == .passwordPrompt(line: 1))
+        #expect(io.sent == ["enable\r"])                  // «configure terminal» NO va como contraseña
+    }
+
+    @Test func noPegaEnUnaPeticiónDeContraseña() async {
+        let io = FakeTerminal(["(tu.usuario@192.0.2.1) Password:"])
+        let r = await paster.paste("show version", into: io, abort: AbortSwitch())
+        #expect(r.outcome == .passwordPrompt(line: 0))
+        #expect(io.sent.isEmpty)
+    }
+
     @Test func escParaElPegado() async {
         let io = device()
         let sw = AbortSwitch()

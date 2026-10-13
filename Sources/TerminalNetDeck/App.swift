@@ -54,39 +54,14 @@ struct NetDeckCommands: Commands {
             }
             Button("Carpeta de registros") { NSWorkspace.shared.open(DebugLog.directory) }
         }
-        CommandMenu("Contraseñas") {
-            Toggle("Sesiones: contraseña automática al abrir", isOn: Binding(
-                get: { model.settings.sessionAutoPassword },
-                set: { model.settings.sessionAutoPassword = $0; model.applyPasswordModes() }))
-            Picker("Equipos (ssh desde una sesión)", selection: Binding(
-                get: { model.settings.devicePasswordMode },
-                set: { model.settings.devicePasswordMode = $0; model.applyPasswordModes() })) {
-                Text("Escribir sola").tag(PasswordAutomation.Mode.autoType)
-                Text("Sugerir (un clic)").tag(PasswordAutomation.Mode.suggest)
-                Text("Nada").tag(PasswordAutomation.Mode.off)
-            }
-            if let s = model.current {
-                Section("Escribir en «\(s.title)»") {
-                    ForEach(model.keychainAccounts, id: \.self) { ref in
-                        Button(ref.account) { model.typePassword(ref, in: s) }
-                    }
-                }
-            }
-            Divider()
-            Button("Contraseñas y Llavero…") { model.openSettings("contraseñas") }
-        }
-        CommandMenu("NetDeck") {
+        // (contraseñas, dividir y ajustes van en la barra de la ventana; aquí solo lo que tiene atajo)
+        CommandMenu("Terminal") {
             Button("Pegado seguro…") { model.sheet = .paste }.keyboardShortcut("v", modifiers: [.command, .shift])
             Toggle("MultiExec", isOn: Binding(get: { model.multiExecOn }, set: { model.multiExecOn = $0 }))
                 .keyboardShortcut("m", modifiers: [.command, .shift])
             Toggle("Resaltado", isOn: Binding(get: { model.settings.highlightEnabled },
                                               set: { model.settings.highlightEnabled = $0; model.applyHighlight() }))
                 .keyboardShortcut("h", modifiers: [.command, .shift])
-            Menu("Dividir") {
-                ForEach(Split.Layout.allCases) { l in Button(l.title) { model.makeSplit(l) } }
-                Divider()
-                Button("Volver a pestañas sueltas") { model.unsplit() }
-            }
             Divider()
             Button("Reconectar") { model.current.map(model.reconnect) }.keyboardShortcut("r")
             Button("Clonar pestaña") { model.current.map(model.duplicate) }.keyboardShortcut("d")
@@ -98,7 +73,6 @@ struct NetDeckCommands: Commands {
             Divider()
             Button("Cancelar lo automático (Esc)") { model.abortAll() }.keyboardShortcut(".")
             Button("Recargar ssh_config") { model.reloadSessions() }.keyboardShortcut("r", modifiers: [.command, .shift])
-            Button("Recargar reglas de resaltado") { model.reloadHighlight() }
         }
     }
 }
