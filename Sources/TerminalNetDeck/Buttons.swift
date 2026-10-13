@@ -328,9 +328,7 @@ struct ButtonEditor: View {
                 ForEach(CommandButton.Mode.allCases, id: \.self) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
-            TextField(prompt(file.buttons[i].mode), text: b.command, axis: .vertical)
-                .font(.system(.body, design: .monospaced))
-                .lineLimit(2...6)
+            commandField(i)
             Picker(L("Tecla rápida"), selection: Binding(get: { file.buttons[i].hotkey ?? "" },
                                                        set: { file.buttons[i].hotkey = $0.isEmpty ? nil : $0 })) {
                 ForEach(Self.keys, id: \.self) { k in Text(k.isEmpty ? L("(ninguna)") : keyName(k)).tag(k) }
@@ -346,6 +344,54 @@ struct ButtonEditor: View {
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+    }
+
+    /// Lo que hace el botón: texto libre para órdenes y textos; para contraseña, login y sesión se elige de una lista
+    /// (las contraseñas con nombre del Llavero, tus sesiones), sin tener que acordarse del nombre exacto.
+    @ViewBuilder private func commandField(_ i: Int) -> some View {
+        let b = $file.buttons[i]
+        switch file.buttons[i].mode {
+        case .pass:
+            credentialPicker(L("Contraseña del Llavero"), selection: b.command)
+        case .login:
+            let parts = file.buttons[i].command.components(separatedBy: "/").map { $0.trimmingCharacters(in: .whitespaces) }
+            let user = parts.first ?? "", cred = parts.count > 1 ? parts[1] : ""
+            TextField(L("Usuario"), text: Binding(get: { user }, set: { file.buttons[i].command = "\($0.trimmingCharacters(in: .whitespaces)) / \(cred)" }))
+            credentialPicker(L("Su contraseña del Llavero"), selection: Binding(get: { cred }, set: { file.buttons[i].command = "\(user) / \($0)" }))
+        case .session:
+            let names = model.sessions.profiles.map(\.name)
+            Picker(L("Sesión"), selection: b.command) {
+                Text(L("(elige una)")).tag("")
+                ForEach(names, id: \.self) { Text($0).tag($0) }
+                if !b.command.wrappedValue.isEmpty, !names.contains(b.command.wrappedValue) {
+                    Text(L("\(b.command.wrappedValue) (no está en tus sesiones)")).tag(b.command.wrappedValue)
+                }
+            }
+        case .run, .type:
+            TextField(prompt(file.buttons[i].mode), text: b.command, axis: .vertical)
+                .font(.system(.body, design: .monospaced))
+                .lineLimit(2...6)
+        }
+    }
+
+    /// Las contraseñas con nombre del Llavero (las que usan los botones); si la del botón ya no está, se ve y se avisa.
+    @ViewBuilder private func credentialPicker(_ title: String, selection: Binding<String>) -> some View {
+        let named = model.keychainAccounts.filter { $0.service == .named }.map(\.account)
+        HStack {
+            Picker(title, selection: selection) {
+                Text(L("(elige una)")).tag("")
+                ForEach(named, id: \.self) { Text($0).tag($0) }
+                if !selection.wrappedValue.isEmpty, !named.contains(selection.wrappedValue) {
+                    Text(L("\(selection.wrappedValue) (no está en el Llavero)")).tag(selection.wrappedValue)
+                }
+            }
+            Button(L("Gestionar…")) { model.openSettings("contraseñas") }
+                .help(L("Guardar o cambiar contraseñas del Llavero (Ajustes → Contraseñas)"))
+        }
+        if named.isEmpty {
+            Text(L("No hay contraseñas con nombre en el Llavero: guárdala primero en Ajustes → Contraseñas."))
+                .font(.caption).foregroundStyle(.orange)
+        }
     }
 
     private func prompt(_ m: CommandButton.Mode) -> String {

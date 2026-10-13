@@ -1278,5 +1278,19 @@ enum Ingles {
             "Copy sftp command",
         "screen: para salir, Ctrl-A y luego k":
             "screen: to quit, Ctrl-A then k",
+        "(elige una)":
+            "(choose one)",
+        "%@ (no está en tus sesiones)":
+            "%@ (not in your sessions)",
+        "Contraseña del Llavero":
+            "Keychain password",
+        "Su contraseña del Llavero":
+            "Its Keychain password",
+        "Gestionar…":
+            "Manage…",
+        "Guardar o cambiar contraseñas del Llavero (Ajustes → Contraseñas)":
+            "Save or change Keychain passwords (Settings → Passwords)",
+        "No hay contraseñas con nombre en el Llavero: guárdala primero en Ajustes → Contraseñas.":
+            "There are no named passwords in the Keychain: save it first in Settings → Passwords.",
     ]
 }
