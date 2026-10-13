@@ -37,5 +37,7 @@ Contraseñas, por separado:
 
 Ajustes (⌘,): Contraseñas · Temas · Fuentes (terminal e interfaz, aparte de los temas) · Resaltado · General.
 
+Idiomas: castellano de España e inglés (Ajustes → General → Idioma; se aplica al momento). Ver CLAUDE.md.
+
 Desarrollo: `NETDECK_SNAPSHOT=/ruta.png` guarda una imagen de las ventanas (con `NETDECK_SNAPSHOT_ACTION=settings`,
 `setup:N` o `tab:usuario@equipo`).
