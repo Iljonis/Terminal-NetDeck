@@ -1148,5 +1148,11 @@ enum Ingles {
             "%@ devices imported from %@",
         " · %@ no valen (se ignoran)":
             " · %@ not valid (ignored)",
+        "Conexiones":
+            "Connections",
+        "Enviar el idioma del Mac a los servidores (LANG, LC_*)":
+            "Send the Mac's language to servers (LANG, LC_*)",
+        "Desactivado, los servidores usan su propio idioma y no salen avisos como «setlocale: LC_CTYPE». Se aplica a las conexiones nuevas.":
+            "When off, servers use their own language and warnings like “setlocale: LC_CTYPE” don't appear. Applies to new connections.",
     ]
 }

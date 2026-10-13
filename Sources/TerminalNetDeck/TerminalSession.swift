@@ -161,11 +161,9 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
 
     private func launch() {
         let (exe, args) = route.command
-        var env = ProcessInfo.processInfo.environment
+        var env = TerminalEnvironment.prepare(ProcessInfo.processInfo.environment, forSSH: exe == "/usr/bin/ssh",
+                                              sendLocale: UserDefaults.standard.bool(forKey: AppSettings.sendLocaleKey))
         env[Askpass.flag] = nil
-        env["TERM"] = "xterm-256color"
-        env["COLORTERM"] = "truecolor"
-        env["LANG"] = env["LANG"] ?? "es_ES.UTF-8"
         env.merge(environment) { $1 }
         let d = view.terminalDimensions
         pipe.setSize(cols: d.cols, rows: d.rows)

@@ -587,6 +587,11 @@ struct GeneralSettings: View {
                     Button(L("Buscar ahora")) { model.checkForUpdates() }
                 }
             }
+            Section(L("Conexiones")) {
+                Toggle(L("Enviar el idioma del Mac a los servidores (LANG, LC_*)"), isOn: $s.sendLocale)
+                Text(L("Desactivado, los servidores usan su propio idioma y no salen avisos como «setlocale: LC_CTYPE». Se aplica a las conexiones nuevas."))
+                    .font(t.ui(11)).foregroundStyle(.secondary)
+            }
             Section(L("Ventana")) {
                 Toggle(L("Mostrar la lista de sesiones"), isOn: $s.sidebarVisible)
                 Toggle(L("Efecto CRT en la portada (rejilla y líneas de barrido)"), isOn: $s.crtEffect)

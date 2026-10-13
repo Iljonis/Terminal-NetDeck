@@ -161,3 +161,19 @@ private let config = """
         #expect(try !ruta("127.0.0.1", saltos: ["bastion"]).isLoopback)      // (detrás de un salto es otro equipo)
     }
 }
+
+@Suite struct TerminalEnvironmentTests {
+    let mac = ["LANG": "es_ES.UTF-8", "LC_CTYPE": "es_ES.UTF-8", "LC_ALL": "es_ES.UTF-8", "HOME": "/Users/x"]
+
+    @Test func aSshNoLeLlegaElIdiomaDelMac() {
+        let e = TerminalEnvironment.prepare(mac, forSSH: true, sendLocale: false)
+        #expect(e["LANG"] == nil && e["LC_CTYPE"] == nil && e["LC_ALL"] == nil)
+        #expect(e["HOME"] == "/Users/x" && e["TERM"] == "xterm-256color")
+    }
+
+    @Test func siLoPidesSiYEnLocalSeQueda() {
+        #expect(TerminalEnvironment.prepare(mac, forSSH: true, sendLocale: true)["LC_CTYPE"] == "es_ES.UTF-8")
+        #expect(TerminalEnvironment.prepare(mac, forSSH: false, sendLocale: false)["LANG"] == "es_ES.UTF-8")
+        #expect(TerminalEnvironment.prepare([:], forSSH: false, sendLocale: false)["LANG"] == "en_US.UTF-8")
+    }
+}

@@ -64,7 +64,13 @@ final class AppSettings {
     /// Buscar versiones nuevas en segundo plano (una vez al día, en silencio).
     var autoUpdateCheck: Bool { didSet { d.set(autoUpdateCheck, forKey: "autoUpdateCheck") } }
 
+    /// Mandar el idioma del Mac (LANG, LC_*) a los servidores por ssh. Desactivado: así no salen avisos de locale en
+    /// servidores Linux que no lo tienen.
+    static let sendLocaleKey = "sendLocale"
+    var sendLocale: Bool { didSet { d.set(sendLocale, forKey: Self.sendLocaleKey) } }
+
     init() {
+        sendLocale = d.bool(forKey: Self.sendLocaleKey)
         autoUpdateCheck = d.object(forKey: "autoUpdateCheck") as? Bool ?? true
         language = Idioma.actual
         if d.object(forKey: "configured") == nil { Self.importNetDeck(into: d) }
