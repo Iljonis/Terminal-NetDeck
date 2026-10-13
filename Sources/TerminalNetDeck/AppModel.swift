@@ -745,7 +745,9 @@ final class AppModel {
 
     /// Se guarda al abrir y cerrar pestañas (así una actualización o un cierre brusco no las pierde).
     func saveOpenTabs() {
-        let routes = tabs.map(\.route)
+        // (las capturas de desarrollo no tocan tus pestañas; y nunca las de este mismo Mac)
+        guard ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil else { return }
+        let routes = tabs.map(\.route).filter { !$0.isLoopback }
         guard !routes.isEmpty else {
             if lastOpen.isEmpty { try? FileManager.default.removeItem(at: Self.openTabsFile) }
             return
@@ -760,7 +762,10 @@ final class AppModel {
     }
 
     private static func readOpenTabs() -> [ConnectionRoute] {
-        (try? Data(contentsOf: openTabsFile)).flatMap { try? JSONDecoder().decode([ConnectionRoute].self, from: $0) } ?? []
+        let all = (try? Data(contentsOf: openTabsFile)).flatMap { try? JSONDecoder().decode([ConnectionRoute].self, from: $0) } ?? []
+        let kept = all.filter { !$0.isLoopback }
+        if kept.count != all.count { DebugLog.log("app", "no reabro \(all.count - kept.count) a este mismo Mac (127.x/localhost)") }
+        return kept
     }
 
     func reopenLast() {

@@ -30,6 +30,14 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
         self.sessionName = sessionName
     }
 
+    /// Directa a este mismo Mac (127.x, ::1, localhost): no se guarda para reabrirla al arrancar (sería un ssh al
+    /// puerto 22 local que normalmente rechaza la conexión).
+    public var isLoopback: Bool {
+        guard jumps.isEmpty else { return false }
+        let h = target.host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        return h == "localhost" || h == "::1" || h.hasPrefix("127.")
+    }
+
     /// Orden que se escribe en el salto para llegar a `device` (nil si no es seguro escribirlo en una shell).
     public static func hopCommand(to device: Endpoint, transport: SessionProfile.Transport) -> String? {
         guard device.isShellSafe else { return nil }

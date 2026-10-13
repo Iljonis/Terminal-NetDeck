@@ -147,3 +147,17 @@ private let config = """
         #expect(UpdateCheck.parse(Data(#"{"tag_name":"v1","html_url":"http://x"}"#.utf8)) == nil)   // sólo https
     }
 }
+
+@Suite struct LoopbackTests {
+    @Test func lasDeEsteMacNoSeReabren() throws {
+        func ruta(_ s: String, saltos: [String] = []) throws -> ConnectionRoute {
+            ConnectionRoute(title: s, target: try #require(Endpoint(parsing: s)),
+                            jumps: saltos.compactMap(Endpoint.init(parsing:)), transport: .ssh)
+        }
+        #expect(try ruta("127.0.0.1").isLoopback)
+        #expect(try ruta("admin@127.0.0.3").isLoopback)
+        #expect(try ruta("localhost").isLoopback)
+        #expect(try !ruta("192.0.2.1").isLoopback)
+        #expect(try !ruta("127.0.0.1", saltos: ["bastion"]).isLoopback)      // (detrás de un salto es otro equipo)
+    }
+}
