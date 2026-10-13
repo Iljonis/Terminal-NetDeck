@@ -144,8 +144,6 @@ enum Ingles {
             "Native SSH: pending (phase 2); using /usr/bin/ssh",
         "Conectar / Salto…":
             "Connect / Jump…",
-        "Lista por salto…":
-            "List via jump host…",
         "Sesiones…":
             "Sessions…",
         "Cerrar pestaña":
@@ -970,8 +968,6 @@ enum Ingles {
             "CONNECT",
         "COINCIDEN":
             "MATCHES",
-        "Lista":
-            "List",
         "Pegado seguro":
             "Safe paste",
         "Esc":
@@ -1146,5 +1142,41 @@ enum Ingles {
             "%@ devices imported from %@",
         " · %@ no valen (se ignoran)":
             " · %@ not valid (ignored)",
+        "Terminal local":
+            "Local terminal",
+        "No hay sesión de inicio: márcala con clic derecho en una sesión":
+            "No startup session: set one by right-clicking a session",
+        "Nueva terminal local":
+            "New Local Terminal",
+        "Abrir la sesión de inicio":
+            "Open Startup Session",
+        "Herramientas":
+            "Tools",
+        "Listas de equipos…":
+            "Device Lists…",
+        "Nueva terminal local: tu shell en este Mac (⌘T)":
+            "New local terminal: your shell on this Mac (⌘T)",
+        "Listas de equipos: la misma orden en muchos equipos por un salto (⇧⌘L)":
+            "Device lists: the same command on many devices via a jump host (⇧⌘L)",
+        "Se abre al arrancar (⌥⌘K)":
+            "Opens at startup (⌥⌘K)",
+        "No abrir al arrancar":
+            "Don't open at startup",
+        "⏻ Abrir al arrancar":
+            "⏻ Open at startup",
+        "⏻ Abrir al arrancar (sólo una; ⌥⌘K la abre cuando quieras)":
+            "⏻ Open at startup (only one; ⌥⌘K opens it any time)",
+        "Al arrancar":
+            "At startup",
+        "Sesión de inicio":
+            "Startup session",
+        "%@ (ya no existe)":
+            "%@ (no longer exists)",
+        "Abrir una terminal local al arrancar si no hay otras pestañas":
+            "Open a local terminal at startup if there are no other tabs",
+        "La sesión de inicio también se marca con clic derecho en la lista y se abre con ⌥⌘K; la terminal local, con ⌘T.":
+            "The startup session can also be set by right-clicking it in the list and opened with ⌥⌘K; the local terminal, with ⌘T.",
+        "Listas":
+            "Lists",
     ]
 }

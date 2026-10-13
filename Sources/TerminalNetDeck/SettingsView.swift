@@ -579,6 +579,18 @@ struct GeneralSettings: View {
                 Text(L("\(model.sessions.profiles.count) sesiones · anotaciones: # @grupo, # @clave, # @clave-grupo, # @desc, # @telnet"))
                     .font(t.ui(11)).foregroundStyle(.secondary)
             }
+            Section(L("Al arrancar")) {
+                Picker(L("Sesión de inicio"), selection: $s.startupSession) {
+                    Text(L("(ninguna)")).tag("")
+                    if !s.startupSession.isEmpty, model.startupProfile == nil {
+                        Text(L("\(s.startupSession) (ya no existe)")).tag(s.startupSession)
+                    }
+                    ForEach(model.sessions.profiles.map(\.name), id: \.self) { Text($0).tag($0) }
+                }
+                Toggle(L("Abrir una terminal local al arrancar si no hay otras pestañas"), isOn: $s.startupLocalTerminal)
+                Text(L("La sesión de inicio también se marca con clic derecho en la lista y se abre con ⌥⌘K; la terminal local, con ⌘T."))
+                    .font(t.ui(11)).foregroundStyle(.secondary)
+            }
             Section(L("Actualizaciones")) {
                 Toggle(L("Buscar versiones nuevas automáticamente (una vez al día)"), isOn: $s.autoUpdateCheck)
                 HStack {
@@ -596,7 +608,7 @@ struct GeneralSettings: View {
     }
 }
 
-// MARK: - botones (la barra de NetDeck)
+// MARK: - botones (la barra)
 
 struct ButtonSettings: View {
     @Environment(\.theme) private var t
