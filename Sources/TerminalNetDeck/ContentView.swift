@@ -124,6 +124,14 @@ struct TopBar: View {
                             Button(ref.account) { model.typePassword(ref, in: s) }
                         }
                     }
+                    Menu(L("Escribir sin esperar a que la pida")) {
+                        ForEach(model.keychainAccounts, id: \.self) { ref in
+                            Menu(ref.account) {
+                                Button(L("Sin Intro")) { model.typePasswordAnyway(ref, in: s, pressReturn: false) }
+                                Button(L("Con Intro")) { model.typePasswordAnyway(ref, in: s, pressReturn: true) }
+                            }
+                        }
+                    }
                     Divider()
                 }
                 Button(L("Contraseñas y Llavero…")) { model.openSettings("contraseñas") }

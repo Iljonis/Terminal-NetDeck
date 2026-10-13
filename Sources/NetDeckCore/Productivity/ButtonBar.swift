@@ -138,6 +138,98 @@ public struct ButtonFile: Sendable {
 
     public func button(forKey k: String) -> CommandButton? { buttons.first { $0.hotkey == k } }
 
+    // MARK: - editar categorías (grupos) y botones; el orden es el del archivo, un bloque por grupo
+
+    /// Cada grupo en un solo bloque, en el orden en que aparece por primera vez (los botones no cambian de orden dentro).
+    public mutating func compactGroups() {
+        let order = groups
+        buttons = order.flatMap { g in buttons.filter { $0.group == g } }
+    }
+
+    /// Categoría nueva con un botón de partida (en el archivo no hay grupos vacíos). nil si el nombre ya está o es vacío.
+    @discardableResult
+    public mutating func addGroup(_ name: String, buttonName: String = "Nuevo") -> CommandButton.ID? {
+        let n = name.trimmingCharacters(in: .whitespaces)
+        guard Self.validGroup(n), !groups.contains(n) else { return nil }
+        let b = CommandButton(group: n, mode: .run, name: buttonName, command: "")
+        buttons.append(b)
+        return b.id
+    }
+
+    /// Cambia el nombre en todos sus botones. Si ya existe otro con ese nombre, se juntan (al sitio del primero).
+    @discardableResult
+    public mutating func renameGroup(_ old: String, to new: String) -> Bool {
+        let n = new.trimmingCharacters(in: .whitespaces)
+        guard Self.validGroup(n), groups.contains(old), n != old else { return false }
+        for i in buttons.indices where buttons[i].group == old { buttons[i].group = n }
+        compactGroups()
+        return true
+    }
+
+    /// Quita la categoría: con sus botones (`movingTo` nil) o pasándolos al final de otra.
+    public mutating func removeGroup(_ g: String, movingTo target: String? = nil) {
+        guard let target, target != g else { buttons.removeAll { $0.group == g }; return }
+        let moved = buttons.filter { $0.group == g }.map { b -> CommandButton in var c = b; c.group = target; return c }
+        buttons.removeAll { $0.group == g }
+        let at = (buttons.lastIndex { $0.group == target }).map { $0 + 1 } ?? buttons.count
+        buttons.insert(contentsOf: moved, at: at)
+    }
+
+    /// Sube (-1) o baja (+1) el bloque entero de la categoría.
+    @discardableResult
+    public mutating func moveGroup(_ g: String, by offset: Int) -> Bool {
+        compactGroups()
+        var order = groups
+        guard let i = order.firstIndex(of: g), order.indices.contains(i + offset) else { return false }
+        order.swapAt(i, i + offset)
+        buttons = order.flatMap { o in buttons.filter { $0.group == o } }
+        return true
+    }
+
+    /// Sube o baja un botón dentro de su categoría.
+    @discardableResult
+    public mutating func moveButton(_ id: CommandButton.ID, by offset: Int) -> Bool {
+        guard let i = buttons.firstIndex(where: { $0.id == id }), offset != 0 else { return false }
+        let g = buttons[i].group
+        let step = offset > 0 ? 1 : -1
+        var j = i, left = abs(offset)
+        while left > 0 {
+            j += step
+            guard buttons.indices.contains(j) else { return false }
+            if buttons[j].group == g { left -= 1 }
+        }
+        let b = buttons.remove(at: i)
+        buttons.insert(b, at: j)
+        return true
+    }
+
+    /// Lo pasa al final de otra categoría (existente o nueva, que va al final).
+    @discardableResult
+    public mutating func moveButton(_ id: CommandButton.ID, toGroup target: String) -> Bool {
+        let t = target.trimmingCharacters(in: .whitespaces)
+        guard Self.validGroup(t), let i = buttons.firstIndex(where: { $0.id == id }), buttons[i].group != t else { return false }
+        var b = buttons.remove(at: i)
+        b.group = t
+        let at = (buttons.lastIndex { $0.group == t }).map { $0 + 1 } ?? buttons.count
+        buttons.insert(b, at: at)
+        return true
+    }
+
+    /// Copia justo debajo (sin la tecla rápida: no puede haber dos con la misma). Devuelve la copia.
+    @discardableResult
+    public mutating func duplicateButton(_ id: CommandButton.ID, suffix: String = " 2") -> CommandButton.ID? {
+        guard let i = buttons.firstIndex(where: { $0.id == id }) else { return nil }
+        let o = buttons[i]
+        let c = CommandButton(group: o.group, mode: o.mode, name: o.name + suffix, command: o.command)
+        buttons.insert(c, at: i + 1)
+        return c.id
+    }
+
+    /// Un nombre de grupo que se puede escribir en el archivo (ni vacío, ni « :: », ni «#» delante, ni saltos).
+    public static func validGroup(_ g: String) -> Bool {
+        !g.isEmpty && !g.contains("::") && !g.hasPrefix("#") && !g.contains(where: \.isNewline)
+    }
+
     /// Como lo escribe el editor de NetDeck: columnas alineadas, un hueco entre grupos.
     public func render() -> String {
         let gw = min(14, buttons.map(\.group.count).max() ?? 0)

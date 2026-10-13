@@ -111,4 +111,13 @@ public final class PasswordAutomation {
         handledSite = site
         return .typed
     }
+
+    /// «Escribir sin esperar a que la pida» (menú 🔑): la manda al terminal aunque la línea no sea «Password:» (un
+    /// prompt que no se reconoce). Intro sólo con `pressReturn`. Nunca una bloqueada sin `force` (y no la desbloquea).
+    public func typeAnyway(_ ref: CredentialRef, into io: TerminalIO, pressReturn: Bool, force: Bool = false) -> ManualResult {
+        if !force, ledger.isBlocked(ref) { return .blocked }
+        guard let pw = try? store.password(for: ref) else { return .missing }
+        if pressReturn { io.sendLine(pw) } else { io.send(pw) }
+        return .typed
+    }
 }

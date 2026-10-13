@@ -437,6 +437,40 @@ final class AppModel {
         }
     }
 
+    /// Pestañas en las que ya se ha confirmado «escribir sin esperar a que la pida» (se pregunta una vez por pestaña).
+    @ObservationIgnored private var anywayConfirmed: Set<TerminalSession.ID> = []
+
+    /// La manda al terminal aunque ahí no se reconozca «Password:» (prompts raros). Se confirma la primera vez en cada
+    /// pestaña y siempre si está bloqueada por un fallo reciente. Nunca se registra.
+    func typePasswordAnyway(_ ref: CredentialRef, in s: TerminalSession, pressReturn: Bool) {
+        if !anywayConfirmed.contains(s.id) {
+            let a = NSAlert()
+            a.messageText = L("¿Escribir «\(ref.account)» en «\(s.title)»?")
+            a.informativeText = L("Va como texto al terminal aunque no pidan contraseña: si no es un prompt de contraseña, se verá en pantalla (y puede quedar en el historial del equipo).")
+            a.addButton(withTitle: L("Escribir"))
+            a.addButton(withTitle: L("Cancelar"))
+            guard a.runModal() == .alertFirstButtonReturn else { return }
+            anywayConfirmed.insert(s.id)
+        }
+        var force = false
+        if ledger.isBlocked(ref) {
+            let a = NSAlert()
+            a.alertStyle = .warning
+            a.messageText = L("«\(ref.account)» ha fallado hace poco")
+            a.informativeText = L("Si es una cuenta AD, otro intento fallido puede bloquearla. ¿Escribirla igualmente?")
+            a.addButton(withTitle: L("Escribir igualmente"))
+            a.addButton(withTitle: L("Cancelar"))
+            guard a.runModal() == .alertFirstButtonReturn else { return }
+            force = true
+        }
+        switch s.passwords.typeAnyway(ref, into: s, pressReturn: pressReturn, force: force) {
+        case .typed: notices[s.id] = nil; status = L("🔑 «\(ref)» escrita en \(s.title)")
+        case .blocked: status = L("🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes")
+        case .notAsked: break
+        case .missing: status = L("🔑 «\(ref)» no está en el Llavero")
+        }
+    }
+
     /// Todas las del Llavero de NetDeck (para elegir a mano).
     var keychainAccounts: [CredentialRef] {
         _ = keychainRevision

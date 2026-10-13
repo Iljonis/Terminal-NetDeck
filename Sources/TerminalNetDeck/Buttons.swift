@@ -248,7 +248,7 @@ struct ButtonEditor: View {
         VStack(spacing: 0) {
             List(selection: $selected) {
                 ForEach(file.groups, id: \.self) { g in
-                    Section(g) {
+                    Section {
                         ForEach(file.buttons.filter { $0.group == g }) { b in
                             HStack {
                                 Text(b.name)
@@ -257,7 +257,17 @@ struct ButtonEditor: View {
                                 Text(b.mode.rawValue).font(.caption2).foregroundStyle(.secondary)
                             }
                             .tag(b.id)
+                            .contextMenu { buttonMenu(b.id) }
                         }
+                    } header: {
+                        HStack {
+                            Text(g)
+                            Spacer()
+                            Menu { groupMenu(g) } label: { Image(systemName: "ellipsis.circle") }
+                                .menuStyle(.button).buttonStyle(.borderless).menuIndicator(.hidden).fixedSize()
+                                .help(L("Categoría: renombrar, ordenar, borrar…"))
+                        }
+                        .contextMenu { groupMenu(g) }
                     }
                 }
             }
@@ -265,19 +275,54 @@ struct ButtonEditor: View {
             HStack(spacing: 4) {
                 Button { add() } label: { Image(systemName: "plus") }.help(L("Nuevo botón"))
                 Button { remove() } label: { Image(systemName: "minus") }.disabled(selected == nil).help(L("Borrar"))
+                Button { duplicate() } label: { Image(systemName: "plus.square.on.square") }
+                    .disabled(selected == nil).help(L("Duplicar"))
                 Button { move(-1) } label: { Image(systemName: "arrow.up") }.disabled(selected == nil).help(L("Subir"))
                 Button { move(1) } label: { Image(systemName: "arrow.down") }.disabled(selected == nil).help(L("Bajar"))
                 Spacer()
+                Button { addGroup() } label: { Image(systemName: "folder.badge.plus") }.help(L("Nueva categoría"))
             }
             .buttonStyle(.borderless)
             .padding(8)
         }
     }
 
+    @ViewBuilder private func groupMenu(_ g: String) -> some View {
+        let gs = file.groups
+        Button(L("Renombrar…")) { renameGroup(g) }
+        Button(L("Subir la categoría")) { file.moveGroup(g, by: -1) }.disabled(gs.first == g)
+        Button(L("Bajar la categoría")) { file.moveGroup(g, by: 1) }.disabled(gs.last == g)
+        Button(L("Nuevo botón aquí")) { add(in: g) }
+        Divider()
+        Menu(L("Borrar y pasar sus botones a…")) {
+            ForEach(gs.filter { $0 != g }, id: \.self) { o in Button(o) { file.removeGroup(g, movingTo: o) } }
+        }
+        .disabled(gs.count < 2)
+        Button(L("Borrar con sus botones…"), role: .destructive) { removeGroup(g) }
+    }
+
+    @ViewBuilder private func buttonMenu(_ id: CommandButton.ID) -> some View {
+        let g = file.buttons.first { $0.id == id }?.group
+        Button(L("Duplicar")) { selected = file.duplicateButton(id, suffix: L(" (copia)")) ?? selected }
+        Menu(L("Mover a la categoría")) {
+            ForEach(file.groups.filter { $0 != g }, id: \.self) { o in Button(o) { file.moveButton(id, toGroup: o) } }
+            Divider()
+            Button(L("Nueva categoría…")) {
+                if let n = SessionEditor.ask(L("Nombre de la categoría nueva")), ButtonFile.validGroup(n) {
+                    file.moveButton(id, toGroup: n)
+                }
+            }
+        }
+        Button(L("Borrar"), role: .destructive) { selected = id; remove() }
+    }
+
     private func form(_ i: Int) -> some View {
         let b = $file.buttons[i]
         return Form {
-            TextField(L("Grupo"), text: b.group)
+            Picker(L("Categoría"), selection: Binding(get: { file.buttons[i].group },
+                                                     set: { file.moveButton(file.buttons[i].id, toGroup: $0) })) {
+                ForEach(file.groups, id: \.self) { Text($0).tag($0) }
+            }
             TextField(L("Nombre"), text: b.name)
             Picker(L("Modo"), selection: b.mode) {
                 ForEach(CommandButton.Mode.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -334,12 +379,17 @@ struct ButtonEditor: View {
         message = FileManager.default.fileExists(atPath: ButtonFile.defaultURL.path) ? "" : L("Botones de ejemplo: «Guardar» para crear el archivo")
     }
 
-    private func add() {
-        let g = file.buttons.first { $0.id == selected }?.group ?? model.settings.buttonGroup
+    private func add(in group: String? = nil) {
+        let g = group ?? file.buttons.first { $0.id == selected }?.group ?? model.settings.buttonGroup
         let b = CommandButton(group: g.isEmpty ? "General" : g, mode: .run, name: L("Nuevo"), command: "")
         let at = (file.buttons.lastIndex { $0.group == b.group }).map { $0 + 1 } ?? file.buttons.count
         file.buttons.insert(b, at: at)
         selected = b.id
+    }
+
+    private func duplicate() {
+        guard let id = selected else { return }
+        selected = file.duplicateButton(id, suffix: L(" (copia)")) ?? selected
     }
 
     private func remove() {
@@ -349,11 +399,40 @@ struct ButtonEditor: View {
     }
 
     private func move(_ d: Int) {
-        guard let i = file.buttons.firstIndex(where: { $0.id == selected }) else { return }
-        let g = file.buttons[i].group
-        var j = i + d
-        while file.buttons.indices.contains(j), file.buttons[j].group != g { j += d }
-        guard file.buttons.indices.contains(j) else { return }
-        file.buttons.swapAt(i, j)
+        guard let id = selected else { return }
+        file.moveButton(id, by: d)
+    }
+
+    // MARK: categorías (el grupo de cada botón; el orden, el del archivo)
+
+    private func addGroup() {
+        guard let n = SessionEditor.ask(L("Nombre de la categoría nueva")), !n.isEmpty else { return }
+        if file.groups.contains(n) { message = L("Ya hay una categoría «\(n)»"); return }
+        guard let id = file.addGroup(n, buttonName: L("Nuevo")) else { message = L("Nombre no válido (sin «::» ni «#» delante)"); return }
+        selected = id
+    }
+
+    private func renameGroup(_ g: String) {
+        guard let n = SessionEditor.ask(L("Renombrar la categoría «\(g)»"), value: g), !n.isEmpty, n != g else { return }
+        guard ButtonFile.validGroup(n) else { message = L("Nombre no válido (sin «::» ni «#» delante)"); return }
+        if file.groups.contains(n), !confirm(L("Ya hay una categoría «\(n)»: ¿juntarlas?"), L("Juntar")) { return }
+        file.renameGroup(g, to: n)
+        if model.settings.buttonGroup == g { model.settings.buttonGroup = n }
+    }
+
+    private func removeGroup(_ g: String) {
+        let n = file.buttons.filter { $0.group == g }.count
+        guard confirm(L("¿Borrar la categoría «\(g)» y sus \(n) botones?"), L("Borrar")) else { return }
+        file.removeGroup(g)
+        if !file.buttons.contains(where: { $0.id == selected }) { selected = file.buttons.first?.id }
+    }
+
+    private func confirm(_ title: String, _ ok: String) -> Bool {
+        let a = NSAlert()
+        a.messageText = title
+        a.informativeText = L("No se guarda hasta que pulses «Guardar» (queda copia en botones.txt.anterior).")
+        a.addButton(withTitle: ok)
+        a.addButton(withTitle: L("Cancelar"))
+        return a.runModal() == .alertFirstButtonReturn
     }
 }

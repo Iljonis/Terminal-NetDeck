@@ -118,6 +118,7 @@ public final class JumpBatchRunner {
     public func retryFailed() async {
         var tasks: [Task<Void, Never>] = []
         for d in list.devices {
+            guard !abort.isTripped else { break }                            // (Esc: tampoco se reintenta)
             guard status[d]?.isRetryable == true, attempts[d, default: 0] <= settings.maxRetries,
                   let p = panes[d], p.jump.matches(p.io.cursorLine) else { continue }
             tasks.append(Task { @MainActor in await self.connect(d, io: p.io, jump: p.jump) })
@@ -189,13 +190,16 @@ public final class JumpBatchRunner {
                 case .inject(let ref):
                     switch ledger.beginProbe(ref) {
                     case .blocked: return .skipped(L("«\(ref)» falló hace poco: la escribes tú"))
-                    case .wait: continue                                   // otra pestaña la está probando
+                    case .wait:                                            // otra pestaña la está probando:
+                        end = max(end, clock.now + settings.poll * 4)       // (no se agota mientras espera su turno)
+                        continue
                     case .go:
                         guard let pw = try? store.password(for: ref) else {
                             ledger.release(ref)
                             return .failed(L("no está en el Llavero"))
                         }
-                        try abort.check()
+                        // Esc antes de escribirla: no se ha probado, que no se queden esperando las demás
+                        do { try abort.check() } catch { ledger.release(ref); throw error }
                         let row = io.cursorRow                  // (antes de enviar: la respuesta puede ser inmediata)
                         io.sendLine(pw)
                         sent = (ref, row)

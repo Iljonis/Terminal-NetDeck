@@ -54,6 +54,17 @@ private let netdeckFile = """
         #expect(f.tail.first?.first == "Host *")
     }
 
+    @Test func quienUsaCadaContraseña() throws {
+        let f = SessionFile(text: netdeckFile)
+        #expect(f.usage(ofNamed: "AD").groups == ["Saltos"])
+        #expect(f.usage(ofNamed: "admin-core").sessions == ["core-01"])
+        let bastion = try #require(f.sessions.first { $0.name == "bastion" })
+        #expect(f.namedCredential(of: bastion)?.name == "AD" && f.namedCredential(of: bastion)?.fromGroup == true)
+        var own = bastion
+        own.credential = "-"
+        #expect(f.namedCredential(of: own) == nil)
+    }
+
     @Test func escribirYLeerEsLoMismo() {
         let f = SessionFile(text: netdeckFile)
         let again = SessionFile(text: f.render())

@@ -1018,5 +1018,135 @@ enum Ingles {
             "A new version of Terminal NetDeck is available: click to see it",
         "No se puede leer %@: no lo sobrescribo (¿no es UTF-8?). Revísalo o muévelo y vuelve a probar.":
             "Can't read %@: not overwriting it (is it not UTF-8?). Check or move it and try again.",
+        "Cambiar la contraseña guardada (la usa también NetDeck)":
+            "Change the saved password (NetDeck uses it too)",
+        "sesiones: %@%@":
+            "sessions: %@%@",
+        "grupos: %@":
+            "groups: %@",
+        "por defecto":
+            "default",
+        "La usan: ":
+            "Used by: ",
+        "Contraseña nueva":
+            "New password",
+        "Repítela":
+            "Repeat it",
+        "No coinciden":
+            "They don't match",
+        "Cambiar «%@»":
+            "Change “%@”",
+        "Guardar «%@»":
+            "Save “%@”",
+        "Se guarda sólo en el Llavero (la ve también NetDeck) y se olvida su bloqueo por fallo.":
+            "It's saved only in the Keychain (NetDeck sees it too) and its failure lock is cleared.",
+        "Sustituir":
+            "Replace",
+        "Categoría: renombrar, ordenar, borrar…":
+            "Category: rename, reorder, delete…",
+        "Nueva categoría":
+            "New category",
+        "Renombrar…":
+            "Rename…",
+        "Subir la categoría":
+            "Move category up",
+        "Bajar la categoría":
+            "Move category down",
+        "Nuevo botón aquí":
+            "New button here",
+        "Borrar y pasar sus botones a…":
+            "Delete and move its buttons to…",
+        "Borrar con sus botones…":
+            "Delete with its buttons…",
+        " (copia)":
+            " (copy)",
+        "Mover a la categoría":
+            "Move to category",
+        "Nueva categoría…":
+            "New category…",
+        "Nombre de la categoría nueva":
+            "Name of the new category",
+        "Categoría":
+            "Category",
+        "Ya hay una categoría «%@»":
+            "There's already a category “%@”",
+        "Nombre no válido (sin «::» ni «#» delante)":
+            "Invalid name (no “::” and no leading “#”)",
+        "Renombrar la categoría «%@»":
+            "Rename category “%@”",
+        "Ya hay una categoría «%@»: ¿juntarlas?":
+            "There's already a category “%@”: merge them?",
+        "Juntar":
+            "Merge",
+        "¿Borrar la categoría «%@» y sus %@ botones?":
+            "Delete category “%@” and its %@ buttons?",
+        "No se guarda hasta que pulses «Guardar» (queda copia en botones.txt.anterior).":
+            "Nothing is saved until you press “Save” (a copy stays in botones.txt.anterior).",
+        "Sustituir la de %@@%@":
+            "Replace the one for %@@%@",
+        "Usa: la propia del equipo (la escribes tú)":
+            "Uses: the device's own (you type it)",
+        "Usa: 🔑 %@ (la del grupo)":
+            "Uses: 🔑 %@ (the group's)",
+        "Usa: 🔑 %@":
+            "Uses: 🔑 %@",
+        "Usa: la de %@@%@":
+            "Uses: the one for %@@%@",
+        "Usa: la por defecto o ninguna (a mano)":
+            "Uses: the default one or none (manual)",
+        "(no está en el Llavero)":
+            "(not in the Keychain)",
+        "Cambiar contraseña…":
+            "Change Password…",
+        "Guardarla…":
+            "Save It…",
+        "¿Escribir «%@» en «%@»?":
+            "Type “%@” into “%@”?",
+        "Va como texto al terminal aunque no pidan contraseña: si no es un prompt de contraseña, se verá en pantalla (y puede quedar en el historial del equipo).":
+            "It goes to the terminal as text even if no password is being asked for: if it isn't a password prompt, it will show on screen (and may stay in the device's history).",
+        "«%@» ha fallado hace poco":
+            "“%@” failed recently",
+        "Si es una cuenta AD, otro intento fallido puede bloquearla. ¿Escribirla igualmente?":
+            "If it's an AD account, another failed attempt may lock it. Type it anyway?",
+        "Escribir igualmente":
+            "Type Anyway",
+        "Escribir sin esperar a que la pida":
+            "Type Without Waiting for the Prompt",
+        "Sin Intro":
+            "Without Return",
+        "Con Intro":
+            "With Return",
+        "Lista guardada":
+            "Saved list",
+        "(nueva, sin guardar)":
+            "(new, unsaved)",
+        "Nueva":
+            "New",
+        "Importar equipos de un .txt/.csv…":
+            "Import Devices from a .txt/.csv…",
+        "Borrar…":
+            "Delete…",
+        "No valen (se ignoran): %@":
+            "Not valid (ignored): %@",
+        "Guardar lista":
+            "Save List",
+        "✓ Lista «%@» guardada":
+            "✓ List “%@” saved",
+        "✓ Copia «%@»":
+            "✓ Copy “%@”",
+        "Renombrar la lista «%@»":
+            "Rename list “%@”",
+        "✓ Renombrada":
+            "✓ Renamed",
+        "¿Borrar la lista «%@»?":
+            "Delete list “%@”?",
+        "Queda una copia en listas.json.anterior. Las contraseñas del Llavero no se tocan.":
+            "A copy stays in listas.json.anterior. Keychain passwords are not touched.",
+        "✓ Borrada":
+            "✓ Deleted",
+        "%@ equipos importados de %@":
+            "%@ devices imported from %@",
+        " · %@ no valen (se ignoran)":
+            " · %@ not valid (ignored)",
     ]
 }

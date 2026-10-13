@@ -60,6 +60,22 @@ import Testing
         #expect(await a.observe(io, gate: AutomationGate()) == .typed(.named("AD")))
     }
 
+    /// «Escribir sin esperar a que la pida»: sin prompt reconocido, Intro sólo si se pide; bloqueada sólo con `force`.
+    @Test func escribirSinQueLaPidan() {
+        let io = FakeTerminal(["Clave de acceso >"])
+        let ledger = CredentialLedger()
+        let a = make(io, MemoryCredentialStore([.named("AD"): "pw"]), ledger)
+        #expect(a.typeManually(.named("AD"), into: io) == .notAsked)
+        #expect(a.typeAnyway(.named("AD"), into: io, pressReturn: false) == .typed)
+        #expect(a.typeAnyway(.named("AD"), into: io, pressReturn: true) == .typed)
+        #expect(io.sent == ["pw", "pw\r"])
+        ledger.markFailed(.named("AD"))
+        #expect(a.typeAnyway(.named("AD"), into: io, pressReturn: true) == .blocked)
+        #expect(a.typeAnyway(.named("AD"), into: io, pressReturn: false, force: true) == .typed)
+        #expect(ledger.isBlocked(.named("AD")))                              // (no la desbloquea)
+        #expect(a.typeAnyway(.named("otra"), into: io, pressReturn: false) == .missing)
+    }
+
     @Test func passwordASecasSinUsuarioNoSeEscribe() async {
         let io = FakeTerminal(["$ telnet 192.0.2.9", "Password:"])
         let a = make(io, MemoryCredentialStore([.named("AD"): "x"]), CredentialLedger(),
