@@ -253,8 +253,8 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         hopTask?.cancel()
         state = .exited(code)
         gate.abortAll()
-        let tail = lines(from: max(0, cursorRow - 3)).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        DebugLog.log("pestaña", "«\(title)» #\(generation) termina (código \(code.map(String.init) ?? "?")) · últimas: \(tail.joined(separator: " ⏎ "))")
+        // (sin las últimas líneas de la pantalla: podrían llevar algo tecleado con eco)
+        DebugLog.log("pestaña", "«\(title)» #\(generation) termina (código \(code.map(String.init) ?? "?"))")
         pipe.say(L("\r\n\u{1b}[38;5;204m[NetDeck] Sesión cerrada\(code.map { L(" (código \($0))") } ?? "")\u{1b}[0m")
                  + L(" · \u{1b}[1mIntro\u{1b}[0m reconectar · \u{1b}[1mEsc\u{1b}[0m cerrar la pestaña\r\n"))
     }

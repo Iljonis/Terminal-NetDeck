@@ -106,6 +106,12 @@ private let config = """
         #expect(throws: RouteError.loop("a")) { try m.route(to: m.profile(named: "a")!) }
     }
 
+    @Test func nadaQueEmpiecepor_GuionLlegaComoOpcion() {
+        let m = SessionManager()
+        let malo = SSHConfigParser().parse("Host -oProxyCommand=evil\n  HostName 192.0.2.1\nHost x\n  HostName -oProxyCommand=evil\n")
+        for p in malo { #expect(throws: RouteError.self) { try m.route(to: p) } }
+    }
+
     @Test func candidatasConSusDuenos() throws {
         let r = try manager.route(to: #require(manager.profile(named: "core-02")))
         let req = PasswordRequest(line: "admin@192.0.2.12's password:", account: "admin@192.0.2.12")
@@ -118,6 +124,14 @@ private let config = """
 }
 
 @Suite struct UpdateCheckTests {
+    @Test func sinReleasesValenLosTags() {
+        let json = #"[{"name":"v0.4.0"},{"name":"v0.10.1"},{"name":"prueba"},{"name":"0.9"}]"#
+        let r = UpdateCheck.parseTags(Data(json.utf8), repo: "usuario/repo")
+        #expect(r?.version == "0.10.1")
+        #expect(r?.page.absoluteString == "https://github.com/usuario/repo/releases")
+        #expect(UpdateCheck.parseTags(Data("[]".utf8), repo: "usuario/repo") == nil)
+    }
+
     @Test func versionesPorNumeros() {
         #expect(UpdateCheck.isNewer("0.10.0", than: "0.4.1"))
         #expect(UpdateCheck.isNewer("0.4.1", than: "0.4"))

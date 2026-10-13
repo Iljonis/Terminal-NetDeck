@@ -76,7 +76,9 @@ public final class SessionManager {
     // MARK: - rutas
 
     public func route(to p: SessionProfile) throws -> ConnectionRoute {
-        ConnectionRoute(title: p.name, target: p.endpoint, jumps: try resolve(p.proxyJump, seen: [p.name]),
+        // (nombre, equipo o usuario que empiecen por «-» serían opciones de ssh/telnet: -oProxyCommand=…)
+        for v in [p.name, p.endpoint.host, p.endpoint.user ?? ""] where v.hasPrefix("-") { throw RouteError.badDevice(v) }
+        return ConnectionRoute(title: p.name, target: p.endpoint, jumps: try resolve(p.proxyJump, seen: [p.name]),
                         transport: p.transport, alias: p.transport == .ssh ? p.name : nil, sessionName: p.name)
     }
 

@@ -31,7 +31,12 @@ Swift 6 · SwiftUI · [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm). E
 
 ## Instalar
 
-Requisitos: macOS 15 o posterior y Swift 6 (Xcode o las Command Line Tools: `xcode-select --install`).
+**Como cualquier app de macOS:** descarga `Terminal-NetDeck.dmg` de
+[Releases](https://github.com/Iljonis/Terminal-NetDeck/releases), ábrelo y arrastra **Terminal NetDeck** a
+**Aplicaciones**. Sus datos van a `~/Library/Application Support/Terminal NetDeck/` y sus ajustes a las preferencias
+del sistema; las contraseñas, sólo al Llavero. Nada se guarda en la carpeta del proyecto.
+
+**Desde el código.** Requisitos: macOS 15 o posterior y Swift 6 (Xcode o las Command Line Tools: `xcode-select --install`).
 
 ```bash
 git clone https://github.com/Iljonis/Terminal-NetDeck.git
@@ -51,6 +56,14 @@ cd Terminal-NetDeck
 La app no está firmada por Apple: la primera vez que la abras en otro Mac, clic derecho → Abrir.
 
 ![Asistente](docs/capturas/asistente.png)
+
+### Actualizaciones
+
+La app busca versiones nuevas en segundo plano, como mucho una vez al día (al arrancar, si ha pasado más de un día, y
+luego cada 24 h), sin interrumpir nada. Si hay una, sale un aviso discreto en la barra de estado
+(«⬆ Versión X disponible»); al pulsarlo ofrece descargarla. Nunca descarga ni instala nada sola. Se puede desactivar o
+buscar a mano en Ajustes → General → Actualizaciones. Mira las releases (o, si no hay, los tags `vX.Y.Z`) del
+repositorio que se indica al compilar: `NETDECK_REPO=usuario/repo ./install.sh`.
 
 ## Atajos
 
@@ -106,7 +119,10 @@ available in Spanish (Spain) and English: **Settings → General → Language** 
 - **MultiExec, split view, lists via a jump host, command buttons, session logging and log search.**
 - **Import** sessions from SecureCRT, MobaXterm, PuTTY, electerm, CSV or another `ssh_config` (never passwords).
 
-Install: macOS 15+, Swift 6 (Xcode or Command Line Tools), then `./install.sh`. Development: `swift run TerminalNetDeck
+Install: download `Terminal-NetDeck.dmg` from Releases and drag the app to Applications (data lives in
+`~/Library/Application Support/Terminal NetDeck/`, passwords only in the Keychain), or build it with macOS 15+ and
+Swift 6: `./install.sh`. New versions are checked silently at most once a day; a discreet status-bar notice offers the
+download, nothing is installed automatically. Development: `swift run TerminalNetDeck
 -idioma en`, tests with `./test.sh`, screenshots with `tools/capturas.sh`.
 
 ![Settings](docs/capturas/ajustes-en.png)

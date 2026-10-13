@@ -493,6 +493,13 @@ struct StatusBar: View {
                 .foregroundStyle(SwiftUI.Color(t.text))
                 .lineLimit(1).truncationMode(.middle)
             Spacer()
+            if let u = model.availableUpdate {
+                Button { model.offerUpdate(u) } label: {
+                    Tag(text: L("⬆ Versión \(u.version) disponible"), color: t.good)
+                }
+                .buttonStyle(.plain)
+                .help(L("Hay una versión nueva de Terminal NetDeck: clic para verla"))
+            }
             if model.multiExecOn {
                 Tag(text: L("MULTIEXEC ×\(model.multiExecTargets.count)"), color: t.warning)
             }

@@ -225,7 +225,7 @@ struct SetupContent: View {
                 .buttonStyle(.plain)
             }
             Spacer()
-            Text("v0.5").font(t.ui(9.5)).foregroundStyle(SwiftUI.Color(t.dim)).padding(.bottom, 16)
+            Text(UpdateCheck.currentVersion == "0" ? "dev" : "v\(UpdateCheck.currentVersion)").font(t.ui(9.5)).foregroundStyle(SwiftUI.Color(t.dim)).padding(.bottom, 16)
         }
         .padding(.horizontal, 14)
         .frame(width: 230)

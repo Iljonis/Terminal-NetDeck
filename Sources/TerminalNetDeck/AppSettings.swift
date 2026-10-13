@@ -61,7 +61,11 @@ final class AppSettings {
         }
     }
 
+    /// Buscar versiones nuevas en segundo plano (una vez al día, en silencio).
+    var autoUpdateCheck: Bool { didSet { d.set(autoUpdateCheck, forKey: "autoUpdateCheck") } }
+
     init() {
+        autoUpdateCheck = d.object(forKey: "autoUpdateCheck") as? Bool ?? true
         language = Idioma.actual
         if d.object(forKey: "configured") == nil { Self.importNetDeck(into: d) }
         sessionAutoPassword = d.object(forKey: "sessionAutoPassword") as? Bool ?? true

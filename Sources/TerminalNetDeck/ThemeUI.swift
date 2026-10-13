@@ -146,9 +146,8 @@ enum AppResources {
     static func directory(_ name: String) -> URL? {
         let fm = FileManager.default
         if let r = Bundle.main.resourceURL?.appendingPathComponent(name), fm.fileExists(atPath: r.path) { return r }
-        var u = URL(fileURLWithPath: #filePath)
-        for _ in 0..<3 { u.deleteLastPathComponent() }
-        u.appendPathComponent(name)
+        // (con «swift run», desde la carpeta del proyecto)
+        let u = URL(fileURLWithPath: fm.currentDirectoryPath).appendingPathComponent(name)
         return fm.fileExists(atPath: u.path) ? u : nil
     }
 }

@@ -1004,5 +1004,17 @@ enum Ingles {
             "No group",
         "Importadas":
             "Imported",
+        "Actualizaciones":
+            "Updates",
+        "Buscar versiones nuevas automáticamente (una vez al día)":
+            "Check for new versions automatically (once a day)",
+        "Versión %@":
+            "Version %@",
+        "Buscar ahora":
+            "Check Now",
+        "⬆ Versión %@ disponible":
+            "⬆ Version %@ available",
+        "Hay una versión nueva de Terminal NetDeck: clic para verla":
+            "A new version of Terminal NetDeck is available: click to see it",
     ]
 }

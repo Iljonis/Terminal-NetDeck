@@ -22,6 +22,7 @@ ID=io.netdeck.terminal
 VERSION=0.5.0
 # Repositorio de GitHub («usuario/repo») para «Buscar actualizaciones…»; vacío = sin publicar.
 REPO="${NETDECK_REPO:-}"
+[[ -z $REPO || $REPO =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "NETDECK_REPO no válido: «$REPO» (usuario/repo)"; exit 1; }
 SOPORTE="$HOME/Library/Application Support/$NOMBRE"
 TEMAS_USUARIO="$SOPORTE/Temas"
 C=$'\e[38;5;51m'; M=$'\e[38;5;204m'; V=$'\e[38;5;48m'; A=$'\e[38;5;221m'; N=$'\e[0m'
@@ -48,9 +49,9 @@ instalar_fuente() {                 # como NetDeck: «M PLUS 1 Code» → brew i
   if system_profiler SPFontsDataType 2>/dev/null | grep -qi "Family: $familia$"; then return 0; fi
   cask="font-$(echo "$familia" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-|-$//g')"
   brew=$(command -v brew || ls /opt/homebrew/bin/brew /usr/local/bin/brew 2>/dev/null | head -1 || true)
-  [ -n "$brew" ] || { echo "   ${A}(sin Homebrew: la fuente «$familia», a mano)${N}"; return 0; }
-  echo "   fuente «$familia» ($cask)…"
-  "$brew" install --cask "$cask" >/dev/null 2>&1 || echo "   ${A}(no se ha podido instalar «$familia»)${N}"
+  [ -n "$brew" ] || { echo "   ${A}(sin Homebrew: la fuente «${familia}», a mano)${N}"; return 0; }
+  echo "   fuente «${familia}» ($cask)…"
+  "$brew" install --cask "$cask" >/dev/null 2>&1 || echo "   ${A}(no se ha podido instalar «${familia}»)${N}"
 }
 
 if [ ${#fuentes[@]} -gt 0 ]; then
@@ -80,6 +81,8 @@ if [ ! -f build/AppIcon.icns ] || [ tools/icono.swift -nt build/AppIcon.icns ]; 
     && iconutil -c icns build/AppIcon.iconset -o build/AppIcon.icns || echo "   ${A}(sin icono)${N}"
 fi
 
+# «Actualizar desde el código…»: la carpeta del código, sólo si se instala desde aquí (nunca en el .dmg)
+FUENTE=""; [ $dmg = 1 ] || FUENTE=$(pwd | sed 's/&/\&amp;/g; s/</\&lt;/g')
 APP="build/$NOMBRE.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -101,6 +104,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>NetDeckRepo</key><string>$REPO</string>
+  <key>NetDeckSource</key><string>$FUENTE</string>
   <key>CFBundleVersion</key><string>$(date +%Y%m%d%H%M)</string>
   <key>LSMinimumSystemVersion</key><string>15.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
@@ -123,8 +127,9 @@ if [ $dmg = 1 ]; then
   mkdir -p dist build/dmg
   rm -rf build/dmg/* dist/Terminal-NetDeck.dmg
   cp -R "$APP" build/dmg/
+  ln -s /Applications build/dmg/Applications       # arrastrar la app aquí, como cualquier app de macOS
   hdiutil create -volname "Instalar Terminal NetDeck" -srcfolder build/dmg -ov -format UDZO dist/Terminal-NetDeck.dmg >/dev/null 2>&1
-  echo "${V}✓${N} dist/Terminal-NetDeck.dmg — doble clic → doble clic en la app → asistente de instalación"
+  echo "${V}✓${N} dist/Terminal-NetDeck.dmg — ábrelo y arrastra la app a Aplicaciones (o doble clic en ella → asistente)"
   echo "   (en otro Mac, la primera vez: clic derecho en la app → Abrir, porque no está firmada por Apple)"
   exit 0
 fi
@@ -140,7 +145,7 @@ if [ -n "${PRODUCTO_ABIERTO:-}" ]; then
     pkill -KILL -x "$PRODUCTO_ABIERTO" 2>/dev/null || true
   fi
 fi
-echo "   copiando a $destino…"
+echo "   copiando a ${destino}…"
 rm -rf "$destino/$NOMBRE.app"
 cp -R "$APP" "$destino/"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \

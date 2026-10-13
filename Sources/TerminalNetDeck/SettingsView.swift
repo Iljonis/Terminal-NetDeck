@@ -494,6 +494,14 @@ struct GeneralSettings: View {
                 Text(L("\(model.sessions.profiles.count) sesiones · anotaciones de NetDeck: # @grupo, # @clave, # @clave-grupo, # @desc, # @telnet"))
                     .font(t.ui(11)).foregroundStyle(.secondary)
             }
+            Section(L("Actualizaciones")) {
+                Toggle(L("Buscar versiones nuevas automáticamente (una vez al día)"), isOn: $s.autoUpdateCheck)
+                HStack {
+                    Text(L("Versión \(UpdateCheck.currentVersion)")).font(t.ui(11)).foregroundStyle(.secondary)
+                    Spacer()
+                    Button(L("Buscar ahora")) { model.checkForUpdates() }
+                }
+            }
             Section(L("Ventana")) {
                 Toggle(L("Mostrar la lista de sesiones"), isOn: $s.sidebarVisible)
                 Toggle(L("Efecto CRT en la portada (rejilla y líneas de barrido)"), isOn: $s.crtEffect)

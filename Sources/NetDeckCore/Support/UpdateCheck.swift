@@ -25,13 +25,16 @@ public enum UpdateCheck {
     public static func parse(_ data: Data) -> Release? {
         guard let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let tag = j["tag_name"] as? String,
-              let page = (j["html_url"] as? String).flatMap(URL.init(string:)), page.scheme == "https" else { return nil }
+              let page = (j["html_url"] as? String).flatMap(URL.init(string:)), isGitHub(page) else { return nil }
         let assets = j["assets"] as? [[String: Any]] ?? []
         let dmg = assets.compactMap { $0["browser_download_url"] as? String }
             .first { $0.hasSuffix(".dmg") }.flatMap(URL.init(string:))
         return Release(version: tag.hasPrefix("v") ? String(tag.dropFirst()) : tag, page: page,
-                       dmg: dmg?.scheme == "https" ? dmg : nil)
+                       dmg: dmg.flatMap { isGitHub($0) ? $0 : nil })
     }
+
+    /// Sólo enlaces https a github.com (lo que se abre al pulsar «Descargar»).
+    static func isGitHub(_ u: URL) -> Bool { u.scheme == "https" && u.host == "github.com" }
 
     /// «0.10.0» > «0.4.1» (por números, no por texto).
     public static func isNewer(_ a: String, than b: String) -> Bool {
@@ -44,15 +47,41 @@ public enum UpdateCheck {
         return false
     }
 
-    /// La última release si es más nueva que la instalada; nil si ya estás al día.
+    /// La última versión publicada si es más nueva que la instalada; nil si ya estás al día. Primero las releases;
+    /// si el repositorio aún no tiene ninguna, sus tags «vX.Y.Z».
     public static func check(repo: String, current: String = currentVersion) async throws -> Release? {
-        var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!)
+        let r: Release
+        if let release = try await get("repos/\(repo)/releases/latest").flatMap(parse) {
+            r = release
+        } else if let tag = try await get("repos/\(repo)/tags").flatMap({ parseTags($0, repo: repo) }) {
+            r = tag
+        } else {
+            return nil
+        }
+        return isNewer(r.version, than: current) ? r : nil
+    }
+
+    /// La respuesta de `GET /repos/{repo}/tags`: la versión más alta de las que parecen «vX.Y.Z».
+    public static func parseTags(_ data: Data, repo: String) -> Release? {
+        guard let tags = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return nil }
+        let versions = tags.compactMap { $0["name"] as? String }
+            .filter { $0.range(of: #"^v?\d+(\.\d+){0,2}$"#, options: .regularExpression) != nil }
+            .map { $0.hasPrefix("v") ? String($0.dropFirst()) : $0 }
+        guard let best = versions.max(by: { isNewer($1, than: $0) }),
+              let page = URL(string: "https://github.com/\(repo)/releases") else { return nil }
+        return Release(version: best, page: page, dmg: nil)
+    }
+
+    /// GET a la API de GitHub: los datos con 200, nil con 404 (sin releases / sin tags); el resto, error.
+    private static func get(_ path: String) async throws -> Data? {
+        var req = URLRequest(url: URL(string: "https://api.github.com/\(path)")!)
         req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         req.timeoutInterval = 15
         let (data, resp) = try await URLSession.shared.data(for: req)
-        guard (resp as? HTTPURLResponse)?.statusCode == 200, let r = parse(data) else {
-            throw URLError(.badServerResponse)
+        switch (resp as? HTTPURLResponse)?.statusCode {
+        case 200: return data
+        case 404: return nil
+        default: throw URLError(.badServerResponse)
         }
-        return isNewer(r.version, than: current) ? r : nil
     }
 }

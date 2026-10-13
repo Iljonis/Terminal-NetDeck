@@ -86,6 +86,9 @@ final class AppModel {
 
     /// (para el delegado de la app: guardar las pestañas al salir)
     nonisolated(unsafe) static weak var instance: AppModel?
+    /// Versión nueva encontrada en segundo plano (aviso discreto en la barra de estado).
+    var availableUpdate: UpdateCheck.Release?
+    @ObservationIgnored private lazy var updates = UpdateChecker(model: self)
 
     init() {
         themes = ThemeStore(selected: settings.themeID)
@@ -99,6 +102,9 @@ final class AppModel {
         loadFavorites()
         reloadButtons()
         if CommandLine.arguments.contains("--reabrir") { DispatchQueue.main.async { self.reopenLast() } }
+        if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.updates.start() }   // (sin estorbar al arrancar)
+        }
     }
 
     /// El tema para la interfaz, con la letra elegida en Ajustes → Fuentes (si no, la del tema).
@@ -758,11 +764,12 @@ final class AppModel {
 
     // MARK: - actualizar (de momento, desde el código: ./actualizar.sh)
 
-    /// La carpeta del proyecto, si está en este Mac (con «swift run» o la app compilada aquí).
+    /// La carpeta del código, si está en este Mac: la que apunta install.sh al instalar desde ella (`NetDeckSource`,
+    /// no en el .dmg) o, con «swift run», la carpeta actual.
     static var sourceFolder: URL? {
-        var u = URL(fileURLWithPath: #filePath)
-        for _ in 0..<3 { u.deleteLastPathComponent() }
-        return FileManager.default.fileExists(atPath: u.appendingPathComponent("actualizar.sh").path) ? u : nil
+        let candidates = [(Bundle.main.object(forInfoDictionaryKey: "NetDeckSource") as? String).flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0) },
+                          Bundle.main.bundleURL.pathExtension == "app" ? nil : URL(fileURLWithPath: FileManager.default.currentDirectoryPath)]
+        return candidates.compactMap { $0 }.first { FileManager.default.fileExists(atPath: $0.appendingPathComponent("actualizar.sh").path) }
     }
 
     /// La última release en GitHub: si hay una más nueva, ofrece abrir su descarga (no instala nada sola).
@@ -773,16 +780,11 @@ final class AppModel {
         }
         status = L("Buscando actualizaciones…")
         Task {
-            let alert = NSAlert()
             do {
                 if let r = try await UpdateCheck.check(repo: repo) {
-                    alert.messageText = L("Terminal NetDeck \(r.version) disponible")
-                    alert.informativeText = L("Tienes la \(UpdateCheck.currentVersion). Descarga el .dmg y sustituye la app: ")
-                        + L("tus sesiones, ajustes y el Llavero se conservan.")
-                    alert.addButton(withTitle: r.dmg == nil ? L("Abrir la página") : L("Descargar"))
-                    alert.addButton(withTitle: L("Más tarde"))
+                    availableUpdate = r
                     status = L("Hay una versión nueva: \(r.version)")
-                    if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(r.dmg ?? r.page) }
+                    offerUpdate(r)
                 } else {
                     status = L("Estás al día (\(UpdateCheck.currentVersion))")
                 }
@@ -790,6 +792,17 @@ final class AppModel {
                 status = L("No se ha podido comprobar: \(error.localizedDescription)")
             }
         }
+    }
+
+    /// «Hay una versión nueva»: descargarla (o abrir su página) o más tarde. No instala nada sola.
+    func offerUpdate(_ r: UpdateCheck.Release) {
+        let alert = NSAlert()
+        alert.messageText = L("Terminal NetDeck \(r.version) disponible")
+        alert.informativeText = L("Tienes la \(UpdateCheck.currentVersion). Descarga el .dmg y sustituye la app: ")
+            + L("tus sesiones, ajustes y el Llavero se conservan.")
+        alert.addButton(withTitle: r.dmg == nil ? L("Abrir la página") : L("Descargar"))
+        alert.addButton(withTitle: L("Más tarde"))
+        if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(r.dmg ?? r.page) }
     }
 
     /// Compila, sustituye la app instalada y la vuelve a abrir con las mismas pestañas.
