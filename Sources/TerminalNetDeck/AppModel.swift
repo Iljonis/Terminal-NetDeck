@@ -365,6 +365,7 @@ final class AppModel {
         DebugLog.log("pestaña", "«\(s.title)» cerrada")
         s.gate.abortAll()
         s.terminate()
+        _ = Askpass.takeGiven(session: s.id)             // (lo que dejó el askpass si se cierra antes de entrar)
         multiExec.leave(s)
         notices[s.id] = nil
         excluded.remove(s.id)
@@ -503,11 +504,15 @@ final class AppModel {
 
     /// Todas las del Llavero de NetDeck (para elegir a mano).
     var keychainAccounts: [CredentialRef] {
-        _ = keychainRevision
+        let rev = keychainRevision
+        if let c = keychainCache, c.rev == rev { return c.list }      // (se pide en varias vistas: una consulta por cambio)
         let named = (try? store.accounts(in: .named)) ?? []
         let device = (try? store.accounts(in: .device)) ?? []
-        return named.map(CredentialRef.named) + device.map { .init(service: .device, account: $0) }
+        let list = named.map(CredentialRef.named) + device.map { .init(service: .device, account: $0) }
+        keychainCache = (rev, list)
+        return list
     }
+    @ObservationIgnored private var keychainCache: (rev: Int, list: [CredentialRef])?
 
     // MARK: - pegado seguro y listas
 
@@ -679,7 +684,8 @@ final class AppModel {
     /// Dónde escribe MultiExec: los paneles de la vista dividida (si se ve) o todas las pestañas; sin las excluidas.
     var multiExecTargets: [TerminalSession] {
         let pool = showSplit && split != nil ? (split?.panes ?? []).compactMap(tab) : tabs
-        return pool.filter { !excluded.contains($0.id) && !$0.exited }
+        // (nunca una terminal local: lo que va a los equipos no se ejecuta en tu Mac)
+        return pool.filter { !$0.route.isLocal && !excluded.contains($0.id) && !$0.exited }
     }
 
     func tab(_ id: TerminalSession.ID) -> TerminalSession? { tabs.first { $0.id == id } }

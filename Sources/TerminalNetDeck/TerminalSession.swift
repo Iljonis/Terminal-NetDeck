@@ -145,7 +145,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         pipe.onOutput = { [weak self] in
             Task { @MainActor in
                 counter.delivered()
-                await self?.outputChanged()
+                self?.scheduleOutputCheck()
             }
         }
         pipe.onExit = { [weak self] gen, code in
@@ -278,6 +278,23 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
             passwords.commandJumpUsers = CommandLineUser.jumpUsers(cursorLine)
         }
     }
+
+    /// Mirar la pantalla como mucho cada 60 ms: con mucha salida (show tech, tail -f) no se recorre el búfer entero en
+    /// cada trozo que llega.
+    private func scheduleOutputCheck() {
+        guard !checkScheduled else { return }
+        checkScheduled = true
+        let wait = Duration.milliseconds(60) - (ContinuousClock.now - lastCheck)
+        Task { @MainActor [weak self] in
+            if wait > .zero { try? await Task.sleep(for: wait) }
+            guard let self else { return }
+            checkScheduled = false
+            lastCheck = .now
+            await outputChanged()
+        }
+    }
+    private var checkScheduled = false
+    private var lastCheck = ContinuousClock.now - .seconds(1)
 
     private func outputChanged() async {
         if !isVisible { activity = true }

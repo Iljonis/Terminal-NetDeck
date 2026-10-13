@@ -594,7 +594,7 @@ struct GeneralSettings: View {
             Section(L("Actualizaciones")) {
                 Toggle(L("Buscar versiones nuevas automáticamente (una vez al día)"), isOn: $s.autoUpdateCheck)
                 HStack {
-                    Text(L("Versión \(UpdateCheck.currentVersion)")).font(t.ui(11)).foregroundStyle(.secondary)
+                    Text(L("Versión \(UpdateCheck.currentVersion == "0" ? "dev" : UpdateCheck.currentVersion)")).font(t.ui(11)).foregroundStyle(.secondary)
                     Spacer()
                     Button(L("Buscar ahora")) { model.checkForUpdates() }
                 }

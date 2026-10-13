@@ -86,9 +86,11 @@ public final class PasswordAutomation {
         let sw = gate.begin()
         defer { gate.end(sw) }
         try? await Task.sleep(for: settle)
+        // (el Llavero, fuera del hilo principal: si tarda, la ventana no se congela)
+        let store = self.store
+        let secret = await Task.detached { try? store.password(for: ref) }.value
         // (justo antes de escribir: ni Esc, ni otra pantalla)
-        guard !sw.isTripped, "\(io.cursorRow):\(io.cursorLine.trimmed)" == site,
-              let pw = try? store.password(for: ref) else {
+        guard !sw.isTripped, "\(io.cursorRow):\(io.cursorLine.trimmed)" == site, let pw = secret else {
             ledger.release(ref)
             return sw.isTripped ? .cancelled : nil
         }

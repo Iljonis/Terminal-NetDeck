@@ -59,6 +59,7 @@ public struct LogLineRenderer: Sendable {
             if cut > 0 { carry = Array(text.suffix(cut)) + carry; text.removeLast(cut) }
             flushText()
         }
+        if chars.count > 65_536 { out.append(take()) }       // (sin saltos de línea: no crece sin límite)
         return out
     }
 

@@ -178,9 +178,9 @@ public struct ButtonFile: Sendable {
     /// Sube (-1) o baja (+1) el bloque entero de la categoría.
     @discardableResult
     public mutating func moveGroup(_ g: String, by offset: Int) -> Bool {
-        compactGroups()
         var order = groups
         guard let i = order.firstIndex(of: g), order.indices.contains(i + offset) else { return false }
+        compactGroups()                                   // (sólo si se mueve de verdad)
         order.swapAt(i, i + offset)
         buttons = order.flatMap { o in buttons.filter { $0.group == o } }
         return true

@@ -406,14 +406,14 @@ struct ButtonEditor: View {
     // MARK: categorías (el grupo de cada botón; el orden, el del archivo)
 
     private func addGroup() {
-        guard let n = SessionEditor.ask(L("Nombre de la categoría nueva")), !n.isEmpty else { return }
+        guard let n = SessionEditor.ask(L("Nombre de la categoría nueva"))?.trimmingCharacters(in: .whitespaces), !n.isEmpty else { return }
         if file.groups.contains(n) { message = L("Ya hay una categoría «\(n)»"); return }
         guard let id = file.addGroup(n, buttonName: L("Nuevo")) else { message = L("Nombre no válido (sin «::» ni «#» delante)"); return }
         selected = id
     }
 
     private func renameGroup(_ g: String) {
-        guard let n = SessionEditor.ask(L("Renombrar la categoría «\(g)»"), value: g), !n.isEmpty, n != g else { return }
+        guard let n = SessionEditor.ask(L("Renombrar la categoría «\(g)»"), value: g)?.trimmingCharacters(in: .whitespaces), !n.isEmpty, n != g else { return }
         guard ButtonFile.validGroup(n) else { message = L("Nombre no válido (sin «::» ni «#» delante)"); return }
         if file.groups.contains(n), !confirm(L("Ya hay una categoría «\(n)»: ¿juntarlas?"), L("Juntar")) { return }
         file.renameGroup(g, to: n)
