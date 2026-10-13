@@ -42,7 +42,7 @@ struct ButtonBarView: View {
                 .padding(.vertical, 4)
             }
             IconButton(icon: "pencil") { model.openSettings("botones") }
-                .help(L("Editar los botones (los mismos que NetDeck)"))
+                .help(L("Editar los botones"))
         }
         .padding(.horizontal, 10)
         .frame(height: 32)
@@ -234,7 +234,7 @@ struct ButtonEditor: View {
                 Spacer()
                 Button(L("Recargar")) { load() }
                 Button(L("Guardar")) {
-                    message = model.saveButtons(file).map { "✗ \($0)" } ?? L("✓ Guardados (NetDeck los ve al momento)")
+                    message = model.saveButtons(file).map { "✗ \($0)" } ?? L("✓ Guardados")
                 }
                 .keyboardShortcut("s")
                 .disabled(file.render() == model.buttons.render())

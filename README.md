@@ -99,8 +99,8 @@ tools/capturas.sh                      # regenera docs/capturas con datos de eje
 
 Las convenciones (textos traducibles, datos de ejemplo, contraseñas) están en [CLAUDE.md](CLAUDE.md).
 
-Compatible con NetDeck (bash + tmux): mismo Llavero, mismo `ssh_config` con sus anotaciones, mismos `.tema` y botones;
-la primera vez importa `clave.conf` y `tema.conf`.
+Archivos de configuración en `~/.config/netdeck/` (`ssh_config` de sesiones, `botones.txt`, temas
+`.tema`); la primera vez se leen `clave.conf` y `tema.conf` si existen.
 
 ---
 

@@ -43,7 +43,7 @@ struct ThemeGallery: View {
     private func badge(_ s: ThemeLibrary.Source) -> String? {
         switch s {
         case .imported: L("importado")
-        case .netdeck: L("de NetDeck")
+        case .netdeck: L("local")
         default: nil
         }
     }

@@ -195,7 +195,7 @@ struct SessionEditor: View {
                     ForEach(others, id: \.self) { Text($0).tag($0) }
                 }
                 if !file.sessions[i].jump.isEmpty {
-                    Text(L("Si el salto no deja reenviar (-J), la app entra en él y escribe «ssh equipo», como NetDeck."))
+                    Text(L("Si el salto no deja reenviar (-J), la app entra en él y escribe «ssh equipo»."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if !file.sessions[i].telnet {
@@ -284,7 +284,7 @@ struct SessionEditor: View {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(SwiftUI.Color(t.bad))
                 Text(p).font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.bad)).lineLimit(2)
             } else {
-                Text(message.isEmpty ? SessionFile.defaultURL.path.replacingOccurrences(of: AppPaths.home.path, with: "~") + L(" · lo comparte con NetDeck") : message)
+                Text(message.isEmpty ? SessionFile.defaultURL.path.replacingOccurrences(of: AppPaths.home.path, with: "~") : message)
                     .font(t.ui(11)).foregroundStyle(SwiftUI.Color(message.hasPrefix("✗") ? t.bad : t.dim)).lineLimit(2)
             }
             Spacer()
