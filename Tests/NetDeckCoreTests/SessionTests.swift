@@ -199,7 +199,9 @@ private let config = """
 
     @Test func aSshNoLeLlegaElIdiomaDelMac() {
         let e = TerminalEnvironment.prepare(mac, forSSH: true, sendLocale: false)
-        #expect(e["LANG"] == nil && e["LC_CTYPE"] == nil && e["LC_ALL"] == nil)
+        #expect(e["LANG"] == nil && e["LC_ALL"] == nil)
+        // (sólo UTF-8 neutro: sin él, ssh escribe los acentos de los banners en octal)
+        #expect(e["LC_CTYPE"] == "C.UTF-8")
         #expect(e["HOME"] == "/Users/x" && e["TERM"] == "xterm-256color")
     }
 

@@ -47,7 +47,8 @@ Repositorio público: https://github.com/Iljonis/Terminal-NetDeck
   pestañas (`CredentialLedger`). Lecturas del Llavero fuera del hilo principal.
 - **MultiExec y pegado**: sólo a pestañas ssh/telnet (`route.isLocal` y los tipos sftp/serie/ftp quedan fuera). El
   pegado seguro se para ante errores, paginadores, órdenes peligrosas sin confirmar o un prompt de contraseña.
-- **Entorno de las pestañas**: `TerminalEnvironment` (a ssh no le llegan `LANG`/`LC_*` salvo que se active).
+- **Entorno de las pestañas**: `TerminalEnvironment` (a ssh no le llegan `LANG`/`LC_*` salvo que se active; sólo
+  `LC_CTYPE=C.UTF-8`, sin el que ssh escribe los acentos de los banners en octal).
 - **Importar**: `SessionImporter.safeExtra` quita opciones que ejecutan órdenes; nombres/equipos/usuarios que empiezan
   por `-` se rechazan (`SessionManager.route`); 20 MB máximo.
 - **Pestañas al arrancar**: no se guardan ni reabren las de loopback (127.x/localhost) ni las de las capturas.
