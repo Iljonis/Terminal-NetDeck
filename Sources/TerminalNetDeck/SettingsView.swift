@@ -596,6 +596,12 @@ struct GeneralSettings: View {
                 Text(L("Desactivado, los servidores usan su propio idioma y no salen avisos como «setlocale: LC_CTYPE». Se aplica a las conexiones nuevas."))
                     .font(t.ui(11)).foregroundStyle(.secondary)
             }
+            Section(L("Ratón")) {
+                Toggle(L("Copiar al seleccionar"), isOn: $s.copyOnSelect)
+                Toggle(L("Pegar con clic derecho"), isOn: $s.pasteOnRightClick)
+                Text(L("Como en PuTTY o SecureCRT. El clic derecho pega igual que ⌘V; con ⌃ o ⌥ abre el menú de siempre."))
+                    .font(t.ui(11)).foregroundStyle(.secondary)
+            }
             Section(L("Ventana")) {
                 Toggle(L("Mostrar la lista de sesiones"), isOn: $s.sidebarVisible)
                 Toggle(L("Efecto CRT en la portada (rejilla y líneas de barrido)"), isOn: $s.crtEffect)

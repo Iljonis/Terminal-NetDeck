@@ -72,8 +72,17 @@ final class AppSettings {
     static let sendLocaleKey = "sendLocale"
     var sendLocale: Bool { didSet { d.set(sendLocale, forKey: Self.sendLocaleKey) } }
 
+    /// Ratón como en PuTTY/SecureCRT (los dos apagados de serie): lo que seleccionas se copia solo, y el clic derecho
+    /// pega (por el mismo camino que ⌘V; ⌃/⌥+clic derecho, el menú de siempre). La vista del terminal los lee al vuelo.
+    static let copyOnSelectKey = "copyOnSelect"
+    static let pasteOnRightClickKey = "pasteOnRightClick"
+    var copyOnSelect: Bool { didSet { d.set(copyOnSelect, forKey: Self.copyOnSelectKey) } }
+    var pasteOnRightClick: Bool { didSet { d.set(pasteOnRightClick, forKey: Self.pasteOnRightClickKey) } }
+
     init() {
         sendLocale = d.bool(forKey: Self.sendLocaleKey)
+        copyOnSelect = d.bool(forKey: Self.copyOnSelectKey)
+        pasteOnRightClick = d.bool(forKey: Self.pasteOnRightClickKey)
         autoUpdateCheck = d.object(forKey: "autoUpdateCheck") as? Bool ?? true
         startupSession = d.string(forKey: "startupSession") ?? ""
         startupLocalTerminal = d.object(forKey: "startupLocalTerminal") as? Bool ?? false

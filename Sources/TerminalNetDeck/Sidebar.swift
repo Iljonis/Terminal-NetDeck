@@ -2,43 +2,71 @@ import AppKit
 import NetDeckCore
 import SwiftUI
 
-/// Sesiones del ssh_config por grupos («# @grupo»; con «/», carpetas dentro de carpetas), con ★ favoritas, ↻ recientes
-/// y buscador. Clic derecho: editar, duplicar, borrar, favorita… · en una carpeta: abrir todas, nueva sesión…
+/// Sesiones del ssh_config como un gestor de sesiones (SecureCRT/Royal TSX): árbol de carpetas («# @grupo»; con «/»,
+/// carpetas dentro de carpetas) con su estado plegado recordado, ★ favoritas y ↻ recientes arriba, y buscador (filtra
+/// y despliega lo que encaja). Clic: elegir · doble clic: conectar · clic derecho: editar, duplicar, borrar,
+/// favorita… · en una carpeta: abrir todas, nueva sesión…
 struct Sidebar: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
     @Stored private var query = ""
-    @Stored private var collapsed: Set<String> = []
+    @Stored private var selected: String?
+    /// Carpetas plegadas (rutas, una por línea): se recuerdan entre arranques.
+    @AppStorage("sidebarCollapsed") private var collapsedList = ""
+
+    /// Las secciones de arriba también se pliegan (claves que no pueden ser un grupo: los grupos no empiezan por «\t»).
+    private static let favKey = "\t★", recentKey = "\t↻"
+
+    private var collapsed: Set<String> { Set(collapsedList.split(separator: "\n").map(String.init)) }
+
+    private func toggle(_ path: String) {
+        var c = collapsed
+        if c.contains(path) { c.remove(path) } else { c.insert(path) }
+        collapsedList = c.sorted().joined(separator: "\n")
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             SearchField(text: $query, prompt: L("Buscar sesión, equipo, IP, usuario o tipo"))
                 .padding(10)
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
+                LazyVStack(alignment: .leading, spacing: 1) {
                     if query.isEmpty {
                         let favs = model.favorites.compactMap(model.sessions.profile(named:))
                         if !favs.isEmpty {
-                            header(L("★ FAVORITAS"), count: favs.count, group: nil)
-                            ForEach(favs) { SessionRow(profile: $0).id("fav:" + $0.name) }
+                            folder(L("Favoritas"), icon: "star.fill", tint: t.warning, key: Self.favKey, count: favs.count)
+                            if !collapsed.contains(Self.favKey) {
+                                ForEach(favs) { row($0, depth: 1).id("fav:" + $0.name) }
+                            }
                         }
                         let recents = model.recents.filter { !model.favorites.contains($0) }.prefix(5)
                             .compactMap(model.sessions.profile(named:))
                         if !recents.isEmpty {
-                            header(L("↻ RECIENTES"), count: recents.count, group: nil)
-                            ForEach(recents) { SessionRow(profile: $0).id("rec:" + $0.name) }
+                            folder(L("Recientes"), icon: "clock.arrow.circlepath", tint: t.accent2, key: Self.recentKey,
+                                   count: recents.count)
+                            if !collapsed.contains(Self.recentKey) {
+                                ForEach(recents) { row($0, depth: 1).id("rec:" + $0.name) }
+                            }
+                        }
+                        if !favs.isEmpty || !recents.isEmpty {
+                            Rectangle().fill(SwiftUI.Color(t.panel)).frame(height: 1).padding(.vertical, 6).padding(.horizontal, 4)
                         }
                     }
                     ForEach(rows) { r in
                         switch r.row {
                         case .folder(let path, let name, let depth, let count):
-                            header(L(nombre: name).uppercased(), count: count, group: path, depth: depth)
+                            folder(L(nombre: name), icon: nil, tint: t.accent2, key: path, count: count, depth: depth,
+                                   searching: !query.isEmpty)
                         case .item(let p, let depth):
-                            SessionRow(profile: p, depth: depth)
+                            row(p, depth: depth)
                         }
                     }
+                    if !query.isEmpty, rows.isEmpty {
+                        Text(L("Nada coincide con «\(query)»")).font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
+                            .padding(.horizontal, 8).padding(.top, 8)
+                    }
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, 6)
                 .padding(.bottom, 12)
             }
             NeonLine(color: t.panel)
@@ -66,43 +94,34 @@ struct Sidebar: View {
         .background(SwiftUI.Color(t.bar))
     }
 
-    private func header(_ title: String, count: Int, group: String?, depth: Int = 0) -> some View {
-        HStack(spacing: 6) {
-            if let g = group {
-                Image(systemName: collapsed.contains(g) ? "chevron.right" : "chevron.down")
-                    .font(.system(size: 8, weight: .bold)).foregroundStyle(SwiftUI.Color(t.dim)).frame(width: 9)
-            }
-            Text(title).font(t.ui(10, .bold)).tracking(2)
-                .foregroundStyle(SwiftUI.Color(group == nil ? t.warning : t.accent2))
-            Rectangle().fill(SwiftUI.Color(t.accent2).opacity(0.25)).frame(height: 1)
-            Text("\(count)").font(t.ui(9.5)).foregroundStyle(SwiftUI.Color(t.dim))
-        }
-        .padding(.horizontal, 6)
-        .padding(.leading, CGFloat(depth) * 12)
-        .padding(.top, depth == 0 ? 12 : 6)
-        .padding(.bottom, 4)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            guard let g = group else { return }
-            if collapsed.contains(g) { collapsed.remove(g) } else { collapsed.insert(g) }
-        }
-        .contextMenu {
-            if let g = group, case let ps = profiles(under: g), !ps.isEmpty {
-                Button(L("Abrir las \(ps.count)")) { ps.forEach(model.open) }
-                Button(L("Abrir las \(ps.count) en vista dividida")) {
-                    let before = Set(model.tabs.map(\.id))
-                    ps.forEach(model.open)
-                    let new = model.tabs.filter { !before.contains($0.id) }.map(\.id)
-                    if new.count > 1 {
-                        model.split = Split(layout: new.count <= 4 ? .grid4 : .grid, panes: new)
-                        model.showSplit = true
+    private func row(_ p: SessionProfile, depth: Int) -> some View {
+        SessionRow(profile: p, depth: depth, selected: selected == p.name) { selected = p.name }
+    }
+
+    /// Carpeta (o sección de arriba): chevron, icono, nombre y cuántas lleva. Buscando, todas abiertas.
+    private func folder(_ title: String, icon: String?, tint: RGB, key: String, count: Int, depth: Int = 0,
+                        searching: Bool = false) -> some View {
+        let open = searching || !collapsed.contains(key)
+        let group = key.hasPrefix("\t") ? nil : key
+        return FolderRow(title: title, icon: icon ?? (open ? "folder" : "folder.fill"), tint: tint, count: count,
+                         depth: depth, open: open) { if !searching { toggle(key) } }
+            .contextMenu {
+                if let g = group, case let ps = profiles(under: g), !ps.isEmpty {
+                    Button(L("Abrir las \(ps.count)")) { ps.forEach(model.open) }
+                    Button(L("Abrir las \(ps.count) en vista dividida")) {
+                        let before = Set(model.tabs.map(\.id))
+                        ps.forEach(model.open)
+                        let new = model.tabs.filter { !before.contains($0.id) }.map(\.id)
+                        if new.count > 1 {
+                            model.split = Split(layout: new.count <= 4 ? .grid4 : .grid, panes: new)
+                            model.showSplit = true
+                        }
                     }
+                    Divider()
+                    Button(L("Nueva sesión en «\(g)»")) { model.editSessions(.new(group: g)) }
+                    Button(L("Gestionar el grupo…")) { model.editSessions(ps.first.map { .session($0.name) }) }
                 }
-                Divider()
-                Button(L("Nueva sesión en «\(g)»")) { model.editSessions(.new(group: g)) }
-                Button(L("Gestionar el grupo…")) { model.editSessions(ps.first.map { .session($0.name) }) }
             }
-        }
     }
 
     /// Las sesiones de una carpeta y de sus subcarpetas (para «Abrir las N»).
@@ -135,31 +154,54 @@ struct Sidebar: View {
     }
 }
 
-struct SearchField: View {
+/// Sangría por nivel del árbol de sesiones.
+private let treeIndent: CGFloat = 14
+
+private struct FolderRow: View {
     @Environment(\.theme) private var t
-    @Binding var text: String
-    let prompt: String
-    @FocusState private var focused: Bool
+    let title: String
+    let icon: String
+    let tint: RGB
+    let count: Int
+    let depth: Int
+    let open: Bool
+    let action: () -> Void
+    @Stored private var hover = false
 
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass").foregroundStyle(SwiftUI.Color(focused ? t.accent : t.dim))
-            TextField("", text: $text, prompt: Text(prompt).foregroundStyle(SwiftUI.Color(t.dim)))
-                .textFieldStyle(.plain)
-                .focused($focused)
-                .foregroundStyle(SwiftUI.Color(t.text))
-            if !text.isEmpty {
-                Button { text = "" } label: { Image(systemName: "xmark.circle.fill") }
-                    .buttonStyle(.plain).foregroundStyle(SwiftUI.Color(t.dim))
-            }
+        HStack(spacing: 5) {
+            Image(systemName: "chevron.right")
+                .font(.system(size: 8.5, weight: .bold))
+                .rotationEffect(.degrees(open ? 90 : 0))
+                .foregroundStyle(SwiftUI.Color(hover ? t.accent : t.dim))
+                .frame(width: 10)
+            Image(systemName: icon).font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(SwiftUI.Color(tint))
+                .frame(width: 16)
+            Text(title).font(t.ui(12, .semibold)).foregroundStyle(SwiftUI.Color(t.text)).lineLimit(1)
+            Spacer(minLength: 4)
+            Text("\(count)").font(t.ui(10)).foregroundStyle(SwiftUI.Color(t.dim))
         }
-        .font(t.ui(12))
-        .padding(.horizontal, 9)
-        .frame(height: 30)
-        .background(RoundedRectangle(cornerRadius: 7).fill(SwiftUI.Color(t.panel).opacity(0.6)))
-        .overlay(RoundedRectangle(cornerRadius: 7)
-            .strokeBorder(SwiftUI.Color(t.accent).opacity(focused ? 0.8 : 0.15)))
-        .shadow(color: SwiftUI.Color(t.accent).opacity(focused ? 0.35 : 0), radius: t.glow(5))
+        .padding(.leading, 4 + CGFloat(depth) * treeIndent)
+        .padding(.trailing, 8)
+        .frame(height: 24)
+        .background(RoundedRectangle(cornerRadius: t.corner ?? 4).fill(SwiftUI.Color(t.panel).opacity(hover ? 0.55 : 0)))
+        .contentShape(Rectangle())
+        .onTapGesture { withAnimation(.easeOut(duration: 0.12)) { action() } }
+        .onHover { hover = $0 }
+    }
+}
+
+extension SessionProfile.Transport {
+    /// Color del icono según el tipo (el mismo en la lista y en la portada).
+    func tint(_ t: Theme) -> RGB {
+        switch self {
+        case .ssh: t.accent2
+        case .telnet: t.warning
+        case .sftp, .ftp: t.good
+        case .serial: t.accent
+        case .local: t.text
+        }
     }
 }
 
@@ -167,46 +209,48 @@ struct SessionRow: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
     let profile: SessionProfile
-    /// Sangría dentro de las carpetas anidadas (1 = en una carpeta de primer nivel).
+    /// Nivel en el árbol (1 = dentro de una carpeta de primer nivel).
     var depth = 1
+    var selected = false
+    var select: () -> Void = {}
     @Stored private var hover = false
 
     var body: some View {
-        Button { model.open(profile) } label: {
-            HStack(spacing: 9) {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(SwiftUI.Color(hover ? t.accent : t.accent2))
-                    .frame(width: 24, height: 24)
-                    .background(RoundedRectangle(cornerRadius: 5).fill(SwiftUI.Color(t.panel)))
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 4) {
-                        Text(profile.name).font(t.ui(12.5, .semibold)).foregroundStyle(SwiftUI.Color(t.text))
-                        if model.settings.startupSession == profile.name {
-                            Image(systemName: "power").font(.system(size: 8, weight: .bold))
-                                .foregroundStyle(SwiftUI.Color(t.warning)).help(L("Se abre al arrancar (⌥⌘K)"))
-                        }
-                        if model.tabs.contains(where: { $0.route.sessionName == profile.name }) {
-                            Circle().fill(SwiftUI.Color(t.good)).frame(width: 5, height: 5).help(L("Abierta"))
-                        }
-                    }
-                    Text(subtitle).font(t.ui(10)).foregroundStyle(SwiftUI.Color(t.dim)).lineLimit(1)
-                }
-                Spacer(minLength: 0)
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(SwiftUI.Color(hover || selected ? t.accent : profile.transport.tint(t)))
+                .frame(width: 16)
+            Text(profile.name).font(t.ui(12, .medium)).foregroundStyle(SwiftUI.Color(t.text)).lineLimit(1)
+                .layoutPriority(1)
+            Text(subtitle).font(t.ui(10)).foregroundStyle(SwiftUI.Color(t.dim)).lineLimit(1).truncationMode(.tail)
+            Spacer(minLength: 2)
+            if model.settings.startupSession == profile.name {
+                Image(systemName: "power").font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(SwiftUI.Color(t.warning)).help(L("Se abre al arrancar (⌥⌘K)"))
             }
-            .padding(.vertical, 5)
-            .padding(.horizontal, 6)
-            .padding(.leading, CGFloat(max(0, depth - 1)) * 12)
-            .background(RoundedRectangle(cornerRadius: 6).fill(SwiftUI.Color(t.panel).opacity(hover ? 0.55 : 0)))
-            .overlay(alignment: .leading) {
-                Rectangle().fill(SwiftUI.Color(t.accent)).frame(width: 2).opacity(hover ? 1 : 0)
-                    .shadow(color: SwiftUI.Color(t.accent), radius: t.glow(3))
+            if model.tabs.contains(where: { $0.route.sessionName == profile.name }) {
+                Circle().fill(SwiftUI.Color(t.good)).frame(width: 6, height: 6).help(L("Abierta"))
             }
-            .contentShape(Rectangle())
+            if model.favorites.contains(profile.name) {
+                Image(systemName: "star.fill").font(.system(size: 8.5)).foregroundStyle(SwiftUI.Color(t.warning))
+            }
         }
-        .buttonStyle(.plain)
+        // (debajo del nombre de su carpeta: chevron + hueco)
+        .padding(.leading, 4 + CGFloat(max(0, depth - 1)) * treeIndent + 15)
+        .padding(.trailing, 8)
+        .frame(height: 24)
+        .background(RoundedRectangle(cornerRadius: t.corner ?? 4)
+            .fill(SwiftUI.Color(selected ? t.accent : t.panel).opacity(selected ? 0.2 : (hover ? 0.55 : 0))))
+        .overlay(alignment: .leading) {
+            Rectangle().fill(SwiftUI.Color(t.accent)).frame(width: 2).opacity(selected ? 1 : 0)
+                .shadow(color: SwiftUI.Color(t.accent), radius: t.glow(3))
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { select(); model.open(profile) }
+        .simultaneousGesture(TapGesture().onEnded { select() })
         .onHover { hover = $0 }
-        .help(profile.summary ?? profile.endpoint.description)
+        .help(help)
         .contextMenu {
             Button(L("Conectar")) { model.open(profile) }
             if profile.transport != .ftp {
@@ -238,15 +282,55 @@ struct SessionRow: View {
 
     private var icon: String { profile.transport.icon(jump: !profile.proxyJump.isEmpty) }
 
+    /// En gris junto al nombre: usuario@equipo (o el puerto serie / «Este Mac»).
     private var subtitle: String {
         switch profile.transport {
-        case .serial: return profile.serial.map { "\($0.device) · \($0.speed) \($0.frame)" } ?? L("Serie")
+        case .serial: return profile.serial?.device ?? L("Serie")
         case .local: return L("Este Mac")
-        case .ssh, .telnet, .sftp, .ftp:
-            var s = profile.endpoint.description
-            if !profile.proxyJump.isEmpty { s += "  ⟵ " + profile.proxyJump.joined(separator: ", ") }
-            if profile.transport != .ssh { s += " · " + profile.transport.label }
-            return s
+        case .ssh, .telnet, .sftp, .ftp: return profile.endpoint.description
         }
     }
+
+    /// Al pasar el ratón: la descripción, el destino entero, los saltos y el tipo.
+    private var help: String {
+        var s = profile.endpoint.description
+        switch profile.transport {
+        case .serial: s = profile.serial.map { "\($0.device) · \($0.speed) \($0.frame)" } ?? L("Serie")
+        case .local: s = L("Este Mac")
+        case .ssh, .telnet, .sftp, .ftp:
+            if !profile.proxyJump.isEmpty { s += "  ⟵ " + profile.proxyJump.joined(separator: ", ") }
+            if profile.transport != .ssh { s += " · " + profile.transport.label }
+        }
+        return [profile.summary, s].compactMap { $0 }.joined(separator: "\n")
+    }
 }
+
+
+struct SearchField: View {
+    @Environment(\.theme) private var t
+    @Binding var text: String
+    let prompt: String
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass").foregroundStyle(SwiftUI.Color(focused ? t.accent : t.dim))
+            TextField("", text: $text, prompt: Text(prompt).foregroundStyle(SwiftUI.Color(t.dim)))
+                .textFieldStyle(.plain)
+                .focused($focused)
+                .foregroundStyle(SwiftUI.Color(t.text))
+            if !text.isEmpty {
+                Button { text = "" } label: { Image(systemName: "xmark.circle.fill") }
+                    .buttonStyle(.plain).foregroundStyle(SwiftUI.Color(t.dim))
+            }
+        }
+        .font(t.ui(12))
+        .padding(.horizontal, 9)
+        .frame(height: 30)
+        .background(RoundedRectangle(cornerRadius: 7).fill(SwiftUI.Color(t.panel).opacity(0.6)))
+        .overlay(RoundedRectangle(cornerRadius: 7)
+            .strokeBorder(SwiftUI.Color(t.accent).opacity(focused ? 0.8 : 0.15)))
+        .shadow(color: SwiftUI.Color(t.accent).opacity(focused ? 0.35 : 0), radius: t.glow(5))
+    }
+}
+
