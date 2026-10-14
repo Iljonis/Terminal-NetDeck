@@ -4,7 +4,7 @@
 nombre    = Otoño retro
 grupo     = Retro
 orden     = 37
-fuentes   = Fira Code, JetBrains Mono, IBM Plex Mono# la 1ª es la oficial; las otras, recomendadas
+fuentes   = Fira Code, JetBrains Mono, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
 tamaño    = 14
 
 fondo         = #282828                  # fondo de la ventana de Terminal

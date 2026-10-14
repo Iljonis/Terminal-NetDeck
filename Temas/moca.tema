@@ -4,7 +4,7 @@
 nombre    = Moca
 grupo     = Sobrias
 orden     = 38
-fuentes   = JetBrains Mono, Fira Code, IBM Plex Mono# la 1ª es la oficial; las otras, recomendadas
+fuentes   = JetBrains Mono, Fira Code, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
 tamaño    = 14
 
 fondo         = #1e1e2e                  # fondo de la ventana de Terminal

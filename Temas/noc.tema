@@ -4,7 +4,7 @@
 nombre    = NOC
 grupo     = Prácticas
 orden     = 34
-fuentes   = JetBrains Mono, Roboto Mono, Fira Code# la 1ª es la oficial; las otras, recomendadas
+fuentes   = JetBrains Mono, Roboto Mono, Fira Code      # la 1ª es la oficial; las otras, recomendadas
 tamaño    = 14
 
 fondo         = #0a0e14                  # fondo de la ventana de Terminal
@@ -18,6 +18,6 @@ acento2       = #95e6cb                  # IPs, rutas, enlaces
 bien          = #7fd962                  # up, established, 0% loss
 mal           = #ff3333                  # down, errores, alarmas
 especial      = #ffb454                  # dBm, MAC, rosa/morado
-apagado       = #4d5566                  # fechas, descripciones, @ del prompt
+apagado       = #5e6879                  # fechas, descripciones, @ del prompt
 menu          = ◉ Menú                   # texto del botón de menú
 reloj         = NOC %H:%M                # formato del reloj

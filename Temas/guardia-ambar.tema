@@ -1,0 +1,24 @@
+# Guardia ámbar — Consola de NOC muy legible: ámbar sobre negro cálido, letra grande y estados en colores inconfundibles.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Guardia ámbar
+grupo     = Prácticas
+orden     = 46
+fuentes   = Atkinson Hyperlegible Mono, B612 Mono, JetBrains Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 15
+
+fondo         = #0d0a05                  # fondo de la ventana de Terminal
+texto         = #ffd08a                  # texto normal
+barra         = #080603                  # barra de pestañas y de botones
+panel         = #241b0d                  # pestañas y botones inactivos
+pestaña       = #ffb000                  # pestaña activa
+sobre_pestaña = #0d0a05                  # texto sobre la pestaña activa
+acento        = #ffb000                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #fff0d0                  # IPs, rutas, enlaces
+bien          = #9be26b                  # up, established, 0% loss
+mal           = #ff4d4d                  # down, errores, alarmas
+especial      = #7cc4ff                  # dBm, MAC, rosa/morado
+apagado       = #b08c58                  # fechas, descripciones, @ del prompt
+menu          = ◉ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = NOC %H:%M                # formato del reloj (%H:%M = hora:minutos)
+ansi          = #2a2114, #ff4d4d, #9be26b, #ffb000, #7cc4ff, #ff8fd0, #5fe0d0, #e8d5b0, #8a7350, #ff7a7a, #c2f08f, #ffd25c, #a8d6ff, #ffb3e0, #9af0e4, #fff3dc

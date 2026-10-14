@@ -4,7 +4,7 @@
 nombre    = Grafito
 grupo     = Sobrias
 orden     = 32
-fuentes   = JetBrains Mono, IBM Plex Mono, Fira Code# la 1ª es la oficial; las otras, recomendadas
+fuentes   = JetBrains Mono, IBM Plex Mono, Fira Code      # la 1ª es la oficial; las otras, recomendadas
 tamaño    = 14
 
 fondo         = #23262b                  # fondo de la ventana de Terminal

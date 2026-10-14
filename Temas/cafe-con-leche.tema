@@ -1,0 +1,24 @@
+# Café con leche — Clara y cremosa con pasteles con cuerpo (inspirada en Catppuccin Latte): pareja diurna de Moca.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Café con leche
+grupo     = Sobrias
+orden     = 42
+fuentes   = JetBrains Mono, Fira Code, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #eff1f5                  # fondo de la ventana de Terminal
+texto         = #4c4f69                  # texto normal
+barra         = #e6e9ef                  # barra de pestañas y de botones
+panel         = #dce0e8                  # pestañas y botones inactivos
+pestaña       = #8839ef                  # pestaña activa
+sobre_pestaña = #ffffff                  # texto sobre la pestaña activa
+acento        = #1e66f5                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #137c82                  # IPs, rutas, enlaces
+bien          = #2f7d1f                  # up, established, 0% loss
+mal           = #d20f39                  # down, errores, alarmas
+especial      = #b2449a                  # dBm, MAC, rosa/morado
+apagado       = #6c6f85                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = ☕ %H:%M                  # formato del reloj (%H:%M = hora:minutos)
+ansi          = #5c5f77, #d20f39, #2f7d1f, #9a6200, #1e66f5, #b2449a, #137c82, #acb0be, #6c6f85, #b00c30, #26681a, #7f5100, #1653cc, #8839ef, #0f6a6f, #bcc0cc

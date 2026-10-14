@@ -4,7 +4,7 @@
 nombre    = Solar claro
 grupo     = Sobrias
 orden     = 36
-fuentes   = Source Code Pro, JetBrains Mono, Fira Code# la 1ª es la oficial; las otras, recomendadas
+fuentes   = Source Code Pro, JetBrains Mono, Fira Code      # la 1ª es la oficial; las otras, recomendadas
 tamaño    = 14
 prompt    = plano                        # prompts como en Terminal: usuario@equipo en negrita, el resto en texto normal
 
@@ -12,7 +12,7 @@ fondo         = #fdf6e3                  # fondo de la ventana de Terminal
 texto         = #4f6168                  # texto normal
 barra         = #eee8d5                  # barra de pestañas y de botones
 panel         = #e4dcc4                  # pestañas y botones inactivos
-pestaña       = #268bd2                  # pestaña activa
+pestaña       = #1f6fa8                  # pestaña activa
 sobre_pestaña = #fdf6e3                  # texto sobre la pestaña activa
 acento        = #cb4b16                  # interfaces, prompt del equipo, ☰ Menú, reloj
 acento2       = #1c7f77                  # IPs, rutas, enlaces

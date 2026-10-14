@@ -1,0 +1,24 @@
+# Alba rosa — Clara de amanecer: crema, rosa viejo, lirio y pino (inspirada en Rosé Pine Dawn).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Alba rosa
+grupo     = Kawaii
+orden     = 45
+fuentes   = Spline Sans Mono, DM Mono, M PLUS 1 Code      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #faf4ed                  # fondo de la ventana de Terminal
+texto         = #575279                  # texto normal
+barra         = #f2e9e1                  # barra de pestañas y de botones
+panel         = #e9dfd6                  # pestañas y botones inactivos
+pestaña       = #a8566e                  # pestaña activa
+sobre_pestaña = #ffffff                  # texto sobre la pestaña activa
+acento        = #7a5f9a                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #286983                  # IPs, rutas, enlaces
+bien          = #3a7d44                  # up, established, 0% loss
+mal           = #b4364f                  # down, errores, alarmas
+especial      = #b4637a                  # dBm, MAC, rosa/morado
+apagado       = #7a7592                  # fechas, descripciones, @ del prompt
+menu          = ✿ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = ✧ %H:%M                  # formato del reloj (%H:%M = hora:minutos)
+ansi          = #575279, #b4364f, #3a7d44, #a8650f, #286983, #7a5f9a, #3f7f8a, #dfdad9, #7a7592, #9c2a42, #2f6a38, #8c540c, #1f5870, #67507f, #336a73, #f2e9e1

@@ -4,7 +4,7 @@
 nombre    = Monokai
 grupo     = Retro
 orden     = 39
-fuentes   = Fira Code, JetBrains Mono, Source Code Pro# la 1ª es la oficial; las otras, recomendadas
+fuentes   = Fira Code, JetBrains Mono, Source Code Pro      # la 1ª es la oficial; las otras, recomendadas
 tamaño    = 14
 
 fondo         = #272822                  # fondo de la ventana de Terminal

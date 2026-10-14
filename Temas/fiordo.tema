@@ -1,0 +1,24 @@
+# Fiordo — Gris pizarra ártico con azules escarcha y aurora tenue (inspirada en Nord): calma para turnos largos.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Fiordo
+grupo     = Sobrias
+orden     = 41
+fuentes   = JetBrains Mono, IBM Plex Mono, Fira Code      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #2e3440                  # fondo de la ventana de Terminal
+texto         = #e5e9f0                  # texto normal
+barra         = #272c36                  # barra de pestañas y de botones
+panel         = #3b4252                  # pestañas y botones inactivos
+pestaña       = #88c0d0                  # pestaña activa
+sobre_pestaña = #2e3440                  # texto sobre la pestaña activa
+acento        = #88c0d0                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #8fbcbb                  # IPs, rutas, enlaces
+bien          = #a3be8c                  # up, established, 0% loss
+mal           = #e2737d                  # down, errores, alarmas
+especial      = #c4a0c0                  # dBm, MAC, rosa/morado
+apagado       = #8f9bb3                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = ❄ %H:%M                  # formato del reloj (%H:%M = hora:minutos)
+ansi          = #3b4252, #e2737d, #a3be8c, #ebcb8b, #81a1c1, #c4a0c0, #88c0d0, #e5e9f0, #8f9bb3, #ec8f97, #b8d0a3, #f2d9a6, #9ab6d3, #d3b6cf, #a3d2de, #eceff4

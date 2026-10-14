@@ -1,0 +1,24 @@
+# Gran ola — Tinta índigo, papel envejecido y azules de grabado japonés (inspirada en Kanagawa).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Gran ola
+grupo     = Sobrias
+orden     = 43
+fuentes   = M PLUS 1 Code, JetBrains Mono, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #1f1f28                  # fondo de la ventana de Terminal
+texto         = #dcd7ba                  # texto normal
+barra         = #16161d                  # barra de pestañas y de botones
+panel         = #2a2a37                  # pestañas y botones inactivos
+pestaña       = #7e9cd8                  # pestaña activa
+sobre_pestaña = #16161d                  # texto sobre la pestaña activa
+acento        = #e6c384                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #7fb4ca                  # IPs, rutas, enlaces
+bien          = #98bb6c                  # up, established, 0% loss
+mal           = #e46876                  # down, errores, alarmas
+especial      = #a593c9                  # dBm, MAC, rosa/morado
+apagado       = #8a8980                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = 波 %H:%M                  # formato del reloj (%H:%M = hora:minutos)
+ansi          = #16161d, #e05a5f, #8aa57a, #c0a36e, #7e9cd8, #a593c9, #7aa89f, #c8c093, #727169, #ff6b6b, #98bb6c, #e6c384, #7fb4ca, #b8a8d6, #8fc4b8, #dcd7ba

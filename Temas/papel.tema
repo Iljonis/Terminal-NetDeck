@@ -4,7 +4,7 @@
 nombre    = Papel
 grupo     = Prácticas
 orden     = 33
-fuentes   = IBM Plex Mono, JetBrains Mono, Fira Code# la 1ª es la oficial; las otras, recomendadas
+fuentes   = IBM Plex Mono, JetBrains Mono, Fira Code      # la 1ª es la oficial; las otras, recomendadas
 tamaño    = 14
 prompt    = plano                        # prompts como en Terminal: usuario@equipo en negrita, el resto en texto normal
 

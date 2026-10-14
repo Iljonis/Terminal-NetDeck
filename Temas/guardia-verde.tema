@@ -1,0 +1,24 @@
+# Guardia verde — Consola de NOC muy legible: verde suave sobre negro, alarmas en rojo y avisos en ámbar.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Guardia verde
+grupo     = Prácticas
+orden     = 47
+fuentes   = B612 Mono, Atkinson Hyperlegible Mono, Share Tech Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 15
+
+fondo         = #050c07                  # fondo de la ventana de Terminal
+texto         = #b8f5c4                  # texto normal
+barra         = #030805                  # barra de pestañas y de botones
+panel         = #10221a                  # pestañas y botones inactivos
+pestaña       = #33ff77                  # pestaña activa
+sobre_pestaña = #050c07                  # texto sobre la pestaña activa
+acento        = #33ff77                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #7fe7ff                  # IPs, rutas, enlaces
+bien          = #33ff77                  # up, established, 0% loss
+mal           = #ff5555                  # down, errores, alarmas
+especial      = #ffcc4d                  # dBm, MAC, rosa/morado
+apagado       = #6fa07c                  # fechas, descripciones, @ del prompt
+menu          = ◉ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = NOC %H:%M                # formato del reloj (%H:%M = hora:minutos)
+ansi          = #16281c, #ff5555, #33ff77, #ffcc4d, #6cb6ff, #e48cff, #7fe7ff, #cfe8d5, #5f8a6b, #ff8080, #8affb0, #ffe08a, #a0d0ff, #f0b8ff, #b0f2ff, #effff2

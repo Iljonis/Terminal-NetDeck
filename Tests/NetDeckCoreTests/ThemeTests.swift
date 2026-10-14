@@ -13,6 +13,30 @@ import Testing
         for f in files { _ = try Theme(contentsOf: f) }
     }
 
+    /// Contraste WCAG entre dos colores (1…21).
+    static func contrast(_ a: RGB, _ b: RGB) -> Double {
+        let (l1, l2) = (a.opaque.luminance, b.opaque.luminance)
+        return (max(l1, l2) + 0.05) / (min(l1, l2) + 0.05)
+    }
+
+    /// Todo el catálogo se lee bien: texto ≥ 4,5:1, apagado ≥ 3:1, texto de la pestaña activa ≥ 4,5:1 y los colores
+    /// ANSI de primer plano (1–6 y 9–14) ≥ 3:1 sobre el fondo (el de cristal, como si fuera opaco).
+    @Test func contrasteDelCatalogo() throws {
+        let files = try FileManager.default.contentsOfDirectory(at: Self.catalog, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "tema" }
+        for f in files {
+            let t = try Theme(contentsOf: f)
+            let bg = t.background.opaque
+            #expect(Self.contrast(t.text, bg) >= 4.5, "\(t.id): texto")
+            #expect(Self.contrast(t.dim, bg) >= 3, "\(t.id): apagado")
+            #expect(Self.contrast(t.onTab, t.tab) >= 4.5, "\(t.id): pestaña activa")
+            for i in Array(1...6) + Array(9...14) {
+                #expect(Self.contrast(t.ansi[i], bg) >= 3, "\(t.id): ANSI \(i)")
+            }
+        }
+        #expect(Self.contrast(Theme.builtIn.text, Theme.builtIn.background) >= 4.5)
+    }
+
     @Test func formatoDeNetDeck() throws {
         let t = try Theme(id: "x", text: """
             # Prueba — Una de prueba.

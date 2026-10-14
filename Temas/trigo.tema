@@ -1,0 +1,24 @@
+# Trigo — Papel crema con tinta tostada y colores de tierra (inspirada en Gruvbox claro): pareja diurna de Otoño retro.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Trigo
+grupo     = Retro
+orden     = 40
+fuentes   = Fira Code, JetBrains Mono, Source Code Pro      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #fbf1c7                  # fondo de la ventana de Terminal
+texto         = #3c3836                  # texto normal
+barra         = #f2e5bc                  # barra de pestañas y de botones
+panel         = #ebdbb2                  # pestañas y botones inactivos
+pestaña       = #af3a03                  # pestaña activa
+sobre_pestaña = #fbf1c7                  # texto sobre la pestaña activa
+acento        = #af3a03                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #076678                  # IPs, rutas, enlaces
+bien          = #66620c                  # up, established, 0% loss
+mal           = #9d0006                  # down, errores, alarmas
+especial      = #8f3f71                  # dBm, MAC, rosa/morado
+apagado       = #7c6f64                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #3c3836, #9d0006, #66620c, #8a5a0b, #076678, #8f3f71, #427b58, #d5c4a1, #7c6f64, #cc241d, #79740e, #a5650e, #2f6f8f, #a8417f, #3f7a50, #ebdbb2
