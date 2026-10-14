@@ -111,16 +111,27 @@ struct SessionCard: View {
 
     var body: some View {
         Button { model.open(profile) } label: {
+            // (como una fila de la lista de sesiones: icono y color del tipo, ★, usuario@equipo y su carpeta)
             VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Image(systemName: profile.proxyJump.isEmpty ? "terminal.fill" : "arrow.triangle.turn.up.right.diamond.fill")
-                        .foregroundStyle(SwiftUI.Color(t.accent2))
+                HStack(spacing: 7) {
+                    Image(systemName: profile.transport.icon(jump: !profile.proxyJump.isEmpty))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(SwiftUI.Color(profile.transport.tint(t)))
+                        .frame(width: 16)
                     Text(profile.name).font(t.ui(13, .bold)).foregroundStyle(SwiftUI.Color(t.text)).lineLimit(1)
-                    Spacer()
+                    Spacer(minLength: 0)
+                    if model.favorites.contains(profile.name) {
+                        Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(SwiftUI.Color(t.warning))
+                    }
                 }
-                Text(profile.endpoint.description).font(t.ui(10.5)).foregroundStyle(SwiftUI.Color(t.dim)).lineLimit(1)
+                Text(destination).font(t.ui(10.5)).foregroundStyle(SwiftUI.Color(t.dim)).lineLimit(1)
                 if let g = profile.group {
-                    Text(g.uppercased()).font(t.ui(8.5, .bold)).tracking(1.5).foregroundStyle(SwiftUI.Color(t.accent))
+                    HStack(spacing: 4) {
+                        Image(systemName: "folder.fill").font(.system(size: 8.5))
+                        Text(GroupTree.components(g).map { L(nombre: $0) }.joined(separator: " › "))
+                            .font(t.ui(9.5, .semibold)).lineLimit(1)
+                    }
+                    .foregroundStyle(SwiftUI.Color(t.accent))
                 }
             }
             .padding(12)
@@ -133,6 +144,15 @@ struct SessionCard: View {
         .buttonStyle(.plain)
         .onHover { hover = $0 }
         .animation(.easeOut(duration: 0.12), value: hover)
+        .help(profile.summary ?? profile.endpoint.description)
+    }
+
+    private var destination: String {
+        switch profile.transport {
+        case .serial: profile.serial?.device ?? L("Serie")
+        case .local: L("Este Mac")
+        case .ssh, .telnet, .sftp, .ftp: profile.endpoint.description
+        }
     }
 }
 

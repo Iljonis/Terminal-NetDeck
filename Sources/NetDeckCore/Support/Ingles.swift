@@ -906,10 +906,6 @@ enum Ingles {
             "%@ devices · only one tab tries the password at a time; if it fails, it isn't typed in the others",
         "Buscar sesión, equipo o IP":
             "Search session, device or IP",
-        "★ FAVORITAS":
-            "★ FAVORITES",
-        "↻ RECIENTES":
-            "↻ RECENT",
         "Gestionar sesiones y grupos":
             "Manage sessions and groups",
         "Importar de SecureCRT, MobaXterm, PuTTY, CSV…":
@@ -1400,10 +1396,6 @@ enum Ingles {
             "Open Error Log",
         "Conectar, terminal local, sesión nueva o una favorita":
             "Connect, local terminal, new session or a favorite",
-        "Conectar / Salto… (⌘K)":
-            "Connect / Jump… (⌘K)",
-        "Terminal local (⌘T)":
-            "Local Terminal (⌘T)",
         "Nueva sesión…":
             "New Session…",
         "Nueva sesión SFTP…":
@@ -1420,5 +1412,28 @@ enum Ingles {
             "Invalid expression (check parentheses, brackets and escapes)",
         "Encaja con el texto vacío: no colorearía nada":
             "Matches empty text: it would color nothing",
+        // Ratón, barra superior y lista de sesiones
+        "Ratón":
+            "Mouse",
+        "Copiar al seleccionar":
+            "Copy on select",
+        "Pegar con clic derecho":
+            "Paste on right-click",
+        "Como en PuTTY o SecureCRT. El clic derecho pega igual que ⌘V; con ⌃ o ⌥ abre el menú de siempre.":
+            "Like PuTTY or SecureCRT. Right-click pastes just like ⌘V; with ⌃ or ⌥ it opens the usual menu.",
+        "Copiar":
+            "Copy",
+        "Pegar":
+            "Paste",
+        "Seleccionar todo":
+            "Select All",
+        "Nueva terminal local: tu shell en este Mac (⌘T)":
+            "New local terminal: your shell on this Mac (⌘T)",
+        "al arrancar":
+            "at launch",
+        "Recientes":
+            "Recent",
+        "Nada coincide con «%@»":
+            "Nothing matches “%@”",
 ]
 }

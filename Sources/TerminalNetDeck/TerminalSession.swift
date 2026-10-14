@@ -86,6 +86,57 @@ final class NetDeckTerminalView: TerminalView {
         item.tag = Int(NSFindPanelAction.showFindPanel.rawValue)
         performFindPanelAction(item)
     }
+
+    // Ratón tipo PuTTY/SecureCRT (Ajustes → General → Ratón; los dos apagados de serie).
+
+    /// Copiar al seleccionar: al soltar el botón, lo seleccionado (si hay algo) va al portapapeles.
+    override func mouseUp(with event: NSEvent) {
+        super.mouseUp(with: event)
+        guard UserDefaults.standard.bool(forKey: AppSettings.copyOnSelectKey), selectionActive,
+              let text = getSelection(), !text.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    /// Pegar con clic derecho: por `paste(_:)`, el mismo camino que ⌘V (pegado entre corchetes y lo que haga la app
+    /// con lo tecleado: MultiExec, Esc…). Con ⌃/⌥, o si el programa del equipo sigue al ratón, como siempre.
+    override func rightMouseDown(with event: NSEvent) {
+        let mods = event.modifierFlags.intersection([.control, .option])
+        guard UserDefaults.standard.bool(forKey: AppSettings.pasteOnRightClickKey), mods.isEmpty,
+              !allowMouseReporting || currentMouseMode == .off else {
+            super.rightMouseDown(with: event)
+            return
+        }
+        window?.makeFirstResponder(self)
+        paste(self)
+    }
+
+    /// El menú del clic derecho (o ⌃/⌥+clic derecho con «Pegar con clic derecho»).
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let m = NSMenu()
+        m.autoenablesItems = false
+        func item(_ title: String, _ action: Selector, _ key: String, enabled: Bool = true) {
+            let i = NSMenuItem(title: title, action: action, keyEquivalent: key)
+            i.target = self
+            i.isEnabled = enabled
+            m.addItem(i)
+        }
+        item(L("Copiar"), #selector(copy(_:)), "c", enabled: selectionActive)
+        item(L("Pegar"), #selector(paste(_:)), "v", enabled: NSPasteboard.general.string(forType: .string) != nil)
+        m.addItem(.separator())
+        item(L("Seleccionar todo"), #selector(selectAll(_:)), "a")
+        item(L("Buscar en la salida…"), #selector(findFromMenu), "f")
+        return m
+    }
+
+    @objc private func findFromMenu() { showFind() }
+
+    override func rightMouseUp(with event: NSEvent) {
+        if UserDefaults.standard.bool(forKey: AppSettings.pasteOnRightClickKey),
+           event.modifierFlags.intersection([.control, .option]).isEmpty,
+           !allowMouseReporting || currentMouseMode == .off { return }
+        super.rightMouseUp(with: event)
+    }
 }
 
 /// Una pestaña: proceso (ssh/telnet o la shell local) + vista + resaltado + automatización de contraseña. Es el `TerminalIO` del núcleo.

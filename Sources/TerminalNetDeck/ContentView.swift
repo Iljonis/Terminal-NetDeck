@@ -110,8 +110,10 @@ struct TopBar: View {
                 .padding(.vertical, 4)
             }
             .fixedSize(horizontal: model.tabs.count < 6, vertical: false)
-            IconMenu(icon: "plus") { NewMenu() }
+            NewButton()
                 .help(L("Conectar, terminal local, sesión nueva o una favorita"))
+            IconButton(icon: "apple.terminal") { model.openLocal() }
+                .help(L("Nueva terminal local: tu shell en este Mac (⌘T)"))
             Spacer(minLength: 12)
             IconButton(icon: "doc.on.clipboard.fill") { model.sheet = .paste }
                 .help(L("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)"))
@@ -161,28 +163,108 @@ struct TopBar: View {
     }
 }
 
-/// El menú «+» de la barra: conectar, terminal local, sesiones nuevas y las ★ favoritas / la de inicio.
-struct NewMenu: View {
-    @Environment(AppModel.self) private var model
+/// El «+» de la barra: abre `NewMenu` en un panel con la temática de la app (el `Menu` nativo no se deja pintar).
+struct NewButton: View {
+    @Environment(\.theme) private var t
+    @Stored private var open = false
 
     var body: some View {
-        Button(L("Conectar / Salto… (⌘K)")) { model.sheet = .connect }
-        Button(L("Terminal local (⌘T)")) { model.openLocal() }
-        Divider()
-        Button(L("Nueva sesión…")) { model.editSessions(.new(group: nil)) }
-        Button(L("Nueva sesión SFTP…")) { model.editSessions(.new(group: nil, kind: .sftp)) }
-        Button(L("Nueva sesión serie…")) { model.editSessions(.new(group: nil, kind: .serial)) }
+        IconButton(icon: "plus", active: open) { open.toggle() }
+            .popover(isPresented: $open, arrowEdge: .bottom) {
+                NewMenu { open = false }
+                    .presentationBackground(SwiftUI.Color(t.bar.opaque))
+            }
+            .onAppear {                                       // (capturas: NETDECK_SNAPSHOT_ACTION=nuevo)
+                if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_ACTION"] == "nuevo" { open = true }
+            }
+    }
+}
+
+/// El menú «+»: conectar, terminal local, sesiones nuevas y las ★ favoritas / la de inicio. Se cierra al elegir o
+/// con Esc (lo hace el propio panel).
+struct NewMenu: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.theme) private var t
+    let close: () -> Void
+
+    var body: some View {
         let favs = model.favorites.compactMap(model.sessions.profile(named:))
         let start = model.startupProfile.flatMap { p in favs.contains { $0.name == p.name } ? nil : p }
-        if !favs.isEmpty || start != nil {
-            Divider()
-            Section(L("Favoritas")) {
-                if let p = start { Button("⏻ \(p.name)") { model.open(p) } }
+        VStack(alignment: .leading, spacing: 1) {
+            item(L("Conectar / Salto…"), icon: "bolt.horizontal.fill", key: "⌘K") { model.sheet = .connect }
+            item(L("Terminal local"), icon: "apple.terminal", key: "⌘T") { model.openLocal() }
+            divider
+            item(L("Nueva sesión…"), icon: "plus.rectangle.on.rectangle") { model.editSessions(.new(group: nil)) }
+            item(L("Nueva sesión SFTP…"), icon: "folder.fill") { model.editSessions(.new(group: nil, kind: .sftp)) }
+            item(L("Nueva sesión serie…"), icon: "cable.connector.horizontal") {
+                model.editSessions(.new(group: nil, kind: .serial))
+            }
+            if !favs.isEmpty || start != nil {
+                divider
+                Text(L("Favoritas").uppercased())
+                    .font(t.ui(9.5, .bold)).tracking(t.tracking)
+                    .foregroundStyle(SwiftUI.Color(t.dim))
+                    .padding(.horizontal, 10).padding(.top, 2).padding(.bottom, 3)
+                if let p = start {
+                    item(p.name, icon: "power", key: L("al arrancar"), tint: t.warning) { model.open(p) }
+                }
                 ForEach(favs, id: \.name) { p in
-                    Button((p.name == model.startupProfile?.name ? "⏻ " : "★ ") + p.name) { model.open(p) }
+                    item(p.name, icon: p.name == model.startupProfile?.name ? "power" : "star.fill",
+                         key: p.user.map { "\($0)@\(p.endpoint.host)" } ?? p.endpoint.host, tint: t.warning) { model.open(p) }
                 }
             }
         }
+        .padding(6)
+        .frame(minWidth: 250)
+        .font(t.ui(12))
+        .background(SwiftUI.Color(t.bar.opaque))
+        .overlay(alignment: .top) { Rectangle().fill(SwiftUI.Color(t.accent)).frame(height: 2).opacity(t.neon ? 0.8 : 0) }
+    }
+
+    private var divider: some View {
+        Rectangle().fill(SwiftUI.Color(t.panel)).frame(height: 1).padding(.vertical, 4).padding(.horizontal, 6)
+    }
+
+    private func item(_ title: String, icon: String, key: String? = nil, tint: RGB? = nil,
+                      action: @escaping () -> Void) -> some View {
+        NewMenuItem(title: title, icon: icon, key: key, tint: tint) {
+            close()
+            action()
+        }
+    }
+}
+
+private struct NewMenuItem: View {
+    @Environment(\.theme) private var t
+    let title: String
+    let icon: String
+    let key: String?
+    let tint: RGB?
+    let action: () -> Void
+    @Stored private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Image(systemName: icon).font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(SwiftUI.Color(hover ? t.accent : (tint ?? t.accent2)))
+                    .frame(width: 16)
+                Text(title).foregroundStyle(SwiftUI.Color(hover ? t.accent : t.text)).lineLimit(1)
+                Spacer(minLength: 16)
+                if let key { Text(key).font(t.ui(10.5)).foregroundStyle(SwiftUI.Color(t.dim)).lineLimit(1) }
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 26)
+            .background(RoundedRectangle(cornerRadius: t.corner ?? 4)
+                .fill(SwiftUI.Color(t.accent).opacity(hover ? 0.14 : 0)))
+            .overlay(alignment: .leading) {
+                Rectangle().fill(SwiftUI.Color(t.accent)).frame(width: 2).opacity(hover && t.neon ? 1 : 0)
+                    .shadow(color: SwiftUI.Color(t.accent), radius: t.glow(3))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
     }
 }
 
