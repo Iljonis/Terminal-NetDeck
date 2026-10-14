@@ -44,6 +44,10 @@ struct ContentView: View {
         .background(WindowReader { model.attach($0) })
         .ignoresSafeArea(.container, edges: .top)
         .tint(SwiftUI.Color(t.accent))
+        .overlay(alignment: .bottomTrailing) {
+            StatusToast().padding(.trailing, 14).padding(.bottom, 34)
+                .animation(.easeInOut(duration: 0.3), value: model.toast)
+        }
         .overlay { if model.showSettings { SettingsOverlay() } }
         .onAppear(perform: snapshotAction)
         .sheet(item: $model.sheet) { sheet in
@@ -106,10 +110,8 @@ struct TopBar: View {
                 .padding(.vertical, 4)
             }
             .fixedSize(horizontal: model.tabs.count < 6, vertical: false)
-            IconButton(icon: "plus") { model.sheet = .connect }
-                .help(L("Conexión rápida o por un salto (⌘K)"))
-            IconButton(icon: "apple.terminal") { model.openLocal() }
-                .help(L("Nueva terminal local: tu shell en este Mac (⌘T)"))
+            IconMenu(icon: "plus") { NewMenu() }
+                .help(L("Conectar, terminal local, sesión nueva o una favorita"))
             Spacer(minLength: 12)
             IconButton(icon: "doc.on.clipboard.fill") { model.sheet = .paste }
                 .help(L("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)"))
@@ -156,6 +158,31 @@ struct TopBar: View {
             .gesture(WindowDragGesture())
             .simultaneousGesture(TapGesture(count: 2).onEnded { model.toggleFill() }))
         .overlay(alignment: .bottom) { Rectangle().fill(SwiftUI.Color(t.tab)).frame(height: 2) }
+    }
+}
+
+/// El menú «+» de la barra: conectar, terminal local, sesiones nuevas y las ★ favoritas / la de inicio.
+struct NewMenu: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Button(L("Conectar / Salto… (⌘K)")) { model.sheet = .connect }
+        Button(L("Terminal local (⌘T)")) { model.openLocal() }
+        Divider()
+        Button(L("Nueva sesión…")) { model.editSessions(.new(group: nil)) }
+        Button(L("Nueva sesión SFTP…")) { model.editSessions(.new(group: nil, kind: .sftp)) }
+        Button(L("Nueva sesión serie…")) { model.editSessions(.new(group: nil, kind: .serial)) }
+        let favs = model.favorites.compactMap(model.sessions.profile(named:))
+        let start = model.startupProfile.flatMap { p in favs.contains { $0.name == p.name } ? nil : p }
+        if !favs.isEmpty || start != nil {
+            Divider()
+            Section(L("Favoritas")) {
+                if let p = start { Button("⏻ \(p.name)") { model.open(p) } }
+                ForEach(favs, id: \.name) { p in
+                    Button((p.name == model.startupProfile?.name ? "⏻ " : "★ ") + p.name) { model.open(p) }
+                }
+            }
+        }
     }
 }
 
@@ -498,10 +525,6 @@ struct StatusBar: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(systemName: "chevron.right.2").foregroundStyle(SwiftUI.Color(t.accent))
-            Text(model.themes.busy ?? (model.status.isEmpty ? L("Listo") : model.status))
-                .foregroundStyle(SwiftUI.Color(t.text))
-                .lineLimit(1).truncationMode(.middle)
             Spacer()
             if let u = model.availableUpdate {
                 Button { model.offerUpdate(u) } label: {
@@ -531,6 +554,31 @@ struct StatusBar: View {
         case .autoType: L("AUTO")
         case .suggest: L("SUGERIR")
         case .off: L("NO")
+        }
+    }
+}
+
+/// Aviso pasajero abajo a la derecha: sólo lo importante de `model.status` (✗ errores, 🔑 contraseñas, ⎋ cortes,
+/// ⬆ actualizaciones) y lo que está haciendo la galería de temas; lo demás no se muestra.
+struct StatusToast: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.theme) private var t
+
+    var body: some View {
+        if let text = model.themes.busy ?? model.toast {
+            Text(text)
+                .font(t.ui(11.5, .medium))
+                .foregroundStyle(SwiftUI.Color(t.text))
+                .lineLimit(2).truncationMode(.middle)
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .frame(maxWidth: 520, alignment: .trailing)
+                .background(RoundedRectangle(cornerRadius: t.corner ?? 8).fill(SwiftUI.Color(t.bar.opaque)))
+                .overlay(RoundedRectangle(cornerRadius: t.corner ?? 8)
+                    .strokeBorder(SwiftUI.Color(text.hasPrefix("✗") ? t.bad : t.accent2).opacity(0.7)))
+                .shadow(color: .black.opacity(0.3), radius: 6)
+                .onTapGesture { model.toast = nil }
+                .transition(.opacity)
+                .allowsHitTesting(true)
         }
     }
 }

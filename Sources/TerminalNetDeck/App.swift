@@ -55,6 +55,13 @@ struct NetDeckCommands: Commands {
                 DebugLog.flush()
                 NSWorkspace.shared.open(DebugLog.file)
             }
+            Button(L("Abrir el registro de errores")) {
+                ErrorLog.flush()
+                if !FileManager.default.fileExists(atPath: ErrorLog.file.path) {
+                    ErrorLog.append("", to: ErrorLog.file)              // (vacío: que se abra igual)
+                }
+                NSWorkspace.shared.open(ErrorLog.file)
+            }
             Button(L("Carpeta de registros")) { NSWorkspace.shared.open(DebugLog.directory) }
         }
         // (contraseñas, dividir y ajustes van en la barra de la ventana; aquí solo lo que tiene atajo)
@@ -110,5 +117,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainActor.assumeIsolated { AppModel.instance?.saveOpenTabs() }
         DebugLog.log("app", "sale")
         DebugLog.flush()
+        ErrorLog.flush()
     }
 }

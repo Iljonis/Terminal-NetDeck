@@ -415,7 +415,7 @@ struct SessionEditor: View {
         saved = file
         switch model.editorFocus {
         case .session(let n): selected = file.sessions.first { $0.name == n }?.id
-        case .new(let g): add(group: g)
+        case .new(let g, let k): add(group: g, kind: k)
         case .duplicate(let n):
             selected = file.sessions.first { $0.name == n }?.id
             duplicate()
@@ -425,9 +425,10 @@ struct SessionEditor: View {
         model.editorFocus = nil
     }
 
-    private func add(group: String?) {
+    private func add(group: String?, kind: SessionProfile.Transport = .ssh) {
         let g = group ?? file.groups.first ?? "General"
-        let s = EditableSession(group: g, name: file.uniqueName("nueva"))
+        var s = EditableSession(group: g, name: file.uniqueName("nueva"))
+        s.kind = kind
         let at = (file.sessions.lastIndex { $0.group == g }).map { $0 + 1 } ?? file.sessions.count
         file.sessions.insert(s, at: at)
         selected = s.id
@@ -460,6 +461,7 @@ struct SessionEditor: View {
             else { try SessionExport.json(list).write(to: u, options: .atomic) }
             message = L("✓ \(list.count) exportadas a \(u.lastPathComponent) (sin contraseñas)")
         } catch {
+            ErrorLog.error("exportar", "\(u.lastPathComponent): \(error.localizedDescription)")
             message = "✗ \(error.localizedDescription)"
         }
     }
@@ -503,6 +505,7 @@ struct SessionEditor: View {
             model.keychainRevision += 1
             message = L("✓ Contraseña de \(user)@\(host) guardada en el Llavero")
         } catch {
+            ErrorLog.error("llavero", "no se ha podido guardar \(user)@\(host): \(error.localizedDescription)")
             message = "✗ \(error.localizedDescription)"
         }
         newPassword = ""
@@ -630,6 +633,11 @@ struct ImportPane: View {
 
     private func read(_ u: URL) {
         let r = SessionImporter.read(u, existing: file.sessions)
+        if r.sessions.isEmpty { ErrorLog.warning("importar", "\(u.lastPathComponent) (\(r.format)): ninguna sesión que importar") }
+        if !r.skipped.isEmpty {
+            ErrorLog.warning("importar", "\(u.lastPathComponent): \(r.skipped.count) descartadas: "
+                             + r.skipped.prefix(5).map { "\($0.0) (\($0.1))" }.joined(separator: ", "))
+        }
         result = r
         chosen = Set(r.sessions.map(\.id))
     }

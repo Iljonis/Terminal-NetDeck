@@ -13,7 +13,7 @@ final class AppModel {
     /// Qué abre el gestor de Sesiones: una sesión, una nueva (en un grupo) o importar.
     enum EditorFocus: Equatable {
         case session(String)
-        case new(group: String?)
+        case new(group: String?, kind: SessionProfile.Transport = .ssh)
         case duplicate(String)
         case importing
     }
@@ -33,8 +33,26 @@ final class AppModel {
         didSet { updateVisibility() }
     }
     var sheet: Sheet?
+    /// Lo último que ha pasado. No se ve en la barra de estado: sólo lo importante sale un momento como aviso
+    /// (`StatusNotice.isImportant`).
     var status = "" {
-        didSet { if !status.isEmpty { DebugLog.log("estado", status) } }
+        didSet {
+            guard !status.isEmpty else { return }
+            DebugLog.log("estado", status)
+            if StatusNotice.isImportant(status) { showToast(status) }
+        }
+    }
+    /// El aviso pasajero (se va solo a los ~4 s).
+    var toast: String?
+    @ObservationIgnored private var toastGeneration = 0
+
+    private func showToast(_ text: String) {
+        toast = text
+        toastGeneration += 1
+        let g = toastGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
+            if self?.toastGeneration == g { self?.toast = nil }
+        }
     }
     var multiExecOn = false {
         didSet {
@@ -136,7 +154,14 @@ final class AppModel {
 
     func reloadHighlight() {
         highlightFile = highlightURL(settings.highlightSource)
-        highlightConfig = (try? highlightFile.map(HighlightConfig.init(contentsOf:))) ?? HighlightConfig()
+        do {
+            highlightConfig = try highlightFile.map(HighlightConfig.init(contentsOf:)) ?? HighlightConfig()
+        } catch {
+            if let f = highlightFile, FileManager.default.fileExists(atPath: f.path) {
+                ErrorLog.warning("resaltado", "no se puede leer \(f.lastPathComponent): \(error.localizedDescription)")
+            }
+            highlightConfig = HighlightConfig()
+        }
         applyHighlight()
     }
 
@@ -151,6 +176,53 @@ final class AppModel {
             ? themes.current.highlightPalette
             : themes.current.highlightPalette.merging(highlightConfig.palette) { $1 }
         s.highlight(rules: rules, palette: palette, enabled: settings.highlightEnabled)
+    }
+
+    static var customHighlightURL: URL { AppPaths.support.appendingPathComponent("resaltado.yml") }
+
+    /// Lo que se cambia en Ajustes → Resaltado (añadir, editar, ordenar, borrar): al archivo personalizado (con
+    /// copia `.anterior`) y a partir de ahí se usan esas. `renamed`: descripción vieja → nueva (para que una regla
+    /// apagada siga apagada). nil = bien; si no, el error.
+    func saveHighlightRules(_ rules: [HighlightRule], renamed: [String: String] = [:]) -> String? {
+        var cfg = highlightConfig
+        cfg.rules = rules
+        cfg.problems = []
+        let url = Self.customHighlightURL
+        do {
+            AppPaths.ensure(AppPaths.support)
+            try SafeFile.backup(url)
+            try SafeFile.write(cfg.yaml(), to: url)
+        } catch {
+            ErrorLog.error("resaltado", "no se han podido guardar las reglas: \(error.localizedDescription)")
+            return error.localizedDescription
+        }
+        for (old, new) in renamed where settings.highlightDisabled.remove(old) != nil { settings.highlightDisabled.insert(new) }
+        let names = Set(rules.map(\.description))
+        settings.highlightDisabled = settings.highlightDisabled.filter(names.contains)
+        settings.highlightSource = .custom
+        reloadHighlight()
+        return nil
+    }
+
+    /// «Restaurar las de serie»: el archivo personalizado vuelve a ser el de la app (queda copia `.anterior`) y todas
+    /// las reglas, encendidas.
+    func restoreBundledHighlight() -> String? {
+        guard let src = highlightURL(.app), let text = try? SafeFile.read(src) else {
+            ErrorLog.error("resaltado", "no encuentro las reglas de la app (Resaltado/netdeck.yml)")
+            return L("No encuentro las reglas de la app")
+        }
+        do {
+            AppPaths.ensure(AppPaths.support)
+            try SafeFile.backup(Self.customHighlightURL)
+            try SafeFile.write(text, to: Self.customHighlightURL)
+        } catch {
+            ErrorLog.error("resaltado", "no se han podido restaurar las reglas: \(error.localizedDescription)")
+            return error.localizedDescription
+        }
+        settings.highlightDisabled = []
+        settings.highlightSource = .custom
+        reloadHighlight()
+        return nil
     }
 
     /// Copia editable de las reglas (para cambiarlas sin tocar las de NetDeck).
@@ -231,7 +303,7 @@ final class AppModel {
             if r.transport == .ftp { openFTP(r) } else { open(r) }
             noteRecent(profile.name)
         } catch {
-            status = error.localizedDescription
+            status = "✗ \(error.localizedDescription)"
         }
     }
 
@@ -249,7 +321,10 @@ final class AppModel {
 
     /// Guarda el ssh_config de NetDeck (comprobado con ssh -G) y que ~/.ssh/config lo incluya.
     func saveSessions(_ file: SessionFile) -> String? {
-        if let err = file.save() { return err }
+        if let err = file.save() {
+            ErrorLog.error("sesiones", "no se han podido guardar: \(err)")
+            return err
+        }
         if settings.sshConfigURL.standardizedFileURL == SessionManager.defaultConfigURL.standardizedFileURL {
             SessionFile.ensureInclude()
         }
@@ -280,7 +355,7 @@ final class AppModel {
         do {
             try SafeFile.write(favorites.joined(separator: "\n") + (favorites.isEmpty ? "" : "\n"), to: Self.favoritesFile)
         } catch {
-            DebugLog.log("favoritas", "no se han podido guardar: \(error.localizedDescription)")
+            ErrorLog.error("favoritas", "no se han podido guardar: \(error.localizedDescription)")
         }
     }
 
@@ -312,7 +387,7 @@ final class AppModel {
     }
 
     func openStartupSession() {
-        if let p = startupProfile { open(p) } else { status = L("No hay sesión de inicio: márcala con clic derecho en una sesión") }
+        if let p = startupProfile { open(p) } else { status = L("✗ No hay sesión de inicio: márcala con clic derecho en una sesión") }
     }
 
     /// La sesión de inicio (si no la ha abierto ya «reabrir») y, si no hay ninguna pestaña, la terminal local.
@@ -326,7 +401,7 @@ final class AppModel {
 
     /// FTP: macOS no trae cliente; el Finder lo monta (sólo lectura) y pide él la contraseña.
     func openFTP(_ r: ConnectionRoute) {
-        guard let url = r.ftpURL else { status = L("Equipo no válido: «\(r.target.host)»"); return }
+        guard let url = r.ftpURL else { status = "✗ " + L("Equipo no válido: «\(r.target.host)»"); return }
         DebugLog.log("ftp", "«\(r.title)» → Finder")
         NSWorkspace.shared.open(url)
         status = L("FTP «\(r.title)»: se abre en el Finder (sólo lectura)")
@@ -452,7 +527,7 @@ final class AppModel {
             DebugLog.log("salto", "«\(device)» por «\(jump)»: abro \(r.command.arguments.joined(separator: " ")) y luego «\(r.thenCommand ?? "")»")
             open(r)
         } catch {
-            status = error.localizedDescription
+            status = "✗ \(error.localizedDescription)"
         }
     }
 
@@ -468,7 +543,7 @@ final class AppModel {
             if e.user == nil { e.user = user }
             open(ConnectionRoute(title: e.host, target: e, transport: transport))
         } else {
-            status = L("«\(t)» no es una sesión ni usuario@equipo")
+            status = L("✗ «\(t)» no es una sesión ni usuario@equipo")
         }
     }
 
@@ -531,8 +606,14 @@ final class AppModel {
     var keychainAccounts: [CredentialRef] {
         let rev = keychainRevision
         if let c = keychainCache, c.rev == rev { return c.list }      // (se pide en varias vistas: una consulta por cambio)
-        let named = (try? store.accounts(in: .named)) ?? []
-        let device = (try? store.accounts(in: .device)) ?? []
+        func accounts(_ service: CredentialRef.Service) -> [String] {
+            do { return try store.accounts(in: service) } catch {
+                ErrorLog.error("llavero", "no se pueden listar las contraseñas: \(error.localizedDescription)")
+                return []
+            }
+        }
+        let named = accounts(.named)
+        let device = accounts(.device)
         let list = named.map(CredentialRef.named) + device.map { .init(service: .device, account: $0) }
         keychainCache = (rev, list)
         return list
@@ -548,7 +629,8 @@ final class AppModel {
             pasteTargets = Set(multiExec.terminals.compactMap { ($0 as? TerminalSession)?.id })
             defer { sharedGate.end(sw); pasteTargets = [] }
             let reports = await multiExec.paste(text, paster: paster, abort: sw)
-            status = L("Pegado en \(reports.count): ") + reports.map { describe($0) }.joined(separator: " · ")
+            let failed = reports.contains { if case .completed = $0.outcome { false } else { true } }
+            status = (failed ? "✗ " : "") + L("Pegado en \(reports.count): ") + reports.map { describe($0) }.joined(separator: " · ")
         } else if let s = current {
             let sw = s.gate.begin()
             pasteTargets = [s.id]
@@ -655,6 +737,7 @@ final class AppModel {
             status = L("Botones guardados (\(f.buttons.count)) en \(ButtonFile.defaultURL.path.replacingOccurrences(of: AppPaths.home.path, with: "~"))")
             return nil
         } catch {
+            ErrorLog.error("botones", "no se han podido guardar: \(error.localizedDescription)")
             return error.localizedDescription
         }
     }
@@ -688,7 +771,7 @@ final class AppModel {
             guard let s = current else { return }
             let parts = cmd.components(separatedBy: "/").map { $0.trimmingCharacters(in: .whitespaces) }
             guard parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty else {
-                status = L("Botón «\(b.name)»: el login es «usuario / nombre-de-la-contraseña»")
+                status = L("✗ Botón «\(b.name)»: el login es «usuario / nombre-de-la-contraseña»")
                 return
             }
             Task {
@@ -852,7 +935,7 @@ final class AppModel {
             try JSONEncoder().encode(routes).write(to: Self.openTabsFile, options: .atomic)
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Self.openTabsFile.path)
         } catch {
-            DebugLog.log("app", "no se han podido guardar las pestañas abiertas: \(error.localizedDescription)")
+            ErrorLog.error("pestañas", "no se han podido guardar las pestañas abiertas: \(error.localizedDescription)")
         }
     }
 
@@ -883,21 +966,22 @@ final class AppModel {
     /// La última release en GitHub: si hay una más nueva, ofrece abrir su descarga (no instala nada sola).
     func checkForUpdates() {
         guard let repo = UpdateCheck.repo else {
-            status = L("Sin repositorio de actualizaciones (NETDECK_REPO al instalar)")
+            status = L("✗ Sin repositorio de actualizaciones (NETDECK_REPO al instalar)")
             return
         }
-        status = L("Buscando actualizaciones…")
+        status = L("⬆ Buscando actualizaciones…")
         Task {
             do {
                 if let r = try await UpdateCheck.check(repo: repo) {
                     availableUpdate = r
-                    status = L("Hay una versión nueva: \(r.version)")
+                    status = L("⬆ Hay una versión nueva: \(r.version)")
                     offerUpdate(r)
                 } else {
-                    status = L("Estás al día (\(UpdateCheck.currentVersion))")
+                    status = L("⬆ Estás al día (\(UpdateCheck.currentVersion))")
                 }
             } catch {
-                status = L("No se ha podido comprobar: \(error.localizedDescription)")
+                ErrorLog.warning("actualizaciones", "no se ha podido comprobar: \(error.localizedDescription)")
+                status = L("✗ No se ha podido comprobar: \(error.localizedDescription)")
             }
         }
     }
@@ -916,7 +1000,7 @@ final class AppModel {
     /// Compila, sustituye la app instalada y la vuelve a abrir con las mismas pestañas.
     func updateFromSource() {
         guard let dir = Self.sourceFolder else {
-            status = L("No encuentro el código (actualizar.sh) en este Mac")
+            status = L("✗ No encuentro el código (actualizar.sh) en este Mac")
             return
         }
         saveOpenTabs()
@@ -933,10 +1017,11 @@ final class AppModel {
         }
         do {
             try p.run()
-            status = L("Actualizando: compilando… (se cerrará y se abrirá sola con tus pestañas)")
+            status = L("⬆ Actualizando: compilando… (se cerrará y se abrirá sola con tus pestañas)")
             DebugLog.log("app", "actualizar: \(dir.path)/actualizar.sh (pid \(p.processIdentifier))")
         } catch {
-            status = L("No se ha podido actualizar: \(error.localizedDescription)")
+            ErrorLog.error("actualizar", "no arranca actualizar.sh: \(error.localizedDescription)")
+            status = L("✗ No se ha podido actualizar: \(error.localizedDescription)")
         }
     }
 }

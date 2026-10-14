@@ -527,18 +527,25 @@ struct HighlightPreview: View {
         let cfg = model.highlightConfig
         let palette = model.settings.highlightThemeColors ? t.highlightPalette : t.highlightPalette.merging(cfg.palette) { $1 }
         let h = Highlighter(rules: cfg.rules.filter { !model.settings.highlightDisabled.contains($0.description) }, palette: palette)
+        return Self.render(Self.sample, with: enabled ? h : nil, palette: palette, theme: t)
+    }
+
+    /// Texto (varias líneas) coloreado con `h` (nil = sin resaltar). También para la vista previa del editor de reglas.
+    static func render(_ text: String, with h: Highlighter?, palette: [String: RGB], theme t: Theme) -> AttributedString {
         var out = AttributedString()
-        for line in Self.sample.components(separatedBy: "\n") {
-            var a = AttributedString(line + "\n")
+        let lines = text.components(separatedBy: "\n")
+        for (n, line) in lines.enumerated() {
+            var a = AttributedString(line + (n < lines.count - 1 ? "\n" : ""))
             a.foregroundColor = SwiftUI.Color(t.text)
-            if enabled {
-                for (r, st) in h.styledRuns(line) {
-                    guard let lo = AttributedString.Index(r.lowerBound, within: a),
-                          let hi = AttributedString.Index(r.upperBound, within: a) else { continue }
-                    if let f = st.foreground.flatMap({ palette[$0] ?? RGB(hex: $0) }) { a[lo..<hi].foregroundColor = SwiftUI.Color(f) }
-                    if let b = st.background.flatMap({ palette[$0] ?? RGB(hex: $0) }) { a[lo..<hi].backgroundColor = SwiftUI.Color(b) }
-                    if st.underline { a[lo..<hi].underlineStyle = .single }
-                    if st.bold { a[lo..<hi].inlinePresentationIntent = .stronglyEmphasized }
+            for (r, st) in h?.styledRuns(line) ?? [] {
+                guard let lo = AttributedString.Index(r.lowerBound, within: a),
+                      let hi = AttributedString.Index(r.upperBound, within: a) else { continue }
+                if let f = st.foreground.flatMap({ palette[$0] ?? RGB(hex: $0) }) { a[lo..<hi].foregroundColor = SwiftUI.Color(f) }
+                if let b = st.background.flatMap({ palette[$0] ?? RGB(hex: $0) }) { a[lo..<hi].backgroundColor = SwiftUI.Color(b) }
+                if st.underline { a[lo..<hi].underlineStyle = .single }
+                if st.bold || st.italic {
+                    a[lo..<hi].inlinePresentationIntent = st.bold && st.italic ? [.stronglyEmphasized, .emphasized]
+                        : st.bold ? .stronglyEmphasized : .emphasized
                 }
             }
             out += a

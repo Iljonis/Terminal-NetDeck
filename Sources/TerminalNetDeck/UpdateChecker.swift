@@ -48,7 +48,7 @@ final class UpdateChecker {
                 self?.model?.availableUpdate = release
                 DebugLog.log("actualizaciones", release.map { "hay una nueva: \($0.version)" } ?? "al día")
             } catch {
-                DebugLog.log("actualizaciones", "sin respuesta: \(error.localizedDescription)")
+                ErrorLog.warning("actualizaciones", "sin respuesta: \(error.localizedDescription)")
             }
         }
     }

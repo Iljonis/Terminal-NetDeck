@@ -206,6 +206,7 @@ struct PasswordSettings: View {
             message = L("Guardada ✓ (\(ref.account))")
             newAccount = ""
         } catch {
+            ErrorLog.error("llavero", "no se ha podido guardar «\(ref.account)»: \(error.localizedDescription)")
             message = error.localizedDescription
         }
         newPassword = ""
@@ -219,7 +220,10 @@ struct PasswordSettings: View {
         a.addButton(withTitle: L("Borrar"))
         a.addButton(withTitle: L("Cancelar"))
         guard a.runModal() == .alertFirstButtonReturn else { return }
-        do { try model.store.delete(ref) } catch { message = error.localizedDescription }
+        do { try model.store.delete(ref) } catch {
+            ErrorLog.error("llavero", "no se ha podido borrar «\(ref.account)»: \(error.localizedDescription)")
+            message = error.localizedDescription
+        }
         model.keychainRevision += 1
     }
 }
@@ -272,6 +276,7 @@ struct PasswordChangeSheet: View {
             first = ""; second = ""
             dismiss()
         } catch {
+            ErrorLog.error("llavero", "no se ha podido cambiar «\(ref.account)»: \(error.localizedDescription)")
             self.error = error.localizedDescription
             first = ""; second = ""
         }
@@ -448,10 +453,10 @@ struct HighlightSettings: View {
                     Text(model.highlightFile?.path.replacingOccurrences(of: AppPaths.home.path, with: "~") ?? "—")
                         .font(t.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
                     Spacer()
-                    Button(L("Editar…")) {
+                    Button(L("Abrir en el editor…")) {
                         if let u = model.customizeHighlight() { NSWorkspace.shared.open(u) }
                     }
-                    .help(L("Crea una copia personalizada (si no la hay) y la abre en tu editor"))
+                    .help(L("Crea una copia personalizada (si no la hay) y la abre en tu editor de texto"))
                     Button(L("Recargar")) { model.reloadHighlight() }
                 }
                 if !cfg.problems.isEmpty {
@@ -465,20 +470,7 @@ struct HighlightSettings: View {
             Section(L("Vista previa")) {
                 HighlightPreview(enabled: s.highlightEnabled).environment(\.theme, model.themes.current)
             }
-            Section(L("Reglas (\(cfg.rules.count))")) {
-                ForEach(Array(cfg.rules.enumerated()), id: \.offset) { _, r in
-                    Toggle(isOn: Binding(get: { !s.highlightDisabled.contains(r.description) },
-                                         set: { on in
-                                             if on { s.highlightDisabled.remove(r.description) } else { s.highlightDisabled.insert(r.description) }
-                                             model.applyHighlight()
-                                         })) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(r.description)
-                            Text(r.source).font(.caption2.monospaced()).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                    }
-                }
-            }
+            HighlightRuleList()
         }
         .formStyle(.grouped)
         .onChange(of: s.highlightEnabled) { model.applyHighlight() }

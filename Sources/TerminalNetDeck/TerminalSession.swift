@@ -164,7 +164,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         if let problem = route.launchProblem() {             // (falta screen, el adaptador serie o el programa)
             _ = pipe.next()
             state = .exited(nil)
-            DebugLog.log("pestaña", "«\(title)» no arranca: \(problem)")
+            ErrorLog.error("pestaña", "«\(title)» no arranca: \(problem)")
             pipe.say("\u{1b}[38;5;204m[NetDeck] \(problem)\u{1b}[0m"
                      + L(" · \u{1b}[1mIntro\u{1b}[0m reconectar · \u{1b}[1mEsc\u{1b}[0m cerrar la pestaña\r\n"))
             return
@@ -189,6 +189,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         DebugLog.log("pestaña", "«\(title)» #\(gen) arranca: \(exe) \(args.joined(separator: " "))"
                      + (route.thenCommand.map { " · luego en el salto: «\($0)»" } ?? "")
                      + (p.running ? "" : " · NO ARRANCA"))
+        if !p.running { ErrorLog.error("pestaña", "«\(title)» no arranca: \(exe)") }
         if let cmd = route.thenCommand { typeOnJump(cmd) }
     }
 
@@ -197,7 +198,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         guard logger == nil else { return }
         let host = route.target.description
         guard let l = SessionLogger(directory: directory, name: route.sessionName ?? title, host: host) else {
-            DebugLog.log("registro", "«\(title)»: no se puede escribir en \(directory.path)")
+            ErrorLog.error("registro", "«\(title)»: no se puede escribir en \(directory.path)")
             return
         }
         logger = l

@@ -171,7 +171,10 @@ struct ListSheet: View {
     // MARK: listas guardadas
 
     private func load() {
-        do { library = try ListLibrary(contentsOf: ListLibrary.defaultURL) } catch { message = "✗ \(error.localizedDescription)" }
+        do { library = try ListLibrary(contentsOf: ListLibrary.defaultURL) } catch {
+            ErrorLog.error("listas", "no se han podido leer: \(error.localizedDescription)")
+            message = "✗ \(error.localizedDescription)"
+        }
         if let first = library.lists.first { pick(first.id) } else { jump = model.sessions.profiles.first?.name ?? "" }
     }
 
@@ -197,6 +200,7 @@ struct ListSheet: View {
             try library.save()
             message = ok
         } catch {
+            ErrorLog.error("listas", "no se han podido guardar: \(error.localizedDescription)")
             message = "✗ \(error.localizedDescription)"
         }
     }
@@ -247,6 +251,7 @@ struct ListSheet: View {
             message = L("\(r.devices.count) equipos importados de \(u.lastPathComponent)")
                 + (r.rejected.isEmpty ? "" : L(" · \(r.rejected.count) no valen (se ignoran)"))
         } catch {
+            ErrorLog.error("importar", "\(u.lastPathComponent): \(error.localizedDescription)")
             message = "✗ \(error.localizedDescription)"
         }
     }
