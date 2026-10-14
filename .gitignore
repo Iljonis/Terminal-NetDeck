@@ -7,3 +7,4 @@ build/
 dist/
 .claude/worktrees/
 .claude/settings.local.json
+tools/privacidad.local

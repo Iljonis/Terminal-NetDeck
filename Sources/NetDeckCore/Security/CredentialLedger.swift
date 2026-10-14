@@ -128,7 +128,7 @@ public final class DirectoryLedgerStorage: LedgerStorage, @unchecked Sendable {
         case .failed(let d): ("fallo", d)
         case .confirmed(let d): ("valida", d)
         }
-        try? "\(kind)\t\(d.timeIntervalSince1970)".write(to: url, atomically: true, encoding: .utf8)
+        try? SafeFile.write("\(kind)\t\(d.timeIntervalSince1970)", to: url)      // (0600: sólo tú)
     }
 
     public func locked<T>(_ body: () throws -> T) rethrows -> T {

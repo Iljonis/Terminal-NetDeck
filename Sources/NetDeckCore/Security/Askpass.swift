@@ -162,11 +162,11 @@ public enum Askpass {
         }
 
         func given(_ ref: CredentialRef?) {
-            try? (ref.map(encode) ?? "").write(to: state, atomically: true, encoding: .utf8)
+            try? SafeFile.write(ref.map(encode) ?? "", to: state)
             guard let ref, let session else { return }
             let url = AppPaths.ensure(AppPaths.sessions).appendingPathComponent(session)
             let old = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
-            try? (old + encode(ref) + "\n").write(to: url, atomically: true, encoding: .utf8)
+            try? SafeFile.write(old + encode(ref) + "\n", to: url)
         }
 
         /// Te la pide; te ofrece guardarla (si la guardada falló, por defecto sí).

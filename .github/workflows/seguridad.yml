@@ -1,0 +1,17 @@
+name: Seguridad
+
+# Auditoría semanal: dependencias contra OSV.dev (CVE/GHSA), privacidad, tests y endurecimiento de la app.
+on:
+  schedule:
+    - cron: "0 7 * * 1"        # lunes, 7:00 UTC
+  workflow_dispatch:
+
+jobs:
+  auditoria:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: App compilada (para comprobar firma y Info.plist)
+        run: ./install.sh --dmg
+      - name: Auditoría
+        run: tools/seguridad_cron.sh
