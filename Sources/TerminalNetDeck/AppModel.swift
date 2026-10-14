@@ -125,6 +125,11 @@ final class AppModel {
         if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil {
             DispatchQueue.main.async { self.openStartupTabs() }                   // (después de reabrir, si toca)
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.updates.start() }   // (sin estorbar al arrancar)
+            // (desarrollo: NETDECK_PRUEBA_ACTUALIZAR=1 con NETDECK_HOME instala la última release sin preguntar)
+            if ProcessInfo.processInfo.environment["NETDECK_PRUEBA_ACTUALIZAR"] == "1",
+               ProcessInfo.processInfo.environment["NETDECK_HOME"] != nil, let repo = UpdateCheck.repo {
+                Task { if let r = try? await UpdateCheck.check(repo: repo) { Updater.install(r, model: self) } }
+            }
         }
     }
 

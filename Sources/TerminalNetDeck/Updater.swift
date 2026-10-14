@@ -80,7 +80,9 @@ enum Updater {
               echo "✗ no se ha podido apartar la app de antes"
             fi
             xattr -dr com.apple.quarantine "$actual" 2>/dev/null
-            open "$actual" --args --reabrir
+            # (pruebas con NETDECK_HOME: la reabierta sigue sin tocar tus datos)
+            if [ -n "${NETDECK_HOME:-}" ]; then open -n --env NETDECK_HOME="$NETDECK_HOME" "$actual" --args --reabrir
+            else open -n "$actual" --args --reabrir; fi
 
             """.write(to: script, atomically: true, encoding: .utf8)
         let log = DebugLog.directory.appendingPathComponent("actualizar.log")
