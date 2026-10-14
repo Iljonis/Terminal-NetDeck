@@ -1623,5 +1623,13 @@ enum Ingles {
             "Opens in the app's graphical browser (upload, download, rename, delete). FTP isn't encrypted: prefer SFTP if the device supports it. The password comes from the Keychain or is asked for.",
         "✗ Es la misma carpeta del mismo servidor: elige otra de destino":
             "✗ That's the same folder on the same server: pick another destination",
+        "Abre la sesión tal como está, sin guardar los cambios":
+            "Opens the session as it is, without saving the changes",
+        "Guarda los cambios sin abrir ninguna pestaña":
+            "Saves the changes without opening a tab",
+        "✗ No se encuentra «%@» en las sesiones guardadas":
+            "✗ Can't find “%@” among the saved sessions",
+        "✓ «%@» abierta sin guardar: los cambios siguen aquí":
+            "✓ “%@” opened without saving: your changes are still here",
 ]
 }

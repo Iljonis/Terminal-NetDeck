@@ -90,9 +90,33 @@ public final class SessionManager {
         }
         // (nombre, equipo o usuario que empiecen por «-» serían opciones de ssh/telnet: -oProxyCommand=…)
         for v in [p.name, p.endpoint.host, p.endpoint.user ?? ""] where v.hasPrefix("-") { throw RouteError.badDevice(v) }
+        let jumps = try resolve(p.proxyJump, seen: [p.name])
+        // (telnet con salto va como texto a la shell del salto: «ssh -t salto telnet equipo»; nada de «;», «$(…)»…)
+        if p.transport == .telnet, !jumps.isEmpty, !Endpoint(host: p.endpoint.host).isShellSafe {
+            throw RouteError.badDevice(p.endpoint.host)
+        }
         let alias = p.transport == .ssh || p.transport == .sftp ? p.name : nil      // (sftp lee el mismo ssh_config)
-        return ConnectionRoute(title: p.name, target: p.endpoint, jumps: try resolve(p.proxyJump, seen: [p.name]),
+        return ConnectionRoute(title: p.name, target: p.endpoint, jumps: jumps,
                         transport: p.transport, alias: alias, sessionName: p.name)
+    }
+
+    /// «Conectar» del gestor sin guardar: la sesión tal como está en el formulario, con equipo, usuario, puerto y
+    /// saltos explícitos (sin el alias: el ssh_config todavía no la tiene así). Los saltos se buscan entre las sesiones
+    /// guardadas; la clave privada, «equipo antiguo» y las opciones avanzadas sólo cuentan una vez guardada. Sin
+    /// `sessionName`: la contraseña con nombre y el salto de la sesión guardada con ese nombre no valen para otro equipo.
+    public func route(unsaved s: EditableSession) throws -> ConnectionRoute {
+        var f = SessionFile()
+        f.sessions = [s]
+        guard let p = SSHConfigParser().parse(f.render()).first(where: { $0.name == s.name }) else {
+            throw RouteError.badDevice(s.name)
+        }
+        var r = try route(to: p)
+        if r.alias != nil {
+            r.alias = nil
+            if !r.jumps.isEmpty { r.jumpSpec = r.jumps.map(\.description) }
+        }
+        r.sessionName = nil
+        return r
     }
 
     /// Acceso directo de salto, como NetDeck: se abre la sesión del salto y, al salir su prompt, se escribe
@@ -166,6 +190,8 @@ public final class SessionManager {
             out += try resolve(p.proxyJump, seen: seen.union([name]))
             var end = p.endpoint
             if let u = e?.user, profile(named: s) == nil { end.user = u }     // «admin@bastion»: el usuario escrito
+            // (un salto de otra sesión con equipo o usuario «-…» sería una opción de ssh: «ssh -t -oProxyCommand=…»)
+            for v in [end.host, end.user ?? ""] where v.hasPrefix("-") { throw RouteError.badJump(s) }
             out.append(end)
         }
         return out

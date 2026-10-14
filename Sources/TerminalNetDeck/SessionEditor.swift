@@ -18,6 +18,10 @@ struct SessionEditor: View {
     @Stored private var changing: CredentialRef?
     /// Puertos /dev/cu.* de este Mac (se buscan al abrir y con ↻).
     @Stored private var ports: [String] = []
+    /// Ya cargado (onAppear puede repetirse: no se vuelve a leer el archivo ni a crear otra sesión nueva).
+    @Stored private var loaded = false
+    /// Hay una acción en curso: los clics seguidos no la repiten.
+    @Stored private var busy = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,7 +48,12 @@ struct SessionEditor: View {
         }
         .frame(width: 940, height: 640)
         .background(SwiftUI.Color(t.background))
-        .onAppear { load(); ports = SerialLine.devices() }
+        .onAppear {
+            guard !loaded else { return }
+            loaded = true
+            load()
+            ports = SerialLine.devices()
+        }
         .sheet(isPresented: Binding(get: { changing != nil }, set: { if !$0 { changing = nil } })) {
             if let ref = changing { PasswordChangeSheet(ref: ref) { message = $0 } }
         }
@@ -79,9 +88,9 @@ struct SessionEditor: View {
             }
             NeonLine(color: t.panel)
             HStack(spacing: 6) {
-                IconButton(icon: "plus") { add(group: index.map { file.sessions[$0].group }) }.help(L("Nueva sesión"))
-                IconButton(icon: "plus.square.on.square") { duplicate() }.help(L("Duplicar")).disabled(index == nil)
-                IconButton(icon: "trash") { delete() }.help(L("Borrar")).disabled(index == nil)
+                IconButton(icon: "plus") { once { add(group: index.map { file.sessions[$0].group }) } }.help(L("Nueva sesión")).disabled(busy)
+                IconButton(icon: "plus.square.on.square") { once(duplicate) }.help(L("Duplicar")).disabled(busy || index == nil)
+                IconButton(icon: "trash") { once(delete) }.help(L("Borrar")).disabled(busy || index == nil)
                 IconButton(icon: "chevron.up") { move(-1) }.help(L("Subir (dentro de su grupo)")).disabled(index == nil)
                 IconButton(icon: "chevron.down") { move(1) }.help(L("Bajar (dentro de su grupo)")).disabled(index == nil)
                 Spacer()
@@ -184,7 +193,7 @@ struct SessionEditor: View {
             Image(systemName: "server.rack").font(.system(size: 34)).foregroundStyle(SwiftUI.Color(t.accent2))
             Text(L("Elige una sesión o crea una nueva")).font(t.ui(13)).foregroundStyle(SwiftUI.Color(t.dim))
             HStack {
-                NeonButton(title: L("Nueva sesión"), icon: "plus") { add(group: nil) }
+                NeonButton(title: L("Nueva sesión"), icon: "plus") { once { add(group: nil) } }.disabled(busy)
                 NeonButton(title: L("Importar"), icon: "square.and.arrow.down", tint: t.accent2) { importing = true }
             }
         }
@@ -391,11 +400,15 @@ struct SessionEditor: View {
                     .font(t.ui(11)).foregroundStyle(SwiftUI.Color(message.hasPrefix("✗") ? t.bad : t.dim)).lineLimit(2)
             }
             Spacer()
-            Button(L("Cerrar")) { close() }.keyboardShortcut(.cancelAction)
-            NeonButton(title: L("Guardar y conectar"), icon: "bolt.horizontal.fill", tint: t.good) { save(connect: true) }
-                .disabled(!problems.isEmpty || index == nil)
-            NeonButton(title: L("Guardar"), icon: "checkmark", active: dirty) { save(connect: false) }
-                .disabled(!problems.isEmpty || !dirty)
+            Button(L("Cerrar")) { DispatchQueue.main.async { close() } }.keyboardShortcut(.cancelAction)
+            NeonButton(title: L("Conectar"), icon: "bolt.horizontal", tint: t.accent2) { once(connect) }
+                .disabled(busy || index.map { !EditableSession.isValidName(file.sessions[$0].name) } ?? true)
+                .help(L("Abre la sesión tal como está, sin guardar los cambios"))
+            NeonButton(title: L("Guardar"), icon: "checkmark", active: dirty) { once { save(connect: false) } }
+                .disabled(busy || !problems.isEmpty || !dirty)
+                .help(L("Guarda los cambios sin abrir ninguna pestaña"))
+            NeonButton(title: L("Guardar y conectar"), icon: "bolt.horizontal.fill", tint: t.good) { once { save(connect: true) } }
+                .disabled(busy || !problems.isEmpty || index == nil)
                 .keyboardShortcut("s")
         }
         .padding(.horizontal, 16)
@@ -513,9 +526,42 @@ struct SessionEditor: View {
             saved = file
             message = L("✓ Guardadas")
         }
-        if connect, let i = index, let p = model.sessions.profile(named: file.sessions[i].name) {
+        guard connect, let i = index else { return }
+        guard let p = model.sessions.profile(named: file.sessions[i].name) else {
+            message = L("✗ No se encuentra «\(file.sessions[i].name)» en las sesiones guardadas")
+            return
+        }
+        model.open(p)
+        dismiss()
+    }
+
+    /// «Conectar»: la sesión tal como está, sin guardarla. Si no ha cambiado, como siempre (con su alias del
+    /// ssh_config); si es nueva o ha cambiado, con equipo, usuario, puerto y saltos explícitos. Con cambios sin
+    /// guardar el gestor sigue abierto para no perderlos.
+    private func connect() {
+        guard let i = index else { return }
+        let s = file.sessions[i]
+        if saved.sessions.contains(where: { $0.id == s.id && $0 == s }), let p = model.sessions.profile(named: s.name) {
             model.open(p)
-            dismiss()
+        } else {
+            do {
+                model.open(try model.sessions.route(unsaved: s))
+            } catch {
+                message = "✗ \(error.localizedDescription)"
+                return
+            }
+        }
+        if dirty { message = L("✓ «\(s.name)» abierta sin guardar: los cambios siguen aquí") } else { dismiss() }
+    }
+
+    /// Una acción a la vez y fuera del gesto: los clics seguidos (crear, borrar, guardar, conectar…) no la repiten, y
+    /// si abre un aviso modal (borrar, cerrar con cambios) lo hace con el clic ya terminado, sin congelar la hoja.
+    private func once(_ action: @escaping @MainActor () -> Void) {
+        guard !busy else { return }
+        busy = true
+        DispatchQueue.main.async {
+            action()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { busy = false }
         }
     }
 

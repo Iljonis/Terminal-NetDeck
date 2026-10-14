@@ -57,7 +57,9 @@ struct ThemedMenuRowStyle: PrimitiveButtonStyle {
             .onTapGesture {
                 guard enabled else { return }
                 close?.close()
-                configuration.trigger()
+                // (en la vuelta siguiente: así el panel ya se ha cerrado si la acción abre un aviso modal; dentro del
+                // gesto, el bucle modal dejaba el panel abierto encima y la ventana parecía congelada)
+                DispatchQueue.main.async { configuration.trigger() }
             }
         }
     }
@@ -309,6 +311,7 @@ enum ThemedAlert {
         panel.titlebarAppearsTransparent = true
         panel.titleVisibility = .hidden
         panel.isMovableByWindowBackground = true
+        panel.level = .modalPanel                   // (por encima de la hoja abierta y de sus menús)
         panel.backgroundColor = NSColor(theme.bar.opaque)
         panel.appearance = NSAppearance(named: theme.isLight ? .aqua : .darkAqua)
         let box = AlertBox(text: field?.value ?? "")
