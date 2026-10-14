@@ -60,9 +60,7 @@ struct SplitPane: View {
         VStack(spacing: 0) {
             header(selected: selected, excluded: excluded, multi: multi)
             if let e = model.notices[session.id] { PasswordNotice(session: session, event: e) }
-            TerminalHost(session: session, focused: selected)
-                .padding(.leading, 6)
-                .padding(.top, 4)
+            SessionContent(session: session, focused: selected, inset: 6)
         }
         .background(SwiftUI.Color(t.layer))
         .overlay(Rectangle().strokeBorder(SwiftUI.Color(edge).opacity(selected || multi ? 0.9 : 0.5), lineWidth: selected ? 2 : 1))
@@ -71,7 +69,7 @@ struct SplitPane: View {
 
     private func header(selected: Bool, excluded: Bool, multi: Bool) -> some View {
         HStack(spacing: 7) {
-            Circle().fill(SwiftUI.Color(session.exited ? t.bad : (session.state == .connected ? t.good : t.warning)))
+            Circle().fill(SwiftUI.Color(session.statusColor(t)))
                 .frame(width: 7, height: 7)
             Text(session.title).font(t.ui(11.5, .bold)).lineLimit(1)
             if let d = session.device, d != session.title {
@@ -111,7 +109,7 @@ struct SplitPane: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { model.showSplit = false; model.selection = session.id }
         .onTapGesture { model.selection = session.id }
-        .contextMenu { SessionTabMenu(session: session) }
+        .themedContextMenu { SessionTabMenu(session: session) }
     }
 }
 
@@ -128,27 +126,24 @@ struct EmptyPane: View {
             Text(L("PANEL LIBRE")).font(t.ui(11, .bold)).tracking(3).foregroundStyle(SwiftUI.Color(t.dim))
             HStack(spacing: 8) {
                 if !others.isEmpty {
-                    Menu {
+                    ThemedMenu {
                         ForEach(others) { s in Button(s.title) { model.addToSplit(s, at: index) } }
                     } label: { NeonLabel(title: L("Pestaña abierta"), icon: "rectangle.stack") }
-                        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
                 }
-                Menu {
+                ThemedMenu {
                     if let cur = model.current {
                         Button(L("Clonar «\(cur.title)»")) { model.openInSplit(cur.route, at: index) }
-                        Divider()
+                        MenuDivider()
                     }
                     ForEach(model.sessions.groups, id: \.name) { g in
-                        Section(g.name) {
-                            ForEach(g.profiles) { p in
-                                Button(p.name) {
-                                    if let r = try? model.sessions.route(to: p) { model.openInSplit(r, at: index) }
-                                }
+                        MenuHeader(title: L(nombre: g.name))
+                        ForEach(g.profiles) { p in
+                            Button(p.name) {
+                                if let r = try? model.sessions.route(to: p) { model.openInSplit(r, at: index) }
                             }
                         }
                     }
                 } label: { NeonLabel(title: L("Abrir sesión"), icon: "bolt.horizontal.fill") }
-                    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -24,6 +24,8 @@ final class AppModel {
     let store: CredentialStore = KeychainStore()
     let ledger = CredentialLedger.shared()
     let policy = CredentialPolicy()
+    /// Copias de los exploradores SFTP/FTP (también de servidor a servidor).
+    let transfers = TransferCenter()
     @ObservationIgnored let multiExec = MultiExecGroup()
     /// Lo que afecta a varias pestañas (pegado a todas, listas): Esc en cualquiera lo corta.
     @ObservationIgnored let sharedGate = AutomationGate()
@@ -311,7 +313,7 @@ final class AppModel {
     func open(_ profile: SessionProfile) {
         do {
             let r = try sessions.route(to: profile)
-            if r.transport == .ftp { openFTP(r) } else { open(r) }
+            open(r)
             noteRecent(profile.name)
         } catch {
             status = "✗ \(error.localizedDescription)"
@@ -410,24 +412,43 @@ final class AppModel {
         if settings.startupLocalTerminal, tabs.isEmpty { openLocal() }
     }
 
-    /// FTP: macOS no trae cliente; el Finder lo monta (sólo lectura) y pide él la contraseña.
-    func openFTP(_ r: ConnectionRoute) {
-        guard let url = r.ftpURL else { status = "✗ " + L("Equipo no válido: «\(r.target.host)»"); return }
-        DebugLog.log("ftp", "«\(r.title)» → Finder")
-        NSWorkspace.shared.open(url)
-        status = L("FTP «\(r.title)»: se abre en el Finder (sólo lectura)")
+    /// Pestaña SFTP/FTP: vista gráfica (explorador) o la consola sftp. La consola arranca la primera vez que se pide.
+    func setConsole(_ on: Bool, in s: TerminalSession) {
+        guard s.browser != nil, !on || s.route.transport == .sftp else { return }
+        s.showConsole = on
+        if on {
+            s.startIfNeeded()
+            DispatchQueue.main.async { s.view.window?.makeFirstResponder(s.view) }
+        } else {
+            s.browser?.connect()
+        }
+    }
+
+    /// «Enviar a…»: de un explorador a la carpeta en la que está otro, de servidor a servidor (en memoria).
+    func send(_ entries: [RemoteEntry], from: RemoteBrowser, to: RemoteBrowser) {
+        guard let src = from.fs, let dst = to.fs, !entries.isEmpty else { return }
+        // (mismo servidor y misma carpeta: «sustituir» vaciaría el archivo mientras se lee)
+        if from.route.target.host == to.route.target.host, from.route.target.port == to.route.target.port,
+           from.route.transport == to.route.transport, entries.contains(where: { RemotePath.parent($0.path) == to.path }) {
+            status = L("✗ Es la misma carpeta del mismo servidor: elige otra de destino")
+            return
+        }
+        let names = Set(to.entries.map(\.name))
+        let clash = entries.map(\.name).filter(names.contains)
+        if !clash.isEmpty, !ThemedAlert.confirm(L("Ya existe en \(to.path): \(clash.prefix(3).joined(separator: ", "))"),
+                                                message: L("Se sustituirá lo que haya en el servidor de destino."),
+                                                ok: L("Sustituir"), destructive: true) {
+            return
+        }
+        transfers.bridge(entries, from: src, to: dst, dir: to.path) { [weak to] in to?.refresh() }
+        status = L("Copiando de «\(from.route.title)» a «\(to.route.title)»…")
     }
 
     /// Borrar una sesión desde la lista (pregunta antes; queda copia en ssh_config.anterior).
     func deleteSession(_ name: String) {
         var f = sessionFile
         guard let i = f.sessions.firstIndex(where: { $0.name == name }) else { return }
-        let a = NSAlert()
-        a.messageText = L("¿Borrar la sesión «\(name)»?")
-        a.informativeText = L("Queda una copia en ssh_config.anterior. Su contraseña del Llavero no se toca.")
-        a.addButton(withTitle: L("Borrar"))
-        a.addButton(withTitle: L("Cancelar"))
-        guard a.runModal() == .alertFirstButtonReturn else { return }
+        guard ThemedAlert.confirm(L("¿Borrar la sesión «\(name)»?"), message: L("Queda una copia en ssh_config.anterior. Su contraseña del Llavero no se toca."), ok: L("Borrar"), destructive: true) else { return }
         f.sessions.remove(at: i)
         if let err = saveSessions(f) { status = "✗ \(err)"; return }
         if favorites.contains(name) { toggleFavorite(name) }
@@ -457,6 +478,7 @@ final class AppModel {
         }
         s.apply(theme: themes.current, font: terminalFont)
         applyHighlight(to: s)
+        if route.transport == .sftp || route.transport == .ftp { s.browser = RemoteBrowser(route: route, model: self) }
         tabs.append(s)
         selection = s.id
         syncMultiExec()
@@ -467,7 +489,12 @@ final class AppModel {
                                   defaultCredential: settings.defaultCredential, session: s.id)
             : [:]
         if settings.logEnabled { s.startLog(in: settings.logURL) }
-        s.start(extraEnvironment: askpass)
+        if s.browser != nil {
+            s.deferredEnvironment = askpass           // (la consola sftp, cuando se pida; el explorador conecta solo)
+            s.browser?.connect()
+        } else {
+            s.start(extraEnvironment: askpass)
+        }
         status = route.usesPasswords ? L("Conectando a \(route.title)…") : ""
         return s
     }
@@ -511,7 +538,7 @@ final class AppModel {
     func reconnect(_ s: TerminalSession) {
         DebugLog.log("pestaña", "«\(s.title)» reconectar")
         notices[s.id] = nil
-        s.restart()
+        if let b = s.browser, !s.showConsole { b.reconnect() } else { s.restart() }
     }
 
     /// Otra pestaña con la misma sesión (clonar).
@@ -595,23 +622,12 @@ final class AppModel {
     /// pestaña y siempre si está bloqueada por un fallo reciente. Nunca se registra.
     func typePasswordAnyway(_ ref: CredentialRef, in s: TerminalSession, pressReturn: Bool) {
         if !anywayConfirmed.contains(s.id) {
-            let a = NSAlert()
-            a.messageText = L("¿Escribir «\(ref.account)» en «\(s.title)»?")
-            a.informativeText = L("Va como texto al terminal aunque no pidan contraseña: si no es un prompt de contraseña, se verá en pantalla (y puede quedar en el historial del equipo).")
-            a.addButton(withTitle: L("Escribir"))
-            a.addButton(withTitle: L("Cancelar"))
-            guard a.runModal() == .alertFirstButtonReturn else { return }
+            guard ThemedAlert.confirm(L("¿Escribir «\(ref.account)» en «\(s.title)»?"), message: L("Va como texto al terminal aunque no pidan contraseña: si no es un prompt de contraseña, se verá en pantalla (y puede quedar en el historial del equipo)."), ok: L("Escribir")) else { return }
             anywayConfirmed.insert(s.id)
         }
         var force = false
         if ledger.isBlocked(ref) {
-            let a = NSAlert()
-            a.alertStyle = .warning
-            a.messageText = L("«\(ref.account)» ha fallado hace poco")
-            a.informativeText = L("Si es una cuenta AD, otro intento fallido puede bloquearla. ¿Escribirla igualmente?")
-            a.addButton(withTitle: L("Escribir igualmente"))
-            a.addButton(withTitle: L("Cancelar"))
-            guard a.runModal() == .alertFirstButtonReturn else { return }
+            guard ThemedAlert.confirm(L("«\(ref.account)» ha fallado hace poco"), message: L("Si es una cuenta AD, otro intento fallido puede bloquearla. ¿Escribirla igualmente?"), ok: L("Escribir igualmente"), destructive: true) else { return }
             force = true
         }
         switch s.passwords.typeAnyway(ref, into: s, pressReturn: pressReturn, force: force) {
@@ -1046,20 +1062,17 @@ final class AppModel {
     /// «Hay una versión nueva»: actualizar ahora (baja, comprueba y sustituye la app; se vuelve a abrir con tus
     /// pestañas), abrir su página o más tarde. Nada se instala sin este clic.
     func offerUpdate(_ r: UpdateCheck.Release) {
-        let alert = NSAlert()
         let auto = r.dmg != nil && r.sha256 != nil && Updater.canSelfInstall
-        alert.messageText = L("Terminal NetDeck \(r.version) disponible")
-        alert.informativeText = L("Tienes la \(UpdateCheck.currentVersion). ")
+        let message = L("Tienes la \(UpdateCheck.currentVersion). ")
             + (auto ? L("Se descarga de GitHub, se comprueba y se vuelve a abrir con tus pestañas. ")
                     : L("Descarga el .dmg y sustituye la app. "))
             + L("Tus sesiones, ajustes y el Llavero se conservan.")
-        alert.addButton(withTitle: auto ? L("Actualizar ahora") : r.dmg == nil ? L("Abrir la página") : L("Descargar"))
-        alert.addButton(withTitle: L("Más tarde"))
-        if auto { alert.addButton(withTitle: L("Ver qué cambia")) }
-        switch alert.runModal() {
-        case .alertFirstButtonReturn:
+        let first = auto ? L("Actualizar ahora") : r.dmg == nil ? L("Abrir la página") : L("Descargar")
+        let buttons = auto ? [first, L("Ver qué cambia"), L("Más tarde")] : [first, L("Más tarde")]
+        switch ThemedAlert.run(L("Terminal NetDeck \(r.version) disponible"), message: message, buttons: buttons).button {
+        case 0:
             if auto { Updater.install(r, model: self) } else { NSWorkspace.shared.open(r.dmg ?? r.page) }
-        case .alertThirdButtonReturn: NSWorkspace.shared.open(r.page)
+        case 1 where auto: NSWorkspace.shared.open(r.page)
         default: break
         }
     }

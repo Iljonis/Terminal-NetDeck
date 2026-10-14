@@ -14,8 +14,13 @@ Swift 6 · SwiftUI · [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm). E
   carpetas: `Clientes/Madrid/Core`), con favoritas y recientes. Se crean, editan, duplican, borran y ordenan en el gestor.
   Anotaciones propias en comentarios: `# @grupo`, `# @clave`, `# @clave-grupo`, `# @desc`, `# @telnet`,
   `# @tipo sftp|ftp|serie|local`, `# @serie /dev/cu.usbserial-0001 9600 8N1`.
-- **Tipos de sesión**: SSH, Telnet, SFTP (`/usr/bin/sftp` con el mismo alias y saltos), FTP (en el Finder, sólo
-  lectura: macOS no trae cliente), terminal local y consola por puerto serie (`/usr/bin/screen`).
+- **Tipos de sesión**: SSH, Telnet, SFTP y FTP, terminal local y consola por puerto serie (`/usr/bin/screen`).
+- **Explorador SFTP/FTP** (tipo Cyberduck) con la temática de la app: árbol y lista con tamaños, permisos, dueño y
+  fecha; barra de ruta; subir (también arrastrando desde el Finder), bajar, renombrar, borrar y carpetas nuevas. SFTP
+  usa el ssh del sistema (mismo alias, saltos y contraseña); el botón «Vista gráfica / Consola» pasa a la consola
+  `sftp` de siempre. FTP lo trae la app (sin cifrar: mejor SFTP si se puede).
+- **De servidor a servidor**: «Enviar a…» copia archivos o carpetas de un explorador a otro (SFTP ↔ SFTP o SFTP ↔ FTP)
+  leyendo y escribiendo a la vez en memoria, sin pasar por el disco del Mac.
 - **Saltos**: `ssh -J`; si el salto no deja reenviar, la app entra en él y escribe `ssh equipo` por ti. Telnet por el salto.
 - **Contraseñas sólo en el Llavero** de macOS. La de la sesión entra sola (askpass); las de los equipos, escritas solas,
   sugeridas o nada. **Regla de usuario**: nunca se escribe la contraseña de otro usuario, y si una falla queda bloqueada
@@ -219,7 +224,10 @@ available in Spanish (Spain) and English: **Settings → General → Language** 
   commands or a password prompt.
 - **MultiExec, split view, device lists via a jump host, command buttons, session logging and log search.**
 - **Local terminal** (⌘T) and a **startup session** that opens at launch (⌥⌘K opens it on demand).
-- **Session types:** SSH, Telnet, SFTP, FTP (in Finder), local shell and serial console (`screen`), organised in nested
+- **SFTP/FTP file browser** (Cyberduck-style, themed): tree and list, sizes, permissions, path bar, upload, download,
+  rename, delete; a “Graphical view / Console” switch for the plain `sftp` console; **server-to-server copies**
+  (SFTP ↔ SFTP or SFTP ↔ FTP) streamed in memory, never touching the Mac's disk.
+- **Session types:** SSH, Telnet, SFTP, FTP, local shell and serial console (`screen`), organised in nested
   folders (`Clients/Madrid/Core`), with a full session manager (create, edit, duplicate, reorder, delete).
 - **Import** sessions from SecureCRT, MobaXterm, PuTTY, electerm, CSV or another `ssh_config`, and **export** them to
   JSON/CSV to share (never passwords; imported files can't bring command-running ssh options).

@@ -1218,8 +1218,6 @@ enum Ingles {
             "/usr/bin/screen is not on this Mac: it's needed for the serial port",
         "No está «%@»: ¿está conectado el adaptador USB-serie?":
             "“%@” is not there: is the USB-serial adapter plugged in?",
-        "FTP se abre en el Finder, no en una pestaña":
-            "FTP opens in the Finder, not in a tab",
         "No está %@ en este Mac":
             "%@ is not on this Mac",
         "Serie":
@@ -1248,10 +1246,6 @@ enum Ingles {
             "This Mac",
         "Tipo":
             "Type",
-        "Abre /usr/bin/sftp con el mismo alias, salto, puerto y usuario que ssh; la contraseña, como en ssh.":
-            "Opens /usr/bin/sftp with the same alias, jump host, port and user as ssh; the password works as in ssh.",
-        "macOS no trae cliente FTP: se abre en el Finder, sólo lectura (para subir archivos, usa SFTP). La contraseña la pide el Finder.":
-            "macOS has no FTP client: it opens in the Finder, read-only (to upload files, use SFTP). The Finder asks for the password.",
         "Tu shell de inicio en este Mac (como ⌘T): sin contraseñas ni MultiExec.":
             "Your login shell on this Mac (like ⌘T): no passwords and no MultiExec.",
         "NOTAS":
@@ -1292,8 +1286,6 @@ enum Ingles {
             "✓ %@ exported to %@ (no passwords)",
         "CSV del inventario, un ssh_config o un JSON exportado desde aquí. Las carpetas pasan a ser grupos. Nunca se importa ninguna contraseña.":
             "an inventory CSV, an ssh_config or a JSON exported from here. Folders become groups. No password is ever imported.",
-        "FTP «%@»: se abre en el Finder (sólo lectura)":
-            "FTP “%@”: opening in the Finder (read-only)",
         "Queda una copia en ssh_config.anterior. Su contraseña del Llavero no se toca.":
             "A copy stays in ssh_config.anterior. Its Keychain password is not touched.",
         "Buscar sesión, equipo, IP, usuario o tipo":
@@ -1437,5 +1429,199 @@ enum Ingles {
             "Recent",
         "Nada coincide con «%@»":
             "Nothing matches “%@”",
+        "✓ %@ · %@ archivos":
+            "✓ %@ · %@ files",
+        "🔑 «%@» guardada en el Llavero":
+            "🔑 “%@” saved in the Keychain",
+        "✗ Nombre no válido":
+            "✗ Invalid name",
+        "⇅ TRANSFERENCIAS %@/%@":
+            "⇅ TRANSFERS %@/%@",
+        "%@ elegidos":
+            "%@ selected",
+        "%@ elementos":
+            "%@ items",
+        "%@ elementos · %@":
+            "%@ items · %@",
+        "«%@» no ha valido: bloqueada 15 min en todas las pestañas":
+            "“%@” didn't work: blocked for 15 min in every tab",
+        "Abre otra pestaña SFTP o FTP y conéctala":
+            "Open another SFTP or FTP tab and connect it",
+        "Abrir la consola":
+            "Open the console",
+        "Abrir también en el Finder":
+            "Also open in Finder",
+        "Actualizar":
+            "Refresh",
+        "Adelante":
+            "Forward",
+        "¿Borrar %@ elementos?":
+            "Delete %@ items?",
+        "¿Borrar «%@»?":
+            "Delete “%@”?",
+        "cancelada":
+            "cancelled",
+        "Cancelada":
+            "Cancelled",
+        "Carpeta de arriba":
+            "Parent folder",
+        "Carpeta vacía":
+            "Empty folder",
+        "Conexión cerrada":
+            "Connection closed",
+        "Consola":
+            "Console",
+        "Consola sftp":
+            "sftp console",
+        "Contraseña de %@@%@":
+            "Password for %@@%@",
+        "Copiando de «%@» a «%@»…":
+            "Copying from “%@” to “%@”…",
+        "Copiar directamente a otro servidor abierto (en memoria, sin pasar por el disco del Mac)":
+            "Copy straight to another open server (in memory, never touching the Mac's disk)",
+        "Copiar la ruta":
+            "Copy path",
+        "Crear":
+            "Create",
+        "Demasiados niveles de carpetas en «%@»":
+            "Too many folder levels in “%@”",
+        "Descargar…":
+            "Download…",
+        "Descargar al Mac":
+            "Download to the Mac",
+        "Descargar aquí":
+            "Download here",
+        "Desplegar aquí":
+            "Expand here",
+        "¿Dónde guardo %@?":
+            "Where should %@ be saved?",
+        "El servidor no lo admite":
+            "The server doesn't support it",
+        "Enviar a…":
+            "Send to…",
+        "Enviar a otro servidor":
+            "Send to another server",
+        "Error del servidor (%@)":
+            "Server error (%@)",
+        "Escribir la ruta":
+            "Type the path",
+        "Fin del archivo":
+            "End of file",
+        "FTP no tiene consola: macOS no trae cliente":
+            "FTP has no console: macOS ships no client",
+        "FTP no tiene consola: usa la vista gráfica":
+            "FTP has no console: use the graphical view",
+        "FTP no va cifrado: la contraseña viaja tal cual por la red.":
+            "FTP isn't encrypted: the password travels in clear over the network.",
+        "FTP: %@":
+            "FTP: %@",
+        "FTP: el servidor ha cerrado la conexión":
+            "FTP: the server closed the connection",
+        "FTP: listado demasiado grande":
+            "FTP: listing too large",
+        "FTP: modo pasivo no válido":
+            "FTP: invalid passive mode",
+        "FTP: respuesta demasiado larga":
+            "FTP: reply too long",
+        "FTP: respuesta no válida":
+            "FTP: invalid reply",
+        "FTP: sin cifrar":
+            "FTP: unencrypted",
+        "FTP: usuario o contraseña no válidos":
+            "FTP: invalid user or password",
+        "Guardarla en el Llavero como «%@»":
+            "Save it in the Keychain as “%@”",
+        "La consola sftp de siempre (put, get, ls…)":
+            "The usual sftp console (put, get, ls…)",
+        "Las carpetas se borran con todo lo que llevan dentro. No se puede deshacer.":
+            "Folders are deleted with everything inside. This can't be undone.",
+        "Más de %@ archivos: cópialos por partes":
+            "More than %@ files: copy them in parts",
+        "Modificado":
+            "Modified",
+        "Mostrar los archivos ocultos (.algo)":
+            "Show hidden files (.something)",
+        "No arranca %@: %@":
+            "%@ doesn't start: %@",
+        "No contesta (15 s)":
+            "No answer (15 s)",
+        "No existe":
+            "Doesn't exist",
+        "No se ha podido conectar":
+            "Couldn't connect",
+        "No se puede escribir en «%@»":
+            "Can't write to “%@”",
+        "Nombre no válido":
+            "Invalid name",
+        "Nueva carpeta":
+            "New folder",
+        "Nueva carpeta…":
+            "New folder…",
+        "Nueva carpeta en %@":
+            "New folder in %@",
+        "Permiso denegado":
+            "Permission denied",
+        "Permisos":
+            "Permissions",
+        "Plegar":
+            "Collapse",
+        "Propietario":
+            "Owner",
+        "Quitar las acabadas":
+            "Clear finished",
+        "Reintentar":
+            "Retry",
+        "Renombrar":
+            "Rename",
+        "Renombrar «%@»":
+            "Rename “%@”",
+        "Se borra del servidor. No se puede deshacer.":
+            "It's deleted from the server. This can't be undone.",
+        "Se ha cerrado la conexión":
+            "The connection was closed",
+        "Se ha perdido la conexión":
+            "The connection was lost",
+        "Se suben a %@":
+            "They're uploaded to %@",
+        "Se sustituirá lo que haya en el servidor de destino.":
+            "Whatever is on the destination server will be replaced.",
+        "Se sustituirá lo que haya en el servidor.":
+            "Whatever is on the server will be replaced.",
+        "servidor ↔ servidor en memoria · sin pasar por el disco del Mac":
+            "server ↔ server in memory · never touching the Mac's disk",
+        "SFTP: cifrado (ssh)":
+            "SFTP: encrypted (ssh)",
+        "SFTP: el servidor no habla SFTP":
+            "SFTP: the server doesn't speak SFTP",
+        "SFTP: paquete cortado":
+            "SFTP: truncated packet",
+        "SFTP: respuesta inesperada":
+            "SFTP: unexpected reply",
+        "sftp> put · get · ls · cd · help":
+            "sftp> put · get · ls · cd · help",
+        "Subir aquí…":
+            "Upload here…",
+        "Subir archivos o carpetas del Mac":
+            "Upload files or folders from the Mac",
+        "Suelta para subir a %@":
+            "Drop to upload to %@",
+        "TRANSFERENCIAS":
+            "TRANSFERS",
+        "Tu carpeta de inicio":
+            "Your home folder",
+        "Usuario o contraseña no válidos":
+            "Invalid user or password",
+        "Vista gráfica":
+            "Graphical view",
+        "Ya existe «%@»":
+            "“%@” already exists",
+        "Ya existe en %@: %@":
+            "Already exists in %@: %@",
+        "Se abre en el explorador gráfico (con el mismo alias, salto, puerto y usuario que ssh); la consola sftp, con un clic. La contraseña, como en ssh.":
+            "Opens in the graphical browser (same alias, jump, port and user as ssh); the sftp console is one click away. The password works as in ssh.",
+        "Se abre en el explorador gráfico de la app (subir, bajar, renombrar, borrar). FTP no va cifrado: si el equipo lo admite, mejor SFTP. La contraseña, del Llavero o se pide.":
+            "Opens in the app's graphical browser (upload, download, rename, delete). FTP isn't encrypted: prefer SFTP if the device supports it. The password comes from the Keychain or is asked for.",
+        "✗ Es la misma carpeta del mismo servidor: elige otra de destino":
+            "✗ That's the same folder on the same server: pick another destination",
 ]
 }

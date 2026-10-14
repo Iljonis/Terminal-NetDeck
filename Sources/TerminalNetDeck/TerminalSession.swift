@@ -175,6 +175,13 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     @ObservationIgnored var onForwardingRefused: ((TerminalSession) -> ConnectionRoute?)?
     /// El contenedor que la muestra ahora (pestaña o panel de la vista dividida).
     @ObservationIgnored weak var host: NSView?
+    /// SFTP/FTP: el explorador de archivos (lo que se ve por defecto); la consola sftp, sólo si se pide.
+    @ObservationIgnored var browser: RemoteBrowser?
+    /// Con explorador: se ve la consola en vez de la vista gráfica.
+    var showConsole = false
+    /// La consola ya ha arrancado (en SFTP espera a que se pida; así no se conecta dos veces).
+    @ObservationIgnored private(set) var started = false
+    @ObservationIgnored var deferredEnvironment: [String: String] = [:]
 
     @ObservationIgnored let pipe = OutputPipe()
     @ObservationIgnored private var process: LocalProcess?
@@ -207,7 +214,13 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     /// `extraEnvironment`: el askpass (contraseña de sesión automática).
     func start(extraEnvironment: [String: String] = [:]) {
         environment = extraEnvironment
+        started = true
         launch()
+    }
+
+    /// La consola de una pestaña con explorador, la primera vez que se pide.
+    func startIfNeeded() {
+        if !started { start(extraEnvironment: deferredEnvironment) }
     }
 
     private func launch() {
@@ -270,6 +283,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
 
     /// Reconectar en la misma pestaña (el historial se queda).
     func restart() {
+        guard started else { return startIfNeeded() }
         hopTask?.cancel()
         if !exited { process?.terminate() }
         pipe.say(L("\r\n\u{1b}[38;5;51m[NetDeck] Reconectando…\u{1b}[0m\r\n"))
@@ -278,6 +292,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
 
     func terminate() {
         hopTask?.cancel()
+        browser?.disconnect()
         process?.terminate()
         stopLog()
     }

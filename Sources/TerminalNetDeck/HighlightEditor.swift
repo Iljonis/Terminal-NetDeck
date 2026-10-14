@@ -31,14 +31,13 @@ struct HighlightRuleList: View {
                     Spacer()
                     Button { editing = Target(index: i, rule: r) } label: { Image(systemName: "pencil") }
                         .buttonStyle(.borderless).help(L("Editar la regla"))
-                    Menu {
+                    ThemedMenu {
                         Button(L("Duplicar")) { duplicate(i) }
                         Button(L("Subir")) { move(i, -1) }.disabled(i == 0)
                         Button(L("Bajar")) { move(i, 1) }.disabled(i == rules.count - 1)
-                        Divider()
+                        MenuDivider()
                         Button(L("Borrar…")) { delete(i) }
-                    } label: { Image(systemName: "ellipsis.circle") }
-                        .menuStyle(.button).buttonStyle(.borderless).menuIndicator(.hidden).fixedSize()
+                    } label: { Image(systemName: "ellipsis.circle") }.fixedSize()
                 }
             }
         } header: {
@@ -106,24 +105,14 @@ struct HighlightRuleList: View {
     private func delete(_ i: Int) {
         let list = model.highlightConfig.rules
         guard list.indices.contains(i) else { return }
-        let a = NSAlert()
-        a.messageText = L("¿Borrar la regla «\(list[i].description)»?")
-        a.informativeText = L("Queda una copia del archivo anterior (resaltado.yml.anterior).")
-        a.addButton(withTitle: L("Borrar"))
-        a.addButton(withTitle: L("Cancelar"))
-        guard a.runModal() == .alertFirstButtonReturn else { return }
+        guard ThemedAlert.confirm(L("¿Borrar la regla «\(list[i].description)»?"), message: L("Queda una copia del archivo anterior (resaltado.yml.anterior)."), ok: L("Borrar"), destructive: true) else { return }
         var rest = list
         let gone = rest.remove(at: i)
         save(rest, ok: L("✓ Borrada «\(gone.description)»"))
     }
 
     private func restore() {
-        let a = NSAlert()
-        a.messageText = L("¿Volver a las reglas de serie?")
-        a.informativeText = L("Tus reglas personalizadas se sustituyen (queda copia en resaltado.yml.anterior) y se encienden todas.")
-        a.addButton(withTitle: L("Restaurar"))
-        a.addButton(withTitle: L("Cancelar"))
-        guard a.runModal() == .alertFirstButtonReturn else { return }
+        guard ThemedAlert.confirm(L("¿Volver a las reglas de serie?"), message: L("Tus reglas personalizadas se sustituyen (queda copia en resaltado.yml.anterior) y se encienden todas."), ok: L("Restaurar"), destructive: true) else { return }
         if let err = model.restoreBundledHighlight() { message = "✗ \(err)" } else { message = L("✓ Reglas de serie restauradas") }
     }
 }
@@ -160,9 +149,9 @@ struct HighlightRuleEditor: View {
         VStack(spacing: 0) {
             Form {
                 Section {
-                    TextField(L("Descripción"), text: $name, prompt: Text(L("p. ej. VLAN")))
+                    LabeledContent(L("Descripción")) { TextField("", text: $name, prompt: Text(L("p. ej. VLAN"))).frame(maxWidth: 380) }
                     if let nameProblem { Text(nameProblem).font(.caption).foregroundStyle(.red) }
-                    TextField(L("Expresión regular"), text: $regex, prompt: Text(#"\bvlan\s?\d+\b"#))
+                    LabeledContent(L("Expresión regular")) { TextField("", text: $regex, prompt: Text(#"\bvlan\s?\d+\b"#)).frame(maxWidth: 380) }
                         .font(.body.monospaced())
                     if let problem {
                         Text("✗ " + problem).font(.caption).foregroundStyle(.red)
@@ -186,7 +175,7 @@ struct HighlightRuleEditor: View {
                         .font(.caption)
                 }
                 Section(L("Vista previa (sólo esta regla)")) {
-                    TextEditor(text: $sample).font(.callout.monospaced()).frame(height: 90)
+                    TextEditor(text: $sample).themedEditor().font(.callout.monospaced()).frame(height: 90)
                     let h = draft.map { Highlighter(rules: [$0], palette: palette(th)) }
                     Text(HighlightPreview.render(sample, with: h, palette: palette(th), theme: th))
                         .font(SwiftUI.Font(model.terminalFont))
@@ -201,7 +190,7 @@ struct HighlightRuleEditor: View {
                     }
                 }
             }
-            .formStyle(.grouped)
+            .formStyle(.themed)
             HStack {
                 Spacer()
                 Button(L("Cancelar")) { dismiss() }.keyboardShortcut(.cancelAction)
@@ -252,17 +241,15 @@ struct HighlightRuleEditor: View {
     @ViewBuilder
     private func styleRow(_ row: Binding<StyleRow>, groups: Int, palette: [String: RGB]) -> some View {
         HStack(spacing: 10) {
-            Picker(L("Grupo"), selection: row.group) {
-                ForEach(Array(Set(0...max(groups, row.wrappedValue.group))).sorted(), id: \.self) { g in
-                    Text(g == 0 ? L("todo") : "\(g)").tag(g)
-                }
+            ThemedPicker(L("Grupo"), selection: row.group) { o in
+                for g in Array(Set(0...max(groups, row.wrappedValue.group))).sorted() { o.append((g, g == 0 ? L("todo") : "\(g)")) }
             }
             .frame(width: 120)
             colorPicker(L("Texto"), row.style.foreground, palette: palette)
             colorPicker(L("Fondo"), row.style.background, palette: palette)
-            Toggle("B", isOn: row.style.bold).toggleStyle(.button).help(L("Negrita"))
-            Toggle("I", isOn: row.style.italic).toggleStyle(.button).help(L("Cursiva"))
-            Toggle("U", isOn: row.style.underline).toggleStyle(.button).help(L("Subrayado"))
+            Toggle("B", isOn: row.style.bold).toggleStyle(.themedCheckbox).help(L("Negrita"))
+            Toggle("I", isOn: row.style.italic).toggleStyle(.themedCheckbox).help(L("Cursiva"))
+            Toggle("U", isOn: row.style.underline).toggleStyle(.themedCheckbox).help(L("Subrayado"))
             Spacer()
             Button { rows.removeAll { $0.id == row.wrappedValue.id } } label: { Image(systemName: "minus.circle") }
                 .buttonStyle(.borderless).help(L("Quitar este color"))
@@ -272,9 +259,9 @@ struct HighlightRuleEditor: View {
     /// Colores con nombre de ChromaTerm (los del tema) o uno a mano («#rrggbb»).
     private func colorPicker(_ title: String, _ value: Binding<String?>, palette: [String: RGB]) -> some View {
         HStack(spacing: 4) {
-            Menu {
+            ThemedMenu {
                 Button(L("Ninguno")) { value.wrappedValue = nil }
-                Divider()
+                MenuDivider()
                 ForEach(HighlightStyle.colorNames, id: \.self) { n in
                     Button { value.wrappedValue = n } label: {
                         Label { Text(n) } icon: { Image(nsImage: Self.swatch(palette[n])) }

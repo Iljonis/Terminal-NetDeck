@@ -13,18 +13,17 @@ struct ConnectSheet: View {
 
     var body: some View {
         Form {
-            TextField(L("Equipo"), text: $device, prompt: Text(L("192.0.2.5 · admin@core-01 · core-01:2222")))
-            Picker(L("Salto"), selection: $jump) {
-                Text(L("Directo")).tag("")
-                ForEach(model.sessions.profiles) { Text($0.name).tag($0.name) }
+            LabeledContent(L("Equipo")) { TextField("", text: $device, prompt: Text(L("192.0.2.5 · admin@core-01 · core-01:2222"))).frame(maxWidth: 380) }
+            ThemedPicker(L("Salto"), selection: $jump) { o in
+                o.append(("", L("Directo")))
+                for x in model.sessions.profiles { o.append((x.name, x.name)) }
             }
-            TextField(L("Usuario"), text: $user, prompt: Text(L("(el del equipo o el de la sesión)")))
-            Picker(L("Protocolo"), selection: $transport) {
-                ForEach([SessionProfile.Transport.ssh, .telnet], id: \.self) { Text($0.rawValue).tag($0) }
+            LabeledContent(L("Usuario")) { TextField("", text: $user, prompt: Text(L("(el del equipo o el de la sesión)"))).frame(maxWidth: 380) }
+            ThemedSegmented(L("Protocolo"), selection: $transport) { o in
+                for x in [SessionProfile.Transport.ssh, .telnet] { o.append((x, x.rawValue)) }
             }
-            .pickerStyle(.segmented)
         }
-        .formStyle(.grouped)
+        .formStyle(.themed)
         .frame(width: 440)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button(L("Cancelar")) { dismiss() } }
@@ -64,7 +63,7 @@ struct PasteSheet: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(L("Una a una, esperando al equipo. Se para si da error, si pagina o con Esc."))
                 .font(.callout).foregroundStyle(.secondary)
-            TextEditor(text: $text)
+            TextEditor(text: $text).themedEditor()
                 .font(.system(.body, design: .monospaced))
                 .frame(minHeight: 220)
             if !dangerous.isEmpty {
@@ -109,35 +108,34 @@ struct ListSheet: View {
         Form {
             Section {
                 HStack {
-                    Picker(L("Lista guardada"), selection: Binding(get: { selected }, set: { pick($0) })) {
-                        Text(L("(nueva, sin guardar)")).tag(SavedList.ID?.none)
-                        ForEach(library.lists) { Text($0.name).tag(SavedList.ID?.some($0.id)) }
+                    ThemedPicker(L("Lista guardada"), selection: Binding(get: { selected }, set: { pick($0) })) { o in
+                        o.append((SavedList.ID?.none, L("(nueva, sin guardar)")))
+                        for x in library.lists { o.append((SavedList.ID?.some(x.id), x.name)) }
                     }
-                    Menu {
+                    ThemedMenu {
                         Button(L("Nueva")) { pick(nil) }
                         Button(L("Duplicar")) { duplicate() }.disabled(selected == nil)
                         Button(L("Renombrar…")) { rename() }.disabled(selected == nil)
                         Button(L("Importar equipos de un .txt/.csv…")) { importFile() }
-                        Divider()
+                        MenuDivider()
                         Button(L("Borrar…"), role: .destructive) { remove() }.disabled(selected == nil)
-                    } label: { Image(systemName: "ellipsis.circle") }
-                        .menuStyle(.button).buttonStyle(.borderless).menuIndicator(.hidden).fixedSize()
+                    } label: { Image(systemName: "ellipsis.circle") }.fixedSize()
                 }
             }
-            TextField(L("Nombre"), text: $name)
-            Picker(L("Salto"), selection: $jump) {
-                if !jump.isEmpty, model.sessions.profile(named: jump) == nil { Text(jump).tag(jump) }
-                ForEach(model.sessions.profiles) { Text($0.name).tag($0.name) }
+            LabeledContent(L("Nombre")) { TextField("", text: $name, prompt: Text(L("Nombre"))).frame(maxWidth: 380) }
+            ThemedPicker(L("Salto"), selection: $jump) { o in
+                if !jump.isEmpty, model.sessions.profile(named: jump) == nil { o.append((jump, jump)) }
+                for x in model.sessions.profiles { o.append((x.name, x.name)) }
             }
-            TextField(L("Usuario en los equipos"), text: $user, prompt: Text("tu.usuario"))
-            Picker(L("Contraseña"), selection: $credential) {
-                Text(L("(a mano)")).tag("")
+            LabeledContent(L("Usuario en los equipos")) { TextField("", text: $user, prompt: Text("tu.usuario")).frame(maxWidth: 380) }
+            ThemedPicker(L("Contraseña"), selection: $credential) { o in
+                o.append(("", L("(a mano)")))
                 if !credential.isEmpty, !model.keychainAccounts.contains(where: { $0.account == credential }) {
-                    Text(L("\(credential) (no está en el Llavero)")).tag(credential)
+                    o.append((credential, L("\(credential) (no está en el Llavero)")))
                 }
-                ForEach(model.keychainAccounts, id: \.self) { Text($0.account).tag($0.account) }
+                for r in model.keychainAccounts { o.append((r.account, r.account)) }
             }
-            TextEditor(text: $devices)
+            TextEditor(text: $devices).themedEditor()
                 .font(.system(.body, design: .monospaced))
                 .frame(minHeight: 140)
             Text(L("\(parsed.devices.count) equipos · una sola pestaña prueba la contraseña a la vez; si falla, no se escribe en las demás"))
@@ -148,7 +146,7 @@ struct ListSheet: View {
             }
             if !message.isEmpty { Text(message).font(.caption) }
         }
-        .formStyle(.grouped)
+        .formStyle(.themed)
         .frame(width: 520)
         .onAppear(perform: load)
         .toolbar {
@@ -226,12 +224,7 @@ struct ListSheet: View {
 
     private func remove() {
         guard let id = selected else { return }
-        let a = NSAlert()
-        a.messageText = L("¿Borrar la lista «\(name)»?")
-        a.informativeText = L("Queda una copia en listas.json.anterior. Las contraseñas del Llavero no se tocan.")
-        a.addButton(withTitle: L("Borrar"))
-        a.addButton(withTitle: L("Cancelar"))
-        guard a.runModal() == .alertFirstButtonReturn else { return }
+        guard ThemedAlert.confirm(L("¿Borrar la lista «\(name)»?"), message: L("Queda una copia en listas.json.anterior. Las contraseñas del Llavero no se tocan."), ok: L("Borrar"), destructive: true) else { return }
         library.remove(id)
         pick(library.lists.first?.id)
         persist(L("✓ Borrada"))

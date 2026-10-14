@@ -105,7 +105,7 @@ struct Sidebar: View {
         let group = key.hasPrefix("\t") ? nil : key
         return FolderRow(title: title, icon: icon ?? (open ? "folder" : "folder.fill"), tint: tint, count: count,
                          depth: depth, open: open) { if !searching { toggle(key) } }
-            .contextMenu {
+            .themedContextMenu {
                 if let g = group, case let ps = profiles(under: g), !ps.isEmpty {
                     Button(L("Abrir las \(ps.count)")) { ps.forEach(model.open) }
                     Button(L("Abrir las \(ps.count) en vista dividida")) {
@@ -117,7 +117,7 @@ struct Sidebar: View {
                             model.showSplit = true
                         }
                     }
-                    Divider()
+                    MenuDivider()
                     Button(L("Nueva sesión en «\(g)»")) { model.editSessions(.new(group: g)) }
                     Button(L("Gestionar el grupo…")) { model.editSessions(ps.first.map { .session($0.name) }) }
                 }
@@ -251,27 +251,25 @@ struct SessionRow: View {
         .simultaneousGesture(TapGesture().onEnded { select() })
         .onHover { hover = $0 }
         .help(help)
-        .contextMenu {
+        .themedContextMenu {
             Button(L("Conectar")) { model.open(profile) }
-            if profile.transport != .ftp {
-                Button(L("Conectar en la vista dividida")) {
-                    if let r = try? model.sessions.route(to: profile) { model.addToSplit(model.open(r)) }
-                }
+            Button(L("Conectar en la vista dividida")) {
+                if let r = try? model.sessions.route(to: profile) { model.addToSplit(model.open(r)) }
             }
-            Divider()
+            MenuDivider()
             Button(model.favorites.contains(profile.name) ? L("Quitar de ★ favoritas") : L("★ Favorita")) {
                 model.toggleFavorite(profile.name)
             }
             Button(model.settings.startupSession == profile.name ? L("No abrir al arrancar") : L("⏻ Abrir al arrancar")) {
                 model.toggleStartup(profile.name)
             }
-            Divider()
+            MenuDivider()
             Button(L("Editar…")) { model.editSessions(.session(profile.name)) }
             Button(L("Duplicar…")) { model.editSessions(.duplicate(profile.name)) }
             Button(L("Nueva sesión en este grupo…")) { model.editSessions(.new(group: profile.group)) }
             Button(L("Borrar…")) { model.deleteSession(profile.name) }
             if profile.transport == .ssh || profile.transport == .sftp {
-                Divider()
+                MenuDivider()
                 Button(profile.transport == .ssh ? L("Copiar orden ssh") : L("Copiar orden sftp")) {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString("\(profile.transport.rawValue) \(profile.name)", forType: .string)

@@ -44,11 +44,12 @@ struct ContentView: View {
         .background(WindowReader { model.attach($0) })
         .ignoresSafeArea(.container, edges: .top)
         .tint(SwiftUI.Color(t.accent))
+        .themedControls()
         .overlay(alignment: .bottomTrailing) {
             StatusToast().padding(.trailing, 14).padding(.bottom, 34)
                 .animation(.easeInOut(duration: 0.3), value: model.toast)
         }
-        .overlay { if model.showSettings { SettingsOverlay() } }
+        .overlay { if model.showSettings { SettingsOverlay().themedControls() } }
         .onAppear(perform: snapshotAction)
         .sheet(item: $model.sheet) { sheet in
             Group {
@@ -64,6 +65,7 @@ struct ContentView: View {
             .environment(model)
             .environment(\.theme, t)
             .tint(SwiftUI.Color(t.accent))
+            .themedControls()
         }
     }
 }
@@ -82,6 +84,13 @@ extension ContentView {
                 }
             }
         }
+        if a.hasPrefix("explorador") {               // «explorador»: dos SFTP (con NETDECK_SFTP_SERVER) en una vista partida
+            for (n, h) in [("ficheros-01", "192.0.2.30"), ("copias-02", "198.51.100.40")] {
+                model.open(ConnectionRoute(title: n, target: Endpoint(user: "tu.usuario", host: h), transport: .sftp))
+            }
+            if a == "explorador:vista" { model.makeSplit(.side2) }
+        }
+        if a == "sesion-nueva" { model.editSessions(.new(group: nil, kind: .telnet)) }
         if a.hasPrefix("settings") { model.openSettings(a.split(separator: ":").dropFirst().first.map(String.init) ?? "contraseñas") }
         if a.hasPrefix("split") {                    // «split»: 3 pestañas en 1 + 2 con MultiExec
             for h in ["admin@192.0.2.11", "admin@192.0.2.12", "admin@192.0.2.21"] { model.quickConnect(h) }
@@ -127,26 +136,25 @@ struct TopBar: View {
                 .help(L("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)"))
             IconMenu(icon: "rectangle.split.3x1.fill", active: model.split != nil) {
                 ForEach(Split.Layout.allCases) { l in Button(l.title) { model.makeSplit(l) } }
-                Divider()
+                MenuDivider()
                 Button(L("Volver a pestañas sueltas")) { model.unsplit() }.disabled(model.split == nil)
             }
             .help(L("Dividir la pantalla"))
             IconMenu(icon: "key.fill") {
                 if let s = model.current {
-                    Section(L("Escribir en «\(s.title)»")) {
-                        ForEach(model.keychainAccounts, id: \.self) { ref in
-                            Button(ref.account) { model.typePassword(ref, in: s) }
-                        }
+                    MenuHeader(title: L("Escribir en «\(s.title)»"))
+                    ForEach(model.keychainAccounts, id: \.self) { ref in
+                        Button { model.typePassword(ref, in: s) } label: { Label(ref.account, systemImage: "key") }
                     }
-                    Menu(L("Escribir sin esperar a que la pida")) {
+                    ThemedSubmenu(title: L("Escribir sin esperar a que la pida")) {
                         ForEach(model.keychainAccounts, id: \.self) { ref in
-                            Menu(ref.account) {
+                            ThemedSubmenu(title: ref.account) {
                                 Button(L("Sin Intro")) { model.typePasswordAnyway(ref, in: s, pressReturn: false) }
                                 Button(L("Con Intro")) { model.typePasswordAnyway(ref, in: s, pressReturn: true) }
                             }
                         }
                     }
-                    Divider()
+                    MenuDivider()
                 }
                 Button(L("Contraseñas y Llavero…")) { model.openSettings("contraseñas") }
             }
@@ -334,7 +342,7 @@ struct IconButton: View {
     }
 }
 
-/// Como `IconButton`, pero abre un menú.
+/// Como `IconButton`, pero abre un menú (con la temática).
 struct IconMenu<Content: View>: View {
     @Environment(\.theme) private var t
     let icon: String
@@ -343,7 +351,7 @@ struct IconMenu<Content: View>: View {
     @Stored private var hover = false
 
     var body: some View {
-        Menu(content: content) {
+        ThemedMenu(content: content) {
             Image(systemName: icon).font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(SwiftUI.Color(active ? t.background : (hover ? t.accent : t.text)))
                 .padding(.horizontal, 7)
@@ -352,7 +360,7 @@ struct IconMenu<Content: View>: View {
                     .fill(SwiftUI.Color(active ? t.accent : t.panel).opacity(active ? 1 : (hover ? 0.9 : 0.4))))
                 .contentShape(Rectangle())
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .fixedSize()
         .onHover { hover = $0 }
     }
 }
@@ -397,16 +405,10 @@ struct TabChip: View {
         .onTapGesture { model.show(session) }
         .onHover { hover = $0 }
         .help(session.route.thenCommand.map { L("\(session.title) · en el salto: \($0)") } ?? session.title)
-        .contextMenu { SessionTabMenu(session: session) }
+        .themedContextMenu { SessionTabMenu(session: session) }
     }
 
-    private func dotColor(_ notice: Bool) -> RGB {
-        switch session.state {
-        case .exited: t.bad
-        case .connecting: t.warning
-        case .connected: notice ? t.warning : t.good
-        }
-    }
+    private func dotColor(_ notice: Bool) -> RGB { session.statusColor(t, notice: notice) }
 }
 
 /// Clic derecho en una pestaña o en la cabecera de un panel.
@@ -417,7 +419,7 @@ struct SessionTabMenu: View {
     var body: some View {
         Button(L("Reconectar")) { model.reconnect(session) }
         Button(L("Clonar (otra pestaña igual)")) { model.duplicate(session) }
-        Divider()
+        MenuDivider()
         if model.split?.panes.contains(session.id) == true {
             Button(L("Quitar de la vista dividida")) { model.removeFromSplit(session) }
         } else {
@@ -428,14 +430,17 @@ struct SessionTabMenu: View {
                 model.toggleExcluded(session)
             }
         }
-        Divider()
+        MenuDivider()
         Button(L("Buscar… (⌘F)")) { session.view.showFind() }
         Button(session.logFile == nil ? L("● Grabar registro") : L("■ Parar el registro")) { model.toggleLog(session) }
         if let f = session.logFile {
             Button(L("Abrir el registro")) { NSWorkspace.shared.open(f) }
         }
-        Divider()
-        Button(L("Cerrar")) { model.close(session) }
+        MenuDivider()
+        if session.browser != nil, session.route.transport == .sftp {
+            Button(session.showConsole ? L("Vista gráfica") : L("Consola sftp")) { model.setConsole(!session.showConsole, in: session) }
+        }
+        Button(role: .destructive) { model.close(session) } label: { Text(L("Cerrar")) }
     }
 }
 
@@ -448,10 +453,10 @@ struct RecBadge: View {
 
     var body: some View {
         if let f = session.logFile {
-            Menu {
+            ThemedMenu {
                 Button(L("Abrir el registro")) { NSWorkspace.shared.open(f) }
                 Button(L("Mostrar en Finder")) { NSWorkspace.shared.activateFileViewerSelecting([f]) }
-                Divider()
+                MenuDivider()
                 Button(L("Parar el registro")) { model.toggleLog(session) }
             } label: {
                 TimelineView(.periodic(from: .now, by: 1)) { ctx in
@@ -466,7 +471,7 @@ struct RecBadge: View {
                     .overlay(Capsule().strokeBorder(SwiftUI.Color(t.bad).opacity(0.6)))
                 }
             }
-            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+            .fixedSize()
             .help(L("Grabando en \(AppPaths.tilde(f.path))"))
         }
     }
@@ -494,7 +499,7 @@ struct SplitChip: View {
             model.showSplit = true
             if let f = split.panes.first, !split.panes.contains(model.selection ?? UUID()) { model.selection = f }
         }
-        .contextMenu {
+        .themedContextMenu {
             Button(L("Volver a pestañas sueltas")) { model.unsplit() }
         }
         .help(L("Pantalla dividida · clic derecho: volver a pestañas sueltas"))
@@ -514,15 +519,53 @@ struct MainArea: View {
         } else if let s = model.current {
             VStack(spacing: 0) {
                 if let e = model.notices[s.id] { PasswordNotice(session: s, event: e) }
-                TerminalHost(session: s, focused: true)
+                SessionContent(session: s, focused: true, inset: 8)
                     .id(s.id)
-                    .padding(.leading, 8)
-                    .padding(.top, 6)
-                    .overlay(alignment: .topTrailing) { RecBadge(session: s).padding(.top, 8).padding(.trailing, 18) }
+                    .overlay(alignment: .topTrailing) {
+                        if s.browser == nil || s.showConsole { RecBadge(session: s).padding(.top, 8).padding(.trailing, 18) }
+                    }
             }
             .background(SwiftUI.Color(t.layer))
         } else {
             Welcome()
+        }
+    }
+}
+
+/// Lo de dentro de una pestaña: la terminal o, en SFTP/FTP, el explorador (o su consola, con la barra para volver).
+struct SessionContent: View {
+    let session: TerminalSession
+    var focused = false
+    var inset: CGFloat = 8
+
+    var body: some View {
+        if let b = session.browser, !session.showConsole {
+            RemoteBrowserView(session: session, browser: b)
+        } else {
+            VStack(spacing: 0) {
+                if session.browser != nil { RemoteConsoleBar(session: session) }
+                TerminalHost(session: session, focused: focused)
+                    .padding(.leading, inset)
+                    .padding(.top, inset * 0.75)
+            }
+        }
+    }
+}
+
+extension TerminalSession {
+    /// El punto de la pestaña: verde conectada, ámbar conectando, rojo cerrada (con explorador, el de su conexión).
+    func statusColor(_ t: Theme, notice: Bool = false) -> RGB {
+        if let b = browser, !showConsole {
+            switch b.state {
+            case .connected: return t.good
+            case .connecting, .idle, .needsPassword: return t.warning
+            case .failed: return t.bad
+            }
+        }
+        switch state {
+        case .exited: return t.bad
+        case .connecting: return t.warning
+        case .connected: return notice ? t.warning : t.good
         }
     }
 }

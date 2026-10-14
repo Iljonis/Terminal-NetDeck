@@ -15,7 +15,7 @@ struct ButtonBarView: View {
         let shown = grouped ? file.buttons.filter { $0.group == model.settings.buttonGroup } : file.buttons
         HStack(spacing: 6) {
             if grouped, !file.groups.isEmpty {
-                Menu {
+                ThemedMenu {
                     ForEach(file.groups, id: \.self) { g in
                         Button(g) { model.settings.buttonGroup = g }
                     }
@@ -29,8 +29,7 @@ struct ButtonBarView: View {
                     .padding(.horizontal, 9)
                     .frame(height: 22)
                     .background(RoundedRectangle(cornerRadius: t.neon ? 3 : 6).fill(SwiftUI.Color(t.tab)))
-                }
-                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+                }.fixedSize()
                 .help(L("Cambiar de grupo de botones"))
             }
             ScrollView(.horizontal, showsIndicators: false) {
@@ -97,7 +96,7 @@ struct CommandChip: View {
         .onHover { hover = $0 }
         .help("\(button.mode.title): \(button.mode == .pass ? L("contraseña «\(button.command)»") : button.command)"
               + (model.multiExecOn ? L(" · en todas (MultiExec)") : ""))
-        .contextMenu {
+        .themedContextMenu {
             Button(L("Editar…")) { model.openSettings("botones") }
             Button(L("Copiar la orden")) {
                 NSPasteboard.general.clearContents()
@@ -105,7 +104,7 @@ struct CommandChip: View {
             }
             let others = model.buttons.groups.filter { $0 != button.group }
             if !others.isEmpty {
-                Menu(L("Mover a la categoría")) {
+                ThemedSubmenu(title: L("Mover a la categoría")) {
                     ForEach(others, id: \.self) { g in Button(g) { model.moveButton(button.id, toGroup: g) } }
                 }
             }
@@ -145,10 +144,9 @@ struct ButtonFillSheet: View {
                     Text(h.name).frame(width: 110, alignment: .trailing)
                     TextField(h.value, text: Binding(get: { values[h.name] ?? "" }, set: { values[h.name] = $0 }))
                         .textFieldStyle(.roundedBorder)
-                    Menu {
+                    ThemedMenu {
                         ForEach(suggestions(for: h.name), id: \.self) { v in Button(v) { values[h.name] = v } }
-                    } label: { Image(systemName: "list.bullet") }
-                        .menuStyle(.button).fixedSize()
+                    } label: { Image(systemName: "list.bullet") }.fixedSize()
                         .disabled(suggestions(for: h.name).isEmpty)
                 }
             }
@@ -230,12 +228,11 @@ struct ButtonEditor: View {
         @Bindable var s = model.settings
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Picker(L("Barra"), selection: $s.buttonBar) {
-                    Text(L("Arriba")).tag("arriba")
-                    Text(L("Abajo")).tag("abajo")
-                    Text(L("Oculta")).tag("oculta")
+                ThemedSegmented(L("Barra"), selection: $s.buttonBar) { o in
+                    o.append(("arriba", L("Arriba")))
+                    o.append(("abajo", L("Abajo")))
+                    o.append(("oculta", L("Oculta")))
                 }
-                .pickerStyle(.segmented)
                 .frame(width: 240)
                 Toggle(L("Por grupos (☰)"), isOn: $s.buttonBarGrouped)
                 Spacer()
@@ -280,17 +277,16 @@ struct ButtonEditor: View {
                                 Text(b.mode.rawValue).font(.caption2).foregroundStyle(.secondary)
                             }
                             .tag(b.id)
-                            .contextMenu { buttonMenu(b.id) }
+                            .themedContextMenu { buttonMenu(b.id) }
                         }
                     } header: {
                         HStack {
                             Text(g)
                             Spacer()
-                            Menu { groupMenu(g) } label: { Image(systemName: "ellipsis.circle") }
-                                .menuStyle(.button).buttonStyle(.borderless).menuIndicator(.hidden).fixedSize()
+                            ThemedMenu { groupMenu(g) } label: { Image(systemName: "ellipsis.circle") }.fixedSize()
                                 .help(L("Categoría: renombrar, ordenar, borrar…"))
                         }
-                        .contextMenu { groupMenu(g) }
+                        .themedContextMenu { groupMenu(g) }
                     }
                 }
             }
@@ -316,8 +312,8 @@ struct ButtonEditor: View {
         Button(L("Subir la categoría")) { file.moveGroup(g, by: -1) }.disabled(gs.first == g)
         Button(L("Bajar la categoría")) { file.moveGroup(g, by: 1) }.disabled(gs.last == g)
         Button(L("Nuevo botón aquí")) { add(in: g) }
-        Divider()
-        Menu(L("Borrar y pasar sus botones a…")) {
+        MenuDivider()
+        ThemedSubmenu(title: L("Borrar y pasar sus botones a…")) {
             ForEach(gs.filter { $0 != g }, id: \.self) { o in Button(o) { file.removeGroup(g, movingTo: o) } }
         }
         .disabled(gs.count < 2)
@@ -327,9 +323,9 @@ struct ButtonEditor: View {
     @ViewBuilder private func buttonMenu(_ id: CommandButton.ID) -> some View {
         let g = file.buttons.first { $0.id == id }?.group
         Button(L("Duplicar")) { selected = file.duplicateButton(id, suffix: L(" (copia)")) ?? selected }
-        Menu(L("Mover a la categoría")) {
+        ThemedSubmenu(title: L("Mover a la categoría")) {
             ForEach(file.groups.filter { $0 != g }, id: \.self) { o in Button(o) { file.moveButton(id, toGroup: o) } }
-            Divider()
+            MenuDivider()
             Button(L("Nueva categoría…")) {
                 if let n = SessionEditor.ask(L("Nombre de la categoría nueva")), ButtonFile.validGroup(n) {
                     file.moveButton(id, toGroup: n)
@@ -342,19 +338,18 @@ struct ButtonEditor: View {
     private func form(_ i: Int) -> some View {
         let b = $file.buttons[i]
         return Form {
-            Picker(L("Categoría"), selection: Binding(get: { file.buttons[i].group },
-                                                     set: { file.moveButton(file.buttons[i].id, toGroup: $0) })) {
-                ForEach(file.groups, id: \.self) { Text($0).tag($0) }
+            ThemedPicker(L("Categoría"), selection: Binding(get: { file.buttons[i].group },
+                                                     set: { file.moveButton(file.buttons[i].id, toGroup: $0) })) { o in
+                for x in file.groups { o.append((x, x)) }
             }
-            TextField(L("Nombre"), text: b.name)
-            Picker(L("Modo"), selection: b.mode) {
-                ForEach(CommandButton.Mode.allCases, id: \.self) { Text($0.title).tag($0) }
+            LabeledContent(L("Nombre")) { TextField("", text: b.name, prompt: Text(L("Nombre"))).frame(maxWidth: 380) }
+            ThemedSegmented(L("Modo"), selection: b.mode) { o in
+                for x in CommandButton.Mode.allCases { o.append((x, x.title)) }
             }
-            .pickerStyle(.segmented)
             commandField(i)
-            Picker(L("Tecla rápida"), selection: Binding(get: { file.buttons[i].hotkey ?? "" },
-                                                       set: { file.buttons[i].hotkey = $0.isEmpty ? nil : $0 })) {
-                ForEach(Self.keys, id: \.self) { k in Text(k.isEmpty ? L("(ninguna)") : keyName(k)).tag(k) }
+            ThemedPicker(L("Tecla rápida"), selection: Binding(get: { file.buttons[i].hotkey ?? "" },
+                                                       set: { file.buttons[i].hotkey = $0.isEmpty ? nil : $0 })) { o in
+                for k in Self.keys { o.append((k, k.isEmpty ? L("(ninguna)") : keyName(k))) }
             }
             if let k = file.buttons[i].hotkey, file.buttons.filter({ $0.hotkey == k }).count > 1 {
                 Text(L("La tecla \(k) la usa otro botón")).font(.caption).foregroundStyle(.orange)
@@ -365,7 +360,7 @@ struct ButtonEditor: View {
                 Button(L("Probar en la pestaña activa")) { model.runButton(file.buttons[i]) }.disabled(model.current == nil)
             }
         }
-        .formStyle(.grouped)
+        .formStyle(.themed)
         .scrollContentBackground(.hidden)
     }
 
@@ -379,16 +374,14 @@ struct ButtonEditor: View {
         case .login:
             let parts = file.buttons[i].command.components(separatedBy: "/").map { $0.trimmingCharacters(in: .whitespaces) }
             let user = parts.first ?? "", cred = parts.count > 1 ? parts[1] : ""
-            TextField(L("Usuario"), text: Binding(get: { user }, set: { file.buttons[i].command = "\($0.trimmingCharacters(in: .whitespaces)) / \(cred)" }))
+            LabeledContent(L("Usuario")) { TextField("", text: Binding(get: { user }, set: { file.buttons[i].command = "\($0.trimmingCharacters(in: .whitespaces)) / \(cred)" }), prompt: Text(L("Usuario"))).frame(maxWidth: 380) }
             credentialPicker(L("Su contraseña del Llavero"), selection: Binding(get: { cred }, set: { file.buttons[i].command = "\(user) / \($0)" }))
         case .session:
             let names = model.sessions.profiles.map(\.name)
-            Picker(L("Sesión"), selection: b.command) {
-                Text(L("(elige una)")).tag("")
-                ForEach(names, id: \.self) { Text($0).tag($0) }
-                if !b.command.wrappedValue.isEmpty, !names.contains(b.command.wrappedValue) {
-                    Text(L("\(b.command.wrappedValue) (no está en tus sesiones)")).tag(b.command.wrappedValue)
-                }
+            ThemedPicker(L("Sesión"), selection: b.command) { o in
+                o.append(("", L("(elige una)")))
+                for x in names { o.append((x, x)) }
+                if !b.command.wrappedValue.isEmpty, !names.contains(b.command.wrappedValue) { o.append((b.command.wrappedValue, L("\(b.command.wrappedValue) (no está en tus sesiones)"))) }
             }
         case .run, .type:
             TextField(prompt(file.buttons[i].mode), text: b.command, axis: .vertical)
@@ -401,12 +394,10 @@ struct ButtonEditor: View {
     @ViewBuilder private func credentialPicker(_ title: String, selection: Binding<String>) -> some View {
         let named = model.keychainAccounts.filter { $0.service == .named }.map(\.account)
         HStack {
-            Picker(title, selection: selection) {
-                Text(L("(elige una)")).tag("")
-                ForEach(named, id: \.self) { Text($0).tag($0) }
-                if !selection.wrappedValue.isEmpty, !named.contains(selection.wrappedValue) {
-                    Text(L("\(selection.wrappedValue) (no está en el Llavero)")).tag(selection.wrappedValue)
-                }
+            ThemedPicker(title, selection: selection) { o in
+                o.append(("", L("(elige una)")))
+                for x in named { o.append((x, x)) }
+                if !selection.wrappedValue.isEmpty, !named.contains(selection.wrappedValue) { o.append((selection.wrappedValue, L("\(selection.wrappedValue) (no está en el Llavero)"))) }
             }
             Button(L("Gestionar…")) { model.openSettings("contraseñas") }
                 .help(L("Guardar o cambiar contraseñas del Llavero (Ajustes → Contraseñas)"))
@@ -497,11 +488,6 @@ struct ButtonEditor: View {
     }
 
     private func confirm(_ title: String, _ ok: String) -> Bool {
-        let a = NSAlert()
-        a.messageText = title
-        a.informativeText = L("No se guarda hasta que pulses «Guardar» (queda copia en botones.txt.anterior).")
-        a.addButton(withTitle: ok)
-        a.addButton(withTitle: L("Cancelar"))
-        return a.runModal() == .alertFirstButtonReturn
+        return ThemedAlert.confirm(title, message: L("No se guarda hasta que pulses «Guardar» (queda copia en botones.txt.anterior)."), ok: ok)
     }
 }

@@ -3,7 +3,7 @@ import Foundation
 /// Una sesión de NetDeck: un «Host» del ssh_config (con sus anotaciones) o una conexión rápida.
 public struct SessionProfile: Identifiable, Hashable, Sendable {
     /// Tipo de sesión. ssh y telnet llegan al equipo (directo o por salto); sftp es ssh por debajo (mismo alias, saltos y
-    /// askpass); ftp se abre en el Finder (macOS no trae cliente); serie, con screen; local, la shell del Mac.
+    /// askpass); sftp y ftp se abren en el explorador de archivos de la app; serie, con screen; local, la shell del Mac.
     public enum Transport: String, Sendable, Codable, CaseIterable {
         case ssh, telnet, sftp, ftp, serial, local
 

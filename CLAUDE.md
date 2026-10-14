@@ -17,7 +17,8 @@ Repositorio público: https://github.com/Iljonis/Terminal-NetDeck
 - `./install.sh` (instalar) · `./install.sh --dmg` (empaquetar) · `./actualizar.sh` (reinstala y reabre con las pestañas)
   · las actualizaciones miran `Iljonis/Terminal-NetDeck` (otro con `NETDECK_REPO=usuario/repo`, ninguno con `NETDECK_REPO=`).
 - Capturas: `tools/capturas.sh` (README) o a mano con `NETDECK_HOME=<carpeta temporal con tools/demo>`
-  `NETDECK_SNAPSHOT=/ruta.png [NETDECK_SNAPSHOT_ACTION=settings:general|settings:botones|tab:usuario@equipo|setup:0]`.
+  `NETDECK_SNAPSHOT=/ruta.png [NETDECK_SNAPSHOT_ACTION=settings:general|settings:botones|tab:usuario@equipo|setup:0|sesion-nueva|explorador|explorador:vista]`
+  (el explorador, con `NETDECK_SFTP_SERVER=/usr/libexec/sftp-server NETDECK_SFTP_DIR=<carpeta>`: SFTP sin ssh ni red).
   NETDECK_HOME cambia la carpeta personal: nunca captures con tus datos reales (sesiones, recientes, pestañas).
 
 ## Idiomas (castellano de España e inglés)

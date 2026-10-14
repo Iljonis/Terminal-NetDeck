@@ -58,8 +58,8 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     /// Askpass y contraseñas automáticas: sólo lo que pide la contraseña de un equipo (ssh, telnet y sftp, que es ssh).
     public var usesPasswords: Bool { !isLocal && transport != .serial && transport != .ftp }
 
-    /// FTP: macOS no trae cliente; se abre «ftp://usuario@equipo:puerto» en el Finder (sólo lectura). nil si no es FTP o
-    /// el equipo no es válido.
+    /// «ftp://usuario@equipo:puerto» (para abrirlo también en el Finder, sólo lectura). nil si no es FTP o el equipo
+    /// no es válido.
     public var ftpURL: URL? {
         guard transport == .ftp, Endpoint(user: target.user, host: target.host).isShellSafe else { return nil }
         var c = URLComponents()
@@ -68,6 +68,23 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
         c.user = target.user
         c.port = target.port == 21 ? nil : target.port
         return c.url
+    }
+
+    /// El explorador de archivos de una pestaña SFTP: ssh sin terminal con el subsistema «sftp» (mismo alias del
+    /// ssh_config, saltos, puerto y usuario que la consola), sin reenvíos ni orden local. nil si no es SFTP.
+    public var sftpSubsystemCommand: (executable: String, arguments: [String])? {
+        guard transport == .sftp, !isLocal else { return nil }
+        var a = ["-T", "-x", "-a", "-o", "ClearAllForwardings=yes", "-o", "PermitLocalCommand=no", "-o", "RequestTTY=no",
+                 "-o", "BatchMode=no", "-o", "RemoteCommand=none", "-s"]
+        if let j = jumpSpec, !j.isEmpty { a += ["-J", j.joined(separator: ",")] }
+        if let alias {
+            a.append(alias)
+        } else {
+            if let p = target.port { a += ["-p", String(p)] }
+            if let u = target.user { a += ["-l", u] }
+            a.append(target.host)
+        }
+        return ("/usr/bin/ssh", a + ["sftp"])
     }
 
     /// Por qué no se puede abrir la pestaña (falta el programa o el puerto serie), o nil. `exists`: para los tests.
@@ -79,7 +96,7 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
             if !exists(s.device) { return L("No está «\(s.device)»: ¿está conectado el adaptador USB-serie?") }
             return nil
         }
-        if transport == .ftp { return L("FTP se abre en el Finder, no en una pestaña") }
+        if transport == .ftp { return L("FTP no tiene consola: usa la vista gráfica") }
         let exe = command.executable
         return exists(exe) ? nil : L("No está \(exe) en este Mac")
     }
@@ -119,7 +136,8 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     }
 
     /// Orden que abre la pestaña. Telnet con salto: «ssh -t salto telnet equipo puerto» (transparente para el usuario).
-    /// sftp: como ssh (alias del ssh_config o -P/-J usuario@equipo). Serie: screen. FTP no abre pestaña (/usr/bin/false).
+    /// sftp: como ssh (alias del ssh_config o -P/-J usuario@equipo). Serie: screen. FTP no tiene consola (/usr/bin/false):
+    /// su pestaña es sólo el explorador.
     public var command: (executable: String, arguments: [String]) {
         if isLocal { return (Self.loginShell(localShell, allowed: Self.systemShells), ["-l"]) }
         switch transport {

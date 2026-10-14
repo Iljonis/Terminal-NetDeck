@@ -385,13 +385,11 @@ struct SetupContent: View {
                        + L("queda bloqueada 15 min y te la pide en la pestaña."), $wizard.sessionAuto)
             VStack(alignment: .leading, spacing: 8) {
                 Text(L("EQUIPOS (ssh / telnet desde una sesión)")).font(t.ui(10, .bold)).tracking(2).foregroundStyle(SwiftUI.Color(t.accent2))
-                Picker("", selection: $wizard.deviceMode) {
-                    Text(L("Escribirla sola")).tag(PasswordAutomation.Mode.autoType)
-                    Text(L("Sugerirla")).tag(PasswordAutomation.Mode.suggest)
-                    Text(L("Nada")).tag(PasswordAutomation.Mode.off)
+                ThemedSegmented("", selection: $wizard.deviceMode) { o in
+                    o.append((PasswordAutomation.Mode.autoType, L("Escribirla sola")))
+                    o.append((PasswordAutomation.Mode.suggest, L("Sugerirla")))
+                    o.append((PasswordAutomation.Mode.off, L("Nada")))
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
                 Text(L("Nunca la de otro usuario: con «ssh root@…» o «Username: pepe», sólo una guardada de ese usuario."))
                     .font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
             }
@@ -492,11 +490,10 @@ struct SetupContent: View {
     private func picker(_ title: String, _ value: Binding<String>, _ auto: String, _ options: [String]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title.uppercased()).font(t.ui(10, .bold)).tracking(2).foregroundStyle(SwiftUI.Color(t.accent2))
-            Picker("", selection: value) {
-                Text(auto).tag("")
-                ForEach(options, id: \.self) { Text($0 == "system" ? L("Monoespaciada del sistema") : $0).tag($0) }
+            ThemedPicker("", selection: value) { o in
+                o.append(("", auto))
+                for x in options { o.append((x, x == "system" ? L("Monoespaciada del sistema") : x)) }
             }
-            .labelsHidden()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

@@ -110,10 +110,10 @@ struct PasswordSettings: View {
             } header: { Text(L("Sesiones")) }
 
             Section {
-                Picker(L("Cuando un equipo pide contraseña"), selection: $s.devicePasswordMode) {
-                    Text(L("Escribirla sola")).tag(PasswordAutomation.Mode.autoType)
-                    Text(L("Sugerirla (un clic)")).tag(PasswordAutomation.Mode.suggest)
-                    Text(L("Nada")).tag(PasswordAutomation.Mode.off)
+                ThemedPicker(L("Cuando un equipo pide contraseña"), selection: $s.devicePasswordMode) { o in
+                    o.append((PasswordAutomation.Mode.autoType, L("Escribirla sola")))
+                    o.append((PasswordAutomation.Mode.suggest, L("Sugerirla (un clic)")))
+                    o.append((PasswordAutomation.Mode.off, L("Nada")))
                 }
                 Text(L("Al hacer «ssh equipo» o «telnet» desde una sesión. Nunca la de otro usuario: con «ssh root@…» o ")
                      + L("«Username: pepe», sólo una guardada de ese mismo usuario."))
@@ -121,11 +121,11 @@ struct PasswordSettings: View {
             } header: { Text(L("Equipos")) }
 
             Section {
-                Picker(L("Contraseña por defecto"), selection: $s.defaultCredentialName) {
-                    Text(L("(ninguna)")).tag("")
-                    ForEach(named, id: \.self) { Text($0).tag($0) }
+                ThemedPicker(L("Contraseña por defecto"), selection: $s.defaultCredentialName) { o in
+                    o.append(("", L("(ninguna)")))
+                    for x in named { o.append((x, x)) }
                 }
-                TextField(L("Es del usuario"), text: $s.defaultCredentialUser)
+                LabeledContent(L("Es del usuario")) { TextField("", text: $s.defaultCredentialUser, prompt: Text(L("Es del usuario"))).frame(maxWidth: 380) }
             } header: { Text(L("Por defecto")) } footer: {
                 Text(L("Sólo se escribe sola cuando piden exactamente ese usuario.")).font(t.ui(11))
             }
@@ -158,11 +158,10 @@ struct PasswordSettings: View {
                     }
                 }
                 HStack {
-                    Picker("", selection: $newService) {
-                        Text(L("Con nombre")).tag(CredentialRef.Service.named)
-                        Text(L("usuario@equipo")).tag(CredentialRef.Service.device)
+                    ThemedPicker("", selection: $newService) { o in
+                        o.append((CredentialRef.Service.named, L("Con nombre")))
+                        o.append((CredentialRef.Service.device, L("usuario@equipo")))
                     }
-                    .labelsHidden()
                     .frame(width: 140)
                     TextField(newService == .named ? L("Nombre (p. ej. AD)") : L("tu.usuario@192.0.2.1"), text: $newAccount)
                     SecureField(L("Contraseña"), text: $newPassword)
@@ -171,7 +170,7 @@ struct PasswordSettings: View {
                 if !message.isEmpty { Text(message).font(t.ui(11)) }
             } header: { Text(L("Llavero")) }
         }
-        .formStyle(.grouped)
+        .formStyle(.themed)
         .sheet(isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
             if let ref = editing { PasswordChangeSheet(ref: ref) { message = $0 } }
         }
@@ -214,12 +213,7 @@ struct PasswordSettings: View {
     }
 
     private func delete(_ ref: CredentialRef) {
-        let a = NSAlert()
-        a.messageText = L("¿Borrar «\(ref.account)» del Llavero?")
-        a.informativeText = L("No se puede deshacer.")
-        a.addButton(withTitle: L("Borrar"))
-        a.addButton(withTitle: L("Cancelar"))
-        guard a.runModal() == .alertFirstButtonReturn else { return }
+        guard ThemedAlert.confirm(L("¿Borrar «\(ref.account)» del Llavero?"), message: L("No se puede deshacer."), ok: L("Borrar"), destructive: true) else { return }
         do { try model.store.delete(ref) } catch {
             ErrorLog.error("llavero", "no se ha podido borrar «\(ref.account)»: \(error.localizedDescription)")
             message = error.localizedDescription
@@ -256,7 +250,7 @@ struct PasswordChangeSheet: View {
                     .font(.caption)
             }
         }
-        .formStyle(.grouped)
+        .formStyle(.themed)
         .frame(width: 420)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button(L("Cancelar")) { dismiss() } }
@@ -301,8 +295,8 @@ struct ThemeSettings: View {
             HStack(spacing: 10) {
                 Toggle(L("Seguir al Mac (claro / oscuro)"), isOn: $s.themeAuto)
                 if s.themeAuto {
-                    Picker(L("Claro"), selection: $s.themeLight) { options }.frame(maxWidth: 170)
-                    Picker(L("Oscuro"), selection: $s.themeDark) { options }.frame(maxWidth: 170)
+                    ThemedPicker(L("Claro"), selection: $s.themeLight, options: options).frame(maxWidth: 220)
+                    ThemedPicker(L("Oscuro"), selection: $s.themeDark, options: options).frame(maxWidth: 220)
                 }
                 Spacer()
                 Button(L("Importar .tema…"), action: importFile)
@@ -330,8 +324,8 @@ struct ThemeSettings: View {
         .onChange(of: s.themeDark) { model.followAppearance() }
     }
 
-    @ViewBuilder private var options: some View {
-        ForEach(model.themes.all, id: \.theme.id) { Text($0.theme.name).tag($0.theme.id) }
+    private var options: [(value: String, label: String)] {
+        model.themes.all.map { ($0.theme.id, $0.theme.name) }
     }
 
     private func importFile() {
@@ -357,10 +351,9 @@ struct FontSettings: View {
         let th = model.themes.current
         Form {
             Section(L("Terminal")) {
-                Picker(L("Fuente"), selection: $s.fontFamily) {
-                    Text(L("Automática: la del tema (\(Fonts.firstInstalled(th.fonts) ?? L("monoespaciada del sistema")))")).tag("")
-                    Divider()
-                    ForEach(families, id: \.self) { Text($0).tag($0) }
+                ThemedPicker(L("Fuente"), selection: $s.fontFamily) { o in
+                    o.append(("", L("Automática: la del tema (\(Fonts.firstInstalled(th.fonts) ?? L("monoespaciada del sistema")))")))
+                    for x in families { o.append((x, x)) }
                 }
                 HStack {
                     Text(L("Tamaño"))
@@ -375,11 +368,10 @@ struct FontSettings: View {
                     .background(SwiftUI.Color(th.background))
             }
             Section(L("Interfaz")) {
-                Picker(L("Fuente"), selection: $s.uiFontFamily) {
-                    Text(L("La del tema (\(Fonts.firstInstalled(th.fonts) ?? "sistema"))")).tag("")
-                    Text(L("Monoespaciada del sistema")).tag("system")
-                    Divider()
-                    ForEach(families, id: \.self) { Text($0).tag($0) }
+                ThemedPicker(L("Fuente"), selection: $s.uiFontFamily) { o in
+                    o.append(("", L("La del tema (\(Fonts.firstInstalled(th.fonts) ?? "sistema"))")))
+                    o.append(("system", L("Monoespaciada del sistema")))
+                    for x in families { o.append((x, x)) }
                 }
             }
             Section {
@@ -404,7 +396,7 @@ struct FontSettings: View {
                 Text(L("Se instalan mediante Homebrew (brew install --cask font-…).")).font(t.ui(11))
             }
         }
-        .formStyle(.grouped)
+        .formStyle(.themed)
         .onAppear { families = Fonts.monospacedFamilies() }
         .onChange(of: s.fontFamily) { model.applyAppearance() }
         .onChange(of: s.fontSize) { model.applyAppearance() }
@@ -442,11 +434,11 @@ struct HighlightSettings: View {
         Form {
             Section {
                 Toggle(L("Resaltar la salida de los equipos"), isOn: $s.highlightEnabled)
-                Picker(L("Reglas"), selection: $s.highlightSource) {
-                    Text(L("Automático")).tag(AppSettings.HighlightSource.auto)
-                    Text(L("Reglas incluidas (chromaterm.yml)")).tag(AppSettings.HighlightSource.netdeck)
-                    Text(L("Las de la app")).tag(AppSettings.HighlightSource.app)
-                    Text(L("Personalizadas")).tag(AppSettings.HighlightSource.custom)
+                ThemedPicker(L("Reglas"), selection: $s.highlightSource) { o in
+                    o.append((AppSettings.HighlightSource.auto, L("Automático")))
+                    o.append((AppSettings.HighlightSource.netdeck, L("Reglas incluidas (chromaterm.yml)")))
+                    o.append((AppSettings.HighlightSource.app, L("Las de la app")))
+                    o.append((AppSettings.HighlightSource.custom, L("Personalizadas")))
                 }
                 Toggle(L("Con los colores del tema"), isOn: $s.highlightThemeColors)
                 HStack {
@@ -472,7 +464,7 @@ struct HighlightSettings: View {
             }
             HighlightRuleList()
         }
-        .formStyle(.grouped)
+        .formStyle(.themed)
         .onChange(of: s.highlightEnabled) { model.applyHighlight() }
         .onChange(of: s.highlightThemeColors) { model.applyHighlight() }
         .onChange(of: s.highlightSource) { model.reloadHighlight() }
@@ -538,7 +530,7 @@ struct LogSettings: View {
                 Text(L("Qué hace la app (pestañas, saltos, MultiExec, decisiones de contraseña…), nunca contraseñas.")).font(t.ui(11))
             }
         }
-        .formStyle(.grouped)
+        .formStyle(.themed)
     }
 }
 
@@ -552,14 +544,13 @@ struct GeneralSettings: View {
         @Bindable var s = model.settings
         Form {
             Section(L("Idioma")) {
-                Picker(L("Idioma de la interfaz"), selection: $s.language) {
-                    ForEach(Idioma.allCases) { Text($0.nombre).tag($0) }
+                ThemedSegmented(L("Idioma de la interfaz"), selection: $s.language) { o in
+                    for x in Idioma.allCases { o.append((x, x.nombre)) }
                 }
-                .pickerStyle(.segmented)
             }
             Section(L("Sesiones")) {
                 HStack {
-                    TextField("ssh_config", text: $s.sshConfigPath)
+                    LabeledContent("ssh_config") { TextField("", text: $s.sshConfigPath, prompt: Text("ssh_config")).frame(maxWidth: 380) }
                     Button(L("Elegir…")) {
                         let p = NSOpenPanel()
                         p.showsHiddenFiles = true
@@ -572,12 +563,10 @@ struct GeneralSettings: View {
                     .font(t.ui(11)).foregroundStyle(.secondary)
             }
             Section(L("Al arrancar")) {
-                Picker(L("Sesión de inicio"), selection: $s.startupSession) {
-                    Text(L("(ninguna)")).tag("")
-                    if !s.startupSession.isEmpty, model.startupProfile == nil {
-                        Text(L("\(s.startupSession) (ya no existe)")).tag(s.startupSession)
-                    }
-                    ForEach(model.sessions.profiles.map(\.name), id: \.self) { Text($0).tag($0) }
+                ThemedPicker(L("Sesión de inicio"), selection: $s.startupSession) { o in
+                    o.append(("", L("(ninguna)")))
+                    if !s.startupSession.isEmpty, model.startupProfile == nil { o.append((s.startupSession, L("\(s.startupSession) (ya no existe)"))) }
+                    for x in model.sessions.profiles.map(\.name) { o.append((x, x)) }
                 }
                 Toggle(L("Abrir una terminal local al arrancar si no hay otras pestañas"), isOn: $s.startupLocalTerminal)
                 Text(L("La sesión de inicio también se marca con clic derecho en la lista y se abre con ⌥⌘K; la terminal local, con ⌘T."))
@@ -607,7 +596,7 @@ struct GeneralSettings: View {
                 Toggle(L("Efecto CRT en la portada (rejilla y líneas de barrido)"), isOn: $s.crtEffect)
             }
         }
-        .formStyle(.grouped)
+        .formStyle(.themed)
     }
 }
 

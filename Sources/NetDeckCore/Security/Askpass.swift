@@ -20,11 +20,15 @@ public enum Askpass {
     static let (red, cyan, green, yellow, reset) = ("\u{1b}[38;5;204m", "\u{1b}[38;5;51m", "\u{1b}[38;5;48m",
                                                      "\u{1b}[38;5;221m", "\u{1b}[0m")
 
-    /// Variables para el proceso ssh de una pestaña.
+    /// Sólo preguntar (sin escribir ninguna guardada): el explorador SFTP con la contraseña automática apagada.
+    public static let manualFlag = "NETDECK_ASKPASS_MANUAL"
+
+    /// Variables para el proceso ssh de una pestaña. `manual`: no se prueba ninguna guardada, se pregunta siempre.
     public static func environment(executable: String, configPath: String?, defaultCredential: DefaultCredential?,
-                                   session: UUID) -> [String: String] {
+                                   session: UUID, manual: Bool = false) -> [String: String] {
         var env = ["SSH_ASKPASS": executable, "SSH_ASKPASS_REQUIRE": "force", flag: "1",
                    "NETDECK_SESSION": session.uuidString]
+        if manual { env[manualFlag] = "1" }
         if let configPath { env["NETDECK_SSH_CONFIG"] = configPath }
         if let d = defaultCredential { env["NETDECK_DEFAULT"] = "\(d.name)\t\(d.user)" }
         return env
@@ -65,6 +69,7 @@ public enum Askpass {
         let ask = Asker(tty: tty, account: account, user: user, host: host, named: profile?.namedCredential,
                         store: store, ledger: ledger, state: stateFile(), session: env["NETDECK_SESSION"])
 
+        if env[manualFlag] == "1" { return ask.user(failed: nil) }
         // ssh vuelve a preguntar enseguida: la que le dimos no valía
         if let used = ask.recentlyGiven() {
             ledger.markFailed(used)

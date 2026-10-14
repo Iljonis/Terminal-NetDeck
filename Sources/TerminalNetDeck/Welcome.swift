@@ -189,16 +189,13 @@ struct JumpPicker: View {
     @Binding var jump: String
 
     var body: some View {
-        Menu {
+        ThemedMenu {
             Button(L("Directo")) { jump = "" }
-            Divider()
+            MenuDivider()
             ForEach(model.sessions.profiles) { p in Button("⟵ \(p.name)") { jump = p.name } }
         } label: {
             NeonLabel(title: jump.isEmpty ? L("directo") : "⟵ \(jump)", icon: "arrow.triangle.branch", tint: t.accent2)
         }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
         .fixedSize()
     }
 }

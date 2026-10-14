@@ -35,6 +35,33 @@ public struct EditableSession: Hashable, Sendable, Identifiable {
         self.name = name
     }
 
+    /// Puerto de cada tipo: ssh y sftp 22, telnet 23, ftp 21 (serie y local no tienen).
+    public static func defaultPort(_ kind: SessionProfile.Transport) -> String {
+        switch kind {
+        case .telnet: "23"
+        case .ftp: "21"
+        case .ssh, .sftp, .serial, .local: "22"
+        }
+    }
+
+    /// Una sesión nueva: con tu usuario del Mac (se puede cambiar) y el puerto de su tipo.
+    public static func new(group: String, name: String, kind: SessionProfile.Transport = .ssh,
+                           user: String = NSUserName()) -> EditableSession {
+        var s = EditableSession(group: group, name: name)
+        s.kind = kind
+        s.port = defaultPort(kind)
+        if kind.isNetwork { s.user = user }
+        return s
+    }
+
+    /// Cambia el tipo y, si el puerto era el del tipo anterior (o ninguno), pone el del nuevo: SSH/SFTP → 22,
+    /// Telnet → 23, FTP → 21. Un puerto propio (2222…) se respeta.
+    public mutating func setKind(_ k: SessionProfile.Transport) {
+        let standard = port.trimmed.isEmpty || ["21", "22", "23"].contains(port.trimmed)
+        kind = k
+        if standard { port = Self.defaultPort(k) }
+    }
+
     public static func == (a: Self, b: Self) -> Bool {
         (a.group, a.name, a.summary, a.host, a.user, a.port) == (b.group, b.name, b.summary, b.host, b.user, b.port)
             && (a.jump, a.keyFile, a.legacy, a.credential, a.kind, a.extra) == (b.jump, b.keyFile, b.legacy, b.credential, b.kind, b.extra)
@@ -106,6 +133,10 @@ public struct SessionFile: Sendable {
         var cur: Int?
         var freeBlock: Int?          // índice en head/tail (inTail)
         var inTail = false
+        var withPort = Set<Int>()
+        defer {
+            for i in sessions.indices where !withPort.contains(i) { sessions[i].port = EditableSession.defaultPort(sessions[i].kind) }
+        }
         for line in text.components(separatedBy: .newlines) {
             let s = line.trimmed
             let (key, value) = SSHConfigParser.option(s).map { ($0.0, $0.1) } ?? ("", "")
@@ -143,7 +174,7 @@ public struct SessionFile: Sendable {
                     switch key {
                     case "hostname": sessions[i].host = value
                     case "user": sessions[i].user = value
-                    case "port": sessions[i].port = value
+                    case "port": sessions[i].port = value; withPort.insert(i)
                     case "proxyjump": sessions[i].jump = value
                     case "identityfile": if sessions[i].keyFile.isEmpty { sessions[i].keyFile = value }
                     case "identitiesonly": break                       // se regenera junto a IdentityFile
@@ -223,7 +254,7 @@ public struct SessionFile: Sendable {
                 out += s.notes.map { "    # \($0)\n" }.joined()
                 if !s.host.isEmpty { out += "    HostName \(s.host)\n" }     // (un «HostName» vacío rompe ssh)
                 if !s.user.isEmpty { out += "    User \(s.user)\n" }
-                if !s.port.isEmpty, s.port != "22" { out += "    Port \(s.port)\n" }
+                if !s.port.isEmpty, s.port != EditableSession.defaultPort(s.kind) { out += "    Port \(s.port)\n" }
                 if !s.jump.isEmpty { out += "    ProxyJump \(s.jump)\n" }
                 if !s.keyFile.isEmpty { out += "    IdentityFile \(quoted(s.keyFile))\n    IdentitiesOnly yes\n" }
                 if s.legacy { out += "    # @antiguo\n" + Self.legacyOptions.map { "    \($0)\n" }.joined() }
