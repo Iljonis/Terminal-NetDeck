@@ -1,6 +1,7 @@
 import AppKit
 import NetDeckCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Ventana principal: barra superior (en la de título), sesiones a la izquierda, pestañas y terminal, barra de estado.
 struct ContentView: View {
@@ -105,9 +106,14 @@ struct TopBar: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 4) {
                     if let sp = model.split { SplitChip(split: sp) }
-                    ForEach(model.tabs) { TabChip(session: $0) }
+                    ForEach(model.tabs) { s in
+                        TabChip(session: s)
+                            .onDrop(of: [TabDrop.type], delegate: TabDrop(model: model, target: s.id))
+                    }
                 }
                 .padding(.vertical, 4)
+                // (soltar entre dos pestañas o al final también vale: el orden ya está puesto)
+                .onDrop(of: [TabDrop.type], delegate: TabDrop(model: model, target: nil))
             }
             .fixedSize(horizontal: model.tabs.count < 6, vertical: false)
             NewButton()
@@ -388,6 +394,15 @@ struct TabChip: View {
         .contentShape(Rectangle())
         .onTapGesture { model.show(session) }
         .onHover { hover = $0 }
+        .onDrag {
+            model.draggingTab = session.id
+            let p = NSItemProvider()
+            p.registerDataRepresentation(forTypeIdentifier: TabDrop.type.identifier, visibility: .ownProcess) { done in
+                done(Data(session.id.uuidString.utf8), nil)
+                return nil
+            }
+            return p
+        }
         .help(session.route.thenCommand.map { L("\(session.title) · en el salto: \($0)") } ?? session.title)
         .contextMenu { SessionTabMenu(session: session) }
     }
@@ -398,6 +413,31 @@ struct TabChip: View {
         case .connecting: t.warning
         case .connected: notice ? t.warning : t.good
         }
+    }
+}
+
+/// Reordenar arrastrando: al pasar por encima de otra pestaña ocupa su sitio (en vivo, con animación); sólo se
+/// aceptan las de esta misma barra (su propio tipo, sólo dentro de la app), nunca texto que venga de fuera.
+struct TabDrop: DropDelegate {
+    static let type = UTType(exportedAs: "io.netdeck.terminal.tab")
+    let model: AppModel
+    let target: TerminalSession.ID?
+
+    func validateDrop(info: DropInfo) -> Bool { model.draggingTab != nil && info.hasItemsConforming(to: [Self.type]) }
+
+    func dropEntered(info: DropInfo) {
+        guard let id = model.draggingTab, let target, id != target else { return }
+        withAnimation(.easeInOut(duration: 0.15)) { model.moveTab(id, to: target) }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: model.draggingTab == nil ? .forbidden : .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard model.draggingTab != nil else { return false }
+        model.draggingTab = nil
+        return true
     }
 }
 

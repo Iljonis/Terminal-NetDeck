@@ -29,6 +29,8 @@ final class AppModel {
     @ObservationIgnored let sharedGate = AutomationGate()
 
     var tabs: [TerminalSession] = []
+    /// La pestaña que se está arrastrando en la barra (para reordenar; lo que venga de fuera no se acepta).
+    var draggingTab: TerminalSession.ID?
     var selection: TerminalSession.ID? {
         didSet { updateVisibility() }
     }
@@ -488,6 +490,15 @@ final class AppModel {
                 ?? (tabs.indices.contains(i) ? tabs[i].id : tabs.last?.id)
         }
         syncMultiExec()
+        saveOpenTabs()
+    }
+
+    /// Arrastrar en la barra: `id` ocupa el sitio de `target` (como en Safari: si venía de la izquierda queda detrás,
+    /// si de la derecha, delante). Sólo cambia el orden: la terminal y su proceso siguen igual. Se guarda al momento.
+    func moveTab(_ id: TerminalSession.ID, to target: TerminalSession.ID) {
+        guard id != target, let i = tabs.firstIndex(where: { $0.id == id }),
+              let j = tabs.firstIndex(where: { $0.id == target }) else { return }
+        tabs.move(fromOffsets: IndexSet(integer: i), toOffset: j > i ? j + 1 : j)
         saveOpenTabs()
     }
 
