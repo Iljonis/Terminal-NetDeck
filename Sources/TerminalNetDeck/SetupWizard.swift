@@ -60,6 +60,10 @@ final class SetupWizard {
         return u.pathExtension == "app" && !isInstalled(u)
     }
 
+    /// Nunca se ha visto el asistente en este Mac (las capturas lo saltan con «-asistenteVisto YES»).
+    static var firstLaunch: Bool { !UserDefaults.standard.bool(forKey: seenKey) }
+    static let seenKey = "asistenteVisto"
+
     static func isInstalled(_ u: URL) -> Bool {
         let p = u.resolvingSymlinksInPath().path
         return p.hasPrefix("/Applications/") || p.hasPrefix(userApplications.path + "/")
@@ -121,6 +125,7 @@ final class SetupWizard {
         model.selectTheme(active)
         model.applyPasswordModes()
         UserDefaults.standard.set(true, forKey: "configured")
+        UserDefaults.standard.set(true, forKey: Self.seenKey)
         log.append(L("✓ Ajustes guardados · tema «\(model.themes.current.name)»"))
         running = false
         finished = true
@@ -162,7 +167,10 @@ struct SetupView: View {
         }
     }
 
-    private func start() { model.showSetup = false }
+    private func start() {
+        UserDefaults.standard.set(true, forKey: SetupWizard.seenKey)
+        model.showSetup = false
+    }
 }
 
 struct SetupContent: View {
@@ -234,8 +242,8 @@ struct SetupContent: View {
 
     private var footer: some View {
         HStack {
-            if wizard.step == .welcome, wizard.needsCopy {
-                Button(L("Probar sin instalar"), action: start).buttonStyle(.plain).font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
+            if wizard.step == .welcome {
+                Button(wizard.needsCopy ? L("Probar sin instalar") : L("Omitir"), action: start).buttonStyle(.plain).font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
             }
             Spacer()
             if wizard.step != .welcome, !wizard.finished {
@@ -303,6 +311,10 @@ struct SetupContent: View {
             if FileManager.default.fileExists(atPath: AppPaths.netdeck.path) {
                 card(L("Configuración existente encontrada"), L("Se respetan el Llavero, el ssh_config, los temas y los ajustes que ya tenías ")
                      + L("(\(model.sessions.profiles.count) sesiones · tema «\(model.themes.current.name)»)."), t.good)
+            }
+            if !model.sessions.profiles.isEmpty {
+                card(L("Sesiones de este Mac"), L("\(model.sessions.profiles.count) sesiones leídas de \(AppPaths.tilde(model.settings.sshConfigURL.path)) ")
+                     + L("(y lo que incluye): son las tuyas, la app no trae ninguna."), t.good)
             }
         }
     }

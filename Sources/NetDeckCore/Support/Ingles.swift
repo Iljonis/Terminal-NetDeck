@@ -784,6 +784,14 @@ enum Ingles {
             "MultiExec, safe paste and lists via jump host",
         "Configuración existente encontrada":
             "Existing configuration found",
+        "Omitir":
+            "Skip",
+        "Sesiones de este Mac":
+            "Sessions on this Mac",
+        "%@ sesiones leídas de %@ ":
+            "%@ sessions read from %@ ",
+        "(y lo que incluye): son las tuyas, la app no trae ninguna.":
+            "(and what it includes): they are yours, the app ships none.",
         "Se respetan el Llavero, el ssh_config, los temas y los ajustes que ya tenías ":
             "Your existing Keychain, ssh_config, themes and settings are kept ",
         "(%@ sesiones · tema «%@»).":
@@ -882,6 +890,8 @@ enum Ingles {
             "Manage sessions and groups",
         "Importar de SecureCRT, MobaXterm, PuTTY, CSV…":
             "Import from SecureCRT, MobaXterm, PuTTY, CSV…",
+        "sin sesiones todavía":
+            "no sessions yet",
         "sesiones de ejemplo":
             "sample sessions",
         "Recargar el ssh_config (⇧⌘R)":

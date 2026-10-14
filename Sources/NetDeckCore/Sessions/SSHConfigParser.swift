@@ -153,7 +153,7 @@ public struct SSHConfigParser: Sendable {
     static func expand(_ value: String, sshDirectory: URL?) -> [URL] {
         let base = sshDirectory ?? AppPaths.home.appendingPathComponent(".ssh")
         return value.split(whereSeparator: \.isWhitespace).flatMap { tok -> [URL] in
-            var path = (String(tok) as NSString).expandingTildeInPath
+            var path = AppPaths.expand(String(tok))
             if !path.hasPrefix("/") { path = base.appendingPathComponent(path).path }
             var g = glob_t()
             defer { globfree(&g) }

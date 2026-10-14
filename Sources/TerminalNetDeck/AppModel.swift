@@ -96,8 +96,9 @@ final class AppModel {
     var notices: [TerminalSession.ID: PasswordAutomation.Event] = [:]
     /// Para refrescar lo que depende del Llavero.
     var keychainRevision = 0
-    /// El asistente de instalación ocupa la ventana: al abrirla desde fuera de Aplicaciones (DMG…) o desde el menú.
-    var showSetup = SetupWizard.needsInstall
+    /// El asistente de instalación ocupa la ventana: al abrirla desde fuera de Aplicaciones (DMG…), la primera vez que
+    /// se abre (también si se arrastró a Aplicaciones desde el DMG) o desde el menú.
+    var showSetup = SetupWizard.needsInstall || SetupWizard.firstLaunch
         || ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_ACTION"]?.hasPrefix("setup:") == true
     /// Las reglas de resaltado leídas (todas, también las apagadas) y de dónde.
     private(set) var highlightConfig = HighlightConfig()

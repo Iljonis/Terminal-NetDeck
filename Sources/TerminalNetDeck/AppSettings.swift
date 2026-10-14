@@ -44,7 +44,7 @@ final class AppSettings {
     /// Registro de cada sesión a un archivo (como NetDeck: activado) y dónde.
     var logEnabled: Bool { didSet { d.set(logEnabled, forKey: "logEnabled") } }
     var logPath: String { didSet { d.set(logPath, forKey: "logPath") } }
-    var logURL: URL { URL(fileURLWithPath: (logPath as NSString).expandingTildeInPath, isDirectory: true) }
+    var logURL: URL { URL(fileURLWithPath: AppPaths.expand(logPath), isDirectory: true) }
     /// Registro de depuración (~/Library/Logs/Terminal NetDeck/debug.log).
     var debugLog: Bool {
         didSet {
@@ -111,7 +111,7 @@ final class AppSettings {
             : DefaultCredential(name: defaultCredentialName, user: defaultCredentialUser.isEmpty ? NSUserName() : defaultCredentialUser)
     }
 
-    var sshConfigURL: URL { URL(fileURLWithPath: (sshConfigPath as NSString).expandingTildeInPath) }
+    var sshConfigURL: URL { URL(fileURLWithPath: AppPaths.expand(sshConfigPath)) }
 
     /// clave.conf (defecto, modo) y tema.conf (tema, auto_claro/auto_oscuro) de NetDeck, si está instalado.
     private static func importNetDeck(into d: UserDefaults) {

@@ -16,6 +16,12 @@ public enum AppPaths {
         return p
     }
 
+    /// «~/…» con la carpeta personal de la app (también la de NETDECK_HOME).
+    public static func expand(_ path: String) -> String {
+        path == "~" ? home.path : path.hasPrefix("~/") ? home.appendingPathComponent(String(path.dropFirst(2))).path
+                                                     : (path as NSString).expandingTildeInPath
+    }
+
     public static var support: URL {
         home.appendingPathComponent("Library/Application Support/Terminal NetDeck", isDirectory: true)
     }
