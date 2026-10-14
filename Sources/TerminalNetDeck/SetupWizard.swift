@@ -60,8 +60,12 @@ final class SetupWizard {
         return u.pathExtension == "app" && !isInstalled(u)
     }
 
-    /// Nunca se ha visto el asistente en este Mac (las capturas lo saltan con «-asistenteVisto YES»).
-    static var firstLaunch: Bool { !UserDefaults.standard.bool(forKey: seenKey) }
+    /// La app no se ha abierto nunca en este Mac (ni ventana guardada ni asistente visto; quien ya la usaba y se
+    /// actualiza no lo vuelve a ver). Las capturas lo saltan con «-asistenteVisto YES».
+    static var firstLaunch: Bool {
+        let d = UserDefaults.standard
+        return !d.bool(forKey: seenKey) && d.object(forKey: "NSWindow Frame main") == nil
+    }
     static let seenKey = "asistenteVisto"
 
     static func isInstalled(_ u: URL) -> Bool {
