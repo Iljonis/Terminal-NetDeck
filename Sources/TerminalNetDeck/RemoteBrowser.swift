@@ -138,8 +138,8 @@ final class RemoteBrowser {
                 // (si más tarde una transferencia recibe 530, la contraseña ha cambiado: bloqueada como en las pestañas)
                 let used = ref
                 let rejected: @Sendable () -> Void = { if let used { ledger.markFailed(used) } }
-                let fs = try await FTPFileSystem.connect(label: label, host: r.target.host, port: r.target.port, user: user,
-                                                         password: password, rejected: rejected)
+                let fs = try await FTPFileSystem.connect(label: label, host: r.target.host, port: r.target.port,
+                                                         user: user, password: password, rejected: rejected)
                 if let ref { ledger.confirm(ref) }
                 self.probing = nil
                 if let save {
