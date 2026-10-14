@@ -124,6 +124,38 @@ private let config = """
 }
 
 @Suite struct UpdateCheckTests {
+    @Test func releaseConDmgYSuSha256() throws {
+        let h = String(repeating: "ab", count: 32)
+        let json = """
+            {"tag_name":"v0.7.0","html_url":"https://github.com/usuario/repo/releases/tag/v0.7.0","assets":[
+             {"browser_download_url":"https://github.com/usuario/repo/releases/download/v0.7.0/Terminal-NetDeck.dmg",
+              "digest":"sha256:\(h.uppercased())"}]}
+            """
+        let r = try #require(UpdateCheck.parse(Data(json.utf8)))
+        #expect(r.version == "0.7.0" && r.dmg != nil && r.sha256 == h)
+        // (fuera de github.com o sin un sha256 válido no hay instalación automática)
+        let otro = json.replacingOccurrences(of: "https://github.com/usuario/repo/releases/download", with: "https://example.com")
+            .replacingOccurrences(of: "sha256:", with: "md5:")
+        let r2 = try #require(UpdateCheck.parse(Data(otro.utf8)))
+        #expect(r2.dmg == nil && r2.sha256 == nil)
+    }
+
+    @Test func compruebaLaAppBajada() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let app = dir.appendingPathComponent("Terminal NetDeck.app")
+        try FileManager.default.createDirectory(at: app.appendingPathComponent("Contents"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        #expect(UpdateCheck.validate(app: app, bundleID: "io.netdeck.terminal", version: "0.7.0") != nil)
+        (["CFBundleIdentifier": "io.netdeck.terminal", "CFBundleShortVersionString": "0.7.0"] as NSDictionary)
+            .write(to: app.appendingPathComponent("Contents/Info.plist"), atomically: true)
+        #expect(UpdateCheck.validate(app: app, bundleID: "io.netdeck.terminal", version: "0.7.0") == nil)
+        #expect(UpdateCheck.validate(app: app, bundleID: "io.netdeck.terminal", version: "0.8.0") != nil)
+        #expect(UpdateCheck.validate(app: app, bundleID: "otra.app", version: "0.7.0") != nil)
+        let f = dir.appendingPathComponent("x")
+        try Data("abc".utf8).write(to: f)
+        #expect(try UpdateCheck.sha256(of: f) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+    }
+
     @Test func sinReleasesValenLosTags() {
         let json = #"[{"name":"v0.4.0"},{"name":"v0.10.1"},{"name":"prueba"},{"name":"0.9"}]"#
         let r = UpdateCheck.parseTags(Data(json.utf8), repo: "usuario/repo")

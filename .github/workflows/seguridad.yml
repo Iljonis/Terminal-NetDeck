@@ -8,9 +8,14 @@ on:
 
 jobs:
   auditoria:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+      - name: Xcode más reciente y castellano (los tests comprueban los textos en castellano)
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          defaults write -g AppleLanguages -array es en
+          swift --version
       - name: App compilada (para comprobar firma y Info.plist)
         run: ./install.sh --dmg
       - name: Auditoría

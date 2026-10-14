@@ -15,7 +15,7 @@ Repositorio público: https://github.com/Iljonis/Terminal-NetDeck
 - `tools/seguridad_cron.sh` — auditoría periódica: dependencias contra OSV.dev (CVE/GHSA), privacidad, tests y
   endurecimiento; en GitHub, `.github/workflows/seguridad.yml` cada lunes. Informe en `~/Library/Logs/Terminal NetDeck/seguridad.log`.
 - `./install.sh` (instalar) · `./install.sh --dmg` (empaquetar) · `./actualizar.sh` (reinstala y reabre con las pestañas)
-  · `NETDECK_REPO=Iljonis/Terminal-NetDeck` al compilar para las actualizaciones automáticas.
+  · las actualizaciones miran `Iljonis/Terminal-NetDeck` (otro con `NETDECK_REPO=usuario/repo`, ninguno con `NETDECK_REPO=`).
 - Capturas: `tools/capturas.sh` (README) o a mano con `NETDECK_HOME=<carpeta temporal con tools/demo>`
   `NETDECK_SNAPSHOT=/ruta.png [NETDECK_SNAPSHOT_ACTION=settings:general|settings:botones|tab:usuario@equipo|setup:0]`.
   NETDECK_HOME cambia la carpeta personal: nunca captures con tus datos reales (sesiones, recientes, pestañas).
@@ -51,8 +51,10 @@ Repositorio público: https://github.com/Iljonis/Terminal-NetDeck
 - **Importar**: `SessionImporter.safeExtra` quita opciones que ejecutan órdenes; nombres/equipos/usuarios que empiezan
   por `-` se rechazan (`SessionManager.route`); 20 MB máximo.
 - **Pestañas al arrancar**: no se guardan ni reabren las de loopback (127.x/localhost) ni las de las capturas.
-- **Actualizaciones** (`UpdateChecker`/`UpdateCheck`): una vez al día, en silencio, sólo enlaces https de github.com,
-  nunca se descarga ni instala nada sola. Si el repositorio es privado no encuentra versiones.
+- **Actualizaciones** (`UpdateChecker`/`UpdateCheck`/`Updater`): se buscan una vez al día, en silencio; sólo enlaces
+  https de github.com. Nada se instala sin el clic en «Actualizar ahora»: entonces se baja el .dmg, se comprueba
+  (sha256 que publica GitHub, mismo id, versión anunciada, `codesign --verify`), un ayudante sustituye la app al
+  cerrarse (si falla, deja la de antes) y la reabre con sus pestañas. Registro: `~/Library/Logs/Terminal NetDeck/actualizar.log`.
 - **Errores**: `ErrorLog` (`~/Library/Application Support/Terminal NetDeck/logs/error.log`, nivel y detalle, sin
   secretos); los mensajes al usuario van por `model.status` y sólo los que empiezan por ✗ 🔑 ⎋ ⬆ salen como aviso.
 - **Rutas en pantalla**: siempre con `AppPaths.tilde(…)` (la carpeta personal como «~»; así tampoco salen en capturas).
@@ -94,6 +96,7 @@ Cómo se trabaja con ellos:
 
 1. `VERSION` en `install.sh`; `./test.sh`; `tools/seguridad_cron.sh`; pasada de `ecc:security-reviewer` /
    `ecc:opensource-sanitizer`.
-2. `git tag -a vX.Y.Z -m "Terminal NetDeck X.Y.Z"` y push del tag.
-3. `NETDECK_REPO=Iljonis/Terminal-NetDeck ./install.sh --dmg`, `tools/privacidad.sh --binario`, y subir `dist/Terminal-NetDeck.dmg` a una Release de GitHub
-   con ese tag (la app la ofrece sola a quien tenga una versión anterior).
+2. Commit, push, `git tag -a vX.Y.Z -m "Terminal NetDeck X.Y.Z"` y `git push origin vX.Y.Z`.
+3. Nada más: `.github/workflows/release.yml` comprueba que el tag y `VERSION` coinciden, pasa los tests, hace el .dmg,
+   `tools/privacidad.sh --binario` y crea la Release con el .dmg. La app se la ofrece («Actualizar ahora») a quien
+   tenga una versión anterior; tu copia instalada también.

@@ -82,21 +82,28 @@ public final class PasswordAutomation {
         guard ledger.beginProbe(ref) == .go else { return .manual(.recentlyFailed(ref)) }
 
         busy = true
-        defer { busy = false }
         let sw = gate.begin()
-        defer { gate.end(sw) }
         try? await Task.sleep(for: settle)
         // (el Llavero, fuera del hilo principal: si tarda, la ventana no se congela)
-        let store = self.store
-        let secret = await Task.detached { try? store.password(for: ref) }.value
+        let secret = await Self.secret(ref, in: store)
+        let event: Event?
         // (justo antes de escribir: ni Esc, ni otra pantalla)
-        guard !sw.isTripped, "\(io.cursorRow):\(io.cursorLine.trimmed)" == site, let pw = secret else {
+        if !sw.isTripped, "\(io.cursorRow):\(io.cursorLine.trimmed)" == site, let pw = secret {
+            io.sendLine(pw)
+            pending = (ref, site)
+            event = .typed(ref)
+        } else {
             ledger.release(ref)
-            return sw.isTripped ? .cancelled : nil
+            event = sw.isTripped ? .cancelled : nil
         }
-        io.sendLine(pw)
-        pending = (ref, site)
-        return .typed(ref)
+        gate.end(sw)
+        busy = false
+        return event
+    }
+
+    /// (aparte: con el cierre dentro de observe, el compilador de Swift 6.3 se cae en ClosureLifetimeFixup)
+    nonisolated private static func secret(_ ref: CredentialRef, in store: CredentialStore) async -> String? {
+        await Task.detached { try? store.password(for: ref) }.value
     }
 
     public enum ManualResult: Equatable, Sendable { case typed, blocked, notAsked, missing }

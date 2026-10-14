@@ -141,9 +141,10 @@ La app no está firmada por Apple: la primera vez que la abras en otro Mac, clic
 
 La app busca versiones nuevas en segundo plano, como mucho una vez al día (al arrancar, si ha pasado más de un día, y
 luego cada 24 h), sin interrumpir nada. Si hay una, sale un aviso discreto en la barra de estado
-(«⬆ Versión X disponible»); al pulsarlo ofrece descargarla. Nunca descarga ni instala nada sola. Se puede desactivar o
-buscar a mano en Ajustes → General → Actualizaciones. Mira las releases (o, si no hay, los tags `vX.Y.Z`) del
-repositorio que se indica al compilar: `NETDECK_REPO=usuario/repo ./install.sh`.
+(«⬆ Versión X disponible»). Al pulsarlo, **Actualizar ahora** la descarga de GitHub, comprueba que es la publicada
+(sha256) y la misma app, la sustituye y la vuelve a abrir con tus pestañas; tus sesiones, ajustes y el Llavero no se
+tocan. Nunca se instala nada sin ese clic. Se puede desactivar o buscar a mano en Ajustes → General → Actualizaciones.
+Mira las releases de `Iljonis/Terminal-NetDeck` (otro repositorio: `NETDECK_REPO=usuario/repo ./install.sh`).
 
 ## Seguridad
 
@@ -154,7 +155,7 @@ repositorio que se indica al compilar: `NETDECK_REPO=usuario/repo ./install.sh`.
   nombres, equipos o usuarios que empiezan por `-` se rechazan.
 - Tus archivos (`ssh_config`, `botones.txt`, listas) nunca se sobrescriben si no se pueden leer; copia `.anterior` en
   cada guardado y `.original` la primera vez. Carpetas y archivos de la app sólo para ti (0700/0600).
-- Actualizaciones: sólo enlaces https de github.com, y nada se descarga ni instala sin que lo pidas.
+- Actualizaciones: sólo de github.com, comprobadas con el sha256 que publica GitHub, y nada se instala sin que lo pidas.
 - Firma ad hoc con hardened runtime.
 - `./test.sh` comprueba antes de los tests que nada personal llega al repositorio, a la app ni al `.dmg`
   (`tools/privacidad.sh`), y `tools/seguridad_cron.sh` (cada semana en GitHub Actions) revisa las dependencias contra

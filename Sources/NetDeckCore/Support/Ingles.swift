@@ -240,10 +240,34 @@ enum Ingles {
             "⬆ Checking for updates…",
         "Terminal NetDeck %@ disponible":
             "Terminal NetDeck %@ available",
-        "Tienes la %@. Descarga el .dmg y sustituye la app: ":
-            "You have %@. Download the .dmg and replace the app: ",
-        "tus sesiones, ajustes y el Llavero se conservan.":
-            "your sessions, settings and Keychain are kept.",
+        "Tienes la %@. ":
+            "You have %@. ",
+        "Se descarga de GitHub, se comprueba y se vuelve a abrir con tus pestañas. ":
+            "It is downloaded from GitHub, verified and reopened with your tabs. ",
+        "Descarga el .dmg y sustituye la app. ":
+            "Download the .dmg and replace the app. ",
+        "Tus sesiones, ajustes y el Llavero se conservan.":
+            "Your sessions, settings and Keychain are kept.",
+        "Actualizar ahora":
+            "Update Now",
+        "Ver qué cambia":
+            "What's New",
+        "⬆ Descargando la %@…":
+            "⬆ Downloading %@…",
+        "el .dmg no trae la app":
+            "the .dmg does not contain the app",
+        "la app del .dmg no es Terminal NetDeck":
+            "the app in the .dmg is not Terminal NetDeck",
+        "la app del .dmg no es la versión %@":
+            "the app in the .dmg is not version %@",
+        "el .dmg no coincide con el publicado (sha256)":
+            "the .dmg does not match the published one (sha256)",
+        "no se ha podido abrir el .dmg":
+            "could not open the .dmg",
+        "la firma de la app del .dmg no es válida":
+            "the signature of the app in the .dmg is not valid",
+        "no se ha podido copiar la app nueva":
+            "could not copy the new app",
         "Abrir la página":
             "Open Page",
         "Descargar":

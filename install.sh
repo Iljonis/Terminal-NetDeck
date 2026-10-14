@@ -20,8 +20,8 @@ PRODUCTO=TerminalNetDeck
 ANTIGUO=NetDeckProvisional          # (nombre del ejecutable hasta la v0.4)
 ID=io.netdeck.terminal
 VERSION=0.6.1
-# Repositorio de GitHub («usuario/repo») para «Buscar actualizaciones…»; vacío = sin publicar.
-REPO="${NETDECK_REPO:-}"
+# Repositorio de GitHub («usuario/repo») para las actualizaciones; NETDECK_REPO= (vacío) para no buscarlas.
+REPO="${NETDECK_REPO-Iljonis/Terminal-NetDeck}"
 [[ -z $REPO || $REPO =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "NETDECK_REPO no válido: «$REPO» (usuario/repo)"; exit 1; }
 SOPORTE="$HOME/Library/Application Support/$NOMBRE"
 TEMAS_USUARIO="$SOPORTE/Temas"
@@ -130,7 +130,11 @@ if [ $dmg = 1 ]; then
   rm -rf build/dmg/* dist/Terminal-NetDeck.dmg
   cp -R "$APP" build/dmg/
   ln -s /Applications build/dmg/Applications       # arrastrar la app aquí, como cualquier app de macOS
-  hdiutil create -volname "Instalar Terminal NetDeck" -srcfolder build/dmg -ov -format UDZO dist/Terminal-NetDeck.dmg >/dev/null 2>&1
+  for _ in 1 2 3; do       # (hdiutil falla a veces con «Resource busy»)
+    hdiutil create -volname "Instalar Terminal NetDeck" -srcfolder build/dmg -ov -format UDZO dist/Terminal-NetDeck.dmg >/dev/null 2>&1 && break
+    sleep 3
+  done
+  [ -s dist/Terminal-NetDeck.dmg ] || { echo "${M}✗ No se ha podido crear el .dmg${N}"; exit 1; }
   echo "${V}✓${N} dist/Terminal-NetDeck.dmg — ábrelo y arrastra la app a Aplicaciones (o doble clic en ella → asistente)"
   echo "   (en otro Mac, la primera vez: clic derecho en la app → Abrir, porque no está firmada por Apple)"
   exit 0

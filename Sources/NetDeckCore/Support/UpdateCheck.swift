@@ -1,13 +1,17 @@
+import CryptoKit
 import Foundation
 
 /// Actualizaciones: la última release del repositorio en GitHub («usuario/repo», `NetDeckRepo` en el Info.plist que
-/// pone install.sh). Sólo se consulta cuando lo pides; no se descarga ni se instala nada sin preguntar.
+/// pone install.sh). No se descarga ni se instala nada sin preguntar: «Actualizar» baja el .dmg de github.com, lo
+/// comprueba con el sha256 que publica GitHub y que sea esta misma app (id) en la versión anunciada.
 public enum UpdateCheck {
     public struct Release: Equatable, Sendable {
         public var version: String
         public var page: URL
         /// El .dmg de la release, si lo trae.
         public var dmg: URL?
+        /// Su sha256 según GitHub («digest» del asset), en hexadecimal.
+        public var sha256: String? = nil
     }
 
     /// El repositorio configurado, o nil (sin publicar todavía).
@@ -27,14 +31,38 @@ public enum UpdateCheck {
               let tag = j["tag_name"] as? String,
               let page = (j["html_url"] as? String).flatMap(URL.init(string:)), isGitHub(page) else { return nil }
         let assets = j["assets"] as? [[String: Any]] ?? []
-        let dmg = assets.compactMap { $0["browser_download_url"] as? String }
-            .first { $0.hasSuffix(".dmg") }.flatMap(URL.init(string:))
+        let asset = assets.first { ($0["browser_download_url"] as? String)?.hasSuffix(".dmg") == true }
+        let dmg = (asset?["browser_download_url"] as? String).flatMap(URL.init(string:))
+        let digest = (asset?["digest"] as? String).flatMap { d -> String? in
+            guard d.hasPrefix("sha256:") else { return nil }
+            let h = d.dropFirst(7).lowercased()
+            return h.count == 64 && h.allSatisfy(\.isHexDigit) ? h : nil
+        }
         return Release(version: tag.hasPrefix("v") ? String(tag.dropFirst()) : tag, page: page,
-                       dmg: dmg.flatMap { isGitHub($0) ? $0 : nil })
+                       dmg: dmg.flatMap { isGitHub($0) ? $0 : nil }, sha256: digest)
     }
 
     /// Sólo enlaces https a github.com (lo que se abre al pulsar «Descargar»).
     static func isGitHub(_ u: URL) -> Bool { u.scheme == "https" && u.host == "github.com" }
+
+    /// sha256 de un archivo (en trozos: el .dmg pesa varios MB), en hexadecimal.
+    public static func sha256(of url: URL) throws -> String {
+        let h = try FileHandle(forReadingFrom: url)
+        defer { try? h.close() }
+        var hasher = SHA256()
+        while let d = try h.read(upToCount: 1 << 20), !d.isEmpty { hasher.update(data: d) }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Que la app bajada sea ésta (mismo id) y la versión anunciada; si no, el motivo.
+    public static func validate(app: URL, bundleID: String, version: String) -> String? {
+        guard let info = NSDictionary(contentsOf: app.appendingPathComponent("Contents/Info.plist")) else {
+            return L("el .dmg no trae la app")
+        }
+        if info["CFBundleIdentifier"] as? String != bundleID { return L("la app del .dmg no es Terminal NetDeck") }
+        if info["CFBundleShortVersionString"] as? String != version { return L("la app del .dmg no es la versión \(version)") }
+        return nil
+    }
 
     /// «0.10.0» > «0.4.1» (por números, no por texto).
     public static func isNewer(_ a: String, than b: String) -> Bool {

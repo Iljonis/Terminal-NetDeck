@@ -988,15 +988,25 @@ final class AppModel {
         }
     }
 
-    /// «Hay una versión nueva»: descargarla (o abrir su página) o más tarde. No instala nada sola.
+    /// «Hay una versión nueva»: actualizar ahora (baja, comprueba y sustituye la app; se vuelve a abrir con tus
+    /// pestañas), abrir su página o más tarde. Nada se instala sin este clic.
     func offerUpdate(_ r: UpdateCheck.Release) {
         let alert = NSAlert()
+        let auto = r.dmg != nil && r.sha256 != nil && Updater.canSelfInstall
         alert.messageText = L("Terminal NetDeck \(r.version) disponible")
-        alert.informativeText = L("Tienes la \(UpdateCheck.currentVersion). Descarga el .dmg y sustituye la app: ")
-            + L("tus sesiones, ajustes y el Llavero se conservan.")
-        alert.addButton(withTitle: r.dmg == nil ? L("Abrir la página") : L("Descargar"))
+        alert.informativeText = L("Tienes la \(UpdateCheck.currentVersion). ")
+            + (auto ? L("Se descarga de GitHub, se comprueba y se vuelve a abrir con tus pestañas. ")
+                    : L("Descarga el .dmg y sustituye la app. "))
+            + L("Tus sesiones, ajustes y el Llavero se conservan.")
+        alert.addButton(withTitle: auto ? L("Actualizar ahora") : r.dmg == nil ? L("Abrir la página") : L("Descargar"))
         alert.addButton(withTitle: L("Más tarde"))
-        if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(r.dmg ?? r.page) }
+        if auto { alert.addButton(withTitle: L("Ver qué cambia")) }
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            if auto { Updater.install(r, model: self) } else { NSWorkspace.shared.open(r.dmg ?? r.page) }
+        case .alertThirdButtonReturn: NSWorkspace.shared.open(r.page)
+        default: break
+        }
     }
 
     /// Compila, sustituye la app instalada y la vuelve a abrir con las mismas pestañas.
