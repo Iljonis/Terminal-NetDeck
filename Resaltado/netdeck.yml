@@ -83,6 +83,18 @@ rules:
 - description: Errores de Linux
   regex: (?i)permission denied|no such file or directory|command not found|connection refused|connection timed out|no route to host|host is unreachable|network is unreachable|name or service not known|segmentation fault|out of memory|killed process|traceback \(most recent call last\)|read-only file system|no space left on device|authentication failed|access denied
   color: f.red bold
+- description: Syslog Cisco grave (%FAC-0..3-MSG)
+  regex: '%[A-Z0-9_]+-[0-3]-[A-Z0-9_]+'
+  color: f.red bold
+  exclusive: true
+- description: Syslog Cisco aviso (%FAC-4-MSG)
+  regex: '%[A-Z0-9_]+-4-[A-Z0-9_]+'
+  color: f.orange bold
+  exclusive: true
+- description: Syslog Cisco informativo (%FAC-5..7-MSG)
+  regex: '%[A-Z0-9_]+-[5-7]-[A-Z0-9_]+'
+  color: f.cyan
+  exclusive: true
 - description: Niveles de log graves
   regex: \b(EMERG(ENCY)?|ALERT|CRIT(ICAL)?|ERR(OR)?|FATAL|PANIC|FAIL(ED|URE)?)\b
   color: f.red bold
@@ -109,7 +121,7 @@ rules:
   regex: (?i)\b(warn(ing)?|minor|flap(ping)?|degraded|loss|retrans\w*|half|half-duplex|mismatch|2way|exstart|exchange|loading|init|learning|lrn|standby|suspended|pending|restarting|paused|time_wait|close_wait|syn_sent|syn_recv|fin_wait\d?)\b
   color: f.orange bold
 - description: Estados buenos
-  regex: (?i)\b(up|established|estab|connected|enabled?|online|ok|success(ful)?|normal|forwarding|fwd|full|full-duplex|present|running|reachable|active-up|healthy|listen|bndl|selected|synced|in sync|master|primary)\b
+  regex: (?i)\b(up|established|establ|estab|connected|enabled?|online|ok|success(ful)?|normal|forwarding|fwd|full|full-duplex|present|running|reachable|active-up|healthy|listen|bndl|selected|synced|in sync|master|primary)\b
   color: f.green bold
 
 # ── DIRECCIONES ─────────────────────────────────────────────────────────────
@@ -128,6 +140,11 @@ rules:
   regex: (?i)\b(https?|ftp|ssh|tftp|snmp)://[^\s'"<>]+
   color: f.blue underline
   exclusive: true
+
+# ── VLAN (antes que las interfaces: «vlan 100», «VLAN0100», «vlan-id 20») ───
+- description: VLAN
+  regex: (?i)\bvlan(?:[ -]?id)?\s?\d{1,4}\b
+  color: f.magenta bold
 
 # ── INTERFACES (Juniper, Huawei, Cisco, HPE, Dell, UfiSpace, Edge-Core, Linux) ─
 - description: Interfaces
@@ -155,6 +172,9 @@ rules:
 - description: Rutas de ficheros
   regex: (?<![\w.:/-])(~|/)[\w.@-]+(/[\w.@-]+)+/?
   color: f.blue
+- description: Tiempo encendido (1y2w, 3w2d, 2d04h)
+  regex: \b\d+y\d+w\b|\b\d+w\d+d\b|\b\d+d\d+h\b
+  color: f.dim
 - description: Fechas y horas
   regex: \b\d{4}-\d\d-\d\d([ T]\d\d:\d\d(:\d\d)?(\.\d+)?(Z|[+-]\d\d:?\d\d)?)?\b|\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d\d:\d\d:\d\d\b|\b\d\d:\d\d:\d\d\b
   color: f.dim

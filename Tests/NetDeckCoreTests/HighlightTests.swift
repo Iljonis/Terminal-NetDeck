@@ -86,4 +86,48 @@ import Testing
         let runs = Highlighter(rules: c.rules, palette: c.palette).styledRuns("admin@core-01>")
         #expect(runs.count == 2)
     }
+
+    @Test func estiloIdaYVuelta() {
+        for spec in ["f.cyan bold", "b#00ff00 underline", "f#ff2e88 b.dark bold italic underline", ""] {
+            #expect(HighlightStyle(HighlightStyle(spec).spec) == HighlightStyle(spec), "\(spec)")
+        }
+        #expect(HighlightStyle(foreground: "red", bold: true).spec == "f.red bold")
+        #expect(HighlightRule.colorSpec([0: HighlightStyle("f.red")]) == "f.red")
+        #expect(HighlightRule.colorSpec([2: HighlightStyle("f.dim"), 1: HighlightStyle("f.cyan bold")]) == "{1: f.cyan bold, 2: f.dim}")
+    }
+
+    /// Lo que guarda el editor de Ajustes se vuelve a leer igual (comillas, « #», «: », llaves y grupos incluidos).
+    @Test func reglasIdaYVuelta() throws {
+        var c = try HighlightConfig(contentsOf: Self.rulesFile)
+        c.rules.append(try HighlightRule(description: "Rara: 'comillas' # y dos puntos", regex: #"it's (a) #x: {1,2}\b"#,
+                                         styles: [1: HighlightStyle("f#ff0000 bold"), 0: HighlightStyle("b.dim")], exclusive: true))
+        let back = try HighlightConfig(text: c.yaml())
+        #expect(back.problems.isEmpty, "\(back.problems)")
+        #expect(back.palette == c.palette)
+        #expect(back.rules.count == c.rules.count)
+        for (a, b) in zip(c.rules, back.rules) {
+            #expect(a.description == b.description)
+            #expect(a.source == b.source)
+            #expect(a.styles == b.styles)
+            #expect(a.exclusive == b.exclusive)
+        }
+        #expect(try HighlightConfig(text: back.yaml()).yaml() == back.yaml())
+    }
+
+    @Test func compruebaLaExpresion() {
+        #expect(HighlightRule.problem(regex: #"\bvlan\s?\d+"#) == nil)
+        #expect(HighlightRule.problem(regex: "(sin cerrar") != nil)
+        #expect(HighlightRule.problem(regex: "") != nil)
+        #expect(HighlightRule.problem(regex: "a*") != nil)                       // (encaja con nada)
+        #expect(HighlightRule.problem(regex: "(?P<n>x)y") == nil)               // (sintaxis de Python)
+    }
+
+    @Test func reglasDeSerieNuevas() throws {
+        let c = try HighlightConfig(contentsOf: Self.rulesFile)
+        let h = Highlighter(rules: c.rules, palette: Theme.builtIn.highlightPalette)
+        for line in ["%LINK-3-UPDOWN: Interface Gi0/1", "switchport access vlan 120", "uptime is 3w2d", "198.51.100.0/24",
+                     "aa:bb:cc:00:11:22", "Neighbor 203.0.113.9 Establ", "AS65001"] {
+            #expect(!h.styledRuns(line).isEmpty, "\(line)")
+        }
+    }
 }

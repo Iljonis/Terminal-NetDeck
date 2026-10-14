@@ -190,8 +190,8 @@ enum Ingles {
             "Sessions saved (%@)",
         "Conectando a %@…":
             "Connecting to %@…",
-        "«%@» no es una sesión ni usuario@equipo":
-            "“%@” is neither a session nor user@device",
+        "✗ «%@» no es una sesión ni usuario@equipo":
+            "✗ “%@” is neither a session nor user@device",
         "🔑 «%@» escrita en %@":
             "🔑 “%@” typed in %@",
         "⎋ Contraseña cancelada":
@@ -230,14 +230,14 @@ enum Ingles {
             "⏳ Sending… Esc to stop (what you type is not sent)",
         "Botones guardados (%@) en %@":
             "Buttons saved (%@) in %@",
-        "Botón «%@»: el login es «usuario / nombre-de-la-contraseña»":
-            "Button “%@”: the login is “user / password-name”",
+        "✗ Botón «%@»: el login es «usuario / nombre-de-la-contraseña»":
+            "✗ Button “%@”: the login is “user / password-name”",
         "🔑 Login «%@»: %@":
             "🔑 Login “%@”: %@",
-        "Sin repositorio de actualizaciones (NETDECK_REPO al instalar)":
-            "No update repository (NETDECK_REPO at install time)",
-        "Buscando actualizaciones…":
-            "Checking for updates…",
+        "✗ Sin repositorio de actualizaciones (NETDECK_REPO al instalar)":
+            "✗ No update repository (NETDECK_REPO at install time)",
+        "⬆ Buscando actualizaciones…":
+            "⬆ Checking for updates…",
         "Terminal NetDeck %@ disponible":
             "Terminal NetDeck %@ available",
         "Tienes la %@. Descarga el .dmg y sustituye la app: ":
@@ -250,18 +250,18 @@ enum Ingles {
             "Download",
         "Más tarde":
             "Later",
-        "Hay una versión nueva: %@":
-            "A new version is available: %@",
-        "Estás al día (%@)":
-            "You're up to date (%@)",
-        "No se ha podido comprobar: %@":
-            "Couldn't check: %@",
-        "No encuentro el código (actualizar.sh) en este Mac":
-            "Can't find the source code (actualizar.sh) on this Mac",
-        "Actualizando: compilando… (se cerrará y se abrirá sola con tus pestañas)":
-            "Updating: building… (it will close and reopen with your tabs)",
-        "No se ha podido actualizar: %@":
-            "Couldn't update: %@",
+        "⬆ Hay una versión nueva: %@":
+            "⬆ A new version is available: %@",
+        "⬆ Estás al día (%@)":
+            "⬆ You're up to date (%@)",
+        "✗ No se ha podido comprobar: %@":
+            "✗ Couldn't check: %@",
+        "✗ No encuentro el código (actualizar.sh) en este Mac":
+            "✗ Can't find the source code (actualizar.sh) on this Mac",
+        "⬆ Actualizando: compilando… (se cerrará y se abrirá sola con tus pestañas)":
+            "⬆ Updating: building… (it will close and reopen with your tabs)",
+        "✗ No se ha podido actualizar: %@":
+            "✗ Couldn't update: %@",
         "2 lado a lado":
             "2 side by side",
         "2 arriba y abajo":
@@ -354,8 +354,6 @@ enum Ingles {
             "Sample buttons: “Save” to create the file",
         "Nuevo":
             "New",
-        "Conexión rápida o por un salto (⌘K)":
-            "Quick connect or via a jump host (⌘K)",
         "Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)":
             "Safe paste: checks dangerous lines before sending them (⇧⌘V)",
         "Volver a pestañas sueltas":
@@ -684,8 +682,6 @@ enum Ingles {
             "Custom",
         "Con los colores del tema":
             "With the theme's colors",
-        "Crea una copia personalizada (si no la hay) y la abre en tu editor":
-            "Creates a custom copy (if there isn't one) and opens it in your editor",
         "No se han podido leer: ":
             "Couldn't read: ",
         "Resaltado tipo ChromaTerm":
@@ -1144,8 +1140,8 @@ enum Ingles {
             "When off, servers use their own language and warnings like “setlocale: LC_CTYPE” don't appear. Applies to new connections.",
         "Terminal local":
             "Local terminal",
-        "No hay sesión de inicio: márcala con clic derecho en una sesión":
-            "No startup session: set one by right-clicking a session",
+        "✗ No hay sesión de inicio: márcala con clic derecho en una sesión":
+            "✗ No startup session: set one by right-clicking a session",
         "Nueva terminal local":
             "New Local Terminal",
         "Abrir la sesión de inicio":
@@ -1154,8 +1150,6 @@ enum Ingles {
             "Tools",
         "Listas de equipos…":
             "Device Lists…",
-        "Nueva terminal local: tu shell en este Mac (⌘T)":
-            "New local terminal: your shell on this Mac (⌘T)",
         "Listas de equipos: la misma orden en muchos equipos por un salto (⇧⌘L)":
             "Device lists: the same command on many devices via a jump host (⇧⌘L)",
         "Se abre al arrancar (⌥⌘K)":
@@ -1292,5 +1286,105 @@ enum Ingles {
             "Save or change Keychain passwords (Settings → Passwords)",
         "No hay contraseñas con nombre en el Llavero: guárdala primero en Ajustes → Contraseñas.":
             "There are no named passwords in the Keychain: save it first in Settings → Passwords.",
-    ]
+            "Abrir en el editor…":
+            "Open in Editor…",
+        "Crea una copia personalizada (si no la hay) y la abre en tu editor de texto":
+            "Creates a custom copy (if there isn't one) and opens it in your text editor",
+        "No encuentro las reglas de la app":
+            "Can't find the app's rules",
+        "Editar la regla":
+            "Edit Rule",
+        "Nueva regla…":
+            "New Rule…",
+        "Restaurar las de serie…":
+            "Restore Defaults…",
+        "Van por orden: la primera que encaja colorea. Al cambiar algo se guardan en tu archivo personalizado.":
+            "Rules apply in order: the first one that matches colors. Any change is saved to your custom file.",
+        "✓ Regla «%@» guardada":
+            "✓ Rule “%@” saved",
+        "✓ Duplicada: «%@»":
+            "✓ Duplicated: “%@”",
+        "¿Borrar la regla «%@»?":
+            "Delete the rule “%@”?",
+        "Queda una copia del archivo anterior (resaltado.yml.anterior).":
+            "A copy of the previous file is kept (resaltado.yml.anterior).",
+        "✓ Borrada «%@»":
+            "✓ Deleted “%@”",
+        "¿Volver a las reglas de serie?":
+            "Go back to the default rules?",
+        "Tus reglas personalizadas se sustituyen (queda copia en resaltado.yml.anterior) y se encienden todas.":
+            "Your custom rules are replaced (a copy is kept in resaltado.yml.anterior) and all of them are turned on.",
+        "Restaurar":
+            "Restore",
+        "✓ Reglas de serie restauradas":
+            "✓ Default rules restored",
+        "Falta la descripción":
+            "Description is missing",
+        "Ya hay otra regla con esa descripción":
+            "Another rule already has that description",
+        "p. ej. VLAN":
+            "e.g. VLAN",
+        "Expresión regular":
+            "Regular expression",
+        "✓ Válida · %@ grupos":
+            "✓ Valid · %@ groups",
+        "Exclusiva: lo que colorea ya no lo colorea ninguna regla de después":
+            "Exclusive: what it colors is not colored by any later rule",
+        "Nueva regla":
+            "New Rule",
+        "Sintaxis de ChromaTerm/Python: (?i) sin distinguir mayúsculas, \\b borde de palabra, (…) grupos.":
+            "ChromaTerm/Python syntax: (?i) case-insensitive, \\b word boundary, (…) groups.",
+        "Añadir color para un grupo":
+            "Add Color for a Group",
+        "Colores":
+            "Colors",
+        "Grupo 0 = todo el acierto. Los colores con nombre siguen al tema (si está activado «Con los colores del tema»).":
+            "Group 0 = the whole match. Named colors follow the theme (if “With the theme colors” is on).",
+        "Vista previa (sólo esta regla)":
+            "Preview (this rule only)",
+        "Colorea %@ líneas de la muestra":
+            "Colors %@ lines of the sample",
+        "todo":
+            "all",
+        "Texto":
+            "Text",
+        "Fondo":
+            "Background",
+        "Negrita":
+            "Bold",
+        "Cursiva":
+            "Italic",
+        "Subrayado":
+            "Underline",
+        "Quitar este color":
+            "Remove this color",
+        "Ninguno":
+            "None",
+        "%@: otro color (#rrggbb)":
+            "%@: another color (#rrggbb)",
+        "Abrir el registro de errores":
+            "Open Error Log",
+        "Conectar, terminal local, sesión nueva o una favorita":
+            "Connect, local terminal, new session or a favorite",
+        "Conectar / Salto… (⌘K)":
+            "Connect / Jump… (⌘K)",
+        "Terminal local (⌘T)":
+            "Local Terminal (⌘T)",
+        "Nueva sesión…":
+            "New Session…",
+        "Nueva sesión SFTP…":
+            "New SFTP Session…",
+        "Nueva sesión serie…":
+            "New Serial Session…",
+        "Favoritas":
+            "Favorites",
+        "Falta la expresión":
+            "Expression is missing",
+        "La expresión no puede llevar saltos de línea":
+            "The expression can't contain line breaks",
+        "Expresión no válida (revisa paréntesis, corchetes y escapes)":
+            "Invalid expression (check parentheses, brackets and escapes)",
+        "Encaja con el texto vacío: no colorearía nada":
+            "Matches empty text: it would color nothing",
+]
 }

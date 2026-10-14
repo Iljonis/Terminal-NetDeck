@@ -8,6 +8,24 @@ public struct HighlightStyle: Hashable, Sendable {
     public var italic = false
     public var underline = false
 
+    /// Los colores con nombre que entiende el resaltado (`Theme.highlightPalette`; «f.nombre» / «b.nombre»).
+    public static let colorNames = ["white", "yellow", "cyan", "red", "green", "magenta", "orange", "blue", "dark", "dim"]
+
+    public init(foreground: String? = nil, background: String? = nil, bold: Bool = false, italic: Bool = false,
+                underline: Bool = false) {
+        (self.foreground, self.background, self.bold, self.italic, self.underline) = (foreground, background, bold, italic, underline)
+    }
+
+    /// Al revés que `init(_:)`: «f.cyan bold», «b#00ff00 underline»…
+    public var spec: String {
+        func color(_ prefix: String, _ c: String?) -> String? {
+            guard let c, !c.isEmpty else { return nil }
+            return c.hasPrefix("#") ? prefix + c : prefix + "." + c
+        }
+        return [color("f", foreground), color("b", background), bold ? "bold" : nil, italic ? "italic" : nil,
+                underline ? "underline" : nil].compactMap { $0 }.joined(separator: " ")
+    }
+
     public init(_ spec: String) {
         for tok in spec.split(whereSeparator: \.isWhitespace).map(String.init) {
             switch tok.lowercased() {
@@ -33,14 +51,38 @@ public struct HighlightRule: Sendable {
     public var exclusive: Bool
 
     public init(description: String, regex: String, styles: [Int: HighlightStyle], exclusive: Bool = false) throws {
-        // (sintaxis de Python → ICU)
-        let icu = regex.replacingOccurrences(of: "(?P<", with: "(?<").replacingOccurrences(of: "(?P=", with: "\\k<")
+        let icu = Self.icu(regex)
         _ = try NSRegularExpression(pattern: icu)                // (que una regla mala no tumbe la app)
         self.description = description
         self.regex = Pattern(icu, ignoreCase: false)
         self.source = regex
         self.styles = styles
         self.exclusive = exclusive
+    }
+
+    /// Sintaxis de Python (la de ChromaTerm) → ICU.
+    static func icu(_ regex: String) -> String {
+        regex.replacingOccurrences(of: "(?P<", with: "(?<").replacingOccurrences(of: "(?P=", with: "\\k<")
+    }
+
+    /// nil si la expresión vale; si no, por qué (para el editor, mientras se escribe).
+    public static func problem(regex: String) -> String? {
+        if regex.trimmed.isEmpty { return L("Falta la expresión") }
+        if regex.contains(where: \.isNewline) { return L("La expresión no puede llevar saltos de línea") }
+        guard let r = try? NSRegularExpression(pattern: icu(regex)) else { return L("Expresión no válida (revisa paréntesis, corchetes y escapes)") }
+        if r.firstMatch(in: "", range: NSRange(location: 0, length: 0)) != nil { return L("Encaja con el texto vacío: no colorearía nada") }
+        return nil
+    }
+
+    /// Grupos de captura de la expresión (para elegir a cuál se le pone color).
+    public var groupCount: Int { regex.regex.numberOfCaptureGroups }
+
+    /// El «color:» tal como va en el archivo: «f.cyan bold» o «{1: f.cyan bold, 2: f.dim}».
+    public var colorSpec: String { Self.colorSpec(styles) }
+
+    public static func colorSpec(_ styles: [Int: HighlightStyle]) -> String {
+        if styles.count == 1, let s = styles[0] { return s.spec }
+        return "{" + styles.keys.sorted().map { "\($0): \(styles[$0]!.spec)" }.joined(separator: ", ") + "}"
     }
 }
 
@@ -103,6 +145,31 @@ public struct HighlightConfig: Sendable {
             }
         }
         flush()
+    }
+
+    /// El archivo otra vez (lo que guarda el editor de Ajustes): cabecera, `palette:` y `rules:`. Todo entre comillas
+    /// simples, para que « #» o «: » de una expresión no se lean como comentario o clave.
+    public func yaml() -> String {
+        var out = "# Resaltado de Terminal NetDeck (formato de ChromaTerm). Lo escribe Ajustes → Resaltado.\n"
+            + "# color: «f.nombre» texto · «b.nombre» fondo · «f#rrggbb» · bold / italic / underline · {grupo: …}\n"
+            + "# exclusive: true → esa zona ya no la colorea ninguna regla de después\n"
+        if !palette.isEmpty {
+            out += "palette:\n"
+            for k in palette.keys.sorted() { out += "  \(k): '\(palette[k]!.description)'\n" }
+        }
+        out += "rules:\n"
+        for r in rules {
+            out += "- description: \(Self.quote(r.description))\n"
+            out += "  regex: \(Self.quote(r.source))\n"
+            out += "  color: \(Self.quote(r.colorSpec))\n"
+            if r.exclusive { out += "  exclusive: true\n" }
+        }
+        return out
+    }
+
+    /// 'texto' (una comilla dentro se dobla; los saltos de línea, fuera).
+    static func quote(_ s: String) -> String {
+        "'" + s.components(separatedBy: .newlines).joined(separator: " ").replacingOccurrences(of: "'", with: "''") + "'"
     }
 
     /// «f.cyan bold» o «{1: f.cyan bold, 2: f.dim}».
