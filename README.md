@@ -1,7 +1,7 @@
 # Terminal NetDeck
 
 Terminal nativo de macOS para ingenieros de red: sesiones de tu `ssh_config` con saltos, contraseñas en el Llavero con
-una regla de usuario estricta, MultiExec, pegado seguro, resaltado de la salida tipo ChromaTerm y 43 temas.
+una regla de usuario estricta, MultiExec, pegado seguro, resaltado de la salida tipo ChromaTerm y 51 temas.
 Swift 6 · SwiftUI · [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm). Español (España) e inglés.
 
 *[English below](#english)*
@@ -36,10 +36,75 @@ Swift 6 · SwiftUI · [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm). E
 - **Importar** sesiones de SecureCRT, MobaXterm, PuTTY, electerm, CSV u otro `ssh_config` (nunca contraseñas).
   **Exportar** todas o unos grupos a JSON (todos los campos) o CSV, sin contraseñas; el JSON se vuelve a importar.
 - **Resaltado** de la salida con reglas tipo ChromaTerm, con los colores del tema.
+- **51 temas** en 8 grupos (galería en Ajustes → Temas), con su paleta ANSI y su fuente; pueden **seguir al Mac**
+  (uno claro y otro oscuro) y se importan los tuyos (`.tema`). Todos pasan una prueba de contraste WCAG.
+- **Actualizaciones** comprobadas en silencio una vez al día (nunca se instala nada sola) e **idioma** de la interfaz
+  en español o inglés (Ajustes → General → Idioma), al momento.
 
 | Temas | Resaltado |
 |---|---|
 | ![Temas](docs/capturas/temas.png) | ![Resaltado](docs/capturas/resaltado.png) |
+
+## Temas
+
+Cada tema es un archivo `.tema` de texto en `Temas/` (`clave = valor`: colores, fuentes, paleta ANSI…); para crear el
+tuyo copia uno, cambia los colores e impórtalo. Todos cumplen un contraste mínimo (WCAG): texto ≥ 4,5:1, texto
+apagado ≥ 3:1, pestaña activa ≥ 4,5:1 y colores ANSI ≥ 3:1 (lo comprueba `ThemeTests`). Además está la de serie,
+**NetDeck Cyberpunk**.
+
+| Grupo | Tema | Cómo es |
+|---|---|---|
+| **Cyberpunk** | **Neón 2077** | Amarillo portada, cian y rojo neón. |
+|  | **Corpo rojo** | Negro, rojo corporativo y blanco. Sobrio, con rótulos en kanji. |
+|  | **Neo-Tokyo** | Cyberpunk japonés: índigo profundo, magenta y cian. |
+|  | **Synthwave** | Atardecer retrowave: rosa, violeta y naranja. |
+|  | **Grid** | Negro absoluto con cian eléctrico y naranja (estilo Tron). |
+|  | **Vaporwave** | Turquesa y rosa pastel sobre violeta, estética noventera. |
+| **Sistemas** | **Liquid Glass** | Como macOS 27: cristal transparente y desenfocado, con los colores del sistema. Legible sobre cualquier fondo. |
+|  | **Liquid Glass Claro** | macOS 27 de día: vidrio claro y desenfocado, texto oscuro bien legible. |
+|  | **Windows 11** | Fluent y Mica: gris oscuro con un toque translúcido, acento azul, Cascadia Mono y la paleta Campbell de Windows Terminal. |
+|  | **Windows 11 Claro** | Fluent de día: Mica clara, acento azul y la paleta «One Half Light» de Windows Terminal (legible en claro). |
+| **Anime y cine** | **Unidad-01** | Morado y verde neón, avisos en naranja (estilo EVA-01). |
+|  | **Unidad-02** | Rojo y naranja intensos con verde lima (estilo EVA-02). |
+|  | **Neo-Tokio rojo** | Rojo moto, negro y blanco con kanji (estilo Akira). |
+|  | **Fantasma rojo** | Rojo, negro y blanco con contraste brutal (estilo Persona 5). |
+|  | **Replicante** | Neblina naranja y azul petróleo (estilo Blade Runner). |
+|  | **Sección 9** | Verde agua y blanco sobre pizarra (estilo Ghost in the Shell). |
+|  | **Bosque** | Verdes musgo, cielo y tonos cálidos (estilo Ghibli). |
+|  | **Andén** | Panel LED naranja de estación japonesa. |
+| **Kawaii** | **Kawaii futurista** | Lavanda oscuro, rosa, menta y lila. Detalles ♡ ✧. |
+|  | **Sakura** | Clara y suave, para fondo blanco. |
+|  | **Alba rosa** | Clara de amanecer: crema, rosa viejo, lirio y pino (inspirada en Rosé Pine Dawn). |
+| **Retro** | **Fósforo** | Monitor clásico de fósforo verde. |
+|  | **Ámbar** | Terminal ámbar de los 80, cálida para muchas horas. |
+|  | **Otoño retro** | Cálida y con poco azul, inspirada en Gruvbox: buena para la noche. |
+|  | **Monokai** | La de los editores de siempre: verde, amarillo y rosa intensos sobre gris oliva. |
+|  | **Trigo** | Papel crema con tinta tostada y colores de tierra (inspirada en Gruvbox claro): pareja diurna de Otoño retro. |
+| **Sobrias** | **Ártico** | Sobria con contraste: hielo, aurora y ámbar. |
+|  | **Medianoche** | Azules y violetas suaves (estilo Tokyo Night). |
+|  | **Vampiro** | Morado, rosa y verde sobre gris (estilo Dracula). |
+|  | **Océano profundo** | Azul abisal con brillos aguamarina y coral. |
+|  | **Grafito** | Oscura suave para trabajar con el Mac en modo claro: gris carbón en vez de negro, no deslumbra al pasar de una ventana clara a la terminal. |
+|  | **Solar oscuro** | La paleta clásica Solarized en oscuro: poco contraste, descansa la vista en turnos largos. |
+|  | **Solar claro** | La misma paleta Solarized en claro: pareja de Solar oscuro (ideal en modo Auto). |
+|  | **Moca** | Pasteles suaves sobre fondo oscuro, inspirada en Catppuccin Mocha. |
+|  | **Fiordo** | Gris pizarra ártico con azules escarcha y aurora tenue (inspirada en Nord): calma para turnos largos. |
+|  | **Café con leche** | Clara y cremosa con pasteles con cuerpo (inspirada en Catppuccin Latte): pareja diurna de Moca. |
+|  | **Gran ola** | Tinta índigo, papel envejecido y azules de grabado japonés (inspirada en Kanagawa). |
+|  | **Taiga** | Verde bosque apagado con salvia, arena y musgo (inspirada en Everforest): suave y muy cálida. |
+| **Prácticas** | **Accesible** | Para daltonismo: bien en azul, mal en naranja. |
+|  | **Alto contraste** | Blanco puro sobre negro y colores al máximo. |
+|  | **Pro** | El perfil «Pro» de Terminal de macOS: texto claro sobre negro y los colores brillantes de siempre. |
+|  | **Papel** | Clara y muy legible: para oficinas con mucha luz, el proyector o compartir pantalla en una reunión. |
+|  | **NOC** | Para pantallas de guardia: todo lo normal en tonos apagados y las alarmas (down, errores, pérdidas) saltando a la vista. |
+|  | **Guardia ámbar** | Consola de NOC muy legible: ámbar sobre negro cálido, letra grande y estados en colores inconfundibles. |
+|  | **Guardia verde** | Consola de NOC muy legible: verde suave sobre negro, alarmas en rojo y avisos en ámbar. |
+| **Corporativas** | **DIGI** | Azul DIGI Mobil (#1275B7) y el punto rojo del logo, sobre azul marino. |
+|  | **Oracle** | Rojo Oracle (#C74634) sobre el gris cálido de Redwood (#312D2A). |
+|  | **Cisco** | Azul Cisco (#049FD9) sobre azul noche, con los colores de estado de Cisco. |
+|  | **Juniper** | Verde Juniper (#84B135) y lima (#CCDB2A) sobre gris pizarra. |
+|  | **Huawei** | Rojo Huawei (#CF0A2C) y su negro (#232527). |
+|  | **Ubuntu** | Naranja Ubuntu (#E95420) sobre berenjena (#300A24), como su terminal. |
 
 ## Instalar
 
@@ -134,7 +199,7 @@ Archivos de configuración en `~/.config/netdeck/` (`ssh_config` de sesiones, `b
 ## English
 
 Native macOS terminal for network engineers: sessions from your `ssh_config` with jump hosts, Keychain passwords with a
-strict per-user rule, MultiExec, safe paste, ChromaTerm-style output highlighting and 43 themes. The interface is
+strict per-user rule, MultiExec, safe paste, ChromaTerm-style output highlighting and 51 themes. The interface is
 available in Spanish (Spain) and English: **Settings → General → Language** (applies instantly).
 
 ![Home screen](docs/capturas/portada-en.png)
@@ -151,6 +216,12 @@ available in Spanish (Spain) and English: **Settings → General → Language** 
   JSON/CSV to share (never passwords; imported files can't bring command-running ssh options).
 - **Customisable button bar** with categories; password and login buttons pick the Keychain entry from a list.
 - **No locale warnings on Linux servers:** ssh doesn't send the Mac's `LANG`/`LC_*` unless you enable it.
+- **ChromaTerm-style highlighting** in the theme's colours.
+- **51 themes** in 8 groups (Cyberpunk, Systems, Anime & film, Kawaii, Retro, Subdued, Practical, Corporate; full
+  list in the [Temas](#temas) table): Liquid Glass and Windows 11 looks, Solarized-, Nord-, Gruvbox-, Catppuccin-,
+  Kanagawa- and Everforest-inspired palettes, high-legibility NOC consoles and vendor colours (Cisco, Juniper, Huawei…).
+  They can follow the Mac's light/dark mode, you can import your own `.tema` files, and every theme passes a WCAG
+  contrast test (text ≥ 4.5:1, dim text ≥ 3:1).
 
 Install: download `Terminal-NetDeck.dmg` from Releases and drag the app to Applications (data lives in
 `~/Library/Application Support/Terminal NetDeck/`, passwords only in the Keychain), or build it with macOS 15+ and
