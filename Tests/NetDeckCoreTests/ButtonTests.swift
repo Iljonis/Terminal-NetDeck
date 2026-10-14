@@ -116,6 +116,26 @@ import Testing
         #expect(f.buttons[i + 1].name == "c1 2" && f.buttons[i + 1].hotkey == nil && f.buttons[i + 1].command == "w")
     }
 
+    @Test func arrastrarSobreOtroBoton() {
+        var f = Self.tres
+        f.compactGroups()                                  // a1 a2 b1 c1
+        let ids = Dictionary(uniqueKeysWithValues: f.buttons.map { ($0.name, $0.id) })
+        let r1 = f.moveButton(ids["a1"]!, onto: ids["a2"]!)
+        #expect(r1)                                        // de antes: queda detrás
+        #expect(f.buttons.map(\.name) == ["a2", "a1", "b1", "c1"])
+        let r2 = f.moveButton(ids["c1"]!, onto: ids["b1"]!)
+        #expect(r2)                                        // de después: delante, y pasa a B (con su tecla)
+        #expect(f.buttons.map(\.name) == ["a2", "a1", "c1", "b1"])
+        #expect(f.buttons[2].group == "B" && f.buttons[2].hotkey == "F2")
+        #expect(f.groups == ["A", "B"])
+        let r3 = f.moveButton(ids["a1"]!, onto: ids["b1"]!)
+        #expect(r3)                                        // cambia de categoría sin partir el bloque de B
+        #expect(f.buttons.map(\.name) == ["a2", "c1", "b1", "a1"])
+        #expect(f.buttons.map(\.group) == ["A", "B", "B", "B"])
+        let r4 = f.moveButton(ids["a2"]!, onto: ids["a2"]!)
+        #expect(!r4)
+    }
+
     @Test func teclasDeFuncion() {
         func k(_ s: String) -> String? { FunctionKey.name(Array(s.utf8)) }
         #expect(k("\u{1b}OP") == "F1")

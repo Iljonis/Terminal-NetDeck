@@ -29,8 +29,8 @@ final class AppModel {
     @ObservationIgnored let sharedGate = AutomationGate()
 
     var tabs: [TerminalSession] = []
-    /// La pestaña que se está arrastrando en la barra (para reordenar; lo que venga de fuera no se acepta).
-    var draggingTab: TerminalSession.ID?
+    /// Zonas de la ventana (en coordenadas de SwiftUI) donde arrastrar reordena y no mueve la ventana (`keepsWindowStill`).
+    @ObservationIgnored var stillZones: [String: CGRect] = [:]
     var selection: TerminalSession.ID? {
         didSet { updateVisibility() }
     }
@@ -80,6 +80,7 @@ final class AppModel {
     @ObservationIgnored weak var window: NSWindow?
     @ObservationIgnored private var focusWatch: NSKeyValueObservation?
     @ObservationIgnored private var appearanceWatch: NSKeyValueObservation?
+    @ObservationIgnored private var stillWatch: Any?
     @ObservationIgnored private var frameBeforeFill: NSRect?
     /// Pestañas abiertas la última vez (para reabrirlas).
     var lastOpen: [ConnectionRoute] = []
@@ -92,6 +93,7 @@ final class AppModel {
     var recents: [String] = []
     /// Botones de la barra (botones.txt de NetDeck, o el de la app).
     var buttons = ButtonFile()
+    @ObservationIgnored private var buttonsMoved = false
     /// Botón con huecos esperando a que los rellenes.
     var pendingButton: CommandButton?
     /// Sugerencia o elección manual pendiente en cada pestaña.
@@ -760,6 +762,29 @@ final class AppModel {
         }
     }
 
+    /// Arrastrar en la barra de botones: cambia el orden (y la categoría si cae en otra) en memoria; al soltar,
+    /// `saveButtonOrder`. Con líneas mal escritas no: al guardar se perderían.
+    func moveButton(_ id: CommandButton.ID, onto target: CommandButton.ID) {
+        guard buttons.problems.isEmpty, buttons.moveButton(id, onto: target) else { return }
+        buttonsMoved = true
+    }
+
+    func saveButtonOrder() {
+        guard buttons.problems.isEmpty else {
+            status = L("✗ botones.txt tiene líneas mal escritas: arréglalas en Ajustes → Botones para poder ordenar arrastrando")
+            return
+        }
+        guard buttonsMoved else { return }
+        buttonsMoved = false
+        if let e = saveButtons(buttons) { status = "✗ \(e)"; reloadButtons() }
+    }
+
+    /// Clic derecho en un botón de la barra → «Mover a la categoría».
+    func moveButton(_ id: CommandButton.ID, toGroup g: String) {
+        if buttons.problems.isEmpty, buttons.moveButton(id, toGroup: g) { buttonsMoved = true }
+        saveButtonOrder()
+    }
+
     /// Clic en un botón (o su tecla): en la pestaña activa, o en todas las de MultiExec.
     func runButton(_ b: CommandButton, values: [String: String]? = nil) {
         if values == nil, !b.holes.isEmpty, b.mode == .run || b.mode == .type {
@@ -874,6 +899,20 @@ final class AppModel {
         guard window !== w else { return }
         window = w
         w.isMovableByWindowBackground = false
+        // pulsar en una zona de reordenar (pestañas en la barra de título, botones): la ventana no se mueve hasta soltar
+        if let m = stillWatch { NSEvent.removeMonitor(m) }
+        // (Ctrl+clic abre el menú y su ratón arriba no llega: ése y el clic derecho no bloquean nada)
+        stillWatch = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp, .rightMouseDown]) { [weak self] e in
+            MainActor.assumeIsolated {
+                guard let self, let w = self.window else { return }
+                if e.type != .leftMouseDown || e.modifierFlags.contains(.control) { w.isMovable = true; return }
+                guard e.window === w else { return }
+                let h = w.contentView?.bounds.height ?? w.frame.height
+                let p = CGPoint(x: e.locationInWindow.x, y: h - e.locationInWindow.y)
+                w.isMovable = !self.stillZones.values.contains { $0.contains(p) }
+            }
+            return e
+        }
         styleWindows()
         fullScreen = w.styleMask.contains(.fullScreen)
         // clic en un panel de la vista dividida → es la pestaña activa

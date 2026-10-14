@@ -215,6 +215,18 @@ public struct ButtonFile: Sendable {
         return true
     }
 
+    /// Arrastrar en la barra: `id` ocupa el sitio de `target` (si venía de antes queda detrás, si de después, delante)
+    /// y pasa a su categoría (queda pegado a `target`: el bloque del grupo no se parte).
+    @discardableResult
+    public mutating func moveButton(_ id: CommandButton.ID, onto target: CommandButton.ID) -> Bool {
+        guard id != target, let i = buttons.firstIndex(where: { $0.id == id }),
+              let j = buttons.firstIndex(where: { $0.id == target }) else { return false }
+        var b = buttons.remove(at: i)
+        b.group = buttons[j > i ? j - 1 : j].group
+        buttons.insert(b, at: j)
+        return true
+    }
+
     /// Copia justo debajo (sin la tecla rápida: no puede haber dos con la misma). Devuelve la copia.
     @discardableResult
     public mutating func duplicateButton(_ id: CommandButton.ID, suffix: String = " 2") -> CommandButton.ID? {

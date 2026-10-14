@@ -7,6 +7,7 @@ import SwiftUI
 struct ButtonBarView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
+    @Stored private var drag = RowDrag<CommandButton.ID>()
 
     var body: some View {
         let file = model.buttons
@@ -34,13 +35,24 @@ struct ButtonBarView: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 5) {
-                    ForEach(shown) { b in CommandChip(button: b) }
+                    // arrastrar un botón lo cambia de sitio (en fila, también de categoría); se guarda al soltar
+                    // (por sus ids: `CommandButton` se compara sin el id y, al recargar el archivo, SwiftUI se quedaría con
+                    // los de antes)
+                    ForEach(shown.map(\.id), id: \.self) { id in
+                        if let b = shown.first(where: { $0.id == id }) {
+                            CommandChip(button: b)
+                                .reorderable(id, in: drag, order: { order(grouped) },
+                                             move: { model.moveButton($0, onto: $1) }, end: { model.saveButtonOrder() })
+                        }
+                    }
                     if shown.isEmpty {
                         Text(L("Sin botones · ✎ para crear")).font(t.ui(10.5)).foregroundStyle(SwiftUI.Color(t.dim))
                     }
                 }
                 .padding(.vertical, 4)
+                .coordinateSpace(.named(drag.space))
             }
+            .keepsWindowStill(model, "botones")
             IconButton(icon: "pencil") { model.openSettings("botones") }
                 .help(L("Editar los botones"))
         }
@@ -48,6 +60,11 @@ struct ButtonBarView: View {
         .frame(height: 32)
         .background(SwiftUI.Color(t.bar))
         .overlay(alignment: model.settings.buttonBar == "abajo" ? .top : .bottom) { NeonLine(color: t.panel) }
+    }
+
+    /// Los botones que se ven, en su orden de ahora (mientras se arrastra cambia).
+    private func order(_ grouped: Bool) -> [CommandButton.ID] {
+        model.buttons.buttons.filter { !grouped || $0.group == model.settings.buttonGroup }.map(\.id)
     }
 }
 
@@ -85,6 +102,12 @@ struct CommandChip: View {
             Button(L("Copiar la orden")) {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(button.command, forType: .string)
+            }
+            let others = model.buttons.groups.filter { $0 != button.group }
+            if !others.isEmpty {
+                Menu(L("Mover a la categoría")) {
+                    ForEach(others, id: \.self) { g in Button(g) { model.moveButton(button.id, toGroup: g) } }
+                }
             }
         }
     }

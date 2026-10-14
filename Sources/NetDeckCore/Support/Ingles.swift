@@ -308,6 +308,8 @@ enum Ingles {
             "Edit…",
         "Copiar la orden":
             "Copy Command",
+        "✗ botones.txt tiene líneas mal escritas: arréglalas en Ajustes → Botones para poder ordenar arrastrando":
+            "✗ botones.txt has malformed lines: fix them in Settings → Buttons to reorder by dragging",
         "Cancelar":
             "Cancel",
         "Enviar a todas (MultiExec)":
