@@ -1,5 +1,10 @@
 # Terminal NetDeck
 
+[![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
+[![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
+[![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
+[![macOS 15+](https://img.shields.io/badge/macOS-15%2B-000000.svg?logo=apple&logoColor=white)](https://www.apple.com/macos/)
+
 Terminal nativo de macOS para ingenieros de red: sesiones de tu `ssh_config` con saltos, contraseñas en el Llavero con
 una regla de usuario estricta, MultiExec, pegado seguro, resaltado de la salida tipo ChromaTerm y 51 temas.
 Swift 6 · SwiftUI · [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm). Español (España) e inglés.
@@ -247,3 +252,7 @@ download, nothing is installed automatically. Development: `swift run TerminalNe
 -idioma en`, tests with `./test.sh`, screenshots with `tools/capturas.sh`.
 
 ![Settings](docs/capturas/ajustes-en.png)
+
+## Licencia · License
+
+[MIT](LICENSE) © 2026 Jonay / Iljonis
