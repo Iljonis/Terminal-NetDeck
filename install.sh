@@ -152,7 +152,7 @@ rm -rf "$destino/$NOMBRE.app"
 cp -R "$APP" "$destino/"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
   -f "$destino/$NOMBRE.app" >/dev/null 2>&1 || true
-mkdir -p "$TEMAS_USUARIO"
+mkdir -p "$TEMAS_USUARIO" && chmod 700 "$SOPORTE" "$TEMAS_USUARIO"
 
 echo "${V}✓ Instalada:${N} $destino/$NOMBRE.app"
 if [ $actualizar = 1 ]; then

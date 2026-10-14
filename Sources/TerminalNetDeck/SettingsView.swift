@@ -450,7 +450,7 @@ struct HighlightSettings: View {
                 }
                 Toggle(L("Con los colores del tema"), isOn: $s.highlightThemeColors)
                 HStack {
-                    Text(model.highlightFile?.path.replacingOccurrences(of: AppPaths.home.path, with: "~") ?? "—")
+                    Text(model.highlightFile.map { AppPaths.tilde($0.path) } ?? "—")
                         .font(t.ui(11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
                     Spacer()
                     Button(L("Abrir en el editor…")) {
@@ -492,7 +492,7 @@ struct LogSettings: View {
             Section {
                 Toggle(L("Grabar todas las sesiones a un archivo"), isOn: $s.logEnabled)
                 HStack {
-                    Text(s.logPath.replacingOccurrences(of: AppPaths.home.path, with: "~"))
+                    Text(AppPaths.tilde(s.logPath))
                         .font(.callout.monospaced()).lineLimit(1).truncationMode(.head)
                     Spacer()
                     Button(L("Elegir carpeta…")) {
@@ -530,7 +530,7 @@ struct LogSettings: View {
             Section {
                 Toggle(L("Registro de depuración"), isOn: $s.debugLog)
                 HStack {
-                    Text(DebugLog.file.path.replacingOccurrences(of: AppPaths.home.path, with: "~")).font(.caption.monospaced())
+                    Text(AppPaths.tilde(DebugLog.file.path)).font(.caption.monospaced())
                     Spacer()
                     Button(L("Abrir")) { DebugLog.flush(); NSWorkspace.shared.open(DebugLog.file) }
                 }

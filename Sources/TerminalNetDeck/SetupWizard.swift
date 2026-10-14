@@ -101,7 +101,7 @@ final class SetupWizard {
                 try fm.createDirectory(at: destination, withIntermediateDirectories: true)
                 if fm.fileExists(atPath: installedApp.path) { try fm.removeItem(at: installedApp) }   // (versión anterior)
                 try fm.copyItem(at: bundleURL, to: installedApp)
-                log.append(L("✓ App instalada en \(installedApp.path.replacingOccurrences(of: AppPaths.home.path, with: "~"))"))
+                log.append(L("✓ App instalada en \(AppPaths.tilde(installedApp.path))"))
             } catch {
                 log.append(L("✗ No se ha podido copiar la app: \(error.localizedDescription)"))
                 running = false
@@ -395,7 +395,7 @@ struct SetupContent: View {
     private var install: some View {
         VStack(alignment: .leading, spacing: 10) {
             if wizard.log.isEmpty {
-                summary(L("Ubicación"), wizard.needsCopy ? wizard.installedApp.path.replacingOccurrences(of: AppPaths.home.path, with: "~")
+                summary(L("Ubicación"), wizard.needsCopy ? AppPaths.tilde(wizard.installedApp.path)
                                                       : L("sin copiar"))
                 summary(L("Tema"), wizard.previewTheme(model).name)
                 summary(L("Fuentes"), wizard.fontsToInstall.isEmpty ? L("ninguna nueva") : wizard.fontsToInstall.sorted().joined(separator: ", "))

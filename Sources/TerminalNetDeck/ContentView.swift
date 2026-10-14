@@ -377,7 +377,7 @@ struct RecBadge: View {
                 }
             }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-            .help(L("Grabando en \(f.path.replacingOccurrences(of: AppPaths.home.path, with: "~"))"))
+            .help(L("Grabando en \(AppPaths.tilde(f.path))"))
         }
     }
 }

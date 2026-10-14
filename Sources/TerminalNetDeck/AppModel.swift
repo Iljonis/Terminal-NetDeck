@@ -230,6 +230,7 @@ final class AppModel {
         let dest = AppPaths.ensure(AppPaths.support).appendingPathComponent("resaltado.yml")
         if !FileManager.default.fileExists(atPath: dest.path), let src = highlightFile {
             try? FileManager.default.copyItem(at: src, to: dest)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: dest.path)   // (sólo tú)
         }
         settings.highlightSource = .custom
         reloadHighlight()
@@ -734,7 +735,7 @@ final class AppModel {
         do {
             try f.save()
             reloadButtons()
-            status = L("Botones guardados (\(f.buttons.count)) en \(ButtonFile.defaultURL.path.replacingOccurrences(of: AppPaths.home.path, with: "~"))")
+            status = L("Botones guardados (\(f.buttons.count)) en \(AppPaths.tilde(ButtonFile.defaultURL.path))")
             return nil
         } catch {
             ErrorLog.error("botones", "no se han podido guardar: \(error.localizedDescription)")

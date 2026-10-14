@@ -388,7 +388,7 @@ struct SessionEditor: View {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(SwiftUI.Color(t.bad))
                 Text(p).font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.bad)).lineLimit(2)
             } else {
-                Text(message.isEmpty ? SessionFile.defaultURL.path.replacingOccurrences(of: AppPaths.home.path, with: "~") : message)
+                Text(message.isEmpty ? AppPaths.tilde(SessionFile.defaultURL.path) : message)
                     .font(t.ui(11)).foregroundStyle(SwiftUI.Color(message.hasPrefix("✗") ? t.bad : t.dim)).lineLimit(2)
             }
             Spacer()
@@ -494,7 +494,7 @@ struct SessionEditor: View {
         p.showsHiddenFiles = true
         p.directoryURL = AppPaths.home.appendingPathComponent(".ssh")
         guard p.runModal() == .OK, let u = p.url else { return }
-        file.sessions[i].keyFile = u.path.replacingOccurrences(of: AppPaths.home.path, with: "~")
+        file.sessions[i].keyFile = AppPaths.tilde(u.path)
     }
 
     private func savePassword(user: String, host: String) {

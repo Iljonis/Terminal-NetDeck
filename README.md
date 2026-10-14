@@ -35,7 +35,10 @@ Swift 6 · SwiftUI · [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm). E
   activar en Ajustes → General → Conexiones.
 - **Importar** sesiones de SecureCRT, MobaXterm, PuTTY, electerm, CSV u otro `ssh_config` (nunca contraseñas).
   **Exportar** todas o unos grupos a JSON (todos los campos) o CSV, sin contraseñas; el JSON se vuelve a importar.
-- **Resaltado** de la salida con reglas tipo ChromaTerm, con los colores del tema.
+- **Resaltado** de la salida con reglas tipo ChromaTerm (41 de serie, activas desde el primer arranque: IPs, MAC,
+  interfaces, estados, BGP, dBm, errores, VLAN, syslog…), con los colores del tema. Se crean, editan, duplican,
+  ordenan y borran en Ajustes → Resaltado, con la expresión comprobada al escribir y vista previa.
+- **Menú «+»** con conexión rápida, terminal local, sesión nueva (SSH, SFTP, serie) y tus favoritas.
 - **51 temas** en 8 grupos (galería en Ajustes → Temas), con su paleta ANSI y su fuente; pueden **seguir al Mac**
   (uno claro y otro oscuro) y se importan los tuyos (`.tema`). Todos pasan una prueba de contraste WCAG.
 - **Actualizaciones** comprobadas en silencio una vez al día (nunca se instala nada sola) e **idioma** de la interfaz
@@ -153,6 +156,11 @@ repositorio que se indica al compilar: `NETDECK_REPO=usuario/repo ./install.sh`.
   cada guardado y `.original` la primera vez. Carpetas y archivos de la app sólo para ti (0700/0600).
 - Actualizaciones: sólo enlaces https de github.com, y nada se descarga ni instala sin que lo pidas.
 - Firma ad hoc con hardened runtime.
+- `./test.sh` comprueba antes de los tests que nada personal llega al repositorio, a la app ni al `.dmg`
+  (`tools/privacidad.sh`), y `tools/seguridad_cron.sh` (cada semana en GitHub Actions) revisa las dependencias contra
+  la base de vulnerabilidades OSV.dev (CVE), la privacidad, los tests y el endurecimiento de la app.
+- Los errores se guardan en `~/Library/Application Support/Terminal NetDeck/logs/error.log` (Ayuda → Abrir el
+  registro de errores), nunca con contraseñas.
 
 ## Atajos
 

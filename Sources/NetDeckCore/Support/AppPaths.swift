@@ -9,6 +9,13 @@ public enum AppPaths {
     }
 
     /// ~/Library/Application Support/Terminal NetDeck
+    /// Una ruta para enseñarla: la carpeta personal (la real y la de NETDECK_HOME) como «~».
+    public static func tilde(_ path: String) -> String {
+        var p = path
+        for h in [home.path, NSHomeDirectory()] where !h.isEmpty && p.hasPrefix(h) { p = "~" + p.dropFirst(h.count) }
+        return p
+    }
+
     public static var support: URL {
         home.appendingPathComponent("Library/Application Support/Terminal NetDeck", isDirectory: true)
     }

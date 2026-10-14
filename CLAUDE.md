@@ -7,7 +7,13 @@ Repositorio público: https://github.com/Iljonis/Terminal-NetDeck
 
 - `swift build` · `swift run TerminalNetDeck` (desarrollo; `-idioma en` en inglés; cualquier ajuste se puede forzar
   igual: `-sshConfigPath /ruta`, `-themeID neo-tokyo`…)
-- `./test.sh` — tests del núcleo (Swift Testing). Siempre en verde antes de un commit. También en GitHub Actions.
+- `./test.sh` — primero `tools/privacidad.sh` (nada personal en lo que se publica) y luego los tests del núcleo (Swift
+  Testing). Siempre en verde antes de un commit. También en GitHub Actions.
+- `tools/privacidad.sh [--binario]` — IPs privadas, rutas `/Users/…`, correos, claves, tokens y contraseñas en el código,
+  temas, reglas y plantillas; con `--binario` también la app de `build/` y el `.dmg`. Tus direcciones (las de tu
+  ssh_config y las de `tools/privacidad.local`, que no se sube) se comprueban sin publicarlas.
+- `tools/seguridad_cron.sh` — auditoría periódica: dependencias contra OSV.dev (CVE/GHSA), privacidad, tests y
+  endurecimiento; en GitHub, `.github/workflows/seguridad.yml` cada lunes. Informe en `~/Library/Logs/Terminal NetDeck/seguridad.log`.
 - `./install.sh` (instalar) · `./install.sh --dmg` (empaquetar) · `./actualizar.sh` (reinstala y reabre con las pestañas)
   · `NETDECK_REPO=Iljonis/Terminal-NetDeck` al compilar para las actualizaciones automáticas.
 - Capturas: `tools/capturas.sh` (README) o a mano con `NETDECK_HOME=<carpeta temporal con tools/demo>`
@@ -47,6 +53,9 @@ Repositorio público: https://github.com/Iljonis/Terminal-NetDeck
 - **Pestañas al arrancar**: no se guardan ni reabren las de loopback (127.x/localhost) ni las de las capturas.
 - **Actualizaciones** (`UpdateChecker`/`UpdateCheck`): una vez al día, en silencio, sólo enlaces https de github.com,
   nunca se descarga ni instala nada sola. Si el repositorio es privado no encuentra versiones.
+- **Errores**: `ErrorLog` (`~/Library/Application Support/Terminal NetDeck/logs/error.log`, nivel y detalle, sin
+  secretos); los mensajes al usuario van por `model.status` y sólo los que empiezan por ✗ 🔑 ⎋ ⬆ salen como aviso.
+- **Rutas en pantalla**: siempre con `AppPaths.tilde(…)` (la carpeta personal como «~»; así tampoco salen en capturas).
 - Ejemplos y tests sin datos reales: IPs `192.0.2.x` / `198.51.100.x` / `203.0.113.x` (RFC 5737), `tu.usuario`,
   `core-01`, `bastion`.
 
@@ -83,7 +92,8 @@ Cómo se trabaja con ellos:
 
 ## Publicar una versión
 
-1. `VERSION` en `install.sh`; `./test.sh`; pasada de `ecc:security-reviewer` / `ecc:opensource-sanitizer`.
+1. `VERSION` en `install.sh`; `./test.sh`; `tools/seguridad_cron.sh`; pasada de `ecc:security-reviewer` /
+   `ecc:opensource-sanitizer`.
 2. `git tag -a vX.Y.Z -m "Terminal NetDeck X.Y.Z"` y push del tag.
-3. `NETDECK_REPO=Iljonis/Terminal-NetDeck ./install.sh --dmg` y subir `dist/Terminal-NetDeck.dmg` a una Release de GitHub
+3. `NETDECK_REPO=Iljonis/Terminal-NetDeck ./install.sh --dmg`, `tools/privacidad.sh --binario`, y subir `dist/Terminal-NetDeck.dmg` a una Release de GitHub
    con ese tag (la app la ofrece sola a quien tenga una versión anterior).

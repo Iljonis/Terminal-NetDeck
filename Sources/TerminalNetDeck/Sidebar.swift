@@ -51,7 +51,7 @@ struct Sidebar: View {
                     .help(L("Importar de SecureCRT, MobaXterm, PuTTY, CSV…"))
                 IconButton(icon: "list.bullet.rectangle") { model.sheet = .list }
                     .help(L("Listas de equipos: la misma orden en muchos equipos por un salto (⇧⌘L)"))
-                Text(model.sessions.source?.path.replacingOccurrences(of: AppPaths.home.path, with: "~") ?? L("sesiones de ejemplo"))
+                Text(model.sessions.source.map { AppPaths.tilde($0.path) } ?? L("sesiones de ejemplo"))
                     .lineLimit(1).truncationMode(.head)
                     .foregroundStyle(SwiftUI.Color(t.dim))
                 Spacer()
