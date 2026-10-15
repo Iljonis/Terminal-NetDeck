@@ -53,4 +53,18 @@ public enum GroupTree {
         root.children.forEach { walk($0, 0) }
         return out
     }
+
+    /// Las carpetas (también las intermedias, sin sesiones propias) en el orden del árbol, con cuántas llevan.
+    public static func folders<Item>(_ groups: [(name: String, items: [Item])]) -> [(path: String, name: String, depth: Int, count: Int)] {
+        rows(groups).compactMap {
+            if case .folder(let p, let n, let d, let c) = $0 { (p, n, d, c) } else { nil }
+        }
+    }
+
+    /// Lo que abre «Abrir las N» de la carpeta `path`: sus sesiones y las de sus subcarpetas, en el orden del árbol.
+    public static func items<Item>(under path: String, in groups: [(name: String, items: [Item])]) -> [Item] {
+        rows(groups.filter { $0.name == path || contains(path, $0.name) }).compactMap {
+            if case .item(let x, _) = $0 { x } else { nil }
+        }
+    }
 }

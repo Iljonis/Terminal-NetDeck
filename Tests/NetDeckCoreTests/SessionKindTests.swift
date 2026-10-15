@@ -216,6 +216,19 @@ private let kinds = """
         #expect(GroupTree.contains("Clientes", "Clientes/Madrid/Core") && GroupTree.contains("Clientes/Madrid", "Clientes/Madrid"))
         #expect(!GroupTree.contains("Clientes/Mad", "Clientes/Madrid") && !GroupTree.contains("", "Saltos"))
     }
+
+    @Test func abrirUnGrupoEntero() {
+        let groups: [(name: String, items: [String])] = [("Clientes/Madrid/Core", ["core-01", "olt-01"]), ("Saltos", ["bastion"]),
+                                                          ("Clientes/Madrid", ["ficheros-01"]), ("Clientes/Mad", ["sw-02"])]
+        // (la carpeta y sus subcarpetas, en el orden del árbol: primero las suyas; «Clientes/Mad» no está dentro)
+        #expect(GroupTree.items(under: "Clientes/Madrid", in: groups) == ["ficheros-01", "core-01", "olt-01"])
+        #expect(GroupTree.items(under: "Clientes", in: groups) == ["ficheros-01", "core-01", "olt-01", "sw-02"])
+        #expect(GroupTree.items(under: "Saltos", in: groups) == ["bastion"])
+        #expect(GroupTree.items(under: "Nada", in: groups).isEmpty)
+        #expect(GroupTree.folders(groups).map { "\($0.depth) \($0.path) \($0.count)" } == [
+            "0 Clientes 4", "1 Clientes/Madrid 3", "2 Clientes/Madrid/Core 2", "1 Clientes/Mad 1", "0 Saltos 1",
+        ])
+    }
 }
 
 @Suite struct SessionExportTests {

@@ -106,27 +106,14 @@ struct Sidebar: View {
         return FolderRow(title: title, icon: icon ?? (open ? "folder" : "folder.fill"), tint: tint, count: count,
                          depth: depth, open: open) { if !searching { toggle(key) } }
             .themedContextMenu {
-                if let g = group, case let ps = profiles(under: g), !ps.isEmpty {
-                    Button(L("Abrir las \(ps.count)")) { ps.forEach(model.open) }
-                    Button(L("Abrir las \(ps.count) en vista dividida")) {
-                        let before = Set(model.tabs.map(\.id))
-                        ps.forEach(model.open)
-                        let new = model.tabs.filter { !before.contains($0.id) }.map(\.id)
-                        if new.count > 1 {
-                            model.split = Split(layout: new.count <= 4 ? .grid4 : .grid, panes: new)
-                            model.showSplit = true
-                        }
-                    }
+                if let g = group, case let ps = model.profiles(inGroup: g), !ps.isEmpty {
+                    Button(L("Abrir las \(ps.count)")) { Task { await model.openGroup(g, split: false) } }
+                    Button(L("Abrir las \(ps.count) en vista dividida")) { Task { await model.openGroup(g) } }
                     MenuDivider()
                     Button(L("Nueva sesión en «\(g)»")) { model.editSessions(.new(group: g)) }
                     Button(L("Gestionar el grupo…")) { model.editSessions(ps.first.map { .session($0.name) }) }
                 }
             }
-    }
-
-    /// Las sesiones de una carpeta y de sus subcarpetas (para «Abrir las N»).
-    private func profiles(under path: String) -> [SessionProfile] {
-        model.sessions.groups.filter { $0.name == path || GroupTree.contains(path, $0.name) }.flatMap(\.profiles)
     }
 
     private struct Row: Identifiable {

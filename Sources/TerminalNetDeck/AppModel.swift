@@ -93,6 +93,9 @@ final class AppModel {
     /// apagan (⌘K sustituiría el gestor con sus cambios; ⌘W cerraría la pestaña a la que va el botón que rellenas).
     var modalOpen: Bool { sheet != nil || showSettings || showSetup }
     var settingsTab = "contraseñas"
+    /// La sección de Ajustes abierta con cambios sin guardar (Sesiones, Listas) pregunta antes de cambiar de sección o
+    /// cerrar (`true`: se puede salir). `owner`: la vista que lo puso (sólo ella lo quita).
+    @ObservationIgnored var settingsLeave: (owner: UUID, check: @MainActor () async -> Bool)?
     /// ★ favoritas y ↻ recientes: los mismos archivos que NetDeck (~/.config/netdeck/favoritas, recientes).
     var favorites: [String] = []
     var recents: [String] = []
@@ -335,6 +338,37 @@ final class AppModel {
     func editSessions(_ focus: EditorFocus? = nil) {
         editorFocus = focus
         sheet = .sessions
+    }
+
+    /// Más que estas de golpe se preguntan antes de abrirlas.
+    static let groupConfirmAbove = 8
+    /// Abriendo un grupo (o preguntando si se abre): un segundo clic no lo repite.
+    @ObservationIgnored private var openingGroup = false
+
+    /// Las sesiones de una carpeta («# @grupo», con «/» = subcarpetas) y de sus subcarpetas, en el orden del árbol.
+    func profiles(inGroup path: String) -> [SessionProfile] {
+        GroupTree.items(under: path, in: sessions.groups.map { (name: $0.name, items: $0.profiles) })
+    }
+
+    /// «Abrir las N» (barra lateral y menú «+»): todas las de la carpeta y sus subcarpetas, cada una en su pestaña; con
+    /// `split`, si son varias, en la vista dividida. Más de `groupConfirmAbove` se preguntan antes.
+    func openGroup(_ path: String, split: Bool = true) async {
+        let ps = profiles(inGroup: path)
+        guard !ps.isEmpty, !openingGroup else { return }
+        openingGroup = true
+        defer { openingGroup = false }
+        if ps.count > Self.groupConfirmAbove {
+            guard await ThemedAlert.confirm(L("¿Abrir las \(ps.count) sesiones de «\(L(nombre: path))»?"),
+                                            message: L("Cada una en su pestaña (también las de sus subcarpetas)."),
+                                            ok: L("Abrir las \(ps.count)")) else { return }
+        }
+        let before = Set(tabs.map(\.id))
+        for p in ps { open(p) }
+        let new = tabs.filter { !before.contains($0.id) }.map(\.id)
+        DebugLog.log("sesiones", "grupo «\(path)»: \(new.count) de \(ps.count) abiertas\(split ? " (vista dividida)" : "")")
+        guard split, new.count > 1 else { return }
+        self.split = Split(layout: new.count <= 4 ? .grid4 : .grid, panes: new)
+        showSplit = true
     }
 
     /// Guarda el ssh_config de NetDeck (comprobado con ssh -G) y que ~/.ssh/config lo incluya.

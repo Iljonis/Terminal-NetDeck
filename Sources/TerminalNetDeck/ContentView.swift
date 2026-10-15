@@ -254,8 +254,8 @@ struct NewButton: View {
     }
 }
 
-/// El menú «+»: conectar, terminal local, sesiones nuevas y las ★ favoritas / la de inicio. Se cierra al elegir o
-/// con Esc (lo hace el propio panel).
+/// El menú «+»: conectar, terminal local, sesiones nuevas, listas, las ★ favoritas / la de inicio y los grupos (abre
+/// todas las de una carpeta de un clic). Se cierra al elegir o con Esc (lo hace el propio panel).
 struct NewMenu: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
@@ -264,6 +264,7 @@ struct NewMenu: View {
     var body: some View {
         let favs = model.favorites.compactMap(model.sessions.profile(named:))
         let start = model.startupProfile.flatMap { p in favs.contains { $0.name == p.name } ? nil : p }
+        let folders = GroupTree.folders(model.sessions.groups.map { (name: $0.name, items: $0.profiles) })
         VStack(alignment: .leading, spacing: 1) {
             item(L("Conectar / Salto…"), icon: "bolt.horizontal.fill", key: "⌘K") { model.sheet = .connect }
             item(L("Terminal local"), icon: "apple.terminal", key: "⌘T") { model.openLocal() }
@@ -273,12 +274,10 @@ struct NewMenu: View {
             item(L("Nueva sesión serie…"), icon: "cable.connector.horizontal") {
                 model.editSessions(.new(group: nil, kind: .serial))
             }
+            item(L("Listas de equipos…"), icon: "list.bullet.rectangle", key: "⇧⌘L") { model.sheet = .list }
             if !favs.isEmpty || start != nil {
                 divider
-                Text(L("Favoritas").uppercased())
-                    .font(t.ui(9.5, .bold)).tracking(t.tracking)
-                    .foregroundStyle(SwiftUI.Color(t.dim))
-                    .padding(.horizontal, 10).padding(.top, 2).padding(.bottom, 3)
+                heading(L("Favoritas"))
                 if let p = start {
                     item(p.name, icon: "power", key: L("al arrancar"), tint: t.warning) { model.open(p) }
                 }
@@ -286,6 +285,22 @@ struct NewMenu: View {
                     item(p.name, icon: p.name == model.startupProfile?.name ? "power" : "star.fill",
                          key: p.user.map { "\($0)@\(p.endpoint.host)" } ?? p.endpoint.host, tint: t.warning) { model.open(p) }
                 }
+            }
+            if !folders.isEmpty {
+                divider
+                heading(L("Grupos"))
+                // (muchos: se desplazan dentro del menú, que no crece más de la cuenta)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 1) {
+                        ForEach(folders, id: \.path) { f in
+                            item(L(nombre: f.name), icon: "folder.fill", key: "\(f.count)", indent: f.depth) {
+                                Task { await model.openGroup(f.path) }
+                            }
+                            .help(L("Abrir las \(f.count) (si son varias, en la vista dividida)"))
+                        }
+                    }
+                }
+                .frame(height: min(CGFloat(folders.count), 9.5) * 27)
             }
         }
         .padding(6)
@@ -299,9 +314,16 @@ struct NewMenu: View {
         Rectangle().fill(SwiftUI.Color(t.panel)).frame(height: 1).padding(.vertical, 4).padding(.horizontal, 6)
     }
 
-    private func item(_ title: String, icon: String, key: String? = nil, tint: RGB? = nil,
+    private func heading(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(t.ui(9.5, .bold)).tracking(t.tracking)
+            .foregroundStyle(SwiftUI.Color(t.dim))
+            .padding(.horizontal, 10).padding(.top, 2).padding(.bottom, 3)
+    }
+
+    private func item(_ title: String, icon: String, key: String? = nil, tint: RGB? = nil, indent: Int = 0,
                       action: @escaping () -> Void) -> some View {
-        NewMenuItem(title: title, icon: icon, key: key, tint: tint) {
+        NewMenuItem(title: title, icon: icon, key: key, tint: tint, indent: indent) {
             close()
             action()
         }
@@ -314,6 +336,8 @@ private struct NewMenuItem: View {
     let icon: String
     let key: String?
     let tint: RGB?
+    /// Subcarpeta (en «Grupos»): un poco a la derecha de su carpeta.
+    var indent = 0
     let action: () -> Void
     @Stored private var hover = false
 
@@ -328,6 +352,7 @@ private struct NewMenuItem: View {
                 if let key { Text(key).font(t.ui(10.5)).foregroundStyle(SwiftUI.Color(t.dim)).lineLimit(1) }
             }
             .padding(.horizontal, 10)
+            .padding(.leading, CGFloat(indent) * 14)
             .frame(height: 26)
             .background(RoundedRectangle(cornerRadius: t.corner ?? 4)
                 .fill(SwiftUI.Color(t.accent).opacity(hover ? 0.14 : 0)))

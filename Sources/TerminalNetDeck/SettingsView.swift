@@ -7,9 +7,12 @@ import UniformTypeIdentifiers
 struct SettingsOverlay: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
+    /// Preguntando si se guardan los cambios de la sección: los clics seguidos no lo repiten.
+    @Stored private var leaving = false
 
     static var sections: [(id: String, title: String, icon: String)] { [
-        ("contraseñas", L("Contraseñas"), "key.fill"), ("temas", L("Temas"), "paintpalette.fill"),
+        ("contraseñas", L("Contraseñas"), "key.fill"), ("sesiones", L("Sesiones"), "server.rack"),
+        ("listas", L("Listas"), "list.bullet.rectangle"), ("temas", L("Temas"), "paintpalette.fill"),
         ("fuentes", L("Fuentes"), "textformat"), ("resaltado", L("Resaltado"), "highlighter"),
         ("botones", L("Botones"), "rectangle.grid.1x2.fill"), ("registro", L("Registro"), "record.circle"),
         ("general", L("General"), "gearshape.fill"),
@@ -19,7 +22,7 @@ struct SettingsOverlay: View {
         ZStack {
             SwiftUI.Color.black.opacity(0.45)
                 .ignoresSafeArea()
-                .onTapGesture { model.showSettings = false }
+                .onTapGesture { leave(to: nil) }
             HStack(spacing: 0) {
                 nav
                 NeonLine(vertical: true, color: t.panel)
@@ -39,7 +42,7 @@ struct SettingsOverlay: View {
         }
         .tint(SwiftUI.Color(t.accent))
         .foregroundStyle(SwiftUI.Color(t.text))
-        .onExitCommand { model.showSettings = false }
+        .onExitCommand { leave(to: nil) }
         .transition(.opacity)
     }
 
@@ -50,7 +53,7 @@ struct SettingsOverlay: View {
                 .padding(.horizontal, 10).padding(.top, 18).padding(.bottom, 14)
             ForEach(Self.sections, id: \.id) { sec in
                 let on = model.settingsTab == sec.id
-                Button { model.settingsTab = sec.id } label: {
+                Button { leave(to: sec.id) } label: {
                     HStack(spacing: 10) {
                         Image(systemName: sec.icon).frame(width: 18)
                             .foregroundStyle(SwiftUI.Color(on ? t.onTab : t.accent2))
@@ -65,7 +68,7 @@ struct SettingsOverlay: View {
                 .buttonStyle(.plain)
             }
             Spacer()
-            NeonButton(title: L("Cerrar"), icon: "xmark") { model.showSettings = false }
+            NeonButton(title: L("Cerrar"), icon: "xmark") { leave(to: nil) }
                 .keyboardShortcut(.cancelAction)
                 .padding(10)
         }
@@ -76,6 +79,8 @@ struct SettingsOverlay: View {
 
     @ViewBuilder private var content: some View {
         switch model.settingsTab {
+        case "sesiones": SessionEditor(embedded: true)
+        case "listas": ListSheet(embedded: true)
         case "temas": ThemeSettings()
         case "fuentes": FontSettings()
         case "resaltado": HighlightSettings()
@@ -83,6 +88,17 @@ struct SettingsOverlay: View {
         case "registro": LogSettings()
         case "general": GeneralSettings()
         default: PasswordSettings()
+        }
+    }
+
+    /// Otra sección (`tab`) o cerrar (`nil`); si la de ahora tiene cambios sin guardar, antes se pregunta.
+    private func leave(to tab: String?) {
+        guard tab != model.settingsTab, !leaving else { return }
+        leaving = true
+        Task {
+            defer { leaving = false }
+            if let g = model.settingsLeave, !(await g.check()) { return }
+            if let tab { model.settingsTab = tab } else { model.showSettings = false }
         }
     }
 }

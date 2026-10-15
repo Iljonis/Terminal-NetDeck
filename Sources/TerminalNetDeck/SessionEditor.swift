@@ -3,11 +3,15 @@ import NetDeckCore
 import SwiftUI
 
 /// Gestor de Sesiones (como el Session Manager de SecureCRT): crear, editar, duplicar, borrar,
-/// grupos y su contraseña, importar. Guarda en ~/.config/netdeck/ssh_config.
+/// grupos y su contraseña, importar. Guarda en ~/.config/netdeck/ssh_config. Como hoja (⇧⌘E) o dentro de Ajustes
+/// (`embedded`: ocupa la sección, sin «Cerrar»; los cambios sin guardar se preguntan al salir de ella).
 struct SessionEditor: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
     @Environment(\.dismiss) private var dismiss
+    var embedded = false
+    /// Quién pone el aviso de cambios sin guardar en Ajustes (`AppModel.settingsLeave`).
+    @Stored private var token = UUID()
     @Stored private var file = SessionFile()
     @Stored private var saved = SessionFile()
     @Stored private var selected: UUID?
@@ -46,13 +50,18 @@ struct SessionEditor: View {
             NeonLine(color: t.panel)
             footer
         }
-        .frame(width: 940, height: 640)
+        .frame(width: embedded ? nil : 940, height: embedded ? nil : 640)
+        .frame(maxWidth: embedded ? .infinity : nil, maxHeight: embedded ? .infinity : nil)
         .background(SwiftUI.Color(t.background))
         .onAppear {
+            if embedded { model.settingsLeave = (token, { await confirmLeave() }) }
             guard !loaded else { return }
             loaded = true
             load()
             ports = SerialLine.devices()
+        }
+        .onDisappear {
+            if model.settingsLeave?.owner == token { model.settingsLeave = nil }
         }
         .sheet(isPresented: Binding(get: { changing != nil }, set: { if !$0 { changing = nil } })) {
             if let ref = changing { PasswordChangeSheet(ref: ref) { message = $0 } }
@@ -400,16 +409,20 @@ struct SessionEditor: View {
                     .font(t.ui(11)).foregroundStyle(SwiftUI.Color(message.hasPrefix("✗") ? t.bad : t.dim)).lineLimit(2)
             }
             Spacer()
-            Button(L("Cerrar")) { DispatchQueue.main.async { close() } }.keyboardShortcut(.cancelAction)
+            if !embedded {
+                Button(L("Cerrar")) { DispatchQueue.main.async { close() } }.keyboardShortcut(.cancelAction)
+            }
             NeonButton(title: L("Conectar"), icon: "bolt.horizontal", tint: t.accent2) { once(connect) }
                 .disabled(busy || index.map { !EditableSession.isValidName(file.sessions[$0].name) } ?? true)
                 .help(L("Abre la sesión tal como está, sin guardar los cambios"))
+            // (⌘S: en la hoja, guardar y conectar; en Ajustes, sólo guardar: se sigue editando)
             NeonButton(title: L("Guardar"), icon: "checkmark", active: dirty) { once { save(connect: false) } }
                 .disabled(busy || !problems.isEmpty || !dirty)
                 .help(L("Guarda los cambios sin abrir ninguna pestaña"))
+                .keyboardShortcut(embedded ? KeyboardShortcut("s") : nil)
             NeonButton(title: L("Guardar y conectar"), icon: "bolt.horizontal.fill", tint: t.good) { once { save(connect: true) } }
                 .disabled(busy || !problems.isEmpty || index == nil)
-                .keyboardShortcut("s")
+                .keyboardShortcut(embedded ? nil : KeyboardShortcut("s"))
         }
         .padding(.horizontal, 16)
         .frame(height: 56)
@@ -542,7 +555,7 @@ struct SessionEditor: View {
             return
         }
         model.open(p)
-        dismiss()
+        finish()
     }
 
     /// «Conectar»: la sesión tal como está, sin guardarla. Si no ha cambiado, como siempre (con su alias del
@@ -561,7 +574,7 @@ struct SessionEditor: View {
                 return
             }
         }
-        if dirty { message = L("✓ «\(s.name)» abierta sin guardar: los cambios siguen aquí") } else { dismiss() }
+        if dirty { message = L("✓ «\(s.name)» abierta sin guardar: los cambios siguen aquí") } else { finish() }
     }
 
     /// Una acción a la vez y fuera del gesto: los clics seguidos (crear, borrar, guardar, conectar…) no la repiten, y
@@ -577,15 +590,25 @@ struct SessionEditor: View {
 
     private func close() {
         guard dirty else { return dismiss() }
-        Task {
-            switch await ThemedAlert.run(L("Hay cambios sin guardar"), buttons: [L("Guardar"), L("Descartar"), L("Cancelar")]).button {
-            case 0:
-                if let err = model.saveSessions(file) { message = "✗ \(err)"; return }
-            case 1: break
-            default: return
-            }
-            dismiss()
+        Task { if await confirmLeave() { dismiss() } }
+    }
+
+    /// Antes de cerrar la hoja o de salir de la sección de Ajustes: con cambios, guardar, descartar o quedarse.
+    private func confirmLeave() async -> Bool {
+        guard dirty else { return true }
+        switch await ThemedAlert.run(L("Hay cambios sin guardar"), buttons: [L("Guardar"), L("Descartar"), L("Cancelar")]).button {
+        case 0:
+            if let err = model.saveSessions(file) { message = "✗ \(err)"; return false }
+            saved = file
+            return true
+        case 1: return true
+        default: return false
         }
+    }
+
+    /// Tras abrir la pestaña: la hoja se cierra; dentro de Ajustes, se cierran los Ajustes para verla.
+    private func finish() {
+        if embedded { model.showSettings = false } else { dismiss() }
     }
 
     static func ask(_ title: String, value: String = "") async -> String? {

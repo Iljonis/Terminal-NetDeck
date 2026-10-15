@@ -1677,5 +1677,25 @@ enum Ingles {
             "ssh -G didn't answer in %@ s (an Include or “Match exec” that never ends?)",
         "El servidor no contesta (%@ s): se ha cancelado":
             "The server doesn't answer (%@ s): cancelled",
+        "¿Abrir las %@ sesiones de «%@»?":
+            "Open the %@ sessions in “%@”?",
+        "Cada una en su pestaña (también las de sus subcarpetas).":
+            "Each one in its own tab (subfolders included).",
+        "Grupos":
+            "Groups",
+        "Abrir las %@ (si son varias, en la vista dividida)":
+            "Open all %@ (several go into the split view)",
+        "Cada equipo en su pestaña por el salto (tal como está, sin guardar)":
+            "Each device in its own tab through the jump host (as it is, without saving)",
+        "LISTAS":
+            "LISTS",
+        "%@ equipos":
+            "%@ devices",
+        "Pon los equipos, el salto y «Guardar lista»":
+            "Enter the devices, the jump host and “Save list”",
+        "La lista «%@» tiene cambios sin guardar":
+            "The list “%@” has unsaved changes",
+        "✗ Ponle un nombre a la lista":
+            "✗ Give the list a name",
 ]
 }
