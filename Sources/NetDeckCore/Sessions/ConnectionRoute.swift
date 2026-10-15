@@ -18,6 +18,9 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     public var thenCommand: String?
     /// Usuario de esa orden (para la regla de la contraseña del equipo).
     public var thenUser: String?
+    /// Salto «a mano» porque el salto no dejó reenviar (-J): lo tecleado pasa por su shell, así que la contraseña del
+    /// destino sólo se sugiere (también al clonar la pestaña o reabrirla al arrancar).
+    public var manualHop: Bool?
     /// Terminal local: la shell de inicio del Mac (sin ssh, sin askpass ni contraseñas automáticas). nil = remota.
     public var localShell: String?
     /// Sesión de consola por puerto serie (transport .serial).
@@ -51,6 +54,17 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     }
 
     public var isLocal: Bool { localShell != nil || transport == .local }
+
+    /// Lo que escribe el propio ssh cuando el salto no deja reenviar (-J), al principio de la línea: «channel 0: open
+    /// failed: administratively prohibited…» o «stdio forwarding failed». (Un banner del salto podría imitarlo: por eso
+    /// además ssh tiene que terminar con 255 y se pregunta antes de entrar por el salto.)
+    public static func forwardingRefused(_ lines: [String]) -> Bool {
+        lines.contains { l in
+            let t = l.trimmingCharacters(in: .whitespaces).lowercased()
+            return t.hasPrefix("stdio forwarding failed")
+                || (t.hasPrefix("channel ") && t.contains(": open failed: administratively prohibited"))
+        }
+    }
 
     /// MultiExec sólo escribe en equipos (ssh/telnet): ni en el Mac, ni en el prompt de sftp, ni en una consola serie.
     public var acceptsMultiExec: Bool { !isLocal && (transport == .ssh || transport == .telnet) }

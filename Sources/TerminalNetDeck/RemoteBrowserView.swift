@@ -641,6 +641,10 @@ struct TransferPanel: View {
                 Text(L("TRANSFERENCIAS")).font(t.ui(10, .heavy)).tracking(t.tracking).foregroundStyle(SwiftUI.Color(t.accent))
                 Text(L("servidor ↔ servidor en memoria · sin pasar por el disco del Mac")).font(t.ui(10)).foregroundStyle(SwiftUI.Color(t.dim))
                 Spacer()
+                Toggle(L("Comprobar MD5"), isOn: Binding(get: { model.settings.verifyTransfers },
+                                                         set: { model.settings.verifyTransfers = $0 }))
+                    .toggleStyle(.checkbox).font(t.ui(10.5))
+                    .help(L("Al acabar cada archivo se vuelve a leer del destino y su MD5 tiene que ser el de lo leído del origen; si no, no se guarda. Con destino remoto tarda más (se lee dos veces)."))
                 Button(L("Quitar las acabadas")) { model.transfers.clearFinished() }
                     .buttonStyle(.plain).font(t.ui(10.5, .semibold)).foregroundStyle(SwiftUI.Color(t.accent2))
             }
@@ -690,7 +694,7 @@ private struct TransferRow: View {
         case .running:
             let speed = job.speed > 0 ? " · " + RemoteBrowserView.bytes(Int64(job.speed)) + "/s" : ""
             return done + (job.total.map { " / " + RemoteBrowserView.bytes($0) } ?? "") + speed
-        case .done: return L("✓ \(done) · \(job.files) archivos")
+        case .done: return L("✓ \(done) · \(job.files) archivos") + (job.verified > 0 ? L(" · MD5 ✓") : "")
         case .failed(let m): return "✗ " + m
         case .cancelled: return L("cancelada")
         }

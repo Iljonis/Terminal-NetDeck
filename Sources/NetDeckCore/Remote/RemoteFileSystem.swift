@@ -130,4 +130,16 @@ public protocol RemoteFileSystem: AnyObject, Sendable {
     func openRead(_ path: String) async throws -> any RemoteReader
     func openWrite(_ path: String) async throws -> any RemoteWriter
     func close() async
+    /// Permisos Unix (0o644…) de un archivo, si el servidor los da (nil: no existe o no se sabe).
+    func permissions(of path: String) async -> UInt32?
+    /// Qué hay con ese nombre, sin seguir enlaces (nil: no existe o el protocolo no lo dice).
+    func kind(of path: String) async -> RemoteEntry.Kind?
+    /// Cambia los permisos (si el protocolo no sabe, no hace nada).
+    func setPermissions(_ mode: UInt32, of path: String) async throws
+}
+
+extension RemoteFileSystem {
+    public func permissions(of path: String) async -> UInt32? { nil }
+    public func kind(of path: String) async -> RemoteEntry.Kind? { nil }
+    public func setPermissions(_ mode: UInt32, of path: String) async throws {}
 }

@@ -172,6 +172,7 @@ public final class SessionManager {
         r.thenCommand = cmd
         r.thenUser = target.user
         r.sessionName = route.sessionName
+        r.manualHop = true
         return r
     }
 

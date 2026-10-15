@@ -173,6 +173,8 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     @ObservationIgnored var onCloseRequest: ((TerminalSession) -> Void)?
     /// «administratively prohibited» con -J: el modelo da otra ruta (ssh escrito en el salto) o nil.
     @ObservationIgnored var onForwardingRefused: ((TerminalSession) -> ConnectionRoute?)?
+    /// ¿Entrar en el salto y escribir allí el ssh? (pregunta al usuario: la contraseña del destino pasará por el salto)
+    @ObservationIgnored var confirmHop: ((TerminalSession, ConnectionRoute) async -> Bool)?
     /// El contenedor que la muestra ahora (pestaña o panel de la vista dividida).
     @ObservationIgnored weak var host: NSView?
     /// SFTP/FTP: el explorador de archivos (lo que se ve por defecto); la consola sftp, sólo si se pide.
@@ -189,6 +191,8 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     @ObservationIgnored private var cache: (rev: Int, lines: [String], cursor: Int)?
     @ObservationIgnored private var hopTask: Task<Void, Never>?
     @ObservationIgnored private var fellBack = false
+    /// ssh ha dicho que el salto rechaza el reenvío; sólo cuenta si además ssh termina con 255 (`processExited`).
+    @ObservationIgnored private var refusalSeen = false
 
     init(route: ConnectionRoute, passwords: PasswordAutomation, ledger: CredentialLedger) {
         self.route = route
@@ -287,6 +291,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         hopTask?.cancel()
         if !exited { process?.terminate() }
         pipe.say(L("\r\n\u{1b}[38;5;51m[NetDeck] Reconectando…\u{1b}[0m\r\n"))
+        refusalSeen = false
         launch()
     }
 
@@ -331,6 +336,24 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         hopTask?.cancel()
         state = .exited(code)
         gate.abortAll()
+        if code == 255, !fellBack, !loggedIn, route.thenCommand == nil, !route.jumps.isEmpty {
+            // (ssh sale justo después de escribir «stdio forwarding failed»: esa salida puede no haberse mirado aún;
+            // un momento para que llegue y se decide con la pantalla)
+            Task { [weak self] in
+                try? await Task.sleep(for: .milliseconds(150))
+                guard let self, generation == self.pipe.current else { return }
+                if !self.refusalSeen, ConnectionRoute.forwardingRefused(self.lines(from: max(0, self.cursorRow - 8))) {
+                    self.refusalSeen = true
+                }
+                if self.refusalSeen, self.fallBackToHop() { return }
+                self.sayClosed(generation, code)
+            }
+            return
+        }
+        sayClosed(generation, code)
+    }
+
+    private func sayClosed(_ generation: Int, _ code: Int32?) {
         // (sin las últimas líneas de la pantalla: podrían llevar algo tecleado con eco)
         DebugLog.log("pestaña", "«\(title)» #\(generation) termina (código \(code.map(String.init) ?? "?"))")
         pipe.say(L("\r\n\u{1b}[38;5;204m[NetDeck] Sesión cerrada\(code.map { L(" (código \($0))") } ?? "")\u{1b}[0m")
@@ -380,7 +403,9 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         if !isVisible { activity = true }
         let line = cursorLine.trimmingCharacters(in: .whitespaces)
         if !loggedIn {
-            if !route.jumps.isEmpty, route.thenCommand == nil, !fellBack, forwardingRefused() { return }
+            if !route.jumps.isEmpty, route.thenCommand == nil, !fellBack, !refusalSeen, ConnectionRoute.forwardingRefused(lines(from: max(0, cursorRow - 6))) {
+                refusalSeen = true                 // (se decide al terminar ssh: el texto solo lo podría poner el salto)
+            }
             if !line.hasPrefix(Askpass.marker), DevicePrompt.generic.matches(line) {
                 loggedIn = true
                 state = .connected
@@ -400,10 +425,11 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         }
     }
 
-    /// El salto no deja reenviar (-J): se pasa a abrir el salto y escribir allí el ssh.
-    private func forwardingRefused() -> Bool {
-        let recent = lines(from: max(0, cursorRow - 6)).joined(separator: "\n").lowercased()
-        guard recent.contains("administratively prohibited") || recent.contains("stdio forwarding failed") else { return false }
+    /// El salto no deja reenviar (-J) y ssh ha terminado con 255: con tu permiso, se abre el salto y se escribe allí el
+    /// ssh. Ahí la contraseña del destino pasa por la shell del salto: sólo se sugiere, no se escribe sola.
+    /// true = se encarga (no se dice «Sesión cerrada»).
+    private func fallBackToHop() -> Bool {
+        guard refusalSeen, !fellBack, !loggedIn, route.thenCommand == nil, !route.jumps.isEmpty else { return false }
         fellBack = true
         let given = Askpass.takeGiven(session: id)
         given.forEach(ledger.confirm)               // (el salto sí ha entrado: el fallo es al abrir el canal)
@@ -411,11 +437,23 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
             DebugLog.log("salto", "«\(title)»: -J rechazado y no hay forma de escribirlo en el salto")
             return false
         }
-        DebugLog.log("salto", "«\(title)»: -J rechazado por el salto → abro «\(r.command.arguments.joined(separator: " "))» y escribo «\(r.thenCommand ?? "")»")
-        pipe.say(L("\r\n\u{1b}[38;5;221m[NetDeck] El salto no deja reenviar (-J): entro en el salto y escribo «\(r.thenCommand ?? "")»\u{1b}[0m\r\n"))
-        process?.terminate()
-        route = r
-        launch()
+        let generation = pipe.current
+        Task { [weak self] in
+            guard let self else { return }
+            let ok = await self.confirmHop?(self, r) == true
+            guard generation == self.pipe.current else { return }       // (mientras preguntaba, se ha reconectado)
+            guard ok else {
+                DebugLog.log("salto", "«\(self.title)»: -J rechazado; el salto a mano no se ha aceptado")
+                self.pipe.say(L("\r\n\u{1b}[38;5;204m[NetDeck] El salto no deja reenviar (-J) y no se ha entrado por él\u{1b}[0m")
+                              + L(" · \u{1b}[1mIntro\u{1b}[0m reconectar · \u{1b}[1mEsc\u{1b}[0m cerrar la pestaña\r\n"))
+                return
+            }
+            DebugLog.log("salto", "«\(self.title)»: -J rechazado por el salto → abro «\(r.command.arguments.joined(separator: " "))» y escribo «\(r.thenCommand ?? "")»")
+            self.pipe.say(L("\r\n\u{1b}[38;5;221m[NetDeck] El salto no deja reenviar (-J): entro en el salto y escribo «\(r.thenCommand ?? "")» (la contraseña del destino sólo se sugiere)\u{1b}[0m\r\n"))
+            self.passwords.onlySuggestDevices = true
+            self.route = r
+            self.launch()
+        }
         return true
     }
 

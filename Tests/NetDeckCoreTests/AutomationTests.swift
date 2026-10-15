@@ -130,6 +130,16 @@ import Testing
         #expect(await b.observe(io2, gate: AutomationGate()) == .typed(.device("admin", "198.51.100.66")))
     }
 
+    /// Tras el salto «a mano», la del destino pasaría por la shell del salto: sólo se sugiere.
+    @Test func trasElSaltoAManoSoloSeSugiere() async {
+        let io = FakeTerminal(["bastion$ ssh admin@192.0.2.1", "admin@192.0.2.1's password:"])
+        let a = make(io, MemoryCredentialStore([.device("admin", "192.0.2.1"): "pw"]), CredentialLedger())
+        a.onlySuggestDevices = true
+        _ = await a.observe(FakeTerminal(["bastion$"]), gate: AutomationGate())       // (ya en el prompt del salto)
+        #expect(await a.observe(io, gate: AutomationGate()) == .suggested(.device("admin", "192.0.2.1")))
+        #expect(io.sent.isEmpty)
+    }
+
     @Test func escDuranteLaEsperaCancela() async {
         let io = FakeTerminal(["admin@192.0.2.1's password:"])
         let a = make(io, MemoryCredentialStore([.device("admin", "192.0.2.1"): "pw"]), CredentialLedger())

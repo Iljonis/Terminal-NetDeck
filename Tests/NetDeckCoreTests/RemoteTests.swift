@@ -165,6 +165,34 @@ final class MemoryWriter: RemoteWriter, @unchecked Sendable {
         #expect(w.aborted && !w.finished)
     }
 
+    /// Además del número de trozos, un tope de bytes (la RAM del puente no depende del tamaño del trozo).
+    @Test func colaConTopeDeBytes() async throws {
+        let pipe = ChunkPipe(capacity: 100, maxBytes: 10)
+        try await pipe.put(Data(count: 8))
+        let second = Task { try await pipe.put(Data(count: 8)) }       // (8 + 8 > 10: espera)
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(try await pipe.take()?.count == 8)
+        try await second.value
+        try await pipe.put(Data(count: 1))                             // (8 + 1 cabe)
+        await pipe.finish()
+        #expect(try await pipe.take()?.count == 8)
+        #expect(try await pipe.take()?.count == 1)
+        #expect(try await pipe.take() == nil)
+    }
+
+    /// Si lo que se relee del destino no es lo enviado, no se deja con el nombre bueno (y el temporal se borra).
+    @Test func md5DistintoNoSeGuarda() async throws {
+        let fs = MemoryFileSystem(corruptReads: true)
+        fs.files["/d/a.bin"] = Data("antes".utf8)
+        let w = try await AtomicRemoteWriter.open(fs, "/d/a.bin", verify: true)
+        await #expect(throws: IntegrityError.self) { try await Transfer.copy(from: BlobReader(Data("nuevo".utf8)), to: w) }
+        #expect(fs.files == ["/d/a.bin": Data("antes".utf8)])
+        // (sin comprobar, se guarda: el MD5 sólo se mira si se pide)
+        let w2 = try await AtomicRemoteWriter.open(fs, "/d/a.bin", verify: false)
+        try await Transfer.copy(from: BlobReader(Data("nuevo".utf8)), to: w2)
+        #expect(fs.files == ["/d/a.bin": Data("nuevo".utf8)])
+    }
+
     @Test func colaConTope() async throws {
         let pipe = ChunkPipe(capacity: 2)
         try await pipe.put(Data([1]))
@@ -178,6 +206,62 @@ final class MemoryWriter: RemoteWriter, @unchecked Sendable {
         #expect(try await pipe.take() == Data([3]))
         #expect(try await pipe.take() == nil)
     }
+}
+
+/// Lee de memoria a trozos de 64 KiB.
+final class BlobReader: RemoteReader, @unchecked Sendable {
+    private let lock = NSLock()
+    private var rest: Data
+    init(_ d: Data) { rest = d }
+    func read() async throws -> Data? {
+        lock.withLock {
+            guard !rest.isEmpty else { return nil }
+            let d = Data(rest.prefix(65_536))
+            rest = Data(rest.dropFirst(d.count))
+            return d
+        }
+    }
+    func close() async {}
+}
+
+/// Un servidor en memoria (para el escritor atómico); `corruptReads`: lo que se lee viene cambiado.
+final class MemoryFileSystem: RemoteFileSystem, @unchecked Sendable {
+    let label = "memoria"
+    private let lock = NSLock()
+    private var store: [String: Data] = [:]
+    let corruptReads: Bool
+    init(corruptReads: Bool = false) { self.corruptReads = corruptReads }
+    var files: [String: Data] {
+        get { lock.withLock { store } }
+        set { lock.withLock { store = newValue } }
+    }
+
+    final class Writer: RemoteWriter, @unchecked Sendable {
+        let fs: MemoryFileSystem, path: String
+        private var data = Data()
+        init(fs: MemoryFileSystem, path: String) { self.fs = fs; self.path = path }
+        func write(_ d: Data) async throws { data += d }
+        func finish() async throws { fs.files[path] = data }
+        func abort() async {}
+    }
+
+    func home() async throws -> String { "/" }
+    func list(_ path: String) async throws -> [RemoteEntry] { [] }
+    func makeDirectory(_ path: String) async throws {}
+    func remove(_ path: String, directory: Bool) async throws { files[path] = nil }
+    func rename(_ from: String, to: String) async throws {
+        guard let d = files[from] else { throw RemoteError("no existe") }
+        files[from] = nil
+        files[to] = d
+    }
+    func size(of path: String) async -> Int64? { files[path].map { Int64($0.count) } }
+    func openRead(_ path: String) async throws -> any RemoteReader {
+        guard var d = files[path] else { throw RemoteError("no existe") }
+        if corruptReads, !d.isEmpty { d[0] ^= 0xFF }
+        return BlobReader(d)
+    }
+    func openWrite(_ path: String) async throws -> any RemoteWriter { Writer(fs: self, path: path) }
+    func close() async {}
 }
 
 final class Counter: @unchecked Sendable {
@@ -199,6 +283,44 @@ final class Counter: @unchecked Sendable {
         let d = FileManager.default.temporaryDirectory.appendingPathComponent("netdeck-sftp-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
         return d.resolvingSymlinksInPath()
+    }
+
+    /// Sustituir un archivo: se escribe en «.nombre.xxxx.part», se comprueba el MD5 releyéndolo y se renombra encima.
+    /// Cancelada a medias, el que había queda intacto y no queda ningún temporal.
+    @Test(.enabled(if: FileManager.default.isExecutableFile(atPath: server)))
+    func sustituirSinMedioArchivoYConMD5() async throws {
+        let dir = try tempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let fs = try await connect()
+        defer { Task { await fs.close() } }
+        let path = dir.path + "/config.bak"
+        try Data("versión buena".utf8).write(to: URL(fileURLWithPath: path))
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
+
+        // (una copia que se cancela a medias: el original sigue igual)
+        let big = Data(repeating: 7, count: 3_000_000)
+        let w1 = try await AtomicRemoteWriter.open(fs, path, verify: true)
+        try await w1.write(big.prefix(1_000_000))
+        await w1.abort()
+        #expect(try String(contentsOfFile: path, encoding: .utf8) == "versión buena")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path) == ["config.bak"])
+
+        // (la buena: sustituye, con MD5 comprobado)
+        let w2 = try await AtomicRemoteWriter.open(fs, path, verify: true)
+        try await Transfer.copy(from: BlobReader(big), to: w2)
+        #expect(try Data(contentsOf: URL(fileURLWithPath: path)) == big)
+        #expect(await w2.digest == "\(TransferDigest.hexOf(big))")
+        // (sin «.old» ni «.part» de más, y con los permisos del que había)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path) == ["config.bak"])
+        #expect(try FileManager.default.attributesOfItem(atPath: path)[.posixPermissions] as? Int == 0o600)
+
+        // (si con ese nombre hay una carpeta, no se aparta ni se esconde: error y todo como estaba)
+        try FileManager.default.createDirectory(atPath: dir.path + "/sub", withIntermediateDirectories: false)
+        try Data("dentro".utf8).write(to: URL(fileURLWithPath: dir.path + "/sub/a.txt"))
+        let w3 = try await AtomicRemoteWriter.open(fs, dir.path + "/sub", verify: true)
+        await #expect(throws: (any Error).self) { try await Transfer.copy(from: BlobReader(Data("x".utf8)), to: w3) }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).sorted() == ["config.bak", "sub"])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path + "/sub") == ["a.txt"])
     }
 
     @Test(.enabled(if: FileManager.default.isExecutableFile(atPath: server)))

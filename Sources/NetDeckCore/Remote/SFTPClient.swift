@@ -100,10 +100,29 @@ public actor SFTPFileSystem: RemoteFileSystem {
         return id
     }
 
+    /// La respuesta a `id`. Si la tarea se cancela mientras espera (Cancelar en una copia), acaba al momento con
+    /// CancellationError y la respuesta, cuando llegue, se descarta.
     func reply(_ id: UInt32) async throws -> (UInt8, Data) {
         if let r = arrived.removeValue(forKey: id) { return r }
         if let failure { throw failure }
-        return try await withCheckedThrowingContinuation { waiting[id] = $0 }
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { c in
+                if Task.isCancelled {
+                    dropped.insert(id)
+                    c.resume(throwing: CancellationError())
+                } else {
+                    waiting[id] = c
+                }
+            }
+        } onCancel: {
+            Task { await self.stopWaiting(id) }
+        }
+    }
+
+    private func stopWaiting(_ id: UInt32) {
+        guard let c = waiting.removeValue(forKey: id) else { return }
+        dropped.insert(id)
+        c.resume(throwing: CancellationError())
     }
 
     /// Ya no interesa la respuesta (lecturas adelantadas que sobran).
@@ -206,6 +225,18 @@ public actor SFTPFileSystem: RemoteFileSystem {
         try await status(.rename) { $0.string(from); $0.string(to) }
     }
 
+    public func permissions(of path: String) async -> UInt32? {
+        (try? await stat(path))?.permissions.map { $0 & 0o7777 }
+    }
+
+    public func kind(of path: String) async -> RemoteEntry.Kind? {
+        (try? await stat(path, follow: false))?.kind
+    }
+
+    public func setPermissions(_ mode: UInt32, of path: String) async throws {
+        try await status(.setstat) { $0.string(path); $0.attributes(SFTP.Attributes(permissions: mode & 0o7777)) }
+    }
+
     public func size(of path: String) async -> Int64? {
         (try? await stat(path))?.size.map { Int64(clamping: $0) }
     }
@@ -244,7 +275,8 @@ actor SFTPFileReader: RemoteReader {
     private var next: UInt64 = 0
     private var eof = false
     private var closed = false
-    private let depth = 32
+    /// Peticiones en vuelo: 64 × 32 KiB = 2 MiB (como OpenSSH); con 30 ms de ida y vuelta, ~65 MB/s.
+    private let depth = 64
 
     init(fs: SFTPFileSystem, handle: Data) {
         self.fs = fs
@@ -304,7 +336,8 @@ actor SFTPFileWriter: RemoteWriter {
     private var pending: [UInt32] = []
     private var offset: UInt64 = 0
     private var closed = false
-    private let depth = 32
+    /// Peticiones en vuelo: 64 × 32 KiB = 2 MiB (como OpenSSH); con 30 ms de ida y vuelta, ~65 MB/s.
+    private let depth = 64
 
     init(fs: SFTPFileSystem, handle: Data) {
         self.fs = fs

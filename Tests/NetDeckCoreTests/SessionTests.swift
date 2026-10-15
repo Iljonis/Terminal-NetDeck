@@ -94,6 +94,10 @@ private let config = """
         let h = try #require(try manager.typedHop(for: r))
         #expect(h.command.arguments == ["--", "bastion"])
         #expect(h.thenCommand == "ssh -p 2222 tu.usuario@192.0.2.11")
+        // (marcada como salto a mano: al clonarla o reabrirla, la contraseña del destino sigue sólo sugerida)
+        #expect(h.manualHop == true && r.manualHop == nil)
+        let reabierta = try JSONDecoder().decode(ConnectionRoute.self, from: JSONEncoder().encode(h))
+        #expect(reabierta.manualHop == true)
     }
 
     @Test func telnetATravesDelSalto() throws {
@@ -143,6 +147,15 @@ private let config = """
         #expect(r.sftpSubsystemCommand?.arguments.suffix(3) == ["--", "192.0.2.5", "sftp"])
         // (el usuario de la orden se sigue leyendo bien con «--»)
         #expect(CommandLineUser.parse("$ ssh -p 2222 -l admin -- 192.0.2.5") == Endpoint(user: "admin", host: "192.0.2.5", port: 2222))
+    }
+
+    /// Sólo lo que escribe el propio ssh, al principio de la línea, cuenta como «el salto no deja reenviar».
+    @Test func rechazoDelReenvioSoloElDeSsh() {
+        #expect(ConnectionRoute.forwardingRefused(["channel 0: open failed: administratively prohibited: open failed"]))
+        #expect(ConnectionRoute.forwardingRefused(["stdio forwarding failed", "Connection closed by UNKNOWN port 65535"]))
+        // (un banner o un motd que lo cite en medio de una frase no)
+        #expect(!ConnectionRoute.forwardingRefused(["Aviso: aquí -J da administratively prohibited, usa el salto a mano"]))
+        #expect(!ConnectionRoute.forwardingRefused(["# stdio forwarding failed"]))
     }
 
     @Test func bucleDeSaltos() {

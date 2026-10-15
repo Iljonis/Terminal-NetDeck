@@ -32,6 +32,9 @@ public final class PasswordAutomation {
     public var commandJumpUsers: Set<String> = []
     /// Los equipos (destino y saltos) de esa orden: un prompt «usuario@equipo» de otro equipo no cuenta.
     public var commandHosts: Set<String> = []
+    /// Tras el salto «a mano» (el salto no dejó reenviar -J): lo que se teclea pasa por la shell del salto, que vería
+    /// la contraseña del destino; las de los equipos sólo se sugieren (un clic), nunca se escriben solas.
+    public var onlySuggestDevices = false
     /// Candidatas para cada petición (las da la app con lo que sabe de la sesión: `SessionManager`).
     public var candidates: (PasswordRequest) -> [CredentialCandidate]
 
@@ -55,7 +58,8 @@ public final class PasswordAutomation {
     public func observe(_ io: TerminalIO, gate: AutomationGate) async -> Event? {
         let line = io.cursorLine
         if !loggedIn, DevicePrompt.generic.matches(line.trimmed) { loggedIn = true }
-        let mode = loggedIn ? self.mode : (sessionMode ?? self.mode)
+        var mode = loggedIn ? self.mode : (sessionMode ?? self.mode)
+        if onlySuggestDevices, mode == .autoType { mode = .suggest }
         guard mode != .off, !busy else { return nil }
         guard let request = PasswordPrompt.detect(cursorLine: line, above: io.linesAbove(3)) else {
             if let p = pending, DevicePrompt.generic.matches(line.trimmed) {     // ha entrado

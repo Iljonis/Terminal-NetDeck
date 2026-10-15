@@ -361,6 +361,8 @@ final class TransferJob: Identifiable {
     var done: Int64 = 0
     var total: Int64?
     var files = 0
+    /// Archivos cuyo MD5 se ha comprobado en el destino.
+    var verified = 0
     var started = Date()
     @ObservationIgnored var task: Task<Void, Never>?
 
@@ -377,12 +379,21 @@ final class TransferJob: Identifiable {
     var speed: Double { let s = Date().timeIntervalSince(started); return s > 0.5 ? Double(done) / s : 0 }
 
     func cancel() { task?.cancel() }
+
+    /// Un archivo más copiado (el progreso, a su tamaño: no retrocede si llega tarde un aviso anterior).
+    func finishedFile(base: Int64, size: Int64?, verified: Bool) {
+        files += 1
+        if verified { self.verified += 1 }
+        done = max(done, base + (size ?? 0))
+    }
 }
 
 /// Las copias de todas las pestañas (se ven en la parte de abajo de cualquier explorador).
 @MainActor @Observable
 final class TransferCenter {
     private(set) var jobs: [TransferJob] = []
+    /// ¿Comprobar el MD5 de cada archivo al acabar? (lo pone la app con el ajuste)
+    @ObservationIgnored var verify: () -> Bool = { true }
     /// Al acabar una copia: refrescar el explorador de destino.
     @ObservationIgnored var onFinish: ((TransferJob) -> Void)?
 
@@ -395,6 +406,7 @@ final class TransferCenter {
                 refresh: @escaping @MainActor () -> Void) {
         let job = TransferJob(title: entries.count == 1 ? entries[0].name : L("\(entries.count) elementos"),
                               from: src.label, to: "\(dst.label):\(dir)")
+        let verify = verify()
         run(job, refresh: refresh) { job in
             let items = try await Self.plan(entries, in: src)
             await MainActor.run { job.total = items.compactMap(\.size).reduce(0, +) }
@@ -407,10 +419,11 @@ final class TransferCenter {
                     continue
                 }
                 let base = await MainActor.run { job.done }
-                try await Self.copy(from: { try await src.openRead(it.source) }, to: { try await dst.openWrite(target) }) { n in
-                    Task { @MainActor in job.done = base + n }
+                try await Self.copy(from: { try await src.openRead(it.source) },
+                                    to: { try await AtomicRemoteWriter.open(dst, target, verify: verify) }) { n in
+                    Task { @MainActor in job.done = max(job.done, base + n) }
                 }
-                await MainActor.run { job.files += 1; job.done = base + (it.size ?? 0) }
+                await MainActor.run { job.finishedFile(base: base, size: it.size, verified: verify) }
             }
         }
     }
@@ -419,6 +432,7 @@ final class TransferCenter {
     func download(_ entries: [RemoteEntry], from src: any RemoteFileSystem, to folder: URL) {
         let job = TransferJob(title: entries.count == 1 ? entries[0].name : L("\(entries.count) elementos"),
                               from: src.label, to: AppPaths.tilde(folder.path))
+        let verify = verify()
         run(job, refresh: {}) { job in
             let items = try await Self.plan(entries, in: src)
             await MainActor.run { job.total = items.compactMap(\.size).reduce(0, +) }
@@ -436,10 +450,11 @@ final class TransferCenter {
                     continue
                 }
                 let base = await MainActor.run { job.done }
-                try await Self.copy(from: { try await src.openRead(it.source) }, to: { try LocalFileWriter(url: url) }) { n in
-                    Task { @MainActor in job.done = base + n }
+                try await Self.copy(from: { try await src.openRead(it.source) },
+                                    to: { try LocalFileWriter(url: url, verify: verify) }) { n in
+                    Task { @MainActor in job.done = max(job.done, base + n) }
                 }
-                await MainActor.run { job.files += 1; job.done = base + (it.size ?? 0) }
+                await MainActor.run { job.finishedFile(base: base, size: it.size, verified: verify) }
             }
         }
     }
@@ -448,6 +463,7 @@ final class TransferCenter {
     func upload(_ urls: [URL], to dst: any RemoteFileSystem, dir: String, refresh: @escaping @MainActor () -> Void) {
         let job = TransferJob(title: urls.count == 1 ? urls[0].lastPathComponent : L("\(urls.count) elementos"),
                               from: L("Este Mac"), to: "\(dst.label):\(dir)")
+        let verify = verify()
         run(job, refresh: refresh) { job in
             let items = try Self.localPlan(urls)
             await MainActor.run { job.total = items.compactMap(\.size).reduce(0, +) }
@@ -458,10 +474,10 @@ final class TransferCenter {
                 if it.isDirectory { try? await dst.makeDirectory(target); continue }
                 let base = await MainActor.run { job.done }
                 try await Self.copy(from: { try LocalFileReader(url: URL(fileURLWithPath: it.source)) },
-                                    to: { try await dst.openWrite(target) }) { n in
-                    Task { @MainActor in job.done = base + n }
+                                    to: { try await AtomicRemoteWriter.open(dst, target, verify: verify) }) { n in
+                    Task { @MainActor in job.done = max(job.done, base + n) }
                 }
-                await MainActor.run { job.files += 1; job.done = base + (it.size ?? 0) }
+                await MainActor.run { job.finishedFile(base: base, size: it.size, verified: verify) }
             }
         }
     }

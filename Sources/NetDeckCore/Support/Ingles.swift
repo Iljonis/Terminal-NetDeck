@@ -966,8 +966,6 @@ enum Ingles {
             " (code %@)",
         " · \u{1b}[1mIntro\u{1b}[0m reconectar · \u{1b}[1mEsc\u{1b}[0m cerrar la pestaña\r\n":
             " · \u{1b}[1mReturn\u{1b}[0m reconnect · \u{1b}[1mEsc\u{1b}[0m close the tab\r\n",
-        "\r\n\u{1b}[38;5;221m[NetDeck] El salto no deja reenviar (-J): entro en el salto y escribo «%@»\u{1b}[0m\r\n":
-            "\r\n\u{1b}[38;5;221m[NetDeck] The jump host doesn't allow forwarding (-J): logging into it and typing “%@”\u{1b}[0m\r\n",
         "OTROS":
             "OTHERS",
         "Usar «%@»":
@@ -1651,5 +1649,23 @@ enum Ingles {
             "Can't find host “%@”",
         "FTP: el servidor no contesta (%@ s)":
             "FTP: the server doesn't answer (%@ s)",
+        "Comprobar MD5":
+            "Check MD5",
+        "Al acabar cada archivo se vuelve a leer del destino y su MD5 tiene que ser el de lo leído del origen; si no, no se guarda. Con destino remoto tarda más (se lee dos veces).":
+            "When each file is done it's read back from the destination and its MD5 must match what was read from the source; otherwise it isn't saved. With a remote destination it takes longer (it's read twice).",
+        " · MD5 ✓":
+            " · MD5 ✓",
+        "«%@»: el salto no deja reenviar (-J)":
+            "“%@”: the jump host doesn't allow forwarding (-J)",
+        "Para llegar, la app entraría en «%@» y escribiría allí «%@». Lo que escribas después (también la contraseña del destino) pasará por la shell de ese salto: hazlo sólo si confías en él. La contraseña del destino no se escribirá sola.":
+            "To get there, the app would log into “%@” and type “%@” there. Whatever you type next (the destination password too) will go through that jump host's shell: only do it if you trust it. The destination password won't be typed automatically.",
+        "Entrar por el salto":
+            "Go through the jump host",
+        "\r\n\u{1b}[38;5;204m[NetDeck] El salto no deja reenviar (-J) y no se ha entrado por él\u{1b}[0m":
+            "\r\n\u{1b}[38;5;204m[NetDeck] The jump host doesn't allow forwarding (-J) and it wasn't used\u{1b}[0m",
+        "\r\n\u{1b}[38;5;221m[NetDeck] El salto no deja reenviar (-J): entro en el salto y escribo «%@» (la contraseña del destino sólo se sugiere)\u{1b}[0m\r\n":
+            "\r\n\u{1b}[38;5;221m[NetDeck] The jump host doesn't allow forwarding (-J): logging into it and typing “%@” (the destination password is only suggested)\u{1b}[0m\r\n",
+        "MD5 distinto en «%@» (origen %@, copia %@): no se ha guardado":
+            "MD5 mismatch for “%@” (source %@, copy %@): not saved",
 ]
 }

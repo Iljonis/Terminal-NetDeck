@@ -126,6 +126,8 @@ final class AppModel {
                      + " (\(Bundle.main.bundlePath)) · ssh_config \(settings.sshConfigURL.path)")
         reloadSessions()
         reloadHighlight()
+        let settings = settings
+        transfers.verify = { settings.verifyTransfers }
         lastOpen = Self.readOpenTabs()
         Self.instance = self
         loadFavorites()
@@ -457,6 +459,21 @@ final class AppModel {
         if favorites.contains(name) { toggleFavorite(name) }
     }
 
+    /// El salto de «s» no deja reenviar (-J): ¿entrar en él y escribir allí «ssh destino»? Se pregunta siempre (un
+    /// salto hostil podría provocarlo para ver la contraseña del destino), fuera del gesto y con la pestaña aún abierta.
+    func confirmHop(_ s: TerminalSession, _ r: ConnectionRoute) async -> Bool {
+        let jump = r.target.description, cmd = r.thenCommand ?? ""
+        return await withCheckedContinuation { c in
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.tabs.contains(where: { $0.id == s.id }) else { return c.resume(returning: false) }
+                c.resume(returning: ThemedAlert.confirm(
+                    L("«\(s.title)»: el salto no deja reenviar (-J)"),
+                    message: L("Para llegar, la app entraría en «\(jump)» y escribiría allí «\(cmd)». Lo que escribas después (también la contraseña del destino) pasará por la shell de ese salto: hazlo sólo si confías en él. La contraseña del destino no se escribirá sola."),
+                    ok: L("Entrar por el salto")))
+            }
+        }
+    }
+
     /// Terminal local: tu shell de inicio, como shell de login, en tu carpeta.
     func openLocal() { open(ConnectionRoute.local()) }
 
@@ -465,6 +482,7 @@ final class AppModel {
         // (la local y la consola serie no son un equipo por red: ni askpass ni contraseñas automáticas)
         let pw = PasswordAutomation(mode: route.usesPasswords ? settings.devicePasswordMode : .off, store: store, policy: policy, ledger: ledger)
         pw.sessionMode = settings.sessionAutoPassword && route.usesPasswords ? .autoType : nil
+        pw.onlySuggestDevices = route.manualHop == true
         let s = TerminalSession(route: route, passwords: pw, ledger: ledger)
         pw.candidates = { [weak self, weak pw] req in
             self?.sessions.credentialCandidates(for: req, route: route, defaultCredential: self?.settings.defaultCredential,
@@ -474,6 +492,7 @@ final class AppModel {
         s.onInput = { [weak self] s, bytes in self?.userInput(bytes, in: s) ?? false }
         s.onReconnect = { [weak self] s in self?.reconnect(s) }
         s.onCloseRequest = { [weak self] s in self?.close(s) }
+        s.confirmHop = { [weak self] s, r in await self?.confirmHop(s, r) ?? false }
         s.onForwardingRefused = { [weak self] s in
             do { return try self?.sessions.typedHop(for: s.route) } catch {
                 DebugLog.log("salto", "«\(s.title)»: \(error.localizedDescription)")

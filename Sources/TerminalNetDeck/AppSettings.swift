@@ -61,6 +61,10 @@ final class AppSettings {
         }
     }
 
+    /// Copias de archivos: volver a leer cada uno al acabar y comprobar que su MD5 es el del origen (antes de dejarlo
+    /// con su nombre). Con destino remoto cuesta leerlo otra vez del servidor.
+    var verifyTransfers: Bool { didSet { d.set(verifyTransfers, forKey: "verifyTransfers") } }
+
     /// Buscar versiones nuevas en segundo plano (una vez al día, en silencio).
     var autoUpdateCheck: Bool { didSet { d.set(autoUpdateCheck, forKey: "autoUpdateCheck") } }
     /// Sesión que se abre al arrancar (su nombre; "" = ninguna) y terminal local si no queda ninguna pestaña abierta.
@@ -84,6 +88,7 @@ final class AppSettings {
         copyOnSelect = d.bool(forKey: Self.copyOnSelectKey)
         pasteOnRightClick = d.bool(forKey: Self.pasteOnRightClickKey)
         autoUpdateCheck = d.object(forKey: "autoUpdateCheck") as? Bool ?? true
+        verifyTransfers = d.object(forKey: "verifyTransfers") as? Bool ?? true
         startupSession = d.string(forKey: "startupSession") ?? ""
         startupLocalTerminal = d.object(forKey: "startupLocalTerminal") as? Bool ?? false
         language = Idioma.actual
