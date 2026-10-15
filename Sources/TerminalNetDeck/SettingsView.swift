@@ -606,6 +606,7 @@ struct GeneralSettings: View {
             }
             Section(L("Conexiones")) {
                 Toggle(L("Enviar el idioma del Mac a los servidores (LANG, LC_*)"), isOn: $s.sendLocale)
+                Toggle(L("Reutilizar la conexión al salto"), isOn: $s.shareJump).help(L("Las pestañas que pasan por el mismo salto usan una sola conexión a él (abierta 2 min tras cerrar la última): no se vuelven a autenticar en el bastión."))
                 Text(L("Desactivado, los servidores usan su propio idioma y no salen avisos como «setlocale: LC_CTYPE». Se aplica a las conexiones nuevas."))
                     .font(t.ui(11)).foregroundStyle(.secondary)
             }

@@ -11,6 +11,9 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     public var alias: String?
     /// «-J» explícito (accesos directos de salto); nil = lo que diga el ssh_config.
     public var jumpSpec: [String]?
+    /// El ProxyJump del alias en el ssh_config (tal cual: «bastion», «admin@bastion:2222»): sólo para compartir la
+    /// conexión al último salto (`JumpSharing`); sin compartir, ssh lo lee del ssh_config como siempre.
+    public var configJumps: [String]?
     /// Sesión de la que sale (para la contraseña con nombre).
     public var sessionName: String?
     /// Salto «a mano»: al salir el prompt del salto se escribe esta orden («ssh admin@core-01»).
@@ -75,6 +78,7 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
         lines.contains { l in
             let t = l.trimmingCharacters(in: .whitespaces).lowercased()
             return t.hasPrefix("stdio forwarding failed")
+                || t.hasPrefix("stdio forwarding request failed:")             // (el mismo, con la conexión compartida)
                 || (t.hasPrefix("channel ") && t.contains(": open failed: administratively prohibited"))
         }
     }
@@ -99,11 +103,14 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
 
     /// El explorador de archivos de una pestaña SFTP: ssh sin terminal con el subsistema «sftp» (mismo alias del
     /// ssh_config, saltos, puerto y usuario que la consola), sin reenvíos ni orden local. nil si no es SFTP.
-    public var sftpSubsystemCommand: (executable: String, arguments: [String])? {
+    public var sftpSubsystemCommand: (executable: String, arguments: [String])? { sftpSubsystemCommand(sharing: nil) }
+
+    /// El del explorador, con la conexión al último salto compartida (`sharing`) si se puede.
+    public func sftpSubsystemCommand(sharing: JumpSharing?) -> (executable: String, arguments: [String])? {
         guard transport == .sftp, !isLocal else { return nil }
         var a = ["-T", "-x", "-a", "-o", "ClearAllForwardings=yes", "-o", "PermitLocalCommand=no", "-o", "RequestTTY=no",
                  "-o", "BatchMode=no", "-o", "RemoteCommand=none", "-s"]
-        if let j = jumpSpec, !j.isEmpty { a += ["-J", j.joined(separator: ",")] }
+        a += jumpOptions(sharing)
         if let alias {
             a += ["--", alias]
         } else {
@@ -166,12 +173,16 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     /// Siempre «--» antes del destino: aunque algo empezara por «-», ssh y sftp no lo leerían como una opción.
     /// sftp: como ssh (alias del ssh_config o -P/-J usuario@equipo). Serie: screen. FTP no tiene consola (/usr/bin/false):
     /// su pestaña es sólo el explorador.
-    public var command: (executable: String, arguments: [String]) {
+    public var command: (executable: String, arguments: [String]) { command(sharing: nil) }
+
+    /// La orden con la conexión al último salto compartida (`sharing`; nil = como siempre): ssh y sftp, con un
+    /// ProxyCommand multiplexado en vez de -J (también si el salto viene del ProxyJump del alias); telnet por salto, el
+    /// propio ssh al salto es el multiplexado. Si algo no es seguro para la shell o la ruta del socket no cabe, como siempre.
+    public func command(sharing: JumpSharing?) -> (executable: String, arguments: [String]) {
         if isLocal { return (Self.loginShell(localShell, allowed: Self.systemShells), ["-l"]) }
         switch transport {
         case .ssh:
-            var a: [String] = []
-            if let j = jumpSpec, !j.isEmpty { a += ["-J", j.joined(separator: ",")] }
+            var a = jumpOptions(sharing)
             if let alias {
                 a += ["--", alias]
             } else {
@@ -184,11 +195,11 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
             let telnet = [target.host] + (target.port.map { [String($0)] } ?? [])
             guard let last = jumps.last else { return ("/usr/bin/env", ["telnet"] + telnet) }
             var a = ["-t"]
+            if let sharing, let socket = sharing.socket(for: jumps.map(\.description)) { a += sharing.options(socket: socket) }
             if jumps.count > 1 { a += ["-J", jumps.dropLast().map(\.description).joined(separator: ",")] }
             return ("/usr/bin/ssh", a + ["--", last.description, "telnet"] + telnet)
         case .sftp:
-            var a: [String] = []
-            if let j = jumpSpec, !j.isEmpty { a += ["-J", j.joined(separator: ",")] }
+            var a = jumpOptions(sharing)
             if let alias {
                 a += ["--", alias]
             } else {
@@ -203,6 +214,19 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
         case .ftp, .local:
             return ("/usr/bin/false", [])
         }
+    }
+
+    /// «-J a,b» o, compartiendo, «-o ProxyCommand=…» con los mismos saltos (los de `jumpSpec` o los del alias).
+    private func jumpOptions(_ sharing: JumpSharing?) -> [String] {
+        let explicit = jumpSpec?.isEmpty == false ? jumpSpec : nil
+        let hops = explicit ?? (alias != nil ? configJumps ?? [] : [])
+        // (%h llega a la shell del ProxyCommand: también el equipo de destino tiene que ser seguro)
+        if let sharing, !hops.isEmpty, Endpoint(host: target.host).isShellSafe,
+           let socket = sharing.socket(for: jumps.isEmpty ? hops : jumps.map(\.description)),
+           let proxy = sharing.proxyCommand(hops: hops, socket: socket) {
+            return ["-o", "ProxyCommand=\(proxy)"]
+        }
+        return explicit.map { ["-J", $0.joined(separator: ",")] } ?? []
     }
 }
 

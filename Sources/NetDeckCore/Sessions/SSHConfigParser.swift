@@ -85,7 +85,7 @@ public struct SSHConfigParser: Sendable {
         var jumps = (opt["proxyjump"] ?? "").split(separator: ",").map { String($0).trimmed }
         if jumps == ["none"] { jumps = [] }
         if jumps.isEmpty, let pc = opt["proxycommand"], let j = Self.jumpOfProxyCommand(pc) { jumps = [j] }
-        return SessionProfile(
+        var p = SessionProfile(
             name: alias,
             hostName: opt["hostname"].map { $0.replacingOccurrences(of: "%h", with: alias) },
             user: opt["user"],
@@ -97,6 +97,8 @@ public struct SSHConfigParser: Sendable {
             namedCredential: note("clave"),
             legacy: note("antiguo") != nil,
             serial: note("serie").flatMap(SerialLine.init(annotation:)))
+        p.hasProxyCommand = opt["proxycommand"].map { $0.lowercased() != "none" } ?? false
+        return p
     }
 
     // MARK: - utilidades

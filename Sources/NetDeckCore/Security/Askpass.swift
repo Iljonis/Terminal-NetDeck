@@ -39,7 +39,32 @@ public enum Askpass {
         let url = AppPaths.sessions.appendingPathComponent(session.uuidString)
         defer { try? FileManager.default.removeItem(at: url) }
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
-        return text.components(separatedBy: .newlines).compactMap(decode)
+        return text.components(separatedBy: .newlines).compactMap { decodeGiven($0)?.ref }
+    }
+
+    /// En la pestaña `session` ssh pregunta ya por `host`: las dadas antes a OTROS equipos de esa pestaña (los saltos)
+    /// han entrado (ssh no pasa al siguiente sin haber entrado en el salto) → confirmadas, y las pestañas que esperaban
+    /// siguen ya, sin esperar a todo el login del destino. Si la del salto no valiera, ssh volvería a preguntar por el
+    /// mismo salto: ésa no se confirma aquí y se marca fallo como siempre. Devuelve las confirmadas.
+    @discardableResult
+    public static func confirmEarlier(session: String, host: String, ledger: CredentialLedger,
+                                      directory: URL = AppPaths.sessions) -> [CredentialRef] {
+        let url = directory.appendingPathComponent(session)
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        var keep: [String] = [], done: [CredentialRef] = []
+        for line in text.components(separatedBy: .newlines) where !line.isEmpty {
+            if let g = decodeGiven(line), let h = g.host, h.caseInsensitiveCompare(host) != .orderedSame {
+                ledger.confirm(g.ref)
+                done.append(g.ref)
+            } else {
+                keep.append(line)
+            }
+        }
+        if !done.isEmpty {
+            try? SafeFile.write(keep.map { $0 + "\n" }.joined(), to: url)
+            DebugLog.log("askpass", "pregunta por \(host): confirmadas las de los saltos (\(done.map(\.description).joined(separator: ", ")))")
+        }
+        return done
     }
 
     /// `dialog`: sin terminal (SFTP, procesos sin pestaña), la app pregunta en una ventana.
@@ -69,6 +94,7 @@ public enum Askpass {
         let ask = Asker(tty: tty, account: account, user: user, host: host, named: profile?.namedCredential,
                         store: store, ledger: ledger, state: stateFile(), session: env["NETDECK_SESSION"])
 
+        if let s = env["NETDECK_SESSION"] { confirmEarlier(session: s, host: host, ledger: ledger) }
         if env[manualFlag] == "1" { return ask.user(failed: nil) }
         // ssh vuelve a preguntar enseguida: la que le dimos no valía
         if let used = ask.recentlyGiven() {
@@ -105,7 +131,10 @@ public enum Askpass {
                         told = true
                     }
                     Thread.sleep(forTimeInterval: 0.3)
-                case .wait, .blocked:
+                case .wait:                        // (no ha fallado: la otra pestaña tarda demasiado)
+                    tty.say(L("\(yellow)\(marker) otra pestaña sigue probando «\(ref)»: no espero más, escríbela tú\(reset)\n"))
+                    return ask.user(failed: nil)
+                case .blocked:
                     tty.say(L("\(yellow)\(marker) «\(ref)» falló hace poco: no la escribo (cuenta AD)\(reset)\n"))
                     return ask.user(failed: nil)
                 }
@@ -140,6 +169,15 @@ public enum Askpass {
 
     static func encode(_ r: CredentialRef) -> String { "\(r.service.rawValue)\t\(r.account)" }
 
+    /// Una línea del archivo de la pestaña: «@equipo\tservicio\tcuenta» (el equipo al que se dio; las de antes, sin él).
+    static func encodeGiven(_ r: CredentialRef, host: String) -> String { "@\(host)\t\(encode(r))" }
+
+    static func decodeGiven(_ s: String) -> (ref: CredentialRef, host: String?)? {
+        guard s.hasPrefix("@") else { return decode(s).map { ($0, nil) } }
+        let (h, _, rest) = String(s.dropFirst()).partition("\t")
+        return decode(rest).map { ($0, h.isEmpty ? nil : h) }
+    }
+
     static func decode(_ s: String) -> CredentialRef? {
         let (svc, _, acct) = s.partition("\t")
         guard let service = CredentialRef.Service(rawValue: svc), !acct.isEmpty else { return nil }
@@ -173,7 +211,7 @@ public enum Askpass {
             guard let ref, let session else { return }
             let url = AppPaths.ensure(AppPaths.sessions).appendingPathComponent(session)
             let old = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
-            try? SafeFile.write(old + encode(ref) + "\n", to: url)
+            try? SafeFile.write(old + encodeGiven(ref, host: host) + "\n", to: url)
         }
 
         /// Te la pide; te ofrece guardarla (si la guardada falló, por defecto sí).

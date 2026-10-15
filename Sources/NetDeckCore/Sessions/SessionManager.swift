@@ -96,8 +96,11 @@ public final class SessionManager {
             throw RouteError.badDevice(p.endpoint.host)
         }
         let alias = p.transport == .ssh || p.transport == .sftp ? p.name : nil      // (sftp lee el mismo ssh_config)
-        return ConnectionRoute(title: p.name, target: p.endpoint, jumps: jumps,
-                        transport: p.transport, alias: alias, sessionName: p.name)
+        var r = ConnectionRoute(title: p.name, target: p.endpoint, jumps: jumps,
+                                transport: p.transport, alias: alias, sessionName: p.name)
+        // (con un ProxyCommand suyo en el ssh_config no se comparte: se respeta el suyo)
+        if alias != nil, !p.proxyJump.isEmpty, !p.hasProxyCommand { r.configJumps = p.proxyJump }
+        return r
     }
 
     /// «Conectar» del gestor sin guardar: la sesión tal como está en el formulario, con equipo, usuario, puerto y
@@ -113,6 +116,7 @@ public final class SessionManager {
         var r = try route(to: p)
         if r.alias != nil {
             r.alias = nil
+            r.configJumps = nil
             if !r.jumps.isEmpty { r.jumpSpec = r.jumps.map(\.description) }
         }
         r.sessionName = nil
@@ -149,6 +153,7 @@ public final class SessionManager {
         if let p = profile(named: e.host) {                     // «admin@bastion»: la sesión, con ese usuario
             var r = try route(to: p)
             r.alias = nil
+            r.configJumps = nil
             r.target.user = e.user ?? r.target.user
             r.jumps = try resolve(p.proxyJump, seen: [p.name])
             r.jumpSpec = p.proxyJump.isEmpty ? nil : p.proxyJump

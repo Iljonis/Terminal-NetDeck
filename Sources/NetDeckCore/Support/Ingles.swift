@@ -1697,5 +1697,11 @@ enum Ingles {
             "The list “%@” has unsaved changes",
         "✗ Ponle un nombre a la lista":
             "✗ Give the list a name",
+        "%@%@ otra pestaña sigue probando «%@»: no espero más, escríbela tú%@\n":
+            "%@%@ another tab is still trying “%@”: not waiting any longer, type it yourself%@\n",
+        "Reutilizar la conexión al salto":
+            "Reuse the jump host connection",
+        "Las pestañas que pasan por el mismo salto usan una sola conexión a él (abierta 2 min tras cerrar la última): no se vuelven a autenticar en el bastión.":
+            "Tabs that go through the same jump host share a single connection to it (kept open for 2 min after the last one closes): they don't authenticate on the bastion again.",
 ]
 }

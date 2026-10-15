@@ -39,6 +39,8 @@ public struct SessionProfile: Identifiable, Hashable, Sendable {
     public var port: Int?
     /// Saltos («ProxyJump»): alias del ssh_config o usuario@equipo[:puerto], en orden.
     public var proxyJump: [String]
+    /// Tiene un ProxyCommand propio en el ssh_config (aunque se lea como salto): la app no lo sustituye por el suyo.
+    public var hasProxyCommand = false
     public var transport: Transport
     /// «# @grupo X» (vale para las sesiones que vienen detrás).
     public var group: String?

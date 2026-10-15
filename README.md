@@ -95,6 +95,8 @@ cd Terminal-NetDeck
 ### 🛡️ Saltos y bastiones, sin sorpresas
 
 - Tus sesiones con `ProxyJump`, encadenadas, y telnet a través del salto.
+- **Una sola conexión al bastión:** las pestañas que pasan por el mismo salto la comparten (como SecureCRT; abierta
+  2 min tras cerrar la última) y no se vuelven a autenticar en él. Se desactiva en Ajustes → General → Conexiones.
 - **Salto a mano blindado:** si un bastión no deja reenviar (`-J`), la app te pregunta antes de entrar en él, y la
   contraseña del destino sólo se sugiere, nunca se escribe sola por la shell del salto.
 - **Nada de inyecciones:** un equipo o usuario que empiece por `-` no llega a ssh como opción, todas las órdenes

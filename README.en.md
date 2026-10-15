@@ -94,6 +94,8 @@ cd Terminal-NetDeck
 ### 🛡️ Jump hosts without surprises
 
 - Your sessions with chained `ProxyJump`, and telnet through the jump host.
+- **A single connection to the bastion:** tabs that go through the same jump host share it (like SecureCRT; kept
+  open for 2 min after the last one closes) and don't authenticate on it again. Turn it off in Settings → General → Connections.
 - **Hardened manual hop:** if a jump host refuses forwarding (`-J`), the app asks before logging into it, and the
   destination password is only suggested, never typed automatically through the jump host's shell.
 - **No injections:** a host or user starting with `-` never reaches ssh as an option, every command puts `--` before
