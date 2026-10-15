@@ -243,7 +243,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     }
 
     private func launch() {
-        let (exe, args) = route.command
+        let (exe, args) = route.command(sharing: AppSettings.jumpSharing)
         if let problem = route.launchProblem() {             // (falta screen, el adaptador serie o el programa)
             _ = pipe.next()
             state = .exited(nil)
@@ -269,6 +269,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         loggedIn = false
         homeDevice = nil
         hopSent = false
+        _ = Askpass.takeGiven(session: id)      // (lo de una conexión anterior no se confirma con ésta)
         p.startProcess(executable: exe, args: args, environment: env.map { "\($0.key)=\($0.value)" },
                        currentDirectory: route.isLocal ? AppPaths.home.path : nil)     // (la local, en tu carpeta)
         DebugLog.log("pestaña", "«\(title)» #\(gen) arranca: \(exe) \(args.joined(separator: " "))"

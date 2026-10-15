@@ -76,6 +76,15 @@ final class AppSettings {
     static let sendLocaleKey = "sendLocale"
     var sendLocale: Bool { didSet { d.set(sendLocale, forKey: Self.sendLocaleKey) } }
 
+    /// Las pestañas por el mismo salto comparten su conexión (ControlMaster, 2 min tras la última): no se vuelven a
+    /// autenticar en el bastión. Activado de serie; la pestaña lo lee al conectar.
+    static let shareJumpKey = "shareJump"
+    var shareJump: Bool { didSet { d.set(shareJump, forKey: Self.shareJumpKey) } }
+    /// Dónde dejar los sockets, o nil si está desactivado (o la carpeta no es segura).
+    static var jumpSharing: JumpSharing? {
+        UserDefaults.standard.object(forKey: shareJumpKey) as? Bool ?? true ? JumpSharing.standard() : nil
+    }
+
     /// Ratón como en PuTTY/SecureCRT (los dos apagados de serie): lo que seleccionas se copia solo, y el clic derecho
     /// pega (por el mismo camino que ⌘V; ⌃/⌥+clic derecho, el menú de siempre). La vista del terminal los lee al vuelo.
     static let copyOnSelectKey = "copyOnSelect"
@@ -85,6 +94,7 @@ final class AppSettings {
 
     init() {
         sendLocale = d.bool(forKey: Self.sendLocaleKey)
+        shareJump = d.object(forKey: Self.shareJumpKey) as? Bool ?? true
         copyOnSelect = d.bool(forKey: Self.copyOnSelectKey)
         pasteOnRightClick = d.bool(forKey: Self.pasteOnRightClickKey)
         autoUpdateCheck = d.object(forKey: "autoUpdateCheck") as? Bool ?? true

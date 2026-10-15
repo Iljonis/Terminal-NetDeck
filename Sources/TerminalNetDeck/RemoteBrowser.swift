@@ -87,7 +87,7 @@ final class RemoteBrowser {
         // (desarrollo y capturas: NETDECK_SFTP_SERVER habla SFTP directamente, sin ssh ni red)
         let dev = ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] != nil
             ? ProcessInfo.processInfo.environment["NETDECK_SFTP_SERVER"] : nil
-        guard let cmd = dev.map({ ($0, [String]()) }) ?? r.sftpSubsystemCommand else {
+        guard let cmd = dev.map({ ($0, [String]()) }) ?? r.sftpSubsystemCommand(sharing: AppSettings.jumpSharing) else {
             state = .failed(L("Equipo no válido: «\(r.target.host)»"))
             return
         }
