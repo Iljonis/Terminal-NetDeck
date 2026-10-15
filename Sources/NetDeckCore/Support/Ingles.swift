@@ -406,8 +406,10 @@ enum Ingles {
             "NETDECK",
         "TERMINAL":
             "TERMINAL",
-        "%@ · en el salto: %@":
-            "%@ · on the jump host: %@",
+        " · en el salto: %@":
+            " · on the jump host: %@",
+        " · ahora en %@":
+            " · now on %@",
         "Clonar (otra pestaña igual)":
             "Clone (another identical tab)",
         "Quitar de la vista dividida":

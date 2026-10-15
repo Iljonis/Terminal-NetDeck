@@ -55,6 +55,19 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
 
     public var isLocal: Bool { localShell != nil || transport == .local }
 
+    /// Lo que se ve en la pestaña: sólo el equipo de destino («core-01 ⟵ bastion» → «core-01»). `device` es el equipo
+    /// de su prompt y `home` el primero que se vio en el destino (el hostname de la propia sesión, que puede no
+    /// llamarse como ella: «pe-madrid» con prompt «PE-MAD-01»). Sólo si el prompt es otro distinto (se ha saltado a mano
+    /// desde ahí, o aún se está en el salto antes de escribir el ssh) se ve ése, que es donde se escribe ahora. La
+    /// local y la consola serie, su título tal cual.
+    public func tabTitle(device: String?, home: String? = nil) -> String {
+        let base = title.components(separatedBy: " ⟵ ").first?.trimmingCharacters(in: .whitespaces) ?? ""
+        let name = base.isEmpty ? title : base
+        guard !isLocal, transport != .serial, let d = device?.trimmingCharacters(in: .whitespaces), !d.isEmpty else { return name }
+        let same = [name, target.host, sessionName ?? "", home ?? ""].contains { $0.caseInsensitiveCompare(d) == .orderedSame }
+        return same ? name : d
+    }
+
     /// Lo que escribe el propio ssh cuando el salto no deja reenviar (-J), al principio de la línea: «channel 0: open
     /// failed: administratively prohibited…» o «stdio forwarding failed». (Un banner del salto podría imitarlo: por eso
     /// además ssh tiene que terminar con 255 y se pregunta antes de entrar por el salto.)

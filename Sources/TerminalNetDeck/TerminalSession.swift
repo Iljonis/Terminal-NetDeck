@@ -157,6 +157,21 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     var activity = false
     /// Equipo en el que estás de verdad (sale del prompt): «core-01».
     var device: String?
+
+    /// Lo que se ve en la pestaña: sólo el equipo de destino (o en el que se está ahora, si se ha saltado a otro).
+    var tabTitle: String { route.tabTitle(device: device, home: homeDevice) }
+    /// El hostname del propio destino (el primer prompt en él; con salto a mano, el primero tras escribir el ssh).
+    @ObservationIgnored private var homeDevice: String?
+    /// Ya se ha escrito el ssh en el salto (lo siguiente que se ve es el destino).
+    @ObservationIgnored private var hopSent = false
+
+    /// El camino entero, para la ayuda de la pestaña: «core-01 ⟵ bastion · en el salto: ssh … · ahora en pe-mad-02».
+    var pathDescription: String {
+        var out = title
+        if let cmd = route.thenCommand { out += L(" · en el salto: \(cmd)") }
+        if tabTitle != route.tabTitle(device: nil) { out += L(" · ahora en \(tabTitle)") }
+        return out
+    }
     var exited: Bool { if case .exited = state { true } else { false } }
     /// Grabando a un archivo (● REC).
     private(set) var logFile: URL?
@@ -252,6 +267,8 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         process = p
         state = .connecting
         loggedIn = false
+        homeDevice = nil
+        hopSent = false
         p.startProcess(executable: exe, args: args, environment: env.map { "\($0.key)=\($0.value)" },
                        currentDirectory: route.isLocal ? AppPaths.home.path : nil)     // (la local, en tu carpeta)
         DebugLog.log("pestaña", "«\(title)» #\(gen) arranca: \(exe) \(args.joined(separator: " "))"
@@ -319,6 +336,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
                     self.passwords.commandUser = self.route.thenUser
                     self.passwords.commandJumpUsers = []
                     DebugLog.log("salto", "«\(self.title)»: prompt del salto «\(line)» → «\(cmd)»")
+                    self.hopSent = true
                     self.sendLine(cmd)
                     return
                 }
@@ -416,6 +434,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
             }
         }
         if let d = PromptDevice.name(line, previous: device), d != device {
+            if homeDevice == nil, loggedIn, route.thenCommand == nil || hopSent { homeDevice = d }
             device = d
             if route.thenCommand != nil || d != route.target.host { DebugLog.log("pestaña", "«\(title)» → equipo «\(d)»") }
         }

@@ -73,7 +73,9 @@ struct ContentView: View {
 extension ContentView {
     /// Desarrollo (con NETDECK_SNAPSHOT): «tab:usuario@equipo» abre esa pestaña; «settings» abre Ajustes.
     private func snapshotAction() {
-        guard let a = ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_ACTION"] else { return }
+        // (sólo en una captura: si no, lo que abren se guardaría en tus pestañas)
+        let env = ProcessInfo.processInfo.environment
+        guard env["NETDECK_SNAPSHOT"] != nil, let a = env["NETDECK_SNAPSHOT_ACTION"] else { return }
         if a.hasPrefix("tab:") {
             model.quickConnect(String(a.dropFirst(4)))
             // (y el texto de la pestaña, para comprobar que la salida llega al terminal)
@@ -89,6 +91,14 @@ extension ContentView {
                 model.open(ConnectionRoute(title: n, target: Endpoint(user: "tu.usuario", host: h), transport: .sftp))
             }
             if a == "explorador:vista" { model.makeSplit(.side2) }
+        }
+        if a.hasPrefix("pestañas:"), let n = Int(a.dropFirst(9)) {   // «pestañas:12»: muchas, cortas, largas y con salto
+            let names = ["core-01", "bastion", "pe-madrid-agregacion-02 ⟵ bastion", "olt-01", "sw-acceso-planta-3-rack-B",
+                         "fw-01", "core-02 ⟵ bastion", "rr-01"]
+            for i in 0..<max(0, min(n, 40)) {
+                model.open(ConnectionRoute(title: names[i % names.count] + (i < names.count ? "" : "-\(i)"),
+                                           target: Endpoint(user: "tu.usuario", host: "192.0.2.\(i + 1)")))
+            }
         }
         if a == "sesion-nueva" { model.editSessions(.new(group: nil, kind: .telnet)) }
         if a.hasPrefix("settings") { model.openSettings(a.split(separator: ":").dropFirst().first.map(String.init) ?? "contraseñas") }
@@ -109,66 +119,108 @@ struct TopBar: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
     @Stored private var drag = RowDrag<TerminalSession.ID>()
+    /// Anchos medidos: la fila entera, los botones de los lados (fijos) y la «VISTA ×n».
+    @Stored private var rowWidth: CGFloat = 0
+    @Stored private var leftWidth: CGFloat = 0
+    @Stored private var rightWidth: CGFloat = 0
+    @Stored private var splitWidth: CGFloat = 0
+
+    /// Ancho de cada pestaña: entre `tabMin` y `tabMax`, el que toque para que quepan todas; si ni al mínimo caben,
+    /// la tira se desplaza (y la activa siempre se ve).
+    static let tabMax: CGFloat = 200
+    static let tabMin: CGFloat = 96
+    static let tabGap: CGFloat = 4
+    private static let spacing: CGFloat = 6
+    private static let spacerMin: CGFloat = 12
 
     var body: some View {
-        HStack(spacing: 6) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
-                    if let sp = model.split { SplitChip(split: sp) }
-                    // arrastrar una pestaña la cambia de sitio (sólo el orden: la terminal y su proceso siguen igual)
-                    ForEach(model.tabs) { s in
-                        TabChip(session: s)
-                            .reorderable(s.id, in: drag, order: { model.tabs.map(\.id) },
-                                         move: { model.moveTab($0, to: $1) }, end: {})
-                    }
-                }
-                .padding(.vertical, 4)
-                .coordinateSpace(.named(drag.space))
-            }
-            .keepsWindowStill(model, "pestañas")
-            .fixedSize(horizontal: model.tabs.count < 6, vertical: false)
-            NewButton()
-                .help(L("Conectar, terminal local, sesión nueva o una favorita"))
-            IconButton(icon: "apple.terminal") { model.openLocal() }
-                .help(L("Nueva terminal local: tu shell en este Mac (⌘T)"))
-            Spacer(minLength: 12)
-            IconButton(icon: "doc.on.clipboard.fill") { model.sheet = .paste }
-                .help(L("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)"))
-            IconMenu(icon: "rectangle.split.3x1.fill", active: model.split != nil) {
-                ForEach(Split.Layout.allCases) { l in Button(l.title) { model.makeSplit(l) } }
-                MenuDivider()
-                Button(L("Volver a pestañas sueltas")) { model.unsplit() }.disabled(model.split == nil)
-            }
-            .help(L("Dividir la pantalla"))
-            IconMenu(icon: "key.fill") {
-                if let s = model.current {
-                    MenuHeader(title: L("Escribir en «\(s.title)»"))
-                    ForEach(model.keychainAccounts, id: \.self) { ref in
-                        Button { model.typePassword(ref, in: s) } label: { Label(ref.account, systemImage: "key") }
-                    }
-                    ThemedSubmenu(title: L("Escribir sin esperar a que la pida")) {
-                        ForEach(model.keychainAccounts, id: \.self) { ref in
-                            ThemedSubmenu(title: ref.account) {
-                                Button(L("Sin Intro")) { model.typePasswordAnyway(ref, in: s, pressReturn: false) }
-                                Button(L("Con Intro")) { model.typePasswordAnyway(ref, in: s, pressReturn: true) }
-                            }
+        // (lo que dejan los botones: la fila menos los dos grupos fijos, los huecos entre ellos y el Spacer mínimo)
+        let room = max(Self.tabMin, rowWidth - leftWidth - rightWidth - 3 * Self.spacing - Self.spacerMin)
+        let n = CGFloat(model.tabs.count)
+        let split = model.split == nil ? 0 : splitWidth + Self.tabGap
+        let each = n == 0 ? Self.tabMax
+            : min(Self.tabMax, max(Self.tabMin, ((room - split - Self.tabGap * (n - 1)) / n).rounded(.down)))
+        let content = split + n * each + max(0, n - 1) * Self.tabGap
+        HStack(spacing: Self.spacing) {
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Self.tabGap) {
+                        if let sp = model.split {
+                            SplitChip(split: sp)
+                                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { splitWidth = $0 }
+                        }
+                        // arrastrar una pestaña la cambia de sitio (sólo el orden: la terminal y su proceso siguen igual)
+                        ForEach(model.tabs) { s in
+                            TabChip(session: s, width: each)
+                                .id(s.id)
+                                .reorderable(s.id, in: drag, order: { model.tabs.map(\.id) },
+                                             move: { model.moveTab($0, to: $1) }, end: {})
                         }
                     }
-                    MenuDivider()
+                    .padding(.vertical, 4)
+                    .coordinateSpace(.named(drag.space))
                 }
-                Button(L("Contraseñas y Llavero…")) { model.openSettings("contraseñas") }
+                .onChange(of: model.selection) { reveal(model.selection, proxy) }
+                .onChange(of: model.tabs.count) { reveal(model.selection, proxy) }
+                .onChange(of: room) { reveal(model.selection, proxy) }
+                .onAppear { reveal(model.selection, proxy) }
             }
-            .help(L("Escribir una contraseña del Llavero en la pestaña actual"))
-            IconButton(icon: "square.stack.3d.forward.dottedline.fill", tint: t.warning, active: model.multiExecOn,
-                       badge: model.multiExecOn ? "\(model.multiExecTargets.count)" : nil) { model.multiExecOn.toggle() }
-                .help(L("MultiExec: lo que escribes va a la vez a los paneles (⇧⌘M). Clic derecho en un panel → excluirlo"))
-            IconButton(icon: "stop.circle.fill", tint: t.bad) { model.abortAll() }
-                .help(L("Corta cualquier secuencia automática (Esc o Ctrl+C en el terminal, ⌘.)"))
-            IconButton(icon: "sidebar.left", active: model.settings.sidebarVisible) { model.settings.sidebarVisible.toggle() }
-                .help(L("Mostrar/ocultar sesiones (⌃⌘S)"))
-            IconButton(icon: "gearshape.fill") { model.openSettings() }
-                .help(L("Ajustes (⌘,)"))
+            .frame(width: min(content, room))
+            .keepsWindowStill(model, "pestañas")
+            HStack(spacing: Self.spacing) {
+                NewButton()
+                    .help(L("Conectar, terminal local, sesión nueva o una favorita"))
+                IconButton(icon: "apple.terminal") { model.openLocal() }
+                    .help(L("Nueva terminal local: tu shell en este Mac (⌘T)"))
+            }
+            .fixedSize()
+            .layoutPriority(1)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { leftWidth = $0 }
+            Spacer(minLength: Self.spacerMin)
+            HStack(spacing: Self.spacing) {
+                IconButton(icon: "doc.on.clipboard.fill") { model.sheet = .paste }
+                    .help(L("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)"))
+                IconMenu(icon: "rectangle.split.3x1.fill", active: model.split != nil) {
+                    ForEach(Split.Layout.allCases) { l in Button(l.title) { model.makeSplit(l) } }
+                    MenuDivider()
+                    Button(L("Volver a pestañas sueltas")) { model.unsplit() }.disabled(model.split == nil)
+                }
+                .help(L("Dividir la pantalla"))
+                IconMenu(icon: "key.fill") {
+                    if let s = model.current {
+                        MenuHeader(title: L("Escribir en «\(s.title)»"))
+                        ForEach(model.keychainAccounts, id: \.self) { ref in
+                            Button { model.typePassword(ref, in: s) } label: { Label(ref.account, systemImage: "key") }
+                        }
+                        ThemedSubmenu(title: L("Escribir sin esperar a que la pida")) {
+                            ForEach(model.keychainAccounts, id: \.self) { ref in
+                                ThemedSubmenu(title: ref.account) {
+                                    Button(L("Sin Intro")) { model.typePasswordAnyway(ref, in: s, pressReturn: false) }
+                                    Button(L("Con Intro")) { model.typePasswordAnyway(ref, in: s, pressReturn: true) }
+                                }
+                            }
+                        }
+                        MenuDivider()
+                    }
+                    Button(L("Contraseñas y Llavero…")) { model.openSettings("contraseñas") }
+                }
+                .help(L("Escribir una contraseña del Llavero en la pestaña actual"))
+                IconButton(icon: "square.stack.3d.forward.dottedline.fill", tint: t.warning, active: model.multiExecOn,
+                           badge: model.multiExecOn ? "\(model.multiExecTargets.count)" : nil) { model.multiExecOn.toggle() }
+                    .help(L("MultiExec: lo que escribes va a la vez a los paneles (⇧⌘M). Clic derecho en un panel → excluirlo"))
+                IconButton(icon: "stop.circle.fill", tint: t.bad) { model.abortAll() }
+                    .help(L("Corta cualquier secuencia automática (Esc o Ctrl+C en el terminal, ⌘.)"))
+                IconButton(icon: "sidebar.left", active: model.settings.sidebarVisible) { model.settings.sidebarVisible.toggle() }
+                    .help(L("Mostrar/ocultar sesiones (⌃⌘S)"))
+                IconButton(icon: "gearshape.fill") { model.openSettings() }
+                    .help(L("Ajustes (⌘,)"))
+            }
+            // (los botones de la derecha, siempre enteros y dentro de la ventana: las pestañas se encogen antes)
+            .fixedSize()
+            .layoutPriority(1)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rightWidth = $0 }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rowWidth = $0 }
         .padding(.leading, model.fullScreen ? 10 : 80)
         .padding(.trailing, 10)
         .frame(height: 38)
@@ -176,6 +228,12 @@ struct TopBar: View {
             .gesture(WindowDragGesture())
             .simultaneousGesture(TapGesture(count: 2).onEnded { model.toggleFill() }))
         .overlay(alignment: .bottom) { Rectangle().fill(SwiftUI.Color(t.tab)).frame(height: 2) }
+    }
+
+    /// Que la pestaña activa se vea (lo justo: si ya se ve, la tira no se mueve).
+    private func reveal(_ id: TerminalSession.ID?, _ proxy: ScrollViewProxy) {
+        guard let id else { return }
+        DispatchQueue.main.async { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(id) } }
     }
 }
 
@@ -371,6 +429,8 @@ struct TabChip: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
     let session: TerminalSession
+    /// El que le toca en la barra (todas igual de anchas); el título se corta por el centro si no cabe.
+    var width: CGFloat = TopBar.tabMax
     @Stored private var hover = false
 
     var body: some View {
@@ -383,28 +443,29 @@ struct TabChip: View {
                 .frame(width: 7, height: 7)
                 .shadow(color: SwiftUI.Color(dotColor(notice)).opacity(0.8), radius: t.glow(3))
             if inSplit { Image(systemName: "square.split.2x1").font(.system(size: 9)) }
-            Text(session.title).font(t.ui(12, .semibold)).lineLimit(1)
-            if let d = session.device, !session.title.hasPrefix(d), d != session.route.sessionName {
-                Text("› \(d)").font(t.ui(11)).opacity(0.75).lineLimit(1)
-            }
+            // (sólo el destino; el camino entero, en la ayuda)
+            Text(session.tabTitle).font(t.ui(12, .semibold)).lineLimit(1).truncationMode(.middle)
+            Spacer(minLength: 0)
             if session.activity { Text("•").font(t.ui(13, .black)).foregroundStyle(SwiftUI.Color(t.warning)) }
             if notice { Image(systemName: "key.fill").font(.system(size: 10)).foregroundStyle(SwiftUI.Color(t.warning)) }
-            Button { model.close(session) } label: {
-                Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+            // (la ✕ sólo ocupa sitio en la activa o al pasar por encima: en las estrechas, el título se lleva el hueco)
+            if selected || hover {
+                Button { model.close(session) } label: {
+                    Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            .opacity(selected || hover ? 1 : 0)
         }
         .foregroundStyle(SwiftUI.Color(selected ? t.onTab : t.accent2))
-        .padding(.leading, 12)
-        .padding(.trailing, 16)
-        .frame(height: 29)
+        .padding(.leading, width < 130 ? 9 : 12)
+        .padding(.trailing, width < 130 ? 11 : 16)
+        .frame(width: width, height: 29)
         .background(ChamferShape(radius: t.corner).fill(SwiftUI.Color(selected ? t.tab : t.panel).opacity(selected ? 1 : (hover ? 0.95 : 0.6))))
         .shadow(color: SwiftUI.Color(t.tab).opacity(selected ? 0.6 : 0), radius: t.glow(8))
         .contentShape(Rectangle())
         .onTapGesture { model.show(session) }
         .onHover { hover = $0 }
-        .help(session.route.thenCommand.map { L("\(session.title) · en el salto: \($0)") } ?? session.title)
+        .help(session.pathDescription)
         .themedContextMenu { SessionTabMenu(session: session) }
     }
 

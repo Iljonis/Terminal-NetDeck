@@ -158,6 +158,26 @@ private let config = """
         #expect(!ConnectionRoute.forwardingRefused(["# stdio forwarding failed"]))
     }
 
+    /// En la pestaña, sólo el destino: el camino completo va en la ayuda.
+    @Test func tituloDeLaPestanaSoloElDestino() throws {
+        var r = ConnectionRoute(title: "core-01 ⟵ bastion", target: Endpoint(user: "tu.usuario", host: "192.0.2.1"))
+        r.thenCommand = "ssh tu.usuario@192.0.2.11"
+        #expect(r.tabTitle(device: nil) == "core-01")
+        #expect(r.tabTitle(device: "BASTION") == "BASTION")             // (aún en el salto: es donde se escribe)
+        var s = ConnectionRoute(title: "core-01", target: Endpoint(host: "192.0.2.11"))
+        s.sessionName = "core-01"
+        #expect(s.tabTitle(device: "CORE-01") == "core-01")             // (el mismo, sin repetir)
+        #expect(s.tabTitle(device: "192.0.2.11") == "core-01")
+        #expect(s.tabTitle(device: "pe-mad-02") == "pe-mad-02")         // (saltado a mano a otro desde ahí)
+        // (el hostname de la propia sesión, aunque no se llame como ella, no le quita el nombre)
+        #expect(s.tabTitle(device: "PE-MAD-01", home: "PE-MAD-01") == "core-01")
+        #expect(s.tabTitle(device: "pe-mad-02", home: "PE-MAD-01") == "pe-mad-02")
+        #expect(s.tabTitle(device: "  ") == "core-01")
+        var local = ConnectionRoute.local()
+        local.title = "Terminal local"
+        #expect(local.tabTitle(device: "mi-mac") == "Terminal local")
+    }
+
     @Test func bucleDeSaltos() {
         let m = SessionManager(profiles: [SessionProfile(name: "a", proxyJump: ["b"]), SessionProfile(name: "b", proxyJump: ["a"])])
         #expect(throws: RouteError.loop("a")) { try m.route(to: m.profile(named: "a")!) }
