@@ -63,6 +63,12 @@ public enum CommandLineUser {
     /// «admin@bastion:~$ ssh -p 2222 -l root 192.0.2.1» → root@192.0.2.1:2222. «-l» gana a «usuario@» (como ssh).
     public static func parse(_ commandLine: String) -> Endpoint? { scan(commandLine).target }
 
+    /// Los equipos de la orden: el destino y los saltos («ssh -J bastion admin@core-01» → core-01, bastion).
+    public static func hosts(_ commandLine: String) -> Set<String> {
+        let s = scan(commandLine)
+        return Set(([s.target].compactMap { $0 } + s.jumps).map(\.host))
+    }
+
     /// Los usuarios explícitos de los saltos: «ssh -J tu.usuario@bastion,ops@b2 admin@…» → tu.usuario, ops.
     /// (Un salto sin «usuario@» no cuenta: no se sabe quién es.)
     public static func jumpUsers(_ commandLine: String) -> Set<String> {

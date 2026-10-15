@@ -78,11 +78,11 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
                  "-o", "BatchMode=no", "-o", "RemoteCommand=none", "-s"]
         if let j = jumpSpec, !j.isEmpty { a += ["-J", j.joined(separator: ",")] }
         if let alias {
-            a.append(alias)
+            a += ["--", alias]
         } else {
             if let p = target.port { a += ["-p", String(p)] }
             if let u = target.user { a += ["-l", u] }
-            a.append(target.host)
+            a += ["--", target.host]
         }
         return ("/usr/bin/ssh", a + ["sftp"])
     }
@@ -136,6 +136,7 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     }
 
     /// Orden que abre la pestaña. Telnet con salto: «ssh -t salto telnet equipo puerto» (transparente para el usuario).
+    /// Siempre «--» antes del destino: aunque algo empezara por «-», ssh y sftp no lo leerían como una opción.
     /// sftp: como ssh (alias del ssh_config o -P/-J usuario@equipo). Serie: screen. FTP no tiene consola (/usr/bin/false):
     /// su pestaña es sólo el explorador.
     public var command: (executable: String, arguments: [String]) {
@@ -145,11 +146,11 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
             var a: [String] = []
             if let j = jumpSpec, !j.isEmpty { a += ["-J", j.joined(separator: ",")] }
             if let alias {
-                a.append(alias)
+                a += ["--", alias]
             } else {
                 if let p = target.port { a += ["-p", String(p)] }
                 if let u = target.user { a += ["-l", u] }
-                a.append(target.host)
+                a += ["--", target.host]
             }
             return ("/usr/bin/ssh", a)
         case .telnet:
@@ -157,16 +158,16 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
             guard let last = jumps.last else { return ("/usr/bin/env", ["telnet"] + telnet) }
             var a = ["-t"]
             if jumps.count > 1 { a += ["-J", jumps.dropLast().map(\.description).joined(separator: ",")] }
-            return ("/usr/bin/ssh", a + [last.description, "telnet"] + telnet)
+            return ("/usr/bin/ssh", a + ["--", last.description, "telnet"] + telnet)
         case .sftp:
             var a: [String] = []
             if let j = jumpSpec, !j.isEmpty { a += ["-J", j.joined(separator: ",")] }
             if let alias {
-                a.append(alias)
+                a += ["--", alias]
             } else {
                 if let p = target.port { a += ["-P", String(p)] }
                 let h = target.host.contains(":") ? "[\(target.host)]" : target.host       // (IPv6)
-                a.append((target.user.map { "\($0)@" } ?? "") + h)
+                a += ["--", (target.user.map { "\($0)@" } ?? "") + h]
             }
             return ("/usr/bin/sftp", a)
         case .serial:

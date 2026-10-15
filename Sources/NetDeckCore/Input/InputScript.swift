@@ -49,7 +49,7 @@ public struct InputScript: Sendable {
                 case .line(let t):
                     io.sendLine(t)
                 case .secret(let ref):
-                    guard let pw = try? store.password(for: ref) else { return .missingCredential(ref) }
+                    guard let pw = await store.passwordInBackground(for: ref) else { return .missingCredential(ref) }
                     // (justo antes: ni Esc ni una pantalla que ya no pide contraseña)
                     try abort.check()
                     guard PasswordPrompt.asksForPassword(io.cursorLine) else { return .promptGone(step: i) }

@@ -70,6 +70,21 @@ import Testing
 }
 
 @Suite struct FTPParseTests {
+    /// Respuestas de varias líneas (Pure-FTPd empieza el saludo con «220---------- Welcome…»).
+    @Test func respuestasDeVariasLineas() throws {
+        let start = try FTPParse.replyStart("220---------- Welcome to Pure-FTPd ----------")
+        #expect(start.code == 220 && start.more && start.text == "--------- Welcome to Pure-FTPd ----------")
+        var lines = [start.text]
+        #expect(!FTPParse.replyEnds("220-You are user number 1 of 50 allowed.", code: 220, into: &lines))
+        #expect(!FTPParse.replyEnds(" UTF8", code: 220, into: &lines))                 // (sin código: RFC 959)
+        #expect(FTPParse.replyEnds("220 You will be disconnected after 15 minutes.", code: 220, into: &lines))
+        #expect(lines == ["--------- Welcome to Pure-FTPd ----------", "You are user number 1 of 50 allowed.", " UTF8",
+                          "You will be disconnected after 15 minutes."])
+        let one = try FTPParse.replyStart("500 Unknown command")
+        #expect(one.code == 500 && !one.more)
+        #expect(throws: RemoteError.self) { try FTPParse.replyStart("hola") }
+    }
+
     @Test func pasivo() {
         #expect(FTPParse.epsvPort("Entering Extended Passive Mode (|||6446|)") == 6446)
         #expect(FTPParse.pasvPort("Entering Passive Mode (192,0,2,7,19,77).") == UInt16(19 * 256 + 77))
@@ -276,10 +291,10 @@ final class Counter: @unchecked Sendable {
         var r = ConnectionRoute(title: "f", target: Endpoint(user: "tu.usuario", host: "192.0.2.30", port: 2222), transport: .sftp)
         let c = r.sftpSubsystemCommand
         #expect(c?.executable == "/usr/bin/ssh")
-        #expect(c?.arguments.suffix(7) == ["-s", "-p", "2222", "-l", "tu.usuario", "192.0.2.30", "sftp"])
+        #expect(c?.arguments.suffix(8) == ["-s", "-p", "2222", "-l", "tu.usuario", "--", "192.0.2.30", "sftp"])
         #expect(c?.arguments.contains("ClearAllForwardings=yes") == true)
         r.alias = "ficheros-01"
-        #expect(r.sftpSubsystemCommand?.arguments.suffix(3) == ["-s", "ficheros-01", "sftp"])
+        #expect(r.sftpSubsystemCommand?.arguments.suffix(4) == ["-s", "--", "ficheros-01", "sftp"])
         r.transport = .ssh
         #expect(r.sftpSubsystemCommand == nil)
     }

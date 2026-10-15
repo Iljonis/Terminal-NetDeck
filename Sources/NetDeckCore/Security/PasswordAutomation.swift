@@ -30,6 +30,8 @@ public final class PasswordAutomation {
     public var commandUser: String?
     /// Los usuarios explícitos de los saltos de esa orden (`ssh -J tu.usuario@bastion …`).
     public var commandJumpUsers: Set<String> = []
+    /// Los equipos (destino y saltos) de esa orden: un prompt «usuario@equipo» de otro equipo no cuenta.
+    public var commandHosts: Set<String> = []
     /// Candidatas para cada petición (las da la app con lo que sabe de la sesión: `SessionManager`).
     public var candidates: (PasswordRequest) -> [CredentialCandidate]
 
@@ -106,15 +108,23 @@ public final class PasswordAutomation {
         await Task.detached { try? store.password(for: ref) }.value
     }
 
-    public enum ManualResult: Equatable, Sendable { case typed, blocked, notAsked, missing }
+    /// `busy`: ya se está escribiendo una (dos clics seguidos no la mandan dos veces).
+    public enum ManualResult: Equatable, Sendable { case typed, blocked, notAsked, missing, busy }
 
     /// Elección manual (menú 🔑): sin la regla de usuario (la eliges tú), pero nunca una bloqueada sin `force`.
-    public func typeManually(_ ref: CredentialRef, into io: TerminalIO, force: Bool = false) -> ManualResult {
+    /// El Llavero se lee fuera del hilo principal; justo antes de escribirla se comprueba que la siguen pidiendo.
+    public func typeManually(_ ref: CredentialRef, into io: TerminalIO, force: Bool = false) async -> ManualResult {
         if !force, ledger.isBlocked(ref) { return .blocked }
         guard PasswordPrompt.asksForPassword(io.cursorLine) else { return .notAsked }
-        guard let pw = try? store.password(for: ref) else { return .missing }
-        if force { ledger.reset(ref) }
         let site = "\(io.cursorRow):\(io.cursorLine.trimmed)"
+        guard !busy, site != handledSite || pending == nil else { return .busy }
+        busy = true
+        defer { busy = false }
+        guard let pw = await store.passwordInBackground(for: ref) else { return .missing }
+        // (mientras se leía, otra pestaña puede haberla marcado como fallida, o la pantalla haber cambiado)
+        if !force, ledger.isBlocked(ref) { return .blocked }
+        guard "\(io.cursorRow):\(io.cursorLine.trimmed)" == site else { return .notAsked }
+        if force { ledger.reset(ref) }
         io.sendLine(pw)
         pending = (ref, site)
         handledSite = site
@@ -123,9 +133,13 @@ public final class PasswordAutomation {
 
     /// «Escribir sin esperar a que la pida» (menú 🔑): la manda al terminal aunque la línea no sea «Password:» (un
     /// prompt que no se reconoce). Intro sólo con `pressReturn`. Nunca una bloqueada sin `force` (y no la desbloquea).
-    public func typeAnyway(_ ref: CredentialRef, into io: TerminalIO, pressReturn: Bool, force: Bool = false) -> ManualResult {
+    public func typeAnyway(_ ref: CredentialRef, into io: TerminalIO, pressReturn: Bool, force: Bool = false) async -> ManualResult {
         if !force, ledger.isBlocked(ref) { return .blocked }
-        guard let pw = try? store.password(for: ref) else { return .missing }
+        guard !busy else { return .busy }
+        busy = true
+        defer { busy = false }
+        guard let pw = await store.passwordInBackground(for: ref) else { return .missing }
+        if !force, ledger.isBlocked(ref) { return .blocked }
         if pressReturn { io.sendLine(pw) } else { io.send(pw) }
         return .typed
     }

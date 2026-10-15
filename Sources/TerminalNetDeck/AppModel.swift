@@ -89,6 +89,9 @@ final class AppModel {
     var editorFocus: EditorFocus?
     /// Ajustes dentro de la ventana (en pantalla completa no se van a otro escritorio) y con el tema.
     var showSettings = false
+    /// Hay una hoja, Ajustes o el asistente abiertos: los atajos que cambian de hoja o actúan sobre las pestañas se
+    /// apagan (⌘K sustituiría el gestor con sus cambios; ⌘W cerraría la pestaña a la que va el botón que rellenas).
+    var modalOpen: Bool { sheet != nil || showSettings || showSetup }
     var settingsTab = "contraseñas"
     /// ★ favoritas y ↻ recientes: los mismos archivos que NetDeck (~/.config/netdeck/favoritas, recientes).
     var favorites: [String] = []
@@ -463,8 +466,9 @@ final class AppModel {
         let pw = PasswordAutomation(mode: route.usesPasswords ? settings.devicePasswordMode : .off, store: store, policy: policy, ledger: ledger)
         pw.sessionMode = settings.sessionAutoPassword && route.usesPasswords ? .autoType : nil
         let s = TerminalSession(route: route, passwords: pw, ledger: ledger)
-        pw.candidates = { [weak self] req in
-            self?.sessions.credentialCandidates(for: req, route: route, defaultCredential: self?.settings.defaultCredential) ?? []
+        pw.candidates = { [weak self, weak pw] req in
+            self?.sessions.credentialCandidates(for: req, route: route, defaultCredential: self?.settings.defaultCredential,
+                                                typedHosts: pw?.commandHosts ?? []) ?? []
         }
         s.onEvent = { [weak self] s, e in self?.handle(e, in: s) }
         s.onInput = { [weak self] s, bytes in self?.userInput(bytes, in: s) ?? false }
@@ -607,11 +611,14 @@ final class AppModel {
     }
 
     func typePassword(_ ref: CredentialRef, in s: TerminalSession) {
-        switch s.passwords.typeManually(ref, into: s) {
-        case .typed: notices[s.id] = nil
-        case .blocked: status = L("🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes")
-        case .notAsked: status = L("🔑 Ahí no piden contraseña ahora")
-        case .missing: status = L("🔑 «\(ref)» no está en el Llavero")
+        Task {
+            switch await s.passwords.typeManually(ref, into: s) {
+            case .typed: notices[s.id] = nil
+            case .blocked: status = L("🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes")
+            case .notAsked: status = L("🔑 Ahí no piden contraseña ahora")
+            case .missing: status = L("🔑 «\(ref)» no está en el Llavero")
+            case .busy: break
+            }
         }
     }
 
@@ -630,11 +637,15 @@ final class AppModel {
             guard ThemedAlert.confirm(L("«\(ref.account)» ha fallado hace poco"), message: L("Si es una cuenta AD, otro intento fallido puede bloquearla. ¿Escribirla igualmente?"), ok: L("Escribir igualmente"), destructive: true) else { return }
             force = true
         }
-        switch s.passwords.typeAnyway(ref, into: s, pressReturn: pressReturn, force: force) {
-        case .typed: notices[s.id] = nil; status = L("🔑 «\(ref)» escrita en \(s.title)")
-        case .blocked: status = L("🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes")
-        case .notAsked: break
-        case .missing: status = L("🔑 «\(ref)» no está en el Llavero")
+        // (tras el aviso modal la pestaña puede haberse cerrado: nada se escribe en una que ya no está)
+        guard tabs.contains(where: { $0.id == s.id }), !s.exited else { return }
+        Task {
+            switch await s.passwords.typeAnyway(ref, into: s, pressReturn: pressReturn, force: force) {
+            case .typed: notices[s.id] = nil; status = L("🔑 «\(ref)» escrita en \(s.title)")
+            case .blocked: status = L("🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes")
+            case .notAsked, .busy: break
+            case .missing: status = L("🔑 «\(ref)» no está en el Llavero")
+            }
         }
     }
 

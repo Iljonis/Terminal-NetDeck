@@ -355,6 +355,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         if let e = CommandLineUser.parse(cursorLine) {
             passwords.commandUser = e.user
             passwords.commandJumpUsers = CommandLineUser.jumpUsers(cursorLine)
+            passwords.commandHosts = CommandLineUser.hosts(cursorLine)
         }
     }
 

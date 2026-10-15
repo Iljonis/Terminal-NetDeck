@@ -83,7 +83,15 @@ struct RemoteBrowserView: View {
                 header
                 list
             case .connecting, .idle:
-                center(icon: "antenna.radiowaves.left.and.right", text: L("Conectando a \(browser.label)…"), busy: true)
+                VStack(spacing: 14) {
+                    center(icon: "antenna.radiowaves.left.and.right", text: L("Conectando a \(browser.label)…"), busy: true)
+                        .frame(maxHeight: 160)
+                    if browser.state == .connecting {
+                        NeonButton(title: L("Cancelar"), icon: "xmark", tint: t.bad) { browser.cancelConnect() }
+                            .keyboardShortcut(.cancelAction)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .needsPassword(let why):
                 FTPPasswordPrompt(browser: browser, reason: why)
             case .failed(let why):

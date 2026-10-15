@@ -40,6 +40,22 @@ public protocol CredentialStore: Sendable {
     func accounts(in service: CredentialRef.Service) throws -> [String]
 }
 
+extension CredentialStore {
+    /// Fuera del hilo principal: `security` puede tardar (o esperar a que se desbloquee el Llavero) y la ventana no se
+    /// debe congelar. Un error del Llavero cuenta como «no está» (igual que `try?`).
+    public func passwordInBackground(for ref: CredentialRef) async -> String? {
+        await Task.detached { try? self.password(for: ref) }.value
+    }
+
+    public func saveInBackground(_ password: String, for ref: CredentialRef) async throws {
+        try await Task.detached { try self.save(password, for: ref) }.value
+    }
+
+    public func deleteInBackground(_ ref: CredentialRef) async throws {
+        try await Task.detached { try self.delete(ref) }.value
+    }
+}
+
 /// En memoria: tests y modo demostración.
 public final class MemoryCredentialStore: CredentialStore, @unchecked Sendable {
     private let lock = NSLock()

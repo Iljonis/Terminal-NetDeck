@@ -79,20 +79,20 @@ private let kinds = """
 
     @Test @MainActor func ordenDeCadaTipo() throws {
         #expect(try route("core-01").command.executable == "/usr/bin/ssh")
-        #expect(try route("core-01").command.arguments == ["core-01"])
+        #expect(try route("core-01").command.arguments == ["--", "core-01"])
         let telnet = try route("olt-01").command
-        #expect(telnet.executable == "/usr/bin/ssh" && telnet.arguments == ["-t", "tu.usuario@192.0.2.1", "telnet", "192.0.2.21"])
+        #expect(telnet.executable == "/usr/bin/ssh" && telnet.arguments == ["-t", "--", "tu.usuario@192.0.2.1", "telnet", "192.0.2.21"])
 
         // sftp: el mismo alias que ssh (saltos, puerto y usuario del ssh_config), askpass sí, MultiExec no
         let sftp = try route("ficheros-01")
-        #expect(sftp.command.executable == "/usr/bin/sftp" && sftp.command.arguments == ["ficheros-01"])
+        #expect(sftp.command.executable == "/usr/bin/sftp" && sftp.command.arguments == ["--", "ficheros-01"])
         #expect(sftp.usesPasswords && !sftp.acceptsMultiExec && !sftp.isLocal)
         var direct = ConnectionRoute(title: "x", target: Endpoint(user: "tu.usuario", host: "192.0.2.30", port: 2222),
                                      transport: .sftp)
-        #expect(direct.command.arguments == ["-P", "2222", "tu.usuario@192.0.2.30"])
+        #expect(direct.command.arguments == ["-P", "2222", "--", "tu.usuario@192.0.2.30"])
         direct.target = Endpoint(host: "2001:db8::1")
         direct.jumpSpec = ["bastion"]
-        #expect(direct.command.arguments == ["-J", "bastion", "[2001:db8::1]"])
+        #expect(direct.command.arguments == ["-J", "bastion", "--", "[2001:db8::1]"])
 
         // ftp: al Finder, no a una pestaña
         let ftp = try route("ftp-01")

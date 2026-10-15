@@ -280,6 +280,17 @@ public struct SessionFile: Sendable {
             if s.notes.contains(where: { $0.contains(where: \.isNewline) }) || s.group.contains(where: \.isNewline) {
                 out.append(L("«\(s.name)»: saltos de línea en el grupo o las notas"))
             }
+            // (un salto de línea o un carácter de control en cualquier campo abriría otra línea en el ssh_config:
+            // «ProxyCommand …», «Host *»…)
+            if ([s.summary, s.credential, s.jump, s.keyFile, s.serial.device] + s.extra).contains(where: Self.hasControl) {
+                out.append(L("«\(s.name)»: saltos de línea o caracteres de control en un campo"))
+            }
+            if let k = s.extra.compactMap({ SSHConfigParser.option($0.trimmed)?.0 }).first(where: { ["host", "match"].contains($0) }) {
+                out.append(L("«\(s.name)»: «\(k)» no puede ir en las opciones (abriría otro bloque)"))
+            }
+            if [s.host, s.user, s.jump].contains(where: { $0.hasPrefix("-") }) {
+                out.append(L("«\(s.name)»: el equipo, el usuario o el salto no pueden empezar por «-»"))
+            }
             if s.notes.contains(where: { $0.hasPrefix("@grupo") || $0.hasPrefix("@clave-grupo") }) {
                 out.append(L("«\(s.name)»: una nota no puede empezar por @grupo ni @clave-grupo"))
             }
@@ -322,10 +333,16 @@ public struct SessionFile: Sendable {
         return nil
     }
 
+    /// (el tabulador no: ssh_config lo admite entre clave y valor)
+    static func hasControl(_ s: String) -> Bool {
+        s.unicodeScalars.contains { ($0.value < 0x20 && $0.value != 0x09) || $0.value == 0x7f || $0.properties.generalCategory == .lineSeparator
+            || $0.properties.generalCategory == .paragraphSeparator || $0.value == 0x85 }
+    }
+
     static func sshCheck(_ file: URL, host: String) -> String? {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
-        p.arguments = ["-G", "-F", file.path, host]
+        p.arguments = ["-G", "-F", file.path, "--", host]
         let err = Pipe()
         p.standardOutput = FileHandle.nullDevice
         p.standardError = err

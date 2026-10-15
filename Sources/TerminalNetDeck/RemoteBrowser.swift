@@ -72,6 +72,13 @@ final class RemoteBrowser {
         state = .idle
     }
 
+    /// «Cancelar» mientras conecta: corta ya (FTP cierra el socket; SFTP termina ssh) y lo deja en «no conectado».
+    func cancelConnect() {
+        guard state == .connecting else { return }
+        disconnect()
+        state = .failed(L("Conexión cancelada"))
+    }
+
     private func connectSFTP() {
         guard let model else { return }
         state = .connecting
@@ -115,7 +122,7 @@ final class RemoteBrowser {
         // FTP va sin cifrar: sólo la de usuario@equipo o la «# @clave» de esta sesión; nunca la por defecto (cuenta
         // AD) ni la de un salto, que acabarían viajando en claro.
         let own = model.sessions.profile(named: r.sessionName ?? "")?.namedCredential.map(CredentialRef.named)
-        let candidates = model.sessions.credentialCandidates(for: request, route: r, defaultCredential: nil)
+        let candidates = model.sessions.credentialCandidates(for: request, route: r, defaultCredential: nil, trustAccount: true)
             .filter { $0.ref == .device(user, r.target.host) || ($0.ref == own && $0.origin == .sessionNamed) }
         let store = model.store, ledger = model.ledger, policy = model.policy, auto = model.settings.sessionAutoPassword
         connectTask = Task {
@@ -132,6 +139,7 @@ final class RemoteBrowser {
                 }.value
                 if let found { (ref, password) = (found.0, found.1) }
             }
+            guard !Task.isCancelled else { if let ref { ledger.release(ref) }; return }     // («Cancelar» mientras se leía)
             guard let password else { self.state = .needsPassword(nil); return }
             self.probing = ref
             do {
@@ -154,8 +162,10 @@ final class RemoteBrowser {
                 try await self.connected(fs)
             } catch is FTPLoginError {
                 self.probing = nil
+                // (el servidor ya ha dicho 530: aunque se haya cancelado, esa contraseña no vale y queda bloqueada)
+                if let ref { ledger.markFailed(ref) }
+                guard !Task.isCancelled else { return }         // (cancelada: sin aviso)
                 if let ref {
-                    ledger.markFailed(ref)
                     self.state = .needsPassword(L("«\(ref.account)» no ha valido: bloqueada 15 min en todas las pestañas"))
                     model.status = L("🔑 «\(ref.account)» no ha valido: bloqueada 15 min en todas las pestañas")
                 } else {

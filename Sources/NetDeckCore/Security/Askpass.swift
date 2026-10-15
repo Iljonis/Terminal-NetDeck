@@ -79,7 +79,9 @@ public enum Askpass {
         }
         let request = PasswordRequest(line: question, account: account)
         let route = profile.flatMap { try? manager.route(to: $0) }
-        let candidates = manager.credentialCandidates(for: request, route: route, defaultCredential: defaultCredential)
+        // (la cuenta de la pregunta la pone el propio ssh con el equipo de verdad: no la escribe el remoto)
+        let candidates = manager.credentialCandidates(for: request, route: route, defaultCredential: defaultCredential,
+                                                      trustAccount: true)
             .filter { store.contains($0.ref) }
         let deadline = Date().addingTimeInterval(ledger.probeWindow + 2)
         var told = false

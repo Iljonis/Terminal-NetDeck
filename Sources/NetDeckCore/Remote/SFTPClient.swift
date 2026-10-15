@@ -29,7 +29,8 @@ public actor SFTPFileSystem: RemoteFileSystem {
         let fs = SFTPFileSystem(label: label, process: p)
         await fs.start()
         do {
-            try await fs.hello()
+            // (cancelar mientras ssh espera, p. ej. a un equipo mudo o a la contraseña: se termina ssh y hello acaba)
+            try await withTaskCancellationHandler { try await fs.hello() } onCancel: { p.terminate() }
         } catch {
             await fs.close()
             throw error

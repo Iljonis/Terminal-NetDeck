@@ -34,8 +34,10 @@ import Testing
 @Suite @MainActor struct PasswordAutomationTests {
     func make(_ io: FakeTerminal, _ store: MemoryCredentialStore, _ ledger: CredentialLedger,
               default d: DefaultCredential? = nil) -> PasswordAutomation {
+        // (la pestaña va a 192.0.2.1: un «usuario@equipo» de otro equipo en pantalla no cuenta)
+        let route = ConnectionRoute(title: "t", target: Endpoint(host: "192.0.2.1"))
         let a = PasswordAutomation(mode: .autoType, store: store, ledger: ledger) { req in
-            SessionManager().credentialCandidates(for: req, route: nil, defaultCredential: d)
+            SessionManager().credentialCandidates(for: req, route: route, defaultCredential: d)
         }
         a.settle = .milliseconds(1)
         return a
@@ -61,19 +63,19 @@ import Testing
     }
 
     /// «Escribir sin esperar a que la pida»: sin prompt reconocido, Intro sólo si se pide; bloqueada sólo con `force`.
-    @Test func escribirSinQueLaPidan() {
+    @Test func escribirSinQueLaPidan() async {
         let io = FakeTerminal(["Clave de acceso >"])
         let ledger = CredentialLedger()
         let a = make(io, MemoryCredentialStore([.named("AD"): "pw"]), ledger)
-        #expect(a.typeManually(.named("AD"), into: io) == .notAsked)
-        #expect(a.typeAnyway(.named("AD"), into: io, pressReturn: false) == .typed)
-        #expect(a.typeAnyway(.named("AD"), into: io, pressReturn: true) == .typed)
+        #expect(await a.typeManually(.named("AD"), into: io) == .notAsked)
+        #expect(await a.typeAnyway(.named("AD"), into: io, pressReturn: false) == .typed)
+        #expect(await a.typeAnyway(.named("AD"), into: io, pressReturn: true) == .typed)
         #expect(io.sent == ["pw", "pw\r"])
         ledger.markFailed(.named("AD"))
-        #expect(a.typeAnyway(.named("AD"), into: io, pressReturn: true) == .blocked)
-        #expect(a.typeAnyway(.named("AD"), into: io, pressReturn: false, force: true) == .typed)
+        #expect(await a.typeAnyway(.named("AD"), into: io, pressReturn: true) == .blocked)
+        #expect(await a.typeAnyway(.named("AD"), into: io, pressReturn: false, force: true) == .typed)
         #expect(ledger.isBlocked(.named("AD")))                              // (no la desbloquea)
-        #expect(a.typeAnyway(.named("otra"), into: io, pressReturn: false) == .missing)
+        #expect(await a.typeAnyway(.named("otra"), into: io, pressReturn: false) == .missing)
     }
 
     @Test func passwordASecasSinUsuarioNoSeEscribe() async {
@@ -111,13 +113,31 @@ import Testing
         #expect(await a.observe(io, gate: AutomationGate()) == .suggested(.named("AD"))) // equipo: sugerida
     }
 
+    /// Un equipo hostil escribe «admin@core-01's password:» para llevarse la de core-01: no es el de la pestaña.
+    @Test func promptFalsoDeOtroEquipoNoRecibeSuContraseña() async {
+        let io = FakeTerminal(["admin@198.51.100.66's password:"])
+        let a = make(io, MemoryCredentialStore([.device("admin", "198.51.100.66"): "secreta"]), CredentialLedger())
+        #expect(await a.observe(io, gate: AutomationGate()) == .manual(.noCredential))
+        #expect(io.sent.isEmpty)
+        // (si la orden tecleada en la pestaña es «ssh admin@198.51.100.66», ese equipo sí es el de verdad)
+        a.commandHosts = ["198.51.100.66"]
+        let b = PasswordAutomation(mode: .autoType, store: MemoryCredentialStore([.device("admin", "198.51.100.66"): "secreta"]),
+                                   ledger: CredentialLedger()) { [weak a] req in
+            SessionManager().credentialCandidates(for: req, route: nil, defaultCredential: nil, typedHosts: a?.commandHosts ?? [])
+        }
+        b.settle = .milliseconds(1)
+        let io2 = FakeTerminal(["admin@198.51.100.66's password:"])
+        #expect(await b.observe(io2, gate: AutomationGate()) == .typed(.device("admin", "198.51.100.66")))
+    }
+
     @Test func escDuranteLaEsperaCancela() async {
         let io = FakeTerminal(["admin@192.0.2.1's password:"])
         let a = make(io, MemoryCredentialStore([.device("admin", "192.0.2.1"): "pw"]), CredentialLedger())
         a.settle = .milliseconds(300)
         let gate = AutomationGate()
         let t = Task { await a.observe(io, gate: gate) }
-        while !gate.isBusy { await Task.yield() }
+        for _ in 0..<10_000 where !gate.isBusy { await Task.yield() }       // (con tope: si no escribe, falla y no cuelga)
+        #expect(gate.isBusy)
         #expect(gate.intercept([0x1B]))
         #expect(await t.value == .cancelled)
         #expect(io.sent.isEmpty)

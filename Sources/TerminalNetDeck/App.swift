@@ -32,23 +32,23 @@ struct NetDeckCommands: Commands {
     var body: some Commands {
         let _ = model.settings.language                     // (los menús, también en el idioma nuevo)
         CommandGroup(replacing: .newItem) {
-            Button(L("Nueva terminal local")) { model.openLocal() }.keyboardShortcut("t")
-            Button(L("Conectar / Salto…")) { model.sheet = .connect }.keyboardShortcut("k")
+            Button(L("Nueva terminal local")) { model.openLocal() }.keyboardShortcut("t").disabled(model.modalOpen)
+            Button(L("Conectar / Salto…")) { model.sheet = .connect }.keyboardShortcut("k").disabled(model.modalOpen)
             Button(L("Abrir la sesión de inicio")) { model.openStartupSession() }.keyboardShortcut("k", modifiers: [.command, .option])
-                .disabled(model.startupProfile == nil)
-            Button(L("Sesiones…")) { model.editSessions() }.keyboardShortcut("e", modifiers: [.command, .shift])
+                .disabled(model.startupProfile == nil || model.modalOpen)
+            Button(L("Sesiones…")) { model.editSessions() }.keyboardShortcut("e", modifiers: [.command, .shift]).disabled(model.modalOpen)
             Divider()
-            Button(L("Cerrar pestaña")) { model.closeCurrent() }.keyboardShortcut("w")
+            Button(L("Cerrar pestaña")) { model.closeCurrent() }.keyboardShortcut("w").disabled(model.modalOpen)
         }
         CommandGroup(replacing: .appSettings) {
-            Button(L("Ajustes…")) { model.openSettings() }.keyboardShortcut(",")
+            Button(L("Ajustes…")) { model.openSettings() }.keyboardShortcut(",").disabled(model.sheet != nil)
             Button(L("Asistente de instalación…")) { model.showSetup = true }
             Button(L("Buscar actualizaciones…")) { model.checkForUpdates() }
             Button(L("Actualizar desde el código…")) { model.updateFromSource() }
                 .disabled(AppModel.sourceFolder == nil)
         }
         CommandGroup(after: .textEditing) {
-            Button(L("Buscar en la salida…")) { model.current?.view.showFind() }.keyboardShortcut("f")
+            Button(L("Buscar en la salida…")) { model.current?.view.showFind() }.keyboardShortcut("f").disabled(model.modalOpen)
         }
         CommandGroup(replacing: .help) {
             Button(L("Abrir el registro de depuración")) {
@@ -64,29 +64,30 @@ struct NetDeckCommands: Commands {
             }
             Button(L("Carpeta de registros")) { NSWorkspace.shared.open(DebugLog.directory) }
         }
-        // (contraseñas, dividir y ajustes van en la barra de la ventana; aquí solo lo que tiene atajo)
+        // (contraseñas, dividir y ajustes van en la barra de la ventana; aquí solo lo que tiene atajo. Con una hoja,
+        // Ajustes o el asistente abiertos se apagan los que cambian de hoja o tocan las pestañas: `modalOpen`)
         CommandMenu(L("Terminal")) {
             Toggle(L("MultiExec"), isOn: Binding(get: { model.multiExecOn }, set: { model.multiExecOn = $0 }))
-                .keyboardShortcut("m", modifiers: [.command, .shift])
+                .keyboardShortcut("m", modifiers: [.command, .shift]).disabled(model.modalOpen)
             Toggle(L("Resaltado"), isOn: Binding(get: { model.settings.highlightEnabled },
                                               set: { model.settings.highlightEnabled = $0; model.applyHighlight() }))
                 .keyboardShortcut("h", modifiers: [.command, .shift])
             Divider()
-            Button(L("Reconectar")) { model.current.map(model.reconnect) }.keyboardShortcut("r")
-            Button(L("Clonar pestaña")) { model.current.map(model.duplicate) }.keyboardShortcut("d")
+            Button(L("Reconectar")) { model.current.map(model.reconnect) }.keyboardShortcut("r").disabled(model.modalOpen)
+            Button(L("Clonar pestaña")) { model.current.map(model.duplicate) }.keyboardShortcut("d").disabled(model.modalOpen)
             Divider()
-            Button(L("Pestaña siguiente")) { model.selectNext(1) }.keyboardShortcut("]", modifiers: [.command, .shift])
-            Button(L("Pestaña anterior")) { model.selectNext(-1) }.keyboardShortcut("[", modifiers: [.command, .shift])
+            Button(L("Pestaña siguiente")) { model.selectNext(1) }.keyboardShortcut("]", modifiers: [.command, .shift]).disabled(model.modalOpen)
+            Button(L("Pestaña anterior")) { model.selectNext(-1) }.keyboardShortcut("[", modifiers: [.command, .shift]).disabled(model.modalOpen)
             Button(L("Mostrar/ocultar sesiones")) { model.settings.sidebarVisible.toggle() }
                 .keyboardShortcut("s", modifiers: [.command, .control])
             Divider()
             Button(L("Cancelar lo automático (Esc)")) { model.abortAll() }.keyboardShortcut(".")
-            Button(L("Recargar ssh_config")) { model.reloadSessions() }.keyboardShortcut("r", modifiers: [.command, .shift])
+            Button(L("Recargar ssh_config")) { model.reloadSessions() }.keyboardShortcut("r", modifiers: [.command, .shift]).disabled(model.modalOpen)
         }
         CommandMenu(L("Herramientas")) {
-            Button(L("Listas de equipos…")) { model.sheet = .list }.keyboardShortcut("l", modifiers: [.command, .shift])
-            Button(L("Pegado seguro…")) { model.sheet = .paste }.keyboardShortcut("v", modifiers: [.command, .shift])
-            Button(L("Buscar en todos los registros…")) { model.sheet = .logs }.keyboardShortcut("f", modifiers: [.command, .shift])
+            Button(L("Listas de equipos…")) { model.sheet = .list }.keyboardShortcut("l", modifiers: [.command, .shift]).disabled(model.modalOpen)
+            Button(L("Pegado seguro…")) { model.sheet = .paste }.keyboardShortcut("v", modifiers: [.command, .shift]).disabled(model.modalOpen)
+            Button(L("Buscar en todos los registros…")) { model.sheet = .logs }.keyboardShortcut("f", modifiers: [.command, .shift]).disabled(model.modalOpen)
         }
     }
 }

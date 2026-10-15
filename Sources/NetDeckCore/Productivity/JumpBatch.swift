@@ -194,7 +194,7 @@ public final class JumpBatchRunner {
                         end = max(end, clock.now + settings.poll * 4)       // (no se agota mientras espera su turno)
                         continue
                     case .go:
-                        guard let pw = try? store.password(for: ref) else {
+                        guard let pw = await store.passwordInBackground(for: ref) else {
                             ledger.release(ref)
                             return .failed(L("no está en el Llavero"))
                         }

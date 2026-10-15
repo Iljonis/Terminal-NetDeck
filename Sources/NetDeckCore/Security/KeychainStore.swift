@@ -65,6 +65,9 @@ public struct KeychainStore: CredentialStore {
         "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
     }
 
+    /// Lo más que se espera a `security` (si macOS pide la contraseña del Llavero y nadie contesta, se corta).
+    static let timeout: TimeInterval = 10
+
     static func security(_ args: [String], input: String? = nil) throws -> (status: Int32, output: String, error: String) {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: tool)
@@ -75,6 +78,11 @@ public struct KeychainStore: CredentialStore {
         let inp = Pipe()
         if input != nil { p.standardInput = inp }
         try p.run()
+        // (si no ha terminado en `timeout`, se mata: las tuberías se cierran y todo lo de abajo termina)
+        let expired = Once()
+        let watchdog = DispatchWorkItem { if p.isRunning, expired.take() { p.terminate() } }
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: watchdog)
+        defer { watchdog.cancel() }
         // (las dos salidas a la vez: si una llena su tubería mientras se lee la otra, se quedaría colgado)
         nonisolated(unsafe) var e = Data()
         let reading = DispatchGroup()
@@ -87,6 +95,10 @@ public struct KeychainStore: CredentialStore {
         let o = out.fileHandleForReading.readDataToEndOfFile()
         reading.wait()
         p.waitUntilExit()
+        if expired.isTaken, p.terminationReason == .uncaughtSignal {
+            DebugLog.log("llavero", "security no ha contestado en \(Int(timeout)) s: cortado")
+            throw KeychainError(message: L("no contesta en \(Int(timeout)) s (¿está bloqueado?)"))
+        }
         return (p.terminationStatus, String(decoding: o, as: UTF8.self), String(decoding: e, as: UTF8.self).trimmed)
     }
 }

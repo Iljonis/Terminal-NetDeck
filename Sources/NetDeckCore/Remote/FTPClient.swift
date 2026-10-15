@@ -1,18 +1,32 @@
 import Foundation
 import Network
 
-/// Conexión TCP con lectura y escritura asíncronas (Network.framework).
+/// Conexión TCP con lectura y escritura asíncronas (Network.framework). Cancelar la tarea que espera cierra la
+/// conexión al momento (y la espera termina con error): así «Cancelar» no se queda colgado en un servidor mudo.
 final class TCPStream: @unchecked Sendable {
+    /// Lo más que se espera a que acepte la conexión (como el Finder: si no contesta, se avisa enseguida).
+    static let connectTimeout: TimeInterval = 10
+
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "netdeck.ftp")
+    private let host: String
+    private let port: UInt16
+    /// El otro lado ya ha cerrado (el último trozo llegó «completo»): lo siguiente es el final, sin volver a leer.
+    private let ended = Once()
 
     init(host: String, port: UInt16) {
-        connection = NWConnection(host: NWEndpoint.Host(host), port: NWEndpoint.Port(rawValue: port) ?? 21, using: .tcp)
+        self.host = host
+        self.port = port
+        let tcp = NWProtocolTCP.Options()
+        tcp.connectionTimeout = Int(Self.connectTimeout)
+        tcp.noDelay = true                          // (las órdenes de control son cortas: sin esperar a juntar)
+        connection = NWConnection(host: NWEndpoint.Host(host), port: NWEndpoint.Port(rawValue: port) ?? 21,
+                                  using: NWParameters(tls: nil, tcp: tcp))
     }
 
-    /// Espera a que conecte (15 s como mucho).
+    /// Espera a que conecte (`connectTimeout` como mucho).
     func start() async throws {
-        do { try await connect() } catch {
+        do { try await cancellable { try await self.connect() } } catch {
             connection.cancel()                     // (si no, Network sigue reintentando por su cuenta)
             throw error
         }
@@ -20,47 +34,91 @@ final class TCPStream: @unchecked Sendable {
 
     private func connect() async throws {
         let once = Once()
+        let host = host, port = port
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
             connection.stateUpdateHandler = { state in
                 switch state {
                 case .ready: if once.take() { c.resume() }
-                case .failed(let e), .waiting(let e): if once.take() { c.resume(throwing: RemoteError(e.localizedDescription)) }
+                case .failed(let e), .waiting(let e): if once.take() { c.resume(throwing: Self.explain(e, host: host, port: port)) }
                 case .cancelled: if once.take() { c.resume(throwing: RemoteError(L("Conexión cerrada"))) }
                 default: break
                 }
             }
             connection.start(queue: queue)
-            queue.asyncAfter(deadline: .now() + 15) {
-                if once.take() { c.resume(throwing: RemoteError(L("No contesta (15 s)"))) }
+            queue.asyncAfter(deadline: .now() + Self.connectTimeout) {
+                if once.take() {
+                    c.resume(throwing: RemoteError(L("\(host):\(String(port)) no contesta en \(Int(Self.connectTimeout)) s (¿cortafuegos, VPN o puerto equivocado?)")))
+                }
             }
         }
     }
 
-    func send(_ d: Data) async throws {
-        try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
-            connection.send(content: d, completion: .contentProcessed { e in
-                if let e { c.resume(throwing: RemoteError(e.localizedDescription)) } else { c.resume() }
-            })
+    /// Un error de red en palabras: rechazada (nadie escucha en ese puerto), sin nombre (DNS) o lo que diga el sistema.
+    static func explain(_ e: NWError, host: String, port: UInt16) -> RemoteError {
+        switch e {
+        case .posix(.ECONNREFUSED): RemoteError(L("\(host) rechaza la conexión en el puerto \(String(port))"))
+        case .posix(.ETIMEDOUT): RemoteError(L("\(host):\(String(port)) no contesta en \(Int(connectTimeout)) s (¿cortafuegos, VPN o puerto equivocado?)"))
+        case .posix(.EHOSTUNREACH), .posix(.ENETUNREACH): RemoteError(L("No hay ruta hasta \(host) (¿VPN desconectada?)"))
+        case .dns: RemoteError(L("No se encuentra el equipo «\(host)»"))
+        default: RemoteError(e.localizedDescription)
         }
     }
 
-    /// Lo siguiente que llegue; nil = el otro lado ha cerrado.
-    func receive() async throws -> Data? {
-        try await withCheckedThrowingContinuation { c in
-            connection.receive(minimumIncompleteLength: 1, maximumLength: 256 * 1024) { data, _, complete, e in
-                if let data, !data.isEmpty { c.resume(returning: data) } else if let e, !complete {
-                    c.resume(throwing: RemoteError(e.localizedDescription))
-                } else { c.resume(returning: nil) }
+    /// Si la tarea se cancela mientras espera, se cierra la conexión (Network termina la espera con error).
+    private func cancellable<T: Sendable>(_ body: @Sendable () async throws -> T) async throws -> T {
+        try Task.checkCancellation()                // (ya cancelada: ni se empieza)
+        return try await withTaskCancellationHandler(operation: body, onCancel: { connection.cancel() })
+    }
+
+    func send(_ d: Data) async throws {
+        try await cancellable {
+            try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+                self.connection.send(content: d, completion: .contentProcessed { e in
+                    if let e { c.resume(throwing: RemoteError(e.localizedDescription)) } else { c.resume() }
+                })
+            }
+        }
+    }
+
+    /// Lo siguiente que llegue; nil = el otro lado ha cerrado. `timeout`: sin nada en ese tiempo, se corta (control).
+    /// El último trozo llega con `complete` (el servidor cerró tras mandarlo: así acaba un LIST o un RETR); volver a
+    /// leer después da ENODATA («No message available on STREAM»), que también es el final, no un error.
+    func receive(timeout: TimeInterval? = nil) async throws -> Data? {
+        if ended.isTaken { return nil }
+        return try await cancellable {
+            let once = Once()
+            let ended = self.ended
+            return try await withCheckedThrowingContinuation { (c: CheckedContinuation<Data?, Error>) in
+                self.connection.receive(minimumIncompleteLength: 1, maximumLength: 256 * 1024) { data, _, complete, e in
+                    guard once.take() else { return }
+                    if complete { _ = ended.take() }
+                    if let data, !data.isEmpty {
+                        c.resume(returning: data)
+                    } else if let e, !complete, e != .posix(.ENODATA) {
+                        c.resume(throwing: RemoteError(e.localizedDescription))
+                    } else {
+                        c.resume(returning: nil)
+                    }
+                }
+                if let timeout {
+                    self.queue.asyncAfter(deadline: .now() + timeout) {
+                        guard once.take() else { return }
+                        self.connection.cancel()
+                        c.resume(throwing: RemoteError(L("FTP: el servidor no contesta (\(Int(timeout)) s)")))
+                    }
+                }
             }
         }
     }
 
     /// Cierra la escritura (fin del archivo en STOR) y espera a que se haya enviado.
     func finishSending() async throws {
-        try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
-            connection.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { e in
-                if let e { c.resume(throwing: RemoteError(e.localizedDescription)) } else { c.resume() }
-            })
+        try await cancellable {
+            try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+                self.connection.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { e in
+                    if let e { c.resume(throwing: RemoteError(e.localizedDescription)) } else { c.resume() }
+                })
+            }
         }
     }
 
@@ -72,10 +130,32 @@ final class Once: @unchecked Sendable {
     private let lock = NSLock()
     private var done = false
     func take() -> Bool { lock.withLock { defer { done = true }; return !done } }
+    var isTaken: Bool { lock.withLock { done } }
 }
 
 /// Lo que se interpreta del FTP (sin red: se prueba en los tests).
 public enum FTPParse {
+    /// Primera línea de una respuesta: «220 Hola» → (220, false, "Hola"); «220-Hola» abre una de varias líneas
+    /// (`more`), que sigue hasta «220 …» (`replyEnds`).
+    static func replyStart(_ first: String) throws -> (code: Int, more: Bool, text: String) {
+        guard first.count >= 3, let code = Int(first.prefix(3)), (100...599).contains(code) else {
+            throw RemoteError(L("FTP: respuesta no válida"))
+        }
+        return (code, first.dropFirst(3).first == "-", String(first.dropFirst(4)))
+    }
+
+    /// Una línea más de una respuesta de varias: true si es la última («211 End»). Las de en medio pueden venir
+    /// con «211-» delante o sin código (RFC 959); el prefijo se quita.
+    static func replyEnds(_ line: String, code: Int, into lines: inout [String]) -> Bool {
+        let c = String(code)
+        if line == c || line.hasPrefix(c + " ") {
+            lines.append(String(line.dropFirst(4)))
+            return true
+        }
+        lines.append(line.hasPrefix(c + "-") ? String(line.dropFirst(4)) : line)
+        return false
+    }
+
     /// «229 Entering Extended Passive Mode (|||6446|)» → 6446.
     public static func epsvPort(_ text: String) -> UInt16? {
         guard let open = text.firstIndex(of: "("), let close = text.lastIndex(of: ")"), open < close else { return nil }
@@ -219,10 +299,16 @@ actor FTPConnection {
     private var busy = false
     private var turn: [CheckedContinuation<Void, Never>] = []
     private(set) var features: Set<String> = []
+    /// EPSV ha dado un puerto al que no se puede conectar, o no lo entiende (NAT, cortafuegos): desde entonces, PASV.
+    /// Lo hereda cada conexión nueva del mismo servidor (`FTPFileSystem`), para no perder 10 s en cada archivo.
+    private(set) var epsvBroken = false
+    /// Lo más que se espera una respuesta del canal de control.
+    static let replyTimeout: TimeInterval = 30
 
-    init(host: String, port: UInt16) {
+    init(host: String, port: UInt16, epsvBroken: Bool = false) {
         self.host = host
         self.port = port
+        self.epsvBroken = epsvBroken
         control = TCPStream(host: host, port: port)
     }
 
@@ -230,6 +316,8 @@ actor FTPConnection {
     func login(user: String, password: String) async throws {
         try await control.start()
         var r = try await reply()
+        // («120 listo en n minutos» va antes del saludo: se espera al 220)
+        for _ in 0..<3 where r.code == 120 { r = try await reply() }
         guard r.code == 220 else { throw RemoteError(L("FTP: \(r.text)")) }
         r = try await command("USER \(user)")
         if r.code == 331 || r.code == 332 { r = try await command("PASS \(password)", secret: true) }
@@ -264,7 +352,9 @@ actor FTPConnection {
                 buffer = Data(buffer[(nl + 1)...])
                 return String(decoding: line, as: UTF8.self)
             }
-            guard let d = try await control.receive() else { throw RemoteError(L("FTP: el servidor ha cerrado la conexión")) }
+            guard let d = try await control.receive(timeout: Self.replyTimeout) else {
+                throw RemoteError(L("FTP: el servidor ha cerrado la conexión"))
+            }
             buffer.append(d)
             if buffer.count > 1_000_000 { throw RemoteError(L("FTP: respuesta demasiado larga")) }
         }
@@ -272,16 +362,9 @@ actor FTPConnection {
 
     /// Una respuesta (las de varias líneas «211-…» hasta «211 …»).
     func reply() async throws -> (code: Int, text: String) {
-        let first = try await readLine()
-        guard first.count >= 3, let code = Int(first.prefix(3)) else { throw RemoteError(L("FTP: respuesta no válida")) }
-        var lines = [String(first.dropFirst(4))]
-        if first.dropFirst(3).first == "-" {
-            while true {
-                let l = try await readLine()
-                if l.hasPrefix("\(code) ") || l == "\(code)" { lines.append(String(l.dropFirst(4))); break }
-                lines.append(l)
-            }
-        }
+        let (code, more, text) = try FTPParse.replyStart(try await readLine())
+        var lines = [text]
+        if more { while !FTPParse.replyEnds(try await readLine(), code: code, into: &lines) {} }
         return (code, lines.joined(separator: "\n"))
     }
 
@@ -293,19 +376,28 @@ actor FTPConnection {
         return try await reply()
     }
 
-    /// Abre la conexión de datos (EPSV y, si no, PASV), siempre al mismo equipo del control.
+    /// Abre la conexión de datos, siempre al mismo equipo del control: EPSV y, si el servidor no lo entiende o su
+    /// puerto no se deja conectar (NAT, cortafuegos), PASV (como el Finder y curl). Desde ese fallo, sólo PASV.
     func openData() async throws -> TCPStream {
-        var port: UInt16?
-        let e = try await command("EPSV")
-        if e.code == 229 { port = FTPParse.epsvPort(e.text) }
-        if port == nil {
-            let p = try await command("PASV")
-            guard p.code == 227 else { throw RemoteError(L("FTP: \(p.text)")) }
-            port = FTPParse.pasvPort(p.text)
+        if !epsvBroken {
+            let e = try await command("EPSV")
+            if e.code == 229, let port = FTPParse.epsvPort(e.text) {
+                let s = TCPStream(host: host, port: port)
+                do {
+                    try await s.start()             // (start ya cancela la conexión si falla)
+                    return s
+                } catch {
+                    try Task.checkCancellation()
+                    DebugLog.log("ftp", "EPSV al puerto \(port) no conecta (\(error.localizedDescription)): PASV")
+                }
+            }
+            epsvBroken = true
         }
-        guard let port else { throw RemoteError(L("FTP: modo pasivo no válido")) }
+        let p = try await command("PASV")
+        guard p.code == 227 else { throw RemoteError(L("FTP: \(p.text)")) }
+        guard let port = FTPParse.pasvPort(p.text) else { throw RemoteError(L("FTP: modo pasivo no válido")) }
         let s = TCPStream(host: host, port: port)
-        try await s.start()                         // (start ya cancela la conexión si falla)
+        try await s.start()
         return s
     }
 
@@ -350,6 +442,7 @@ public final class FTPFileSystem: RemoteFileSystem, @unchecked Sendable {
     private let rejected: @Sendable () -> Void
     private let lock = NSLock()
     private var refused = false
+    private var epsvBroken = false
 
     private init(label: String, host: String, port: UInt16, user: String, password: String, main: FTPConnection,
                  rejected: @escaping @Sendable () -> Void) {
@@ -372,7 +465,8 @@ public final class FTPFileSystem: RemoteFileSystem, @unchecked Sendable {
 
     private func fresh() async throws -> FTPConnection {
         if lock.withLock({ refused }) { throw FTPLoginError() }
-        let c = FTPConnection(host: host, port: port)
+        let mainBroken = await main.epsvBroken
+        let c = FTPConnection(host: host, port: port, epsvBroken: mainBroken || lock.withLock { epsvBroken })
         do { try await c.login(user: user, password: password) } catch {
             await c.quit()
             if error is FTPLoginError, lock.withLock({ defer { refused = true }; return !refused }) { rejected() }
@@ -443,15 +537,24 @@ public final class FTPFileSystem: RemoteFileSystem, @unchecked Sendable {
     public func openRead(_ path: String) async throws -> any RemoteReader {
         let c = try await fresh()
         do {
-            return FTPFileReader(connection: c, data: try await c.begin("RETR \(path)"))
-        } catch { await c.quit(); throw error }
+            let data = try await c.begin("RETR \(path)")
+            await remember(c)
+            return FTPFileReader(connection: c, data: data)
+        } catch { await remember(c); await c.quit(); throw error }
     }
 
     public func openWrite(_ path: String) async throws -> any RemoteWriter {
         let c = try await fresh()
         do {
-            return FTPFileWriter(connection: c, data: try await c.begin("STOR \(path)"))
-        } catch { await c.quit(); throw error }
+            let data = try await c.begin("STOR \(path)")
+            await remember(c)
+            return FTPFileWriter(connection: c, data: data)
+        } catch { await remember(c); await c.quit(); throw error }
+    }
+
+    /// Si esa conexión ha visto que EPSV no vale, las siguientes van directas a PASV.
+    private func remember(_ c: FTPConnection) async {
+        if await c.epsvBroken { lock.withLock { epsvBroken = true } }
     }
 
     public func close() async { await main.quit() }

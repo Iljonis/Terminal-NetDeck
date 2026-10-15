@@ -505,16 +505,19 @@ struct SessionEditor: View {
 
     private func savePassword(user: String, host: String) {
         let ref = CredentialRef.device(user, host)
-        do {
-            try model.store.save(newPassword, for: ref)
-            model.ledger.reset(ref)
-            model.keychainRevision += 1
-            message = L("✓ Contraseña de \(user)@\(host) guardada en el Llavero")
-        } catch {
-            ErrorLog.error("llavero", "no se ha podido guardar \(user)@\(host): \(error.localizedDescription)")
-            message = "✗ \(error.localizedDescription)"
+        let pw = newPassword
+        newPassword = ""                            // (vacío: «Al Llavero» se apaga mientras se guarda)
+        Task {
+            do {
+                try await model.store.saveInBackground(pw, for: ref)
+                model.ledger.reset(ref)
+                model.keychainRevision += 1
+                message = L("✓ Contraseña de \(user)@\(host) guardada en el Llavero")
+            } catch {
+                ErrorLog.error("llavero", "no se ha podido guardar \(user)@\(host): \(error.localizedDescription)")
+                message = "✗ \(error.localizedDescription)"
+            }
         }
-        newPassword = ""
     }
 
     private func save(connect: Bool) {

@@ -28,7 +28,8 @@ public struct Endpoint: Hashable, Sendable, Codable, CustomStringConvertible {
             port = p
             rest = rest[..<c]
         }
-        guard !rest.isEmpty else { return nil }
+        // (ni el equipo ni el usuario pueden empezar por «-»: «x@-oProxyCommand=…» llegaría a ssh como una opción)
+        guard !rest.isEmpty, !rest.hasPrefix("-"), user?.hasPrefix("-") != true else { return nil }
         self.init(user: user, host: String(rest), port: port)
     }
 

@@ -199,26 +199,32 @@ struct PasswordSettings: View {
 
     private func save() {
         let ref = CredentialRef(service: newService, account: newAccount.trimmingCharacters(in: .whitespaces))
-        do {
-            try model.store.save(newPassword, for: ref)
-            model.ledger.reset(ref)
-            message = L("Guardada ✓ (\(ref.account))")
-            newAccount = ""
-        } catch {
-            ErrorLog.error("llavero", "no se ha podido guardar «\(ref.account)»: \(error.localizedDescription)")
-            message = error.localizedDescription
+        let pw = newPassword
+        newPassword = ""                            // (vacío: el botón se apaga y un segundo clic no la guarda otra vez)
+        // (el Llavero, fuera del hilo principal: si pide desbloquearse, la ventana no se congela)
+        Task {
+            do {
+                try await model.store.saveInBackground(pw, for: ref)
+                model.ledger.reset(ref)
+                message = L("Guardada ✓ (\(ref.account))")
+                newAccount = ""
+            } catch {
+                ErrorLog.error("llavero", "no se ha podido guardar «\(ref.account)»: \(error.localizedDescription)")
+                message = error.localizedDescription
+            }
+            model.keychainRevision += 1
         }
-        newPassword = ""
-        model.keychainRevision += 1
     }
 
     private func delete(_ ref: CredentialRef) {
         guard ThemedAlert.confirm(L("¿Borrar «\(ref.account)» del Llavero?"), message: L("No se puede deshacer."), ok: L("Borrar"), destructive: true) else { return }
-        do { try model.store.delete(ref) } catch {
-            ErrorLog.error("llavero", "no se ha podido borrar «\(ref.account)»: \(error.localizedDescription)")
-            message = error.localizedDescription
+        Task {
+            do { try await model.store.deleteInBackground(ref) } catch {
+                ErrorLog.error("llavero", "no se ha podido borrar «\(ref.account)»: \(error.localizedDescription)")
+                message = error.localizedDescription
+            }
+            model.keychainRevision += 1
         }
-        model.keychainRevision += 1
     }
 }
 
@@ -262,17 +268,19 @@ struct PasswordChangeSheet: View {
     }
 
     private func save() {
-        do {
-            try model.store.save(first, for: ref)
-            model.ledger.reset(ref)
-            model.keychainRevision += 1
-            done(L("Guardada ✓ (\(ref.account))"))
-            first = ""; second = ""
-            dismiss()
-        } catch {
-            ErrorLog.error("llavero", "no se ha podido cambiar «\(ref.account)»: \(error.localizedDescription)")
-            self.error = error.localizedDescription
-            first = ""; second = ""
+        let pw = first
+        first = ""; second = ""                     // (vacías: el botón se apaga mientras se guarda)
+        Task {
+            do {
+                try await model.store.saveInBackground(pw, for: ref)
+                model.ledger.reset(ref)
+                model.keychainRevision += 1
+                done(L("Guardada ✓ (\(ref.account))"))
+                dismiss()
+            } catch {
+                ErrorLog.error("llavero", "no se ha podido cambiar «\(ref.account)»: \(error.localizedDescription)")
+                self.error = error.localizedDescription
+            }
         }
     }
 }

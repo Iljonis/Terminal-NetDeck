@@ -181,7 +181,7 @@ public final class SessionManager {
         for s in specs {
             let e = Endpoint(parsing: s)
             guard let name = profile(named: s)?.name ?? e.flatMap({ profile(named: $0.host)?.name }) else {
-                guard let e else { throw RouteError.badJump(s) }
+                guard let e, !e.host.hasPrefix("-"), e.user?.hasPrefix("-") != true else { throw RouteError.badJump(s) }
                 out.append(e)
                 continue
             }
@@ -204,17 +204,44 @@ public final class SessionManager {
         Set(profiles.filter { $0.namedCredential == name }.map(\.effectiveUser))
     }
 
+    /// Los equipos que una pestaña puede pedir de verdad: destino y saltos de su ruta (con su nombre de sesión y su
+    /// HostName), el de la orden que la app escribe en el salto (`thenCommand`) y los de la última orden «ssh/telnet …»
+    /// tecleada (`typed`). Cualquier otro «usuario@equipo» en pantalla lo ha escrito el propio equipo remoto.
+    public func expectedHosts(route: ConnectionRoute?, typed: Set<String> = []) -> Set<String> {
+        var out = Set<String>()
+        func add(_ host: String) {
+            out.insert(host.lowercased())
+            for p in profiles where p.name == host || p.endpoint.host == host {
+                out.insert(p.name.lowercased())
+                out.insert(p.endpoint.host.lowercased())
+            }
+        }
+        typed.forEach(add)
+        guard let route else { return out }
+        add(route.target.host)
+        route.alias.map(add)
+        route.sessionName.map(add)
+        route.jumps.forEach { add($0.host) }
+        if let t = route.thenCommand.flatMap(CommandLineUser.parse) { add(t.host) }
+        return out
+    }
+
     /// Candidatas en orden para una petición de contraseña (como NetDeck): la con nombre de ese usuario@equipo y la
     /// guardada para él, la de la sesión de la pestaña, la del salto y la por defecto. Cada una con sus dueños:
     /// `CredentialPolicy` descarta las que no son del usuario pedido.
+    /// El «usuario@equipo» del prompt sólo cuenta si ese equipo es uno de `expectedHosts` (un equipo hostil podría
+    /// escribir «admin@core-01's password:» para llevarse la de core-01), salvo `trustAccount`: la pregunta la ha
+    /// escrito el propio ssh (askpass) o la app.
     public func credentialCandidates(for request: PasswordRequest, route: ConnectionRoute?,
-                                     defaultCredential: DefaultCredential?) -> [CredentialCandidate] {
+                                     defaultCredential: DefaultCredential?, trustAccount: Bool = false,
+                                     typedHosts: Set<String> = []) -> [CredentialCandidate] {
         var out: [CredentialCandidate] = []
         func session(_ p: SessionProfile?, user: String, host: String, origin: CredentialCandidate.Origin) {
             if let n = p?.namedCredential { out.append(.init(ref: .named(n), owners: owners(ofNamed: n), origin: origin)) }
             out.append(.init(ref: .device(user, host), owners: [user], origin: origin == .sessionNamed ? .device : origin))
         }
-        if let a = request.account, let at = a.lastIndex(of: "@") {
+        if let a = request.account, let at = a.lastIndex(of: "@"),
+           trustAccount || expectedHosts(route: route, typed: typedHosts).contains(String(a[a.index(after: at)...]).lowercased()) {
             let host = String(a[a.index(after: at)...])
             session(profiles.first { $0.endpoint.host == host } ?? profile(named: host),
                     user: String(a[..<at]), host: host, origin: .sessionNamed)

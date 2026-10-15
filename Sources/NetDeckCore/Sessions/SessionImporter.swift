@@ -37,8 +37,9 @@ public enum SessionImporter {
     }
 
     // lo que puede ir en el ssh_config: un salto de línea o un espacio colaría otra opción (ProxyCommand…)
-    static let hostRule = Pattern(#"^[A-Za-z0-9._:%-]+$"#, ignoreCase: false)
-    static let userRule = Pattern(#"^[A-Za-z0-9._@\\-]+$"#, ignoreCase: false)
+    // (sin «-» al principio: llegaría a ssh como una opción)
+    static let hostRule = Pattern(#"^[A-Za-z0-9._:%][A-Za-z0-9._:%-]*$"#, ignoreCase: false)
+    static let userRule = Pattern(#"^[A-Za-z0-9._@\\][A-Za-z0-9._@\\-]*$"#, ignoreCase: false)
     static let moba = ["109": "SSH", "98": "Telnet", "91": "RDP", "128": "VNC", "130": "FTP", "131": "Serie"]
 
     /// Lo que se ve importable en este Mac: SecureCRT, ~/.ssh/config y exports en Descargas/Escritorio/Documentos.
@@ -98,21 +99,34 @@ public enum SessionImporter {
 
     static let maxFileSize = 20_000_000
 
-    /// Opciones de ssh que ejecutan órdenes o abren la puerta a ello: de un archivo importado no se copian nunca
-    /// (un ssh_config descargado podría ejecutar algo al conectar). Las tuyas en tu propio ssh_config no se tocan.
-    static let dangerousOptions: Set<String> = ["proxycommand", "localcommand", "permitlocalcommand", "knownhostscommand",
-                                                "remotecommand", "match", "include", "sendenv", "setenv", "forwardagent",
-                                                "forwardx11", "forwardx11trusted", "pkcs11provider", "securitykeyprovider"]
+    /// Opciones de ssh que se traen al importar: sólo las que ni ejecutan nada, ni abren puertos, ni tocan la
+    /// verificación de las claves de host, ni abren otro bloque (Host/Match). Las demás se quitan: un ssh_config o un
+    /// export ajeno podría ejecutar algo al conectar o cambiar ssh en todo el Mac. Las tuyas en tu propio ssh_config
+    /// (o escritas en el gestor) no se tocan.
+    static let allowedOptions: Set<String> = [
+        "serveraliveinterval", "serveralivecountmax", "tcpkeepalive", "connecttimeout", "connectionattempts",
+        "compression", "ciphers", "kexalgorithms", "hostkeyalgorithms", "macs", "pubkeyacceptedalgorithms",
+        "pubkeyacceptedkeytypes", "casignaturealgorithms", "preferredauthentications", "pubkeyauthentication",
+        "passwordauthentication", "kbdinteractiveauthentication", "challengeresponseauthentication",
+        "gssapiauthentication", "identitiesonly", "identityfile", "addkeystoagent", "usekeychain", "loglevel",
+        "requesttty", "hostkeyalias", "checkhostip", "addressfamily", "ipqos", "numberofpasswordprompts",
+        "rekeylimit", "escapechar", "hashknownhosts", "fingerprinthash", "visualhostkey",
+    ]
 
     static let reservedNotes = ["grupo", "clave", "tipo", "serie", "telnet", "desc", "antiguo"]
 
+    /// Una opción por línea: cada elemento se parte por sus saltos de línea («ServerAliveInterval 5\nProxyCommand …»
+    /// serían dos líneas en el ssh_config), sin caracteres de control, y sólo quedan las de `allowedOptions`.
     static func safeExtra(_ lines: [String], session: String) -> [String] {
-        lines.filter { line in
-            let key = SSHConfigParser.option(line.trimmed)?.0 ?? ""
-            guard dangerousOptions.contains(key) else { return true }
-            DebugLog.log("importar", "«\(session)»: quitada la opción «\(key)» (ejecuta órdenes)")
-            return false
-        }
+        lines.flatMap { $0.split(whereSeparator: \.isNewline) }
+            .map { $0.replacingOccurrences(of: #"[\x00-\x1f\x7f]"#, with: " ", options: .regularExpression).trimmed }
+            .filter { line in
+                guard !line.isEmpty, !line.hasPrefix("#") else { return false }
+                let key = SSHConfigParser.option(line)?.0 ?? ""
+                guard !allowedOptions.contains(key) else { return true }
+                DebugLog.log("importar", "«\(session)»: quitada la opción «\(key)» (no es de las que se importan)")
+                return false
+            }
     }
 
     /// UTF-16 (los .reg), UTF-8 con o sin BOM, o Windows-1252.
@@ -417,7 +431,7 @@ public enum SessionImporter {
         let sessions = out.map { s, j -> EditableSession in
             var s = s
             if j.isEmpty { return s }
-            if let n = byRef[j] { s.jump = n } else if existingNames.contains(j) || endpoint.matches(j) { s.jump = j }
+            if let n = byRef[j] { s.jump = n } else if existingNames.contains(j) || (endpoint.matches(j) && Endpoint(parsing: j) != nil) { s.jump = j }
             return s
         }
         return (sessions, skipped)
