@@ -479,15 +479,22 @@ struct SessionEditor: View {
 
     private func delete() {
         guard let i = index else { return }
-        guard ThemedAlert.confirm(L("¿Borrar la sesión «\(file.sessions[i].name)»?"), message: L("Se quita al pulsar «Guardar» (queda una copia en ssh_config.anterior). Su contraseña del Llavero no se toca."), ok: L("Borrar"), destructive: true) else { return }
-        file.sessions.remove(at: i)
-        selected = file.sessions.indices.contains(i) ? file.sessions[i].id : file.sessions.last?.id
+        let id = file.sessions[i].id, name = file.sessions[i].name
+        Task {
+            guard await ThemedAlert.confirm(L("¿Borrar la sesión «\(name)»?"), message: L("Se quita al pulsar «Guardar» (queda una copia en ssh_config.anterior). Su contraseña del Llavero no se toca."), ok: L("Borrar"), destructive: true) else { return }
+            // (por su id: mientras se preguntaba, la lista pudo cambiar)
+            guard let at = file.sessions.firstIndex(where: { $0.id == id }) else { return }
+            file.sessions.remove(at: at)
+            selected = file.sessions.indices.contains(at) ? file.sessions[at].id : file.sessions.last?.id
+        }
     }
 
     private func renameGroup(_ g: String) {
-        guard let n = Self.ask(L("Renombrar el grupo «\(g)»"), value: g), !n.isEmpty, n != g else { return }
-        for i in file.sessions.indices where file.sessions[i].group == g { file.sessions[i].group = n }
-        if let c = file.groupCredentials.removeValue(forKey: g) { file.groupCredentials[n] = c }
+        Task {
+            guard let n = await Self.ask(L("Renombrar el grupo «\(g)»"), value: g), !n.isEmpty, n != g else { return }
+            for i in file.sessions.indices where file.sessions[i].group == g { file.sessions[i].group = n }
+            if let c = file.groupCredentials.removeValue(forKey: g) { file.groupCredentials[n] = c }
+        }
     }
 
     private func removeGroup(_ g: String) {
@@ -569,19 +576,20 @@ struct SessionEditor: View {
     }
 
     private func close() {
-        if dirty {
-            switch ThemedAlert.run(L("Hay cambios sin guardar"), buttons: [L("Guardar"), L("Descartar"), L("Cancelar")]).button {
+        guard dirty else { return dismiss() }
+        Task {
+            switch await ThemedAlert.run(L("Hay cambios sin guardar"), buttons: [L("Guardar"), L("Descartar"), L("Cancelar")]).button {
             case 0:
                 if let err = model.saveSessions(file) { message = "✗ \(err)"; return }
             case 1: break
             default: return
             }
+            dismiss()
         }
-        dismiss()
     }
 
-    static func ask(_ title: String, value: String = "") -> String? {
-        let r = ThemedAlert.run(title, buttons: [L("Aceptar"), L("Cancelar")], field: ("", value, false))
+    static func ask(_ title: String, value: String = "") async -> String? {
+        let r = await ThemedAlert.run(title, buttons: [L("Aceptar"), L("Cancelar")], field: ("", value, false))
         return r.button == 0 ? r.text.trimmingCharacters(in: .whitespaces) : nil
     }
 }

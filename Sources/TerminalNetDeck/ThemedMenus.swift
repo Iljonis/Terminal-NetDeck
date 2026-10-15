@@ -293,18 +293,32 @@ struct ThemedPicker<Value: Hashable>: View {
 
 // MARK: - avisos (en vez de NSAlert)
 
-/// Aviso modal con la temática (mismo uso que `NSAlert.runModal`: devuelve el número del botón pulsado, 0 el
-/// primero; Esc = el último). `field`: con un campo de texto (su valor queda en `text`).
+/// Aviso modal con la temática (como `NSAlert.runModal`: devuelve el número del botón pulsado, 0 el primero; Esc = el
+/// último). `field`: con un campo de texto (su valor queda en `text`). Siempre con `await`: se abre en la vuelta
+/// siguiente del bucle principal (`MainTurn`), nunca dentro de la acción de un botón, donde el aviso no recibía los
+/// clics y la app se quedaba colgada (Borrar en el explorador, 0.8.5).
 @MainActor
 enum ThemedAlert {
-    struct Result {
+    struct Result: Sendable {
         var button: Int
         var text: String
     }
 
     @discardableResult
     static func run(_ title: String, message: String = "", buttons: [String], destructive: Int? = nil,
-                    field: (placeholder: String, value: String, secure: Bool)? = nil) -> Result {
+                    field: (placeholder: String, value: String, secure: Bool)? = nil) async -> Result {
+        await MainTurn.next { present(title, message: message, buttons: buttons, destructive: destructive, field: field) }
+    }
+
+    /// Sí/no: true si se pulsa el primero.
+    static func confirm(_ title: String, message: String = "", ok: String, cancel: String = L("Cancelar"),
+                        destructive: Bool = false) async -> Bool {
+        await run(title, message: message, buttons: [ok, cancel], destructive: destructive ? 0 : nil).button == 0
+    }
+
+    /// El aviso de verdad, al momento (sólo desde `run`, ya fuera de cualquier acción).
+    private static func present(_ title: String, message: String, buttons: [String], destructive: Int?,
+                                field: (placeholder: String, value: String, secure: Bool)?) -> Result {
         let theme = AppModel.instance?.uiTheme ?? .builtIn
         let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 420, height: 160),
                             styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
@@ -334,11 +348,6 @@ enum ThemedAlert {
         return Result(button: box.button ?? buttons.count - 1, text: box.text)
     }
 
-    /// Sí/no: true si se pulsa el primero.
-    static func confirm(_ title: String, message: String = "", ok: String, cancel: String = L("Cancelar"),
-                        destructive: Bool = false) -> Bool {
-        run(title, message: message, buttons: [ok, cancel], destructive: destructive ? 0 : nil).button == 0
-    }
 
     @MainActor @Observable
     final class AlertBox {

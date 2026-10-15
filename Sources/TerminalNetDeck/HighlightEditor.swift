@@ -105,15 +105,21 @@ struct HighlightRuleList: View {
     private func delete(_ i: Int) {
         let list = model.highlightConfig.rules
         guard list.indices.contains(i) else { return }
-        guard ThemedAlert.confirm(L("¿Borrar la regla «\(list[i].description)»?"), message: L("Queda una copia del archivo anterior (resaltado.yml.anterior)."), ok: L("Borrar"), destructive: true) else { return }
-        var rest = list
-        let gone = rest.remove(at: i)
-        save(rest, ok: L("✓ Borrada «\(gone.description)»"))
+        Task {
+            guard await ThemedAlert.confirm(L("¿Borrar la regla «\(list[i].description)»?"), message: L("Queda una copia del archivo anterior (resaltado.yml.anterior)."), ok: L("Borrar"), destructive: true) else { return }
+            // (con lo que haya ahora: si mientras se preguntaba cambió la lista, no se borra otra)
+            var rest = model.highlightConfig.rules
+            guard rest.indices.contains(i), rest[i].description == list[i].description else { return }
+            let gone = rest.remove(at: i)
+            save(rest, ok: L("✓ Borrada «\(gone.description)»"))
+        }
     }
 
     private func restore() {
-        guard ThemedAlert.confirm(L("¿Volver a las reglas de serie?"), message: L("Tus reglas personalizadas se sustituyen (queda copia en resaltado.yml.anterior) y se encienden todas."), ok: L("Restaurar"), destructive: true) else { return }
-        if let err = model.restoreBundledHighlight() { message = "✗ \(err)" } else { message = L("✓ Reglas de serie restauradas") }
+        Task {
+            guard await ThemedAlert.confirm(L("¿Volver a las reglas de serie?"), message: L("Tus reglas personalizadas se sustituyen (queda copia en resaltado.yml.anterior) y se encienden todas."), ok: L("Restaurar"), destructive: true) else { return }
+            if let err = model.restoreBundledHighlight() { message = "✗ \(err)" } else { message = L("✓ Reglas de serie restauradas") }
+        }
     }
 }
 

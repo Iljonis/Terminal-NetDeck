@@ -346,11 +346,28 @@ public struct SessionFile: Sendable {
         let err = Pipe()
         p.standardOutput = FileHandle.nullDevice
         p.standardError = err
+        p.standardInput = FileHandle.nullDevice
         do { try p.run() } catch { return nil }
+        // (se lee mientras corre: con mucho que decir, ssh se quedaría esperando a que alguien vacíe la tubería; y
+        // como mucho `checkTimeout`: un Include o un «Match exec» que no acaba no deja la app colgada al guardar)
+        let expired = Once()
+        let watchdog = DispatchWorkItem { if p.isRunning, expired.take() { p.terminate() } }
+        DispatchQueue.global().asyncAfter(deadline: .now() + checkTimeout, execute: watchdog)
+        // (stderr en segundo plano: si ssh deja un hijo vivo con la tubería abierta, no se espera por él)
+        nonisolated(unsafe) var data = Data()
+        let reading = DispatchGroup()
+        DispatchQueue.global().async(group: reading) { data = err.fileHandleForReading.readDataToEndOfFile() }
         p.waitUntilExit()
-        let msg = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmed
+        watchdog.cancel()
+        if reading.wait(timeout: .now() + 1) == .timedOut { data = Data() }
+        if expired.isTaken, p.terminationReason == .uncaughtSignal {
+            return L("ssh -G no ha contestado en \(Int(checkTimeout)) s (¿un Include o «Match exec» que no acaba?)")
+        }
+        let msg = String(decoding: data, as: UTF8.self).trimmed
         return p.terminationStatus == 0 ? nil : (msg.isEmpty ? L("código \(p.terminationStatus)") : msg)
     }
+
+    static let checkTimeout: TimeInterval = 10
 
     /// Que ~/.ssh/config incluya el de NetDeck (como su instalador, con copia del de antes). true si ya lo incluía o se ha añadido.
     @discardableResult

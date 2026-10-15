@@ -392,7 +392,42 @@ public struct TransferItem: Hashable, Sendable {
     }
 }
 
+/// Lo de la interfaz que bloquea (un aviso modal con `NSApp.runModal`) nunca dentro de la acción de un botón: ahí
+/// SwiftUI está a medio actualizar y el aviso no recibe los clics (la app se queda colgada). Se hace en la vuelta
+/// siguiente del bucle principal, con la acción ya terminada. Por el run loop (modo normal) y no por la cola
+/// principal: así, mientras el aviso está abierto, la cola sigue (las otras pestañas, las contraseñas automáticas, el
+/// progreso de las copias), y un segundo aviso espera a que se cierre el primero en vez de abrirse encima.
+public enum MainTurn {
+    @MainActor
+    public static func next<T: Sendable>(_ body: @escaping @MainActor () -> T) async -> T {
+        await withCheckedContinuation { c in
+            RunLoop.main.perform(inModes: [.default]) { MainActor.assumeIsolated { c.resume(returning: body()) } }
+        }
+    }
+}
+
+/// Una operación remota que no contesta en `seconds` (servidor mudo, red caída).
+public struct RemoteTimeout: LocalizedError, Equatable {
+    public let seconds: Int
+    public var errorDescription: String? { L("El servidor no contesta (\(seconds) s): se ha cancelado") }
+}
+
 public enum RemoteOps {
+    /// `body` con un tope: si no acaba en `seconds`, se cancela (SFTP y FTP cortan sus esperas al cancelar) y se lanza
+    /// `RemoteTimeout`. Así ningún botón de la interfaz queda esperando para siempre a un servidor que no contesta.
+    public static func withTimeout<T: Sendable>(_ seconds: Int, _ body: @escaping @Sendable () async throws -> T) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await body() }
+            group.addTask {
+                try await Task.sleep(for: .seconds(seconds))
+                throw RemoteTimeout(seconds: seconds)
+            }
+            defer { group.cancelAll() }
+            guard let first = try await group.next() else { throw RemoteTimeout(seconds: seconds) }
+            return first
+        }
+    }
+
     /// Una ruta relativa sin «..», «/» de más ni nombres raros (antes de escribir en el destino).
     public static func isSafeRelative(_ rel: String) -> Bool {
         let parts = rel.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
@@ -428,14 +463,24 @@ public enum RemoteOps {
         return out
     }
 
-    /// Borra un archivo o una carpeta con todo lo que lleva dentro (los enlaces se borran, no se siguen).
-    public static func removeRecursively(_ fs: any RemoteFileSystem, _ entry: RemoteEntry, depth: Int = 0) async throws {
-        guard entry.kind == .directory else { return try await fs.remove(entry.path, directory: false) }
-        guard depth < maxDepth else { throw RemoteError(L("Demasiados niveles de carpetas en «\(entry.name)»")) }
-        for e in try await fs.list(entry.path) {
-            try Task.checkCancellation()
-            try await removeRecursively(fs, e, depth: depth + 1)
+    /// Lo más que se espera cada petición de la interfaz (borrar, renombrar, crear carpeta) a un servidor que no
+    /// contesta.
+    public static let callTimeout = 30
+
+    /// Borra un archivo o una carpeta con todo lo que lleva dentro (los enlaces se borran, no se siguen). Cada petición
+    /// con `timeout` (si se da): una carpeta enorme tarda lo que tarde, pero un servidor mudo no la deja colgada.
+    public static func removeRecursively(_ fs: any RemoteFileSystem, _ entry: RemoteEntry, depth: Int = 0,
+                                         timeout: Int? = nil) async throws {
+        func call<T: Sendable>(_ body: @escaping @Sendable () async throws -> T) async throws -> T {
+            if let timeout { return try await withTimeout(timeout, body) }
+            return try await body()
         }
-        try await fs.remove(entry.path, directory: true)
+        guard entry.kind == .directory else { return try await call { try await fs.remove(entry.path, directory: false) } }
+        guard depth < maxDepth else { throw RemoteError(L("Demasiados niveles de carpetas en «\(entry.name)»")) }
+        for e in try await call({ try await fs.list(entry.path) }) {
+            try Task.checkCancellation()
+            try await removeRecursively(fs, e, depth: depth + 1, timeout: timeout)
+        }
+        try await call { try await fs.remove(entry.path, directory: true) }
     }
 }

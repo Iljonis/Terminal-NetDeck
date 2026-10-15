@@ -320,7 +320,9 @@ final class RemoteBrowser {
         guard let fs, RemotePath.isValidName(name) else { message = L("✗ Nombre no válido"); return }
         let p = RemotePath.join(path, name)
         Task {
-            do { try await fs.makeDirectory(p); refresh() } catch { message = "✗ \(error.localizedDescription)" }
+            do { try await RemoteOps.withTimeout(RemoteOps.callTimeout) { try await fs.makeDirectory(p) }; refresh() } catch {
+                message = "✗ \(error.localizedDescription)"
+            }
         }
     }
 
@@ -328,19 +330,27 @@ final class RemoteBrowser {
         guard let fs, RemotePath.isValidName(name), name != e.name else { if name != e.name { message = L("✗ Nombre no válido") }; return }
         let to = RemotePath.join(RemotePath.parent(e.path), name)
         Task {
-            do { try await fs.rename(e.path, to: to); refresh() } catch { message = "✗ \(error.localizedDescription)" }
+            do { try await RemoteOps.withTimeout(RemoteOps.callTimeout) { try await fs.rename(e.path, to: to) }; refresh() } catch {
+                message = "✗ \(error.localizedDescription)"
+            }
         }
     }
 
+    /// Borra en segundo plano (la ventana sigue respondiendo), con tope por petición; se ve «Borrando…» mientras dura.
     func delete(_ list: [RemoteEntry]) {
         guard let fs else { return }
+        message = list.count == 1 ? L("Borrando «\(list[0].name)»…") : L("Borrando \(list.count) elementos…")
         Task {
+            var failed = false
             for e in list {
-                do { try await RemoteOps.removeRecursively(fs, e) } catch {
+                do { try await RemoteOps.removeRecursively(fs, e, timeout: RemoteOps.callTimeout) } catch {
                     message = "✗ \(e.name): \(error.localizedDescription)"
+                    ErrorLog.error("explorador", "«\(route.title)»: no se ha podido borrar \(e.name): \(error.localizedDescription)")
+                    failed = true
                     break
                 }
             }
+            if !failed { message = nil }
             refresh()
         }
     }

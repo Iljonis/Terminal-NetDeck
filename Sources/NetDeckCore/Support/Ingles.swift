@@ -1669,5 +1669,13 @@ enum Ingles {
             "\r\n\u{1b}[38;5;221m[NetDeck] The jump host doesn't allow forwarding (-J): logging into it and typing “%@” (the destination password is only suggested)\u{1b}[0m\r\n",
         "MD5 distinto en «%@» (origen %@, copia %@): no se ha guardado":
             "MD5 mismatch for “%@” (source %@, copy %@): not saved",
+        "Borrando «%@»…":
+            "Deleting “%@”…",
+        "Borrando %@ elementos…":
+            "Deleting %@ items…",
+        "ssh -G no ha contestado en %@ s (¿un Include o «Match exec» que no acaba?)":
+            "ssh -G didn't answer in %@ s (an Include or “Match exec” that never ends?)",
+        "El servidor no contesta (%@ s): se ha cancelado":
+            "The server doesn't answer (%@ s): cancelled",
 ]
 }

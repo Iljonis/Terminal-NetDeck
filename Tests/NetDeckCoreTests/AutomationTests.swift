@@ -154,6 +154,25 @@ import Testing
     }
 }
 
+/// Los avisos modales (borrar en el explorador…) nunca dentro de la acción de un botón: en la vuelta siguiente.
+@Suite @MainActor struct MainTurnTests {
+    @Test func elAvisoVaDespuesDeLaAccion() async {
+        var order: [String] = []
+        let pending = Task { @MainActor in await MainTurn.next { order.append("aviso"); return 7 } }
+        order.append("acción terminada")                     // (lo que queda del clic, antes que el aviso)
+        #expect(await pending.value == 7)
+        #expect(order == ["acción terminada", "aviso"])
+    }
+
+    @Test func quienPreguntaNoSeQuedaEsperandoDentroDelClic() async {
+        var ran = false
+        let pending = Task { @MainActor in await MainTurn.next { ran = true } }
+        #expect(!ran)                                       // (el clic acaba sin haber abierto nada)
+        await pending.value
+        #expect(ran)
+    }
+}
+
 @Suite @MainActor struct SafePasteTests {
     func device(_ errorOn: String? = nil, pager: String? = nil) -> FakeTerminal {
         FakeTerminal(["core-01(config)#"]) { cmd in

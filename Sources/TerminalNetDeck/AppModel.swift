@@ -440,38 +440,46 @@ final class AppModel {
         }
         let names = Set(to.entries.map(\.name))
         let clash = entries.map(\.name).filter(names.contains)
-        if !clash.isEmpty, !ThemedAlert.confirm(L("Ya existe en \(to.path): \(clash.prefix(3).joined(separator: ", "))"),
-                                                message: L("Se sustituirá lo que haya en el servidor de destino."),
-                                                ok: L("Sustituir"), destructive: true) {
-            return
+        let dir = to.path
+        Task {
+            if !clash.isEmpty, !(await ThemedAlert.confirm(L("Ya existe en \(dir): \(clash.prefix(3).joined(separator: ", "))"),
+                                                           message: L("Se sustituirá lo que haya en el servidor de destino."),
+                                                           ok: L("Sustituir"), destructive: true)) {
+                return
+            }
+            // (mientras se preguntaba, alguno pudo desconectarse o cambiar de carpeta)
+            guard from.fs === src, to.fs === dst, to.path == dir else { return }
+            transfers.bridge(entries, from: src, to: dst, dir: dir) { [weak to] in to?.refresh() }
+            status = L("Copiando de «\(from.route.title)» a «\(to.route.title)»…")
         }
-        transfers.bridge(entries, from: src, to: dst, dir: to.path) { [weak to] in to?.refresh() }
-        status = L("Copiando de «\(from.route.title)» a «\(to.route.title)»…")
     }
 
     /// Borrar una sesión desde la lista (pregunta antes; queda copia en ssh_config.anterior).
     func deleteSession(_ name: String) {
-        var f = sessionFile
-        guard let i = f.sessions.firstIndex(where: { $0.name == name }) else { return }
-        guard ThemedAlert.confirm(L("¿Borrar la sesión «\(name)»?"), message: L("Queda una copia en ssh_config.anterior. Su contraseña del Llavero no se toca."), ok: L("Borrar"), destructive: true) else { return }
-        f.sessions.remove(at: i)
-        if let err = saveSessions(f) { status = "✗ \(err)"; return }
-        if favorites.contains(name) { toggleFavorite(name) }
+        guard !askingDelete else { return }                         // (dos clics seguidos: un solo aviso)
+        askingDelete = true
+        Task {
+            defer { askingDelete = false }
+            guard await ThemedAlert.confirm(L("¿Borrar la sesión «\(name)»?"), message: L("Queda una copia en ssh_config.anterior. Su contraseña del Llavero no se toca."), ok: L("Borrar"), destructive: true) else { return }
+            // (el archivo, leído después de preguntar: no se pierde lo que cambiara mientras tanto)
+            var f = sessionFile
+            guard let i = f.sessions.firstIndex(where: { $0.name == name }) else { return }
+            f.sessions.remove(at: i)
+            if let err = saveSessions(f) { status = "✗ \(err)"; return }
+            if favorites.contains(name) { toggleFavorite(name) }
+        }
     }
 
     /// El salto de «s» no deja reenviar (-J): ¿entrar en él y escribir allí «ssh destino»? Se pregunta siempre (un
     /// salto hostil podría provocarlo para ver la contraseña del destino), fuera del gesto y con la pestaña aún abierta.
     func confirmHop(_ s: TerminalSession, _ r: ConnectionRoute) async -> Bool {
         let jump = r.target.description, cmd = r.thenCommand ?? ""
-        return await withCheckedContinuation { c in
-            DispatchQueue.main.async { [weak self] in
-                guard let self, self.tabs.contains(where: { $0.id == s.id }) else { return c.resume(returning: false) }
-                c.resume(returning: ThemedAlert.confirm(
-                    L("«\(s.title)»: el salto no deja reenviar (-J)"),
-                    message: L("Para llegar, la app entraría en «\(jump)» y escribiría allí «\(cmd)». Lo que escribas después (también la contraseña del destino) pasará por la shell de ese salto: hazlo sólo si confías en él. La contraseña del destino no se escribirá sola."),
-                    ok: L("Entrar por el salto")))
-            }
-        }
+        guard tabs.contains(where: { $0.id == s.id }) else { return false }
+        let ok = await ThemedAlert.confirm(
+            L("«\(s.title)»: el salto no deja reenviar (-J)"),
+            message: L("Para llegar, la app entraría en «\(jump)» y escribiría allí «\(cmd)». Lo que escribas después (también la contraseña del destino) pasará por la shell de ese salto: hazlo sólo si confías en él. La contraseña del destino no se escribirá sola."),
+            ok: L("Entrar por el salto"))
+        return ok && tabs.contains(where: { $0.id == s.id })
     }
 
     /// Terminal local: tu shell de inicio, como shell de login, en tu carpeta.
@@ -647,18 +655,18 @@ final class AppModel {
     /// La manda al terminal aunque ahí no se reconozca «Password:» (prompts raros). Se confirma la primera vez en cada
     /// pestaña y siempre si está bloqueada por un fallo reciente. Nunca se registra.
     func typePasswordAnyway(_ ref: CredentialRef, in s: TerminalSession, pressReturn: Bool) {
-        if !anywayConfirmed.contains(s.id) {
-            guard ThemedAlert.confirm(L("¿Escribir «\(ref.account)» en «\(s.title)»?"), message: L("Va como texto al terminal aunque no pidan contraseña: si no es un prompt de contraseña, se verá en pantalla (y puede quedar en el historial del equipo)."), ok: L("Escribir")) else { return }
-            anywayConfirmed.insert(s.id)
-        }
-        var force = false
-        if ledger.isBlocked(ref) {
-            guard ThemedAlert.confirm(L("«\(ref.account)» ha fallado hace poco"), message: L("Si es una cuenta AD, otro intento fallido puede bloquearla. ¿Escribirla igualmente?"), ok: L("Escribir igualmente"), destructive: true) else { return }
-            force = true
-        }
-        // (tras el aviso modal la pestaña puede haberse cerrado: nada se escribe en una que ya no está)
-        guard tabs.contains(where: { $0.id == s.id }), !s.exited else { return }
         Task {
+            if !anywayConfirmed.contains(s.id) {
+                guard await ThemedAlert.confirm(L("¿Escribir «\(ref.account)» en «\(s.title)»?"), message: L("Va como texto al terminal aunque no pidan contraseña: si no es un prompt de contraseña, se verá en pantalla (y puede quedar en el historial del equipo)."), ok: L("Escribir")) else { return }
+                anywayConfirmed.insert(s.id)
+            }
+            var force = false
+            if ledger.isBlocked(ref) {
+                guard await ThemedAlert.confirm(L("«\(ref.account)» ha fallado hace poco"), message: L("Si es una cuenta AD, otro intento fallido puede bloquearla. ¿Escribirla igualmente?"), ok: L("Escribir igualmente"), destructive: true) else { return }
+                force = true
+            }
+            // (tras el aviso la pestaña puede haberse cerrado: nada se escribe en una que ya no está)
+            guard tabs.contains(where: { $0.id == s.id }), !s.exited else { return }
             switch await s.passwords.typeAnyway(ref, into: s, pressReturn: pressReturn, force: force) {
             case .typed: notices[s.id] = nil; status = L("🔑 «\(ref)» escrita en \(s.title)")
             case .blocked: status = L("🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes")
@@ -1099,13 +1107,20 @@ final class AppModel {
             + L("Tus sesiones, ajustes y el Llavero se conservan.")
         let first = auto ? L("Actualizar ahora") : r.dmg == nil ? L("Abrir la página") : L("Descargar")
         let buttons = auto ? [first, L("Ver qué cambia"), L("Más tarde")] : [first, L("Más tarde")]
-        switch ThemedAlert.run(L("Terminal NetDeck \(r.version) disponible"), message: message, buttons: buttons).button {
-        case 0:
-            if auto { Updater.install(r, model: self) } else { NSWorkspace.shared.open(r.dmg ?? r.page) }
-        case 1 where auto: NSWorkspace.shared.open(r.page)
-        default: break
+        guard !offeringUpdate else { return }               // (dos «Buscar ahora» seguidos: un solo aviso)
+        offeringUpdate = true
+        Task {
+            defer { offeringUpdate = false }
+            switch await ThemedAlert.run(L("Terminal NetDeck \(r.version) disponible"), message: message, buttons: buttons).button {
+            case 0:
+                if auto { Updater.install(r, model: self) } else { NSWorkspace.shared.open(r.dmg ?? r.page) }
+            case 1 where auto: NSWorkspace.shared.open(r.page)
+            default: break
+            }
         }
     }
+    @ObservationIgnored private var offeringUpdate = false
+    @ObservationIgnored private var askingDelete = false
 
     /// Compila, sustituye la app instalada y la vuelve a abrir con las mismas pestañas.
     func updateFromSource() {

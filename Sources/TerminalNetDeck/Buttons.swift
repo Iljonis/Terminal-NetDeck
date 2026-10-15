@@ -327,8 +327,10 @@ struct ButtonEditor: View {
             ForEach(file.groups.filter { $0 != g }, id: \.self) { o in Button(o) { file.moveButton(id, toGroup: o) } }
             MenuDivider()
             Button(L("Nueva categoría…")) {
-                if let n = SessionEditor.ask(L("Nombre de la categoría nueva")), ButtonFile.validGroup(n) {
-                    file.moveButton(id, toGroup: n)
+                Task {
+                    if let n = await SessionEditor.ask(L("Nombre de la categoría nueva")), ButtonFile.validGroup(n) {
+                        file.moveButton(id, toGroup: n)
+                    }
                 }
             }
         }
@@ -466,28 +468,34 @@ struct ButtonEditor: View {
     // MARK: categorías (el grupo de cada botón; el orden, el del archivo)
 
     private func addGroup() {
-        guard let n = SessionEditor.ask(L("Nombre de la categoría nueva"))?.trimmingCharacters(in: .whitespaces), !n.isEmpty else { return }
-        if file.groups.contains(n) { message = L("Ya hay una categoría «\(n)»"); return }
-        guard let id = file.addGroup(n, buttonName: L("Nuevo")) else { message = L("Nombre no válido (sin «::» ni «#» delante)"); return }
-        selected = id
+        Task {
+            guard let n = await SessionEditor.ask(L("Nombre de la categoría nueva"))?.trimmingCharacters(in: .whitespaces), !n.isEmpty else { return }
+            if file.groups.contains(n) { message = L("Ya hay una categoría «\(n)»"); return }
+            guard let id = file.addGroup(n, buttonName: L("Nuevo")) else { message = L("Nombre no válido (sin «::» ni «#» delante)"); return }
+            selected = id
+        }
     }
 
     private func renameGroup(_ g: String) {
-        guard let n = SessionEditor.ask(L("Renombrar la categoría «\(g)»"), value: g)?.trimmingCharacters(in: .whitespaces), !n.isEmpty, n != g else { return }
-        guard ButtonFile.validGroup(n) else { message = L("Nombre no válido (sin «::» ni «#» delante)"); return }
-        if file.groups.contains(n), !confirm(L("Ya hay una categoría «\(n)»: ¿juntarlas?"), L("Juntar")) { return }
-        file.renameGroup(g, to: n)
-        if model.settings.buttonGroup == g { model.settings.buttonGroup = n }
+        Task {
+            guard let n = await SessionEditor.ask(L("Renombrar la categoría «\(g)»"), value: g)?.trimmingCharacters(in: .whitespaces), !n.isEmpty, n != g else { return }
+            guard ButtonFile.validGroup(n) else { message = L("Nombre no válido (sin «::» ni «#» delante)"); return }
+            if file.groups.contains(n), !(await confirm(L("Ya hay una categoría «\(n)»: ¿juntarlas?"), L("Juntar"))) { return }
+            file.renameGroup(g, to: n)
+            if model.settings.buttonGroup == g { model.settings.buttonGroup = n }
+        }
     }
 
     private func removeGroup(_ g: String) {
         let n = file.buttons.filter { $0.group == g }.count
-        guard confirm(L("¿Borrar la categoría «\(g)» y sus \(n) botones?"), L("Borrar")) else { return }
-        file.removeGroup(g)
-        if !file.buttons.contains(where: { $0.id == selected }) { selected = file.buttons.first?.id }
+        Task {
+            guard await confirm(L("¿Borrar la categoría «\(g)» y sus \(n) botones?"), L("Borrar")) else { return }
+            file.removeGroup(g)
+            if !file.buttons.contains(where: { $0.id == selected }) { selected = file.buttons.first?.id }
+        }
     }
 
-    private func confirm(_ title: String, _ ok: String) -> Bool {
-        return ThemedAlert.confirm(title, message: L("No se guarda hasta que pulses «Guardar» (queda copia en botones.txt.anterior)."), ok: ok)
+    private func confirm(_ title: String, _ ok: String) async -> Bool {
+        await ThemedAlert.confirm(title, message: L("No se guarda hasta que pulses «Guardar» (queda copia en botones.txt.anterior)."), ok: ok)
     }
 }

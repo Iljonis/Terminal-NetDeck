@@ -193,6 +193,22 @@ final class MemoryWriter: RemoteWriter, @unchecked Sendable {
         #expect(fs.files == ["/d/a.bin": Data("nuevo".utf8)])
     }
 
+    /// Borrar en un servidor que no contesta: se corta con `RemoteTimeout` (no se queda esperando para siempre) y
+    /// la tarea acaba enseguida; uno que contesta, borra.
+    @Test func borrarEnUnServidorMudoSeCorta() async throws {
+        let mudo = MemoryFileSystem(hangs: true)
+        mudo.files["/d/a.txt"] = Data("x".utf8)
+        let entry = RemoteEntry(name: "a.txt", path: "/d/a.txt", kind: .file)
+        let t0 = ContinuousClock.now
+        await #expect(throws: RemoteTimeout(seconds: 1)) { try await RemoteOps.removeRecursively(mudo, entry, timeout: 1) }
+        #expect(ContinuousClock.now - t0 < .seconds(5))
+        #expect(mudo.files["/d/a.txt"] != nil)
+        let bueno = MemoryFileSystem()
+        bueno.files["/d/a.txt"] = Data("x".utf8)
+        try await RemoteOps.removeRecursively(bueno, entry, timeout: 1)
+        #expect(bueno.files.isEmpty)
+    }
+
     @Test func colaConTope() async throws {
         let pipe = ChunkPipe(capacity: 2)
         try await pipe.put(Data([1]))
@@ -230,7 +246,9 @@ final class MemoryFileSystem: RemoteFileSystem, @unchecked Sendable {
     private let lock = NSLock()
     private var store: [String: Data] = [:]
     let corruptReads: Bool
-    init(corruptReads: Bool = false) { self.corruptReads = corruptReads }
+    /// Un servidor que no contesta: borrar se queda esperando (hasta que se cancela).
+    let hangs: Bool
+    init(corruptReads: Bool = false, hangs: Bool = false) { self.corruptReads = corruptReads; self.hangs = hangs }
     var files: [String: Data] {
         get { lock.withLock { store } }
         set { lock.withLock { store = newValue } }
@@ -248,7 +266,10 @@ final class MemoryFileSystem: RemoteFileSystem, @unchecked Sendable {
     func home() async throws -> String { "/" }
     func list(_ path: String) async throws -> [RemoteEntry] { [] }
     func makeDirectory(_ path: String) async throws {}
-    func remove(_ path: String, directory: Bool) async throws { files[path] = nil }
+    func remove(_ path: String, directory: Bool) async throws {
+        if hangs { try await Task.sleep(for: .seconds(3600)) }
+        files[path] = nil
+    }
     func rename(_ from: String, to: String) async throws {
         guard let d = files[from] else { throw RemoteError("no existe") }
         files[from] = nil

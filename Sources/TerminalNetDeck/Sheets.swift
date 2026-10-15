@@ -216,18 +216,23 @@ struct ListSheet: View {
     }
 
     private func rename() {
-        guard let id = selected, let n = SessionEditor.ask(L("Renombrar la lista «\(name)»"), value: name), !n.isEmpty,
-              library.rename(id, to: n) else { return }
-        name = library.list(id)?.name ?? n
-        persist(L("✓ Renombrada"))
+        guard let id = selected else { return }
+        Task {
+            guard let n = await SessionEditor.ask(L("Renombrar la lista «\(name)»"), value: name), !n.isEmpty,
+                  library.rename(id, to: n) else { return }
+            name = library.list(id)?.name ?? n
+            persist(L("✓ Renombrada"))
+        }
     }
 
     private func remove() {
         guard let id = selected else { return }
-        guard ThemedAlert.confirm(L("¿Borrar la lista «\(name)»?"), message: L("Queda una copia en listas.json.anterior. Las contraseñas del Llavero no se tocan."), ok: L("Borrar"), destructive: true) else { return }
-        library.remove(id)
-        pick(library.lists.first?.id)
-        persist(L("✓ Borrada"))
+        Task {
+            guard await ThemedAlert.confirm(L("¿Borrar la lista «\(name)»?"), message: L("Queda una copia en listas.json.anterior. Las contraseñas del Llavero no se tocan."), ok: L("Borrar"), destructive: true) else { return }
+            library.remove(id)
+            pick(library.lists.first?.id)
+            persist(L("✓ Borrada"))
+        }
     }
 
     /// Un equipo por línea (o la primera columna de un .csv): se añaden a los que ya hay.

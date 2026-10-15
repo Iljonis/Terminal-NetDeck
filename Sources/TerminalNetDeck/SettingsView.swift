@@ -217,8 +217,8 @@ struct PasswordSettings: View {
     }
 
     private func delete(_ ref: CredentialRef) {
-        guard ThemedAlert.confirm(L("¿Borrar «\(ref.account)» del Llavero?"), message: L("No se puede deshacer."), ok: L("Borrar"), destructive: true) else { return }
         Task {
+            guard await ThemedAlert.confirm(L("¿Borrar «\(ref.account)» del Llavero?"), message: L("No se puede deshacer."), ok: L("Borrar"), destructive: true) else { return }
             do { try await model.store.deleteInBackground(ref) } catch {
                 ErrorLog.error("llavero", "no se ha podido borrar «\(ref.account)»: \(error.localizedDescription)")
                 message = error.localizedDescription

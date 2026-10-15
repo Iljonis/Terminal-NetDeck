@@ -71,6 +71,8 @@ struct RemoteBrowserView: View {
     @Bindable var browser: RemoteBrowser
     @Stored private var editingPath: String?
     @Stored private var showTransfers = true
+    /// Hay un aviso de borrar abierto (un segundo clic no abre otro).
+    @Stored private var askingDelete = false
     @Stored private var dropping = false
 
     var body: some View {
@@ -341,24 +343,34 @@ struct RemoteBrowserView: View {
     // MARK: acciones
 
     private func newFolder() {
-        let r = ThemedAlert.run(L("Nueva carpeta en \(browser.path)"), buttons: [L("Crear"), L("Cancelar")],
-                                field: (L("Nombre"), "", false))
-        if r.button == 0 { browser.makeFolder(r.text.trimmingCharacters(in: .whitespaces)) }
+        Task {
+            let r = await ThemedAlert.run(L("Nueva carpeta en \(browser.path)"), buttons: [L("Crear"), L("Cancelar")],
+                                          field: (L("Nombre"), "", false))
+            if r.button == 0 { browser.makeFolder(r.text.trimmingCharacters(in: .whitespaces)) }
+        }
     }
 
     private func rename(_ e: RemoteEntry) {
-        let r = ThemedAlert.run(L("Renombrar «\(e.name)»"), buttons: [L("Renombrar"), L("Cancelar")], field: (L("Nombre"), e.name, false))
-        if r.button == 0 { browser.rename(e, to: r.text.trimmingCharacters(in: .whitespaces)) }
+        Task {
+            let r = await ThemedAlert.run(L("Renombrar «\(e.name)»"), buttons: [L("Renombrar"), L("Cancelar")], field: (L("Nombre"), e.name, false))
+            if r.button == 0 { browser.rename(e, to: r.text.trimmingCharacters(in: .whitespaces)) }
+        }
     }
 
+    /// Borrar: se pregunta fuera del clic (`ThemedAlert` con await) y se borra en una tarea con tope de tiempo
+    /// (`RemoteBrowser.delete`): ni el aviso ni el servidor pueden dejar la ventana colgada.
     private func delete(_ list: [RemoteEntry]) {
-        guard !list.isEmpty else { return }
+        guard !list.isEmpty, !askingDelete else { return }          // (dos clics seguidos: un solo aviso)
+        askingDelete = true
         let dirs = list.contains { $0.kind == .directory }
         let title = list.count == 1 ? L("¿Borrar «\(list[0].name)»?") : L("¿Borrar \(list.count) elementos?")
-        guard ThemedAlert.confirm(title, message: dirs ? L("Las carpetas se borran con todo lo que llevan dentro. No se puede deshacer.")
-                                                      : L("Se borra del servidor. No se puede deshacer."),
-                                  ok: L("Borrar"), destructive: true) else { return }
-        browser.delete(list)
+        Task {
+            defer { askingDelete = false }
+            guard await ThemedAlert.confirm(title, message: dirs ? L("Las carpetas se borran con todo lo que llevan dentro. No se puede deshacer.")
+                                                                : L("Se borra del servidor. No se puede deshacer."),
+                                            ok: L("Borrar"), destructive: true) else { return }
+            browser.delete(list)
+        }
     }
 
     private func download(_ list: [RemoteEntry], ask: Bool = true) {
@@ -390,14 +402,17 @@ struct RemoteBrowserView: View {
     }
 
     private func uploadURLs(_ urls: [URL]) {
-        guard let fs = browser.fs, browser.state == .connected else { return }
+        guard browser.fs != nil, browser.state == .connected else { return }
         let names = Set(browser.entries.map(\.name))
         let clash = urls.map(\.lastPathComponent).filter(names.contains)
-        if !clash.isEmpty, !ThemedAlert.confirm(L("Ya existe en \(browser.path): \(clash.prefix(3).joined(separator: ", "))"),
-                                                message: L("Se sustituirá lo que haya en el servidor."), ok: L("Sustituir"), destructive: true) {
-            return
+        Task {
+            if !clash.isEmpty, !(await ThemedAlert.confirm(L("Ya existe en \(browser.path): \(clash.prefix(3).joined(separator: ", "))"),
+                                                           message: L("Se sustituirá lo que haya en el servidor."), ok: L("Sustituir"), destructive: true)) {
+                return
+            }
+            guard let fs = browser.fs, browser.state == .connected else { return }     // (mientras se preguntaba)
+            model.transfers.upload(urls, to: fs, dir: browser.path) { [weak browser] in browser?.refresh() }
         }
-        model.transfers.upload(urls, to: fs, dir: browser.path) { [weak browser] in browser?.refresh() }
     }
 }
 
