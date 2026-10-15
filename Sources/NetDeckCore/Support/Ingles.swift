@@ -1703,5 +1703,9 @@ enum Ingles {
             "Reuse the jump host connection",
         "Las pestañas que pasan por el mismo salto usan una sola conexión a él (abierta 2 min tras cerrar la última): no se vuelven a autenticar en el bastión.":
             "Tabs that go through the same jump host share a single connection to it (kept open for 2 min after the last one closes): they don't authenticate on the bastion again.",
+        "Empezar con los de ejemplo":
+            "Start with the sample ones",
+        "Unos botones de muestra (show interfaces de Cisco, Juniper y Huawei, ping…) para editarlos a tu gusto":
+            "A few sample buttons (Cisco, Juniper and Huawei show interfaces, ping…) to edit as you like",
 ]
 }

@@ -252,6 +252,11 @@ struct ButtonEditor: View {
                 if let p = file.problems.first { Text("⚠︎ \(p)").font(.caption).foregroundStyle(.orange).lineLimit(1) }
                 Text(message).font(.caption).lineLimit(1)
                 Spacer()
+                if file.buttons.isEmpty {
+                    // (instalación nueva: la barra empieza vacía; éstos no se guardan hasta pulsar «Guardar»)
+                    Button(L("Empezar con los de ejemplo")) { file = ButtonFile.samples; selected = file.buttons.first?.id }
+                        .help(L("Unos botones de muestra (show interfaces de Cisco, Juniper y Huawei, ping…) para editarlos a tu gusto"))
+                }
                 Button(L("Recargar")) { load() }
                 Button(L("Guardar")) {
                     message = model.saveButtons(file).map { "✗ \($0)" } ?? L("✓ Guardados")

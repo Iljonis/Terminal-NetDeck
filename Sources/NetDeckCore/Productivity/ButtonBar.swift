@@ -276,7 +276,7 @@ public struct ButtonFile: Sendable {
         # ─────────────────────────────────────────────────────────────
         """
 
-    /// Para empezar (sin datos de nadie).
+    /// De muestra, sólo si se piden (Ajustes → Botones): órdenes genéricas, sin equipos ni datos de nadie.
     public static let samples = ButtonFile(text: defaultHeader + """
 
         Cisco    :: run  :: Interfaces       :: show ip interface brief

@@ -834,8 +834,10 @@ final class AppModel {
 
     // MARK: - botones (como la barra de NetDeck)
 
+    /// Sin botones.txt (instalación nueva) la barra empieza vacía: los de ejemplo, sólo si los pides en Ajustes → Botones.
     func reloadButtons() {
-        buttons = (try? ButtonFile(contentsOf: ButtonFile.defaultURL)) ?? ButtonFile.samples
+        let samples = ProcessInfo.processInfo.environment["NETDECK_SAMPLES"] != nil        // (capturas)
+        buttons = (try? ButtonFile(contentsOf: ButtonFile.defaultURL)) ?? (samples ? ButtonFile.samples : ButtonFile())
         if !buttons.groups.contains(settings.buttonGroup) { settings.buttonGroup = buttons.groups.first ?? "" }
     }
 
