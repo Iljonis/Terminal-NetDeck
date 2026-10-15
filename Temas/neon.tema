@@ -1,7 +1,7 @@
-# Neón 2077 — Amarillo portada, cian y rojo neón.
+# Cyber Neón — Amarillo eléctrico, cian y rojo neón sobre negro.
 # Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
 
-nombre    = Neón 2077
+nombre    = Cyber Neón
 grupo     = Cyberpunk
 orden     = 01
 fuentes   = Space Mono, Kode Mono, Doto      # la 1ª es la oficial; las otras, recomendadas

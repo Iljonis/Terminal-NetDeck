@@ -13,9 +13,15 @@ mkdir -p "$OUT"
 
 captura() {   # nombre idioma acción
   local nombre=$1 idioma=$2 accion=$3 casa png
-  casa=$(mktemp -d)
+  casa=$(mktemp -d /tmp/netdeck-demo.XXXX)                      # (ruta corta: se ve en el explorador)
   cp -R tools/demo/. "$casa/"
   png="$casa/captura.png"
+  # (el explorador: SFTP sin ssh ni red, con el sftp-server del Mac sobre una carpeta de ejemplo)
+  mkdir -p "$casa/ficheros/backups" "$casa/ficheros/firmware"
+  for e in core-01 core-02 pe-mad-01 sw-acceso-01; do printf 'hostname %s\n!\n' "$e" > "$casa/ficheros/$e.cfg"; done
+  for d in 2026-10-13 2026-10-14; do printf 'backup %s\n' "$d" > "$casa/ficheros/backups/core-01-$d.cfg"; done
+  dd if=/dev/zero of="$casa/ficheros/firmware/ios-xe-17.12.bin" bs=1024 count=2048 2>/dev/null
+  NETDECK_SFTP_SERVER=/usr/libexec/sftp-server NETDECK_SFTP_DIR="$casa/ficheros" \
   NETDECK_HOME="$casa" NETDECK_SAMPLES=1 NETDECK_SNAPSHOT="$png" NETDECK_SNAPSHOT_ACTION="$accion" \
     "$BIN" -idioma "$idioma" -themeID "$TEMA" -themeAuto NO -sshConfigPath "$casa/.ssh/config" -configured YES -asistenteVisto YES \
            -sidebarVisible YES -buttonBar arriba >/dev/null 2>&1 &
@@ -38,3 +44,8 @@ captura temas          es settings:temas
 captura resaltado      es settings:resaltado
 captura ajustes-en     en settings:general
 captura asistente      es setup:0
+captura pestanas       es "pestañas:9"
+captura explorador     es explorador:vista
+
+# (la barra de pestañas, sola: la terminal no sale en estas capturas)
+swift tools/recortar.swift "$OUT/pestanas.png" "$OUT/pestanas.png" 72 && echo "✓ $OUT/pestanas.png (barra)"

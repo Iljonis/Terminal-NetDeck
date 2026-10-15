@@ -1,5 +1,5 @@
 // swift-tools-version:6.0
-// Terminal NetDeck: app nativa de macOS que sustituirá a NetDeck (bash + tmux).
+// Terminal NetDeck: terminal nativo de macOS para ingenieros de red.
 import PackageDescription
 
 let package = Package(

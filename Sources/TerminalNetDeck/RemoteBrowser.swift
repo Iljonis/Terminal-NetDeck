@@ -207,13 +207,20 @@ final class RemoteBrowser {
 
     func open(_ p: String) { Task { await go(p) } }
 
+    /// Capturas (NETDECK_SNAPSHOT): el dueño de los archivos de ejemplo es tu usuario del Mac (los sirve el
+    /// sftp-server local); en la imagen, «tu.usuario».
+    nonisolated static func forSnapshot(_ list: [RemoteEntry]) -> [RemoteEntry] {
+        guard ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] != nil else { return list }
+        return list.map { var e = $0; e.owner = e.owner.map { _ in "tu.usuario" }; e.group = e.group.map { _ in "staff" }; return e }
+    }
+
     func go(_ p: String, record: Bool = true) async {
         guard let fs else { return }
         do {
             let list = try await fs.list(p)
             if record, !path.isEmpty, path != p { back.append(path); forward = [] }
             path = p
-            entries = list
+            entries = Self.forSnapshot(list)
             selection = []
             expanded = []
             children = [:]

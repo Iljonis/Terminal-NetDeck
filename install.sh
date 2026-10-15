@@ -90,6 +90,7 @@ cp "$BIN_DIR/$PRODUCTO" "$APP/Contents/MacOS/$PRODUCTO"
 for b in "$BIN_DIR"/*.bundle; do [ -e "$b" ] && cp -R "$b" "$APP/Contents/Resources/"; done
 cp -R Temas "$APP/Contents/Resources/Temas"
 cp -R Resaltado "$APP/Contents/Resources/Resaltado"
+cp LICENSE THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/"          # (licencias de las dependencias: van con la app)
 [ -f build/AppIcon.icns ] && cp build/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

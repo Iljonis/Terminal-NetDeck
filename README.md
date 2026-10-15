@@ -1,82 +1,173 @@
+<div align="center">
+
 # Terminal NetDeck
+
+**El terminal de macOS pensado para quien vive entre routers, switches y bastiones.**
+
+Sesiones con saltos, contraseñas que nunca acaban en el equipo equivocado, MultiExec, explorador SFTP/FTP
+y 51 temas. Nativo, rápido y en tu idioma.
+
+[![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
+
+Versión actual: **[v0.8.6](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.8.6)** · macOS 15 o posterior ·
+gratis y de código abierto
 
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
 [![macOS 15+](https://img.shields.io/badge/macOS-15%2B-000000.svg?logo=apple&logoColor=white)](https://www.apple.com/macos/)
 
-Terminal nativo de macOS para ingenieros de red: sesiones de tu `ssh_config` con saltos, contraseñas en el Llavero con
-una regla de usuario estricta, MultiExec, pegado seguro, resaltado de la salida tipo ChromaTerm y 51 temas.
-Swift 6 · SwiftUI · [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm). Español (España) e inglés.
+**Español** · [English](README.en.md)
 
-*[English below](#english)*
+![Terminal NetDeck](docs/capturas/portada.png)
 
-![Portada](docs/capturas/portada.png)
+</div>
 
-## Qué hace
+## Por qué Terminal NetDeck
 
-- **Sesiones** de tu `~/.ssh/config` (comodines, `Include`, `ProxyJump`), por grupos (con `/`, carpetas dentro de
-  carpetas: `Clientes/Madrid/Core`), con favoritas y recientes. Se crean, editan, duplican, borran y ordenan en el gestor.
-  Anotaciones propias en comentarios: `# @grupo`, `# @clave`, `# @clave-grupo`, `# @desc`, `# @telnet`,
-  `# @tipo sftp|ftp|serie|local`, `# @serie /dev/cu.usbserial-0001 9600 8N1`.
-- **Tipos de sesión**: SSH, Telnet, SFTP y FTP, terminal local y consola por puerto serie (`/usr/bin/screen`).
-- **Explorador SFTP/FTP** (tipo Cyberduck) con la temática de la app: árbol y lista con tamaños, permisos, dueño y
-  fecha; barra de ruta; subir (también arrastrando desde el Finder), bajar, renombrar, borrar y carpetas nuevas. SFTP
-  usa el ssh del sistema (mismo alias, saltos y contraseña); el botón «Vista gráfica / Consola» pasa a la consola
-  `sftp` de siempre. FTP lo trae la app (sin cifrar: mejor SFTP si se puede).
-- **De servidor a servidor**: «Enviar a…» copia archivos o carpetas de un explorador a otro (SFTP ↔ SFTP o SFTP ↔ FTP)
-  leyendo y escribiendo a la vez en memoria, sin pasar por el disco del Mac.
-- **Saltos**: `ssh -J`; si el salto no deja reenviar, la app entra en él y escribe `ssh equipo` por ti. Telnet por el salto.
-- **Contraseñas sólo en el Llavero** de macOS. La de la sesión entra sola (askpass); las de los equipos, escritas solas,
-  sugeridas o nada. **Regla de usuario**: nunca se escribe la contraseña de otro usuario, y si una falla queda bloqueada
-  15 min en todas las pestañas (para no bloquear cuentas de AD). Se ven, se editan y se borran en Ajustes → Contraseñas
-  (con qué sesiones y grupos las usan), y desde el menú 🔑 se escribe cualquiera en la pestaña activa, también «sin
-  esperar a que la pida» para prompts que la app no reconoce.
-- **MultiExec** y **vista dividida**: lo que escribes va a la vez a varios paneles (excluye los que quieras).
-- **Pegado seguro**: línea a línea esperando al prompt; se para ante errores de la CLI, paginadores, órdenes peligrosas
-  sin confirmar (`reload`, `delete`…) o si el equipo pide una contraseña.
-- **Listas de equipos** (Herramientas → Listas de equipos, ⇧⌘L): la misma orden en muchos equipos detrás de un salto,
-  probando la contraseña de uno en uno.
-- **Terminal local** (⌘T) y **sesión de inicio** (clic derecho → Abrir al arrancar; ⌥⌘K para abrirla).
-- **Barra de botones** personalizable: categorías (crear, renombrar, ordenar, borrar) y botones de orden, texto,
-  contraseña o login (eligiendo la contraseña del Llavero de una lista), sesión; con teclas F1–F12 y huecos `{{vlan=100}}`.
-- **Registro** de sesiones a texto limpio y **búsqueda** en todos los registros (IP, MAC en cualquier formato, interfaz…).
-- **Servidores Linux sin avisos de locale**: por defecto ssh no manda el idioma del Mac (`LANG`, `LC_*`); se puede
-  activar en Ajustes → General → Conexiones.
-- **Importar** sesiones de SecureCRT, MobaXterm, PuTTY, electerm, CSV u otro `ssh_config` (nunca contraseñas).
-  **Exportar** todas o unos grupos a JSON (todos los campos) o CSV, sin contraseñas; el JSON se vuelve a importar.
-- **Resaltado** de la salida con reglas tipo ChromaTerm (41 de serie, activas desde el primer arranque: IPs, MAC,
-  interfaces, estados, BGP, dBm, errores, VLAN, syslog…), con los colores del tema. Se crean, editan, duplican,
-  ordenan y borran en Ajustes → Resaltado, con la expresión comprobada al escribir y vista previa.
-- **Menú «+»** con conexión rápida, terminal local, sesión nueva (SSH, SFTP, serie) y tus favoritas.
-- **51 temas** en 8 grupos (galería en Ajustes → Temas), con su paleta ANSI y su fuente; pueden **seguir al Mac**
-  (uno claro y otro oscuro) y se importan los tuyos (`.tema`). Todos pasan una prueba de contraste WCAG.
-- **Actualizaciones** comprobadas en silencio una vez al día (nunca se instala nada sola) e **idioma** de la interfaz
-  en español o inglés (Ajustes → General → Idioma), al momento.
+Si administras una red, tu día es abrir veinte sesiones detrás de un bastión, escribir la misma contraseña una y
+otra vez, pegar configuraciones con miedo a un `reload` y mover archivos entre servidores. Terminal NetDeck junta
+todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una mala pasada.**
 
-| Temas | Resaltado |
+- Tus sesiones son las de tu `ssh_config`: `ssh core-01` sigue funcionando desde cualquier otra terminal.
+- Las contraseñas viven sólo en el Llavero y sólo se escriben para el usuario y el equipo que de verdad las piden.
+- Si algo sale mal (una contraseña que falla, un servidor que no contesta, una copia que se corta), la app se para,
+  te avisa y no deja nada a medias.
+
+## Instalar en dos minutos
+
+1. **Descarga** `Terminal-NetDeck.dmg` de la [última versión](https://github.com/Iljonis/Terminal-NetDeck/releases/latest).
+2. **Ábrelo** y arrastra **Terminal NetDeck** a **Aplicaciones**.
+3. **La primera vez**, haz clic derecho sobre la app → **Abrir** (no está firmada por Apple, así que macOS lo pregunta
+   una sola vez).
+4. El asistente te guía: dónde están tus sesiones, tema, fuente, contraseñas y resaltado.
+
+Tus datos se quedan en tu Mac: la configuración en `~/Library/Application Support/Terminal NetDeck/`, las sesiones en
+formato `ssh_config` y las contraseñas, sólo en el Llavero de macOS.
+
+![Asistente de bienvenida](docs/capturas/asistente.png)
+
+### Mantenerla al día
+
+- **Desde la propia app.** Una vez al día comprueba en silencio si hay versión nueva. Si la hay, verás un aviso
+  discreto en la barra de estado: pulsa **Actualizar ahora** y se descarga, se comprueba (sha256 publicado por GitHub y
+  firma) y se vuelve a abrir con tus pestañas. Nunca se instala nada sin ese clic.
+- **Desde el código, en un momento:**
+
+  ```bash
+  cd Terminal-NetDeck
+  git pull
+  ./actualizar.sh        # compila, sustituye la app y la reabre con tus pestañas
+  ```
+
+<details>
+<summary><b>Instalar desde el código</b> (macOS 15+ y Swift 6)</summary>
+
+```bash
+xcode-select --install          # si no tienes Xcode ni las Command Line Tools
+git clone https://github.com/Iljonis/Terminal-NetDeck.git
+cd Terminal-NetDeck
+./install.sh                    # compila y la instala en /Applications (o ~/Applications)
+```
+
+| Orden | Para qué |
 |---|---|
-| ![Temas](docs/capturas/temas.png) | ![Resaltado](docs/capturas/resaltado.png) |
+| `./install.sh --usuario` | Instalarla en `~/Applications` |
+| `./install.sh --dmg` | Crear `dist/Terminal-NetDeck.dmg` |
+| `./install.sh --asistente` | Abrir el asistente sin instalar (para probarlo) |
+| `./install.sh --fuente "Kode Mono"` | Instalar una fuente con Homebrew |
+| `./desinstalar.sh [--todo]` | Quitar la app (`--todo`: también temas y ajustes; el Llavero no se toca) |
 
-## Temas
+</details>
 
-Cada tema es un archivo `.tema` de texto en `Temas/` (`clave = valor`: colores, fuentes, paleta ANSI…); para crear el
-tuyo copia uno, cambia los colores e impórtalo. Todos cumplen un contraste mínimo (WCAG): texto ≥ 4,5:1, texto
-apagado ≥ 3:1, pestaña activa ≥ 4,5:1 y colores ANSI ≥ 3:1 (lo comprueba `ThemeTests`). Además está la de serie,
-**NetDeck Cyberpunk**.
+## Lo que hace por ti
+
+### 🔐 Contraseñas que no se equivocan de sitio
+
+- **Sólo en el Llavero** de macOS: nunca en archivos, argumentos ni registros.
+- **Regla de usuario estricta:** una contraseña sólo se escribe sola si es exactamente del usuario que la pide.
+- **Y del equipo correcto:** un servidor que escriba en pantalla un `admin@core-01's password:` falso no se lleva la
+  contraseña de core-01; sólo cuentan el destino y los saltos de esa pestaña.
+- **Si una falla, se bloquea 15 minutos en todas las pestañas**, para no bloquear tu cuenta de Active Directory.
+- **El Llavero nunca congela la app:** se consulta en segundo plano y con un tope de 10 segundos.
+- Menú 🔑 para escribir cualquiera a mano, también en prompts raros que la app no reconoce.
+
+### 🛡️ Saltos y bastiones, sin sorpresas
+
+- Tus sesiones con `ProxyJump`, encadenadas, y telnet a través del salto.
+- **Salto a mano blindado:** si un bastión no deja reenviar (`-J`), la app te pregunta antes de entrar en él, y la
+  contraseña del destino sólo se sugiere, nunca se escribe sola por la shell del salto.
+- **Nada de inyecciones:** un equipo o usuario que empiece por `-` no llega a ssh como opción, todas las órdenes
+  llevan `--` antes del destino y al importar sesiones sólo pasan las opciones de ssh seguras (fuera `ProxyCommand`,
+  bloques `Host *`, reenvíos de puertos…).
+
+### 📂 Explorador SFTP/FTP que no pierde archivos
+
+- Árbol y lista con tamaños, permisos, dueño y fecha; subir arrastrando desde el Finder, bajar, renombrar, borrar.
+- **Copias atómicas:** se escribe primero en un temporal y sólo al acabar se sustituye el archivo. Una copia que falla
+  o cancelas no deja nada a medias ni borra el original, y se conservan sus permisos.
+- **Integridad MD5:** cada archivo se vuelve a leer del destino y su MD5 tiene que coincidir con el del origen.
+- **De servidor a servidor** («Enviar a…»), SFTP ↔ SFTP o SFTP ↔ FTP, en memoria y sin tocar el disco del Mac.
+- **Cancelar es inmediato**, y un servidor que no contesta se corta a los 30 segundos en vez de colgar la ventana.
+
+![Explorador SFTP en vista dividida](docs/capturas/explorador.png)
+
+### ⚡ Trabajar en muchos equipos a la vez
+
+- **MultiExec** y **vista dividida:** lo que escribes va a la vez a varios paneles (excluye los que quieras).
+- **Pegado seguro:** línea a línea esperando al prompt; se para ante errores de la CLI, paginadores, órdenes
+  peligrosas sin confirmar (`reload`, `delete`…) o una petición de contraseña.
+- **Listas de equipos:** la misma orden en muchos equipos detrás de un salto, probando la contraseña de uno en uno.
+- **Barra de botones** con categorías, teclas F1–F12 y huecos como `{{vlan=100}}`.
+
+### 🗂️ Pestañas que se adaptan
+
+- Se reparten el ancho de la ventana y, si no caben, se desplazan sin perder de vista la activa.
+- El título es sólo el **equipo de destino** (`core-02`, no `core-02 ⟵ bastion`); el camino entero sale al pasar el
+  ratón. Si desde una sesión saltas a otro equipo, la pestaña lo refleja.
+- Los botones de la barra nunca se salen de la ventana, tengas las pestañas que tengas.
+
+![Pestañas adaptativas](docs/capturas/pestanas.png)
+
+### 🧰 Y además
+
+- **Tipos de sesión:** SSH, Telnet, SFTP, FTP, terminal local y consola serie (`screen`).
+- **Gestor de sesiones** con carpetas (`Clientes/Madrid/Core`), favoritas, recientes y botón **Conectar** para probar
+  sin guardar.
+- **Importar** de SecureCRT, MobaXterm, PuTTY, electerm, CSV u otro `ssh_config`; **exportar** a JSON o CSV.
+  Nunca contraseñas.
+- **Resaltado de la salida** tipo ChromaTerm (IPs, MAC, interfaces, estados, BGP, dBm, errores…) con los colores del
+  tema, editable con vista previa.
+- **Registro** de las sesiones en texto limpio y **búsqueda** en todos ellos (IP, MAC en cualquier formato…).
+- **Sin avisos de locale** en servidores Linux: ssh no manda el idioma del Mac salvo que lo actives.
+- **Español de España e inglés**, se cambia al momento en Ajustes → General → Idioma.
+
+![Resaltado de la salida](docs/capturas/resaltado.png)
+
+## 🎨 51 temas para cada turno
+
+Desde un NOC de guardia a las tres de la mañana hasta una presentación con proyector. Todos tienen su paleta ANSI y su
+fuente, pueden **seguir al modo claro u oscuro del Mac**, y **todos pasan una prueba de contraste WCAG** (texto
+≥ 4,5:1). ¿Quieres el tuyo? Copia un archivo `.tema` de `Temas/`, cambia los colores e impórtalo. Además está el de
+serie, **NetDeck Cyberpunk**.
+
+![Galería de temas](docs/capturas/temas.png)
+
+<details>
+<summary><b>Ver el catálogo completo</b></summary>
 
 | Grupo | Tema | Cómo es |
 |---|---|---|
-| **Cyberpunk** | **Neón 2077** | Amarillo portada, cian y rojo neón. |
+| **Cyberpunk** | **Cyber Neón** | Amarillo eléctrico, cian y rojo neón sobre negro. |
 |  | **Corpo rojo** | Negro, rojo corporativo y blanco. Sobrio, con rótulos en kanji. |
 |  | **Neo-Tokyo** | Cyberpunk japonés: índigo profundo, magenta y cian. |
 |  | **Synthwave** | Atardecer retrowave: rosa, violeta y naranja. |
 |  | **Grid** | Negro absoluto con cian eléctrico y naranja (estilo Tron). |
 |  | **Vaporwave** | Turquesa y rosa pastel sobre violeta, estética noventera. |
-| **Sistemas** | **Liquid Glass** | Como macOS 27: cristal transparente y desenfocado, con los colores del sistema. Legible sobre cualquier fondo. |
+| **Sistemas** | **Liquid Glass** | Como macOS 27: cristal transparente y desenfocado, con los colores del sistema. |
 |  | **Liquid Glass Claro** | macOS 27 de día: vidrio claro y desenfocado, texto oscuro bien legible. |
-|  | **Windows 11** | Fluent y Mica: gris oscuro con un toque translúcido, acento azul, Cascadia Mono y la paleta Campbell de Windows Terminal. |
-|  | **Windows 11 Claro** | Fluent de día: Mica clara, acento azul y la paleta «One Half Light» de Windows Terminal (legible en claro). |
+|  | **Windows 11** | Fluent y Mica: gris oscuro translúcido, acento azul, Cascadia Mono y la paleta Campbell. |
+|  | **Windows 11 Claro** | Fluent de día: Mica clara, acento azul y la paleta «One Half Light». |
 | **Anime y cine** | **Unidad-01** | Morado y verde neón, avisos en naranja (estilo EVA-01). |
 |  | **Unidad-02** | Rojo y naranja intensos con verde lima (estilo EVA-02). |
 |  | **Neo-Tokio rojo** | Rojo moto, negro y blanco con kanji (estilo Akira). |
@@ -92,26 +183,26 @@ apagado ≥ 3:1, pestaña activa ≥ 4,5:1 y colores ANSI ≥ 3:1 (lo comprueba 
 |  | **Ámbar** | Terminal ámbar de los 80, cálida para muchas horas. |
 |  | **Otoño retro** | Cálida y con poco azul, inspirada en Gruvbox: buena para la noche. |
 |  | **Monokai** | La de los editores de siempre: verde, amarillo y rosa intensos sobre gris oliva. |
-|  | **Trigo** | Papel crema con tinta tostada y colores de tierra (inspirada en Gruvbox claro): pareja diurna de Otoño retro. |
+|  | **Trigo** | Papel crema con tinta tostada (inspirada en Gruvbox claro): pareja diurna de Otoño retro. |
 | **Sobrias** | **Ártico** | Sobria con contraste: hielo, aurora y ámbar. |
 |  | **Medianoche** | Azules y violetas suaves (estilo Tokyo Night). |
 |  | **Vampiro** | Morado, rosa y verde sobre gris (estilo Dracula). |
 |  | **Océano profundo** | Azul abisal con brillos aguamarina y coral. |
-|  | **Grafito** | Oscura suave para trabajar con el Mac en modo claro: gris carbón en vez de negro, no deslumbra al pasar de una ventana clara a la terminal. |
-|  | **Solar oscuro** | La paleta clásica Solarized en oscuro: poco contraste, descansa la vista en turnos largos. |
-|  | **Solar claro** | La misma paleta Solarized en claro: pareja de Solar oscuro (ideal en modo Auto). |
+|  | **Grafito** | Gris carbón en vez de negro: no deslumbra al pasar de una ventana clara a la terminal. |
+|  | **Solar oscuro** | La paleta clásica Solarized en oscuro: descansa la vista en turnos largos. |
+|  | **Solar claro** | Solarized en claro: pareja de Solar oscuro (ideal en modo Auto). |
 |  | **Moca** | Pasteles suaves sobre fondo oscuro, inspirada en Catppuccin Mocha. |
-|  | **Fiordo** | Gris pizarra ártico con azules escarcha y aurora tenue (inspirada en Nord): calma para turnos largos. |
-|  | **Café con leche** | Clara y cremosa con pasteles con cuerpo (inspirada en Catppuccin Latte): pareja diurna de Moca. |
+|  | **Fiordo** | Gris pizarra ártico con azules escarcha (inspirada en Nord): calma para turnos largos. |
+|  | **Café con leche** | Clara y cremosa (inspirada en Catppuccin Latte): pareja diurna de Moca. |
 |  | **Gran ola** | Tinta índigo, papel envejecido y azules de grabado japonés (inspirada en Kanagawa). |
-|  | **Taiga** | Verde bosque apagado con salvia, arena y musgo (inspirada en Everforest): suave y muy cálida. |
+|  | **Taiga** | Verde bosque apagado con salvia, arena y musgo (inspirada en Everforest). |
 | **Prácticas** | **Accesible** | Para daltonismo: bien en azul, mal en naranja. |
 |  | **Alto contraste** | Blanco puro sobre negro y colores al máximo. |
-|  | **Pro** | El perfil «Pro» de Terminal de macOS: texto claro sobre negro y los colores brillantes de siempre. |
-|  | **Papel** | Clara y muy legible: para oficinas con mucha luz, el proyector o compartir pantalla en una reunión. |
-|  | **NOC** | Para pantallas de guardia: todo lo normal en tonos apagados y las alarmas (down, errores, pérdidas) saltando a la vista. |
-|  | **Guardia ámbar** | Consola de NOC muy legible: ámbar sobre negro cálido, letra grande y estados en colores inconfundibles. |
-|  | **Guardia verde** | Consola de NOC muy legible: verde suave sobre negro, alarmas en rojo y avisos en ámbar. |
+|  | **Pro** | El perfil «Pro» de Terminal de macOS. |
+|  | **Papel** | Clara y muy legible: oficinas con mucha luz, proyector o compartir pantalla. |
+|  | **NOC** | Para pantallas de guardia: lo normal apagado y las alarmas saltando a la vista. |
+|  | **Guardia ámbar** | Consola de NOC: ámbar sobre negro cálido, letra grande y estados inconfundibles. |
+|  | **Guardia verde** | Consola de NOC: verde suave sobre negro, alarmas en rojo y avisos en ámbar. |
 | **Corporativas** | **DIGI** | Azul DIGI Mobil (#1275B7) y el punto rojo del logo, sobre azul marino. |
 |  | **Oracle** | Rojo Oracle (#C74634) sobre el gris cálido de Redwood (#312D2A). |
 |  | **Cisco** | Azul Cisco (#049FD9) sobre azul noche, con los colores de estado de Cisco. |
@@ -119,67 +210,26 @@ apagado ≥ 3:1, pestaña activa ≥ 4,5:1 y colores ANSI ≥ 3:1 (lo comprueba 
 |  | **Huawei** | Rojo Huawei (#CF0A2C) y su negro (#232527). |
 |  | **Ubuntu** | Naranja Ubuntu (#E95420) sobre berenjena (#300A24), como su terminal. |
 
-## Instalar
+</details>
 
-**Como cualquier app de macOS:** descarga `Terminal-NetDeck.dmg` de
-[Releases](https://github.com/Iljonis/Terminal-NetDeck/releases), ábrelo y arrastra **Terminal NetDeck** a
-**Aplicaciones**. Sus datos van a `~/Library/Application Support/Terminal NetDeck/` y sus ajustes a las preferencias
-del sistema; las contraseñas, sólo al Llavero. Nada se guarda en la carpeta del proyecto.
+## Galería
 
-**Desde el código.** Requisitos: macOS 15 o posterior y Swift 6 (Xcode o las Command Line Tools: `xcode-select --install`).
-
-```bash
-git clone https://github.com/Iljonis/Terminal-NetDeck.git
-cd Terminal-NetDeck
-./install.sh                 # compila y la instala en /Applications (o ~/Applications)
-```
-
-| Orden | Para qué |
+| | |
 |---|---|
-| `./install.sh --usuario` | Instalarla en `~/Applications` |
-| `./install.sh --dmg` | Crear `dist/Terminal-NetDeck.dmg` (arrastrar la app a Aplicaciones, o doble clic → asistente) |
-| `./install.sh --asistente` | Abrir el asistente sin instalar (para probarlo) |
-| `./actualizar.sh` | Actualizar desde el código: compila, sustituye la app y la reabre con tus pestañas |
-| `./install.sh --fuente "Kode Mono"` | Instalar una fuente con Homebrew |
-| `./desinstalar.sh [--todo]` | Quitar la app (`--todo`: también temas y ajustes; el Llavero no se toca) |
+| ![Inicio](docs/capturas/portada.png) **Inicio:** tus sesiones a un clic y conexión rápida | ![Explorador](docs/capturas/explorador.png) **Explorador SFTP** en vista dividida |
+| ![Temas](docs/capturas/temas.png) **Galería de temas** con vista previa | ![Resaltado](docs/capturas/resaltado.png) **Reglas de resaltado** editables |
+| ![Ajustes](docs/capturas/ajustes-en.png) **Ajustes** (aquí, en inglés) | ![Asistente](docs/capturas/asistente.png) **Asistente** de la primera vez |
 
-La app no está firmada por Apple: la primera vez que la abras en otro Mac, clic derecho → Abrir.
-
-![Asistente](docs/capturas/asistente.png)
-
-### Actualizaciones
-
-La app busca versiones nuevas en segundo plano, como mucho una vez al día (al arrancar, si ha pasado más de un día, y
-luego cada 24 h), sin interrumpir nada. Si hay una, sale un aviso discreto en la barra de estado
-(«⬆ Versión X disponible»). Al pulsarlo, **Actualizar ahora** la descarga de GitHub, comprueba que es la publicada
-(sha256) y la misma app, la sustituye y la vuelve a abrir con tus pestañas; tus sesiones, ajustes y el Llavero no se
-tocan. Nunca se instala nada sin ese clic. Se puede desactivar o buscar a mano en Ajustes → General → Actualizaciones.
-Mira las releases de `Iljonis/Terminal-NetDeck` (otro repositorio: `NETDECK_REPO=usuario/repo ./install.sh`).
-
-## Seguridad
-
-- Contraseñas sólo en el Llavero (nunca en archivos, argumentos ni registros); la regla de usuario y el bloqueo de
-  15 min tras un fallo evitan bloquear cuentas de AD.
-- MultiExec y el pegado seguro sólo llegan a pestañas ssh/telnet: nunca a una terminal local, SFTP o consola serie.
-- Al importar sesiones se quitan las opciones de ssh que ejecutan órdenes (`ProxyCommand`, `LocalCommand`, `Match`…);
-  nombres, equipos o usuarios que empiezan por `-` se rechazan.
-- Tus archivos (`ssh_config`, `botones.txt`, listas) nunca se sobrescriben si no se pueden leer; copia `.anterior` en
-  cada guardado y `.original` la primera vez. Carpetas y archivos de la app sólo para ti (0700/0600).
-- Actualizaciones: sólo de github.com, comprobadas con el sha256 que publica GitHub, y nada se instala sin que lo pidas.
-- Firma ad hoc con hardened runtime.
-- `./test.sh` comprueba antes de los tests que nada personal llega al repositorio, a la app ni al `.dmg`
-  (`tools/privacidad.sh`), y `tools/seguridad_cron.sh` (cada semana en GitHub Actions) revisa las dependencias contra
-  la base de vulnerabilidades OSV.dev (CVE), la privacidad, los tests y el endurecimiento de la app.
-- Los errores se guardan en `~/Library/Application Support/Terminal NetDeck/logs/error.log` (Ayuda → Abrir el
-  registro de errores), nunca con contraseñas.
+![Barra de pestañas adaptativas](docs/capturas/pestanas.png)
 
 ## Atajos
 
-| | |
+| Atajo | Qué hace |
 |---|---|
 | ⌘K | Conectar (sesión o `usuario@equipo[:puerto]`, directo o por un salto) |
 | ⌘T | Nueva terminal local |
 | ⌥⌘K | Abrir la sesión de inicio |
+| ⇧⌘E | Gestor de sesiones |
 | ⇧⌘L | Listas de equipos |
 | ⇧⌘V | Pegado seguro |
 | ⇧⌘M | MultiExec |
@@ -187,72 +237,52 @@ Mira las releases de `Iljonis/Terminal-NetDeck` (otro repositorio: `NETDECK_REPO
 | Esc o ⌘. | Cortar cualquier secuencia automática |
 | ⌘, | Ajustes |
 
-## Desarrollo
+## Seguridad y privacidad
+
+- Contraseñas sólo en el Llavero, con la regla de usuario y de equipo, y bloqueo de 15 minutos tras un fallo.
+- MultiExec y el pegado seguro sólo llegan a pestañas SSH/Telnet: nunca a una terminal local, SFTP o consola serie.
+- Tus archivos (`ssh_config`, botones, listas) nunca se sobrescriben si no se pueden leer, con copia `.anterior` en cada
+  guardado; carpetas y archivos de la app sólo para ti (0700/0600).
+- Actualizaciones sólo de github.com, comprobadas con su sha256 y su firma, y nada se instala sin tu clic.
+- Firma ad hoc con hardened runtime.
+- Cada cambio pasa una comprobación de privacidad (nada personal en el código, la app ni el `.dmg`) y, cada semana,
+  una auditoría de dependencias contra la base de vulnerabilidades OSV.dev.
+- Los errores van a `~/Library/Application Support/Terminal NetDeck/logs/error.log` (Ayuda → Abrir el registro de
+  errores), nunca con contraseñas.
+
+## Para desarrolladores
 
 ```bash
 swift build
 swift run TerminalNetDeck              # -idioma en: en inglés
-./test.sh                              # tests del núcleo
-tools/capturas.sh                      # regenera docs/capturas con datos de ejemplo (tools/demo)
+./test.sh                              # privacidad + tests del núcleo
+tools/capturas.sh                      # regenera docs/capturas con datos de ejemplo
 ```
 
 | Módulo | Contenido |
 |---|---|
 | `NetDeckCore/Sessions` | `ssh_config`, saltos, `ssh -J`, telnet por el salto, importadores |
-| `NetDeckCore/Security` | Llavero vía `/usr/bin/security`, askpass, regla de usuario, marcas «probando/fallo» compartidas |
+| `NetDeckCore/Security` | Llavero, askpass, regla de usuario, bloqueo compartido tras un fallo |
+| `NetDeckCore/Remote` | SFTP y FTP, copias atómicas con MD5, servidor a servidor |
 | `NetDeckCore/Productivity` | Pegado seguro, MultiExec, listas por salto, barra de botones |
 | `NetDeckCore/Highlight` · `Themes` | Resaltado tipo ChromaTerm · formato `.tema` y catálogo |
-| `NetDeckCore/Support` | Rutas, registro de depuración, actualizaciones, idiomas (`L("…")` + `Ingles.swift`) |
-| `NetDeckSSH` | SSH nativo con SwiftNIO SSH (en preparación) |
+| `NetDeckCore/Support` | Rutas, registros, actualizaciones, idiomas (`L("…")` + `Ingles.swift`) |
 | `TerminalNetDeck` | La app (SwiftUI) |
 | `Temas/` · `Resaltado/` | Catálogo de temas y reglas de resaltado |
 
-Las convenciones (textos traducibles, datos de ejemplo, contraseñas, seguridad) y cómo se trabaja con agentes de
-revisión están en [CLAUDE.md](CLAUDE.md). Los tests se ejecutan en GitHub Actions en cada push.
+Las convenciones del proyecto (textos traducibles, datos de ejemplo, contraseñas, seguridad) y cómo se trabaja con
+agentes de revisión están en [CLAUDE.md](CLAUDE.md). Los tests se ejecutan en GitHub Actions en cada push.
 
-Archivos de configuración en `~/.config/netdeck/` (`ssh_config` de sesiones, `botones.txt`, temas
-`.tema`); la primera vez se leen `clave.conf` y `tema.conf` si existen.
+## Licencia
 
----
+[MIT](LICENSE) © 2026 Jonay / Iljonis. Hecho con Swift 6, SwiftUI y [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm).
+Las licencias de las dependencias y la atribución de las paletas de color están en
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), que también va dentro de la app.
 
-## English
+## Marcas
 
-Native macOS terminal for network engineers: sessions from your `ssh_config` with jump hosts, Keychain passwords with a
-strict per-user rule, MultiExec, safe paste, ChromaTerm-style output highlighting and 51 themes. The interface is
-available in Spanish (Spain) and English: **Settings → General → Language** (applies instantly).
-
-![Home screen](docs/capturas/portada-en.png)
-
-- **Passwords live only in the macOS Keychain.** A password is only typed automatically when it belongs to exactly the
-  user being asked for; a failed one is locked for 15 minutes in every tab, so AD accounts don't get locked out.
-- **Safe paste** sends line by line, waiting for the prompt, and stops on CLI errors, pagers, unconfirmed dangerous
-  commands or a password prompt.
-- **MultiExec, split view, device lists via a jump host, command buttons, session logging and log search.**
-- **Local terminal** (⌘T) and a **startup session** that opens at launch (⌥⌘K opens it on demand).
-- **SFTP/FTP file browser** (Cyberduck-style, themed): tree and list, sizes, permissions, path bar, upload, download,
-  rename, delete; a “Graphical view / Console” switch for the plain `sftp` console; **server-to-server copies**
-  (SFTP ↔ SFTP or SFTP ↔ FTP) streamed in memory, never touching the Mac's disk.
-- **Session types:** SSH, Telnet, SFTP, FTP, local shell and serial console (`screen`), organised in nested
-  folders (`Clients/Madrid/Core`), with a full session manager (create, edit, duplicate, reorder, delete).
-- **Import** sessions from SecureCRT, MobaXterm, PuTTY, electerm, CSV or another `ssh_config`, and **export** them to
-  JSON/CSV to share (never passwords; imported files can't bring command-running ssh options).
-- **Customisable button bar** with categories; password and login buttons pick the Keychain entry from a list.
-- **No locale warnings on Linux servers:** ssh doesn't send the Mac's `LANG`/`LC_*` unless you enable it.
-- **ChromaTerm-style highlighting** in the theme's colours.
-- **51 themes** in 8 groups (Cyberpunk, Systems, Anime & film, Kawaii, Retro, Subdued, Practical, Corporate; full
-  list in the [Temas](#temas) table): Liquid Glass and Windows 11 looks, Solarized-, Nord-, Gruvbox-, Catppuccin-,
-  Kanagawa- and Everforest-inspired palettes, high-legibility NOC consoles and vendor colours (Cisco, Juniper, Huawei…).
-  They can follow the Mac's light/dark mode, you can import your own `.tema` files, and every theme passes a WCAG
-  contrast test (text ≥ 4.5:1, dim text ≥ 3:1).
-
-Install: download `Terminal-NetDeck.dmg` from Releases and drag the app to Applications (data lives in
-`~/Library/Application Support/Terminal NetDeck/`, passwords only in the Keychain), or build it with macOS 15+ and
-Swift 6: `./install.sh`. New versions are checked silently at most once a day; a discreet status-bar notice offers the
-download, nothing is installed automatically. Development: `swift run TerminalNetDeck
--idioma en`, tests with `./test.sh`, screenshots with `tools/capturas.sh`.
-
-![Settings](docs/capturas/ajustes-en.png)
-
-## Licencia · License
-
-[MIT](LICENSE) © 2026 Jonay / Iljonis
+Cisco, Oracle, Juniper, Huawei, DIGI, Ubuntu, Apple, macOS, Liquid Glass, Microsoft, Windows y el resto de nombres de
+empresas, productos, obras o paletas que aparecen en este proyecto son marcas de sus respectivos propietarios. Se citan
+sólo para describir combinaciones de colores o la compatibilidad (por ejemplo, «inspirada en» o «estilo»). Terminal
+NetDeck es un proyecto independiente: no está afiliado, patrocinado ni respaldado por ninguno de ellos, y no incluye
+logotipos ni recursos oficiales suyos.
