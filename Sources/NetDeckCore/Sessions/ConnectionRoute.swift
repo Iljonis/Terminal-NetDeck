@@ -29,6 +29,12 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     /// Sesión de consola por puerto serie (transport .serial).
     public var serial: SerialLine?
 
+    // (sin `configJumps`: es el ProxyJump del ssh_config del momento; una pestaña guardada lo recalcula al abrirse con
+    // `SessionManager.refreshConfigJumps`, para no entrar por un salto que ya se cambió)
+    private enum CodingKeys: String, CodingKey {
+        case title, target, jumps, transport, alias, jumpSpec, sessionName, thenCommand, thenUser, manualHop, localShell, serial
+    }
+
     public init(title: String, target: Endpoint, jumps: [Endpoint] = [], transport: SessionProfile.Transport = .ssh,
                 alias: String? = nil, jumpSpec: [String]? = nil, sessionName: String? = nil) {
         self.title = title

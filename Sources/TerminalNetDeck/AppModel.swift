@@ -521,6 +521,7 @@ final class AppModel {
 
     @discardableResult
     func open(_ route: ConnectionRoute) -> TerminalSession {
+        let route = sessions.refreshConfigJumps(route)          // (una pestaña guardada: el salto del ssh_config de ahora)
         // (la local y la consola serie no son un equipo por red: ni askpass ni contraseñas automáticas)
         let pw = PasswordAutomation(mode: route.usesPasswords ? settings.devicePasswordMode : .off, store: store, policy: policy, ledger: ledger)
         pw.sessionMode = settings.sessionAutoPassword && route.usesPasswords ? .autoType : nil

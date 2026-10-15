@@ -61,5 +61,5 @@ public struct JumpSharing: Hashable, Sendable {
     }
 
     /// Rutas sin nada que expandan ssh («%», «~», «${}») o la shell; ni empezar por «-».
-    static let safePath = Pattern(#"^/[A-Za-z0-9_./-]+$"#, ignoreCase: false)
+    static let safePath = Pattern(#"^/[A-Za-z0-9_./-]+\z"#, ignoreCase: false)
 }

@@ -170,7 +170,10 @@ public enum Askpass {
     static func encode(_ r: CredentialRef) -> String { "\(r.service.rawValue)\t\(r.account)" }
 
     /// Una línea del archivo de la pestaña: «@equipo\tservicio\tcuenta» (el equipo al que se dio; las de antes, sin él).
-    static func encodeGiven(_ r: CredentialRef, host: String) -> String { "@\(host)\t\(encode(r))" }
+    /// (el equipo sale de la pregunta: sin tabuladores ni caracteres de control, que moverían los campos)
+    static func encodeGiven(_ r: CredentialRef, host: String) -> String {
+        "@\(host.filter { !$0.isNewline && $0.asciiValue.map { $0 >= 32 && $0 != 127 } ?? true })\t\(encode(r))"
+    }
 
     static func decodeGiven(_ s: String) -> (ref: CredentialRef, host: String?)? {
         guard s.hasPrefix("@") else { return decode(s).map { ($0, nil) } }

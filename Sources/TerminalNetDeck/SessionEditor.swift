@@ -112,7 +112,7 @@ struct SessionEditor: View {
                     }
                 } label: { Image(systemName: "square.and.arrow.up") }.fixedSize()
                     .help(L("Exportar (sin contraseñas)"))
-                NeonButton(title: L("Importar"), icon: "square.and.arrow.down", tint: t.accent2) { importing = true }
+                IconButton(icon: "square.and.arrow.down", tint: t.accent2) { importing = true }      // (en la columna estrecha, sin texto: cabe entero)
                     .help(L("SecureCRT, MobaXterm, PuTTY, electerm, CSV, un ssh_config o un JSON exportado"))
             }
             .padding(8)

@@ -42,6 +42,6 @@ public struct Endpoint: Hashable, Sendable, Codable, CustomStringConvertible {
         Self.safeHost.matches(host) && (user.map(Self.safeUser.matches) ?? true)
     }
 
-    private static let safeUser = Pattern(#"^[A-Za-z0-9_][A-Za-z0-9_.-]*$"#, ignoreCase: false)
-    private static let safeHost = Pattern(#"^[A-Za-z0-9][A-Za-z0-9_.:-]*$"#, ignoreCase: false)
+    private static let safeUser = Pattern(#"^[A-Za-z0-9_][A-Za-z0-9_.-]*\z"#, ignoreCase: false)
+    private static let safeHost = Pattern(#"^[A-Za-z0-9][A-Za-z0-9_.:-]*\z"#, ignoreCase: false)
 }

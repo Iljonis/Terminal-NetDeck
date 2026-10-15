@@ -55,7 +55,15 @@ public final class CredentialLedger: @unchecked Sendable {
     }
 
     public func markFailed(_ ref: CredentialRef) { storage.locked { storage.write(ref, .failed(at: now())) } }
-    public func confirm(_ ref: CredentialRef) { storage.locked { storage.write(ref, .confirmed(at: now())) } }
+    /// Ha valido. Pero si está marcada como fallida (otra pestaña, o ésta antes de que la escribieras a mano), el fallo
+    /// manda: sólo `reset` (la has cambiado o la eliges tú) lo quita. Así ninguna confirmación levanta el bloqueo de
+    /// 15 min que protege las cuentas de AD.
+    public func confirm(_ ref: CredentialRef) {
+        storage.locked {
+            if case .failed = current(ref) { return }
+            storage.write(ref, .confirmed(at: now()))
+        }
+    }
 
     /// No se supo si valía (el equipo no contestó por otra cosa): la contraseña no tiene la culpa.
     public func release(_ ref: CredentialRef) {

@@ -181,6 +181,15 @@ public final class SessionManager {
         return r
     }
 
+    /// El ProxyJump actual del ssh_config para una ruta con alias (las pestañas guardadas no lo traen): el mismo
+    /// criterio que `route(to:)`.
+    public func refreshConfigJumps(_ r: ConnectionRoute) -> ConnectionRoute {
+        guard let alias = r.alias, let p = profile(named: alias) else { return r }
+        var r = r
+        r.configJumps = !p.proxyJump.isEmpty && !p.hasProxyCommand ? p.proxyJump : nil
+        return r
+    }
+
     /// Los saltos de cada uno van antes que él (ProxyJump encadenados); un bucle es un error.
     func resolve(_ specs: [String], seen: Set<String>) throws -> [Endpoint] {
         var out: [Endpoint] = []

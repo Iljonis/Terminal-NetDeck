@@ -291,7 +291,15 @@ struct ListSheet: View {
         guard !busy, canOpen else { return }
         busy = true
         let list = makeList()
-        if embedded { model.showSettings = false } else { dismiss() }
+        if embedded, dirty {
+            // (en Ajustes, con cambios sin guardar: se abre pero los Ajustes siguen, para no perderlos)
+            message = L("✓ «\(name)» abierta sin guardar: los cambios siguen aquí")
+            busy = false
+        } else if embedded {
+            model.showSettings = false
+        } else {
+            dismiss()
+        }
         Task { await model.run(list) }
     }
 
@@ -381,8 +389,13 @@ struct ListSheet: View {
             return false
         }
         let l = library.upsert(current)
+        selected = l.id
+        // (si no se ha podido escribir, sigue constando como cambiada: al salir se vuelve a preguntar)
+        guard persist(L("✓ Lista «\(l.name)» guardada")) else { return false }
+        let ok = message
         pick(l.id)
-        return persist(L("✓ Lista «\(l.name)» guardada"))
+        message = ok
+        return true
     }
 
     /// Copia de la guardada: si la de ahora tiene cambios, antes se pregunta (para que la copia los lleve o no).
@@ -398,8 +411,10 @@ struct ListSheet: View {
               library.rename(id, to: n) else { return }
         // (sólo cambia el nombre: lo demás que estuviera sin guardar sigue así)
         let untouched = name == old
-        name = library.list(id)?.name ?? n
-        if untouched, baseline.count == fields.count { baseline[0] = name }
+        if untouched {                              // (un nombre cambiado a mano y sin guardar no se pisa)
+            name = library.list(id)?.name ?? n
+            if baseline.count == fields.count { baseline[0] = name }
+        }
         persist(L("✓ Renombrada"))
     }
 

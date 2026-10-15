@@ -127,6 +127,20 @@ final class Clock: @unchecked Sendable {
 }
 
 @Suite struct LedgerTests {
+    /// Una confirmación (p. ej. la temprana del salto) nunca levanta el bloqueo de 15 min: sólo `reset` lo quita.
+    @Test func confirmarNoQuitaUnFallo() {
+        let c = Clock()
+        let l = CredentialLedger(now: { c.now })
+        let ad = CredentialRef.named("AD")
+        l.markFailed(ad)
+        l.confirm(ad)
+        #expect(l.isBlocked(ad))
+        #expect(l.beginProbe(ad) == .blocked)
+        l.reset(ad)
+        l.confirm(ad)
+        #expect(!l.isBlocked(ad) && l.beginProbe(ad) == .go)
+    }
+
     @Test func probandoFalloYCaducidad() {
         let c = Clock()
         let l = CredentialLedger(now: { c.now })
