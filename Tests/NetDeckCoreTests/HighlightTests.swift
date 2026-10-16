@@ -24,6 +24,35 @@ import Testing
         #expect(c.rules.first { $0.description == "Prompt Juniper (usuario@equipo>)" }?.styles.count == 4)
     }
 
+    /// MobaXterm Net: el tema fija los colores del resaltado (up verde, down/disconnected/error rojo, IPs y máscaras azul,
+    /// protocolos morado) sin tocar las reglas, que siguen diciendo «f.green», «f.cyan», «f.blue»…
+    @Test func mobaXtermNet() throws {
+        let catalog = Self.rulesFile.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Temas")
+        let t = try Theme(contentsOf: catalog.appendingPathComponent("mobaxterm-net.tema"))
+        #expect(t.name == "MobaXterm Net" && t.text == RGB(hex: "#ffffff"))
+        let p = t.highlightPalette
+        #expect(p["green"] == RGB(hex: "#2ecc71") && p["red"] == RGB(hex: "#e74c3c"))
+        #expect(p["cyan"] == RGB(hex: "#3498db") && p["blue"] == RGB(hex: "#9b59b6"))
+        let c = try HighlightConfig(contentsOf: Self.rulesFile)
+        let h = Highlighter(rules: c.rules, palette: p)
+        let line = "BGP neighbor 192.0.2.1 255.255.255.0 is Up, OSPF Disconnected, EVPN down, MPLS error, VRRP Connected"
+        func color(of word: String) -> String? {
+            let r = try? #require(line.range(of: word))
+            return h.styledRuns(line).first { r.map($0.range.overlaps) ?? false }?.style.foreground
+        }
+        for w in ["BGP", "OSPF", "EVPN", "MPLS", "VRRP"] { #expect(color(of: w) == "blue", "\(w)") }
+        for w in ["192.0.2.1", "255.255.255.0"] { #expect(color(of: w) == "cyan", "\(w)") }
+        for w in ["Up", "Connected"] { #expect(color(of: w) == "green", "\(w)") }
+        for w in ["Disconnected", "down", "error"] { #expect(color(of: w) == "red", "\(w)") }
+    }
+
+    /// «resaltado =» sólo acepta nombres del resaltado y #hex válidos; sin él, todo sale de los colores del tema.
+    @Test func coloresDelResaltadoEnElTema() throws {
+        #expect(Theme.highlightColors("green #00ff00, nada #112233, red rojo, blue  #0000ff") ==
+                ["green": RGB(hex: "#00ff00")!, "blue": RGB(hex: "#0000ff")!])
+        #expect(Theme.builtIn.highlightColors.isEmpty && Theme.builtIn.highlightPalette["blue"] == Theme.builtIn.blue)
+    }
+
     @Test func colorea() throws {
         let h = try make()
         let out = String(decoding: h.process(Array("xe-0/0/1 is up, 192.0.2.1/30 -27.5 dBm\r\n".utf8)), as: UTF8.self)

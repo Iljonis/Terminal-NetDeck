@@ -115,7 +115,7 @@ rules:
   color: f.orange bold
   exclusive: true
 - description: Estados malos
-  regex: (?i)\b(down|\*down|\^down|admin-?down|disabled|err-?disabled|notconnect|not ?present|absent|failed|failure|fail|unreachable|timeout|timed out|denied|rejected?|shutdown|offline|los|lof|idle|connect|opensent|openconfirm|invalid|no light|exited|unhealthy|dead|blocking|blk|discarding|unselected|isolated|lost|critical|major)\b
+  regex: (?i)\b(down|\*down|\^down|admin-?down|disconnected|error|disabled|err-?disabled|notconnect|not ?present|absent|failed|failure|fail|unreachable|timeout|timed out|denied|rejected?|shutdown|offline|los|lof|idle|connect|opensent|openconfirm|invalid|no light|exited|unhealthy|dead|blocking|blk|discarding|unselected|isolated|lost|critical|major)\b
   color: f.red bold
 - description: Avisos
   regex: (?i)\b(warn(ing)?|minor|flap(ping)?|degraded|loss|retrans\w*|half|half-duplex|mismatch|2way|exstart|exchange|loading|init|learning|lrn|standby|suspended|pending|restarting|paused|time_wait|close_wait|syn_sent|syn_recv|fin_wait\d?)\b

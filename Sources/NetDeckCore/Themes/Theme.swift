@@ -80,6 +80,9 @@ public struct Theme: Identifiable, Hashable, Sendable {
     public var uiFonts: [String] = []
     /// Los 16 colores ANSI tal cual (si no, salen de los del tema).
     public var explicitANSI: [RGB]?
+    /// «resaltado = green #2ecc71, blue #9b59b6…»: los colores con nombre del resaltado que fija el tema (los demás
+    /// salen de sus colores, ver `highlightPalette`). Las reglas no cambian: siguen diciendo «f.green», «f.blue»…
+    public var highlightColors: [String: RGB] = [:]
 
     public var isTranslucent: Bool { background.a < 1 || material != nil }
     /// Fondo de lo que va encima del de la ventana: transparente en los temas de cristal (que no se acumule).
@@ -141,6 +144,7 @@ public struct Theme: Identifiable, Hashable, Sendable {
         uiFonts = (v["fuente_interfaz"] ?? "").split(separator: ",").map { String($0).trimmed }.filter { !$0.isEmpty }
         let ansiList = (v["ansi"] ?? "").split(separator: ",").compactMap { RGB(hex: String($0)) }
         explicitANSI = ansiList.count == 16 ? ansiList : nil
+        highlightColors = Self.highlightColors(v["resaltado"] ?? "")
         background = colors["fondo"]!
         text = colors["texto"]!
         bar = colors["barra"]!
@@ -153,6 +157,18 @@ public struct Theme: Identifiable, Hashable, Sendable {
         bad = colors["mal"]!
         special = colors["especial"]!
         dim = colors["apagado"]!
+    }
+
+    /// «green #2ecc71, red #e74c3c»: sólo los nombres que entiende el resaltado y con un #hex válido (lo demás se ignora).
+    static func highlightColors(_ text: String) -> [String: RGB] {
+        var out: [String: RGB] = [:]
+        for item in text.split(separator: ",") {
+            let parts = item.split(whereSeparator: \.isWhitespace).map(String.init)
+            guard parts.count == 2, HighlightStyle.colorNames.contains(parts[0].lowercased()),
+                  let c = RGB(hex: parts[1]) else { continue }
+            out[parts[0].lowercased()] = c
+        }
+        return out
     }
 
     public init(contentsOf url: URL) throws {

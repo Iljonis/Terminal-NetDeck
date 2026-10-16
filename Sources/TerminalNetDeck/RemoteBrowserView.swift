@@ -11,6 +11,44 @@ extension Theme {
     }
 }
 
+extension UTType {
+    /// Lo que se arrastra dentro de un explorador para moverlo (sólo dentro de la app: ni el Finder ni las terminales
+    /// lo reciben).
+    static let netdeckEntries = UTType(exportedAs: "io.netdeck.terminal.remote-entries")
+}
+
+/// Filas arrastradas: de qué explorador y qué rutas.
+struct EntryDrag: Codable {
+    let browser: UUID
+    let paths: [String]
+
+    @MainActor static func provider(_ browser: RemoteBrowser, _ entry: RemoteEntry) -> NSItemProvider {
+        let paths = browser.selection.contains(entry.path) ? browser.selectedEntries.map(\.path) : [entry.path]
+        let data = (try? JSONEncoder().encode(EntryDrag(browser: browser.id, paths: paths))) ?? Data()
+        let p = NSItemProvider()
+        p.registerDataRepresentation(forTypeIdentifier: UTType.netdeckEntries.identifier, visibility: .ownProcess) { done in
+            done(data, nil)
+            return nil
+        }
+        p.suggestedName = paths.count == 1 ? RemotePath.name(paths[0]) : L("\(paths.count) elementos")
+        return p
+    }
+
+    /// Soltado en `dir` de `browser`: se mueve si viene de ese mismo explorador (lo de otro servidor no se mueve).
+    @MainActor static func drop(_ providers: [NSItemProvider], on browser: RemoteBrowser, to dir: String) -> Bool {
+        guard let p = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.netdeckEntries.identifier) })
+        else { return false }
+        Task { @MainActor in
+            guard let data = try? await p.loadItem(forTypeIdentifier: UTType.netdeckEntries.identifier) as? Data,
+                  let drag = try? JSONDecoder().decode(EntryDrag.self, from: data), drag.browser == browser.id else { return }
+            let known = browser.rows.map(\.entry)
+            let list = drag.paths.compactMap { path in known.first { $0.path == path } }
+            browser.move(list, to: dir)
+        }
+        return true
+    }
+}
+
 /// «Vista gráfica / Consola»: arriba del explorador y de la consola sftp de la pestaña.
 struct RemoteModeSwitch: View {
     @Environment(AppModel.self) private var model
@@ -73,7 +111,9 @@ struct RemoteBrowserView: View {
     @Stored private var showTransfers = true
     /// Hay un aviso de borrar abierto (un segundo clic no abre otro).
     @Stored private var askingDelete = false
-    @Stored private var dropping = false
+    @Stored private var askingMove = false
+    /// Lo que se está arrastrando encima de la lista: archivos del Mac (subir) o filas (mover aquí).
+    @Stored private var dropping: ListDrop.Kind?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -161,6 +201,7 @@ struct RemoteBrowserView: View {
                         ForEach(Array(RemotePath.breadcrumbs(browser.path).enumerated()), id: \.offset) { i, c in
                             if i > 1 { Text("/").font(t.mono(12)).foregroundStyle(SwiftUI.Color(t.dim)) }
                             Crumb(title: c.name, last: c.path == browser.path) { browser.open(c.path) }
+                                .onDrop(of: [.netdeckEntries], isTargeted: nil) { EntryDrag.drop($0, on: browser, to: c.path) }
                         }
                     }
                 }
@@ -224,24 +265,15 @@ struct RemoteBrowserView: View {
         .onTapGesture { browser.selection = [] }
         .themedContextMenu { folderMenu }
         .overlay {
-            if dropping {
+            if let dropping {
                 RoundedRectangle(cornerRadius: t.corner ?? 6).strokeBorder(SwiftUI.Color(t.accent), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
                     .padding(6)
-                    .overlay(Text(L("Suelta para subir a \(browser.path)")).font(t.ui(13, .bold)).foregroundStyle(SwiftUI.Color(t.accent)))
+                    .overlay(Text(dropping == .upload ? L("Suelta para subir a \(browser.path)") : L("Suelta para mover a \(browser.path)"))
+                        .font(t.ui(13, .bold)).foregroundStyle(SwiftUI.Color(t.accent)))
                     .allowsHitTesting(false)
             }
         }
-        .onDrop(of: [UTType.fileURL], isTargeted: $dropping) { providers in
-            Task { @MainActor in
-                var urls: [URL] = []
-                for p in providers {
-                    if let u = try? await p.loadItem(forTypeIdentifier: UTType.fileURL.identifier) as? Data,
-                       let url = URL(dataRepresentation: u, relativeTo: nil), url.isFileURL { urls.append(url) }
-                }
-                if !urls.isEmpty { uploadURLs(urls) }
-            }
-            return true
-        }
+        .onDrop(of: [.netdeckEntries, .fileURL], delegate: ListDrop(browser: browser, kind: $dropping, upload: uploadURLs))
     }
 
     @ViewBuilder private func rowMenu(_ e: RemoteEntry) -> some View {
@@ -256,6 +288,8 @@ struct RemoteBrowserView: View {
         SendToItems(browser: browser, entries: targets)
         MenuDivider()
         Button { rename(e) } label: { Label(L("Renombrar…"), systemImage: "pencil") }.disabled(targets.count != 1)
+        Button { move(targets) } label: { Label(L("Mover a…"), systemImage: "folder.badge.gearshape") }
+            .disabled(browser.moving)
         Button {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(targets.map(\.path).joined(separator: "\n"), forType: .string)
@@ -362,6 +396,20 @@ struct RemoteBrowserView: View {
         }
     }
 
+    /// «Mover a…»: la carpeta de destino en este mismo servidor (empieza en la de ahora); se mueve con `rename`.
+    private func move(_ list: [RemoteEntry]) {
+        guard !list.isEmpty, !askingMove else { return }
+        askingMove = true
+        let title = list.count == 1 ? L("Mover «\(list[0].name)» a…") : L("Mover \(list.count) elementos a…")
+        Task {
+            defer { askingMove = false }
+            let r = await ThemedAlert.run(title, message: L("Carpeta de destino en este servidor (ruta completa). Se mueve sin copiar: no se sustituye nada que ya exista."),
+                                          buttons: [L("Mover"), L("Cancelar")], field: (L("Carpeta"), browser.path, false))
+            guard r.button == 0 else { return }
+            browser.move(list, to: r.text.trimmingCharacters(in: .whitespaces))
+        }
+    }
+
     /// Borrar: se pregunta fuera del clic (`ThemedAlert` con await) y se borra en una tarea con tope de tiempo
     /// (`RemoteBrowser.delete`): ni el aviso ni el servidor pueden dejar la ventana colgada.
     private func delete(_ list: [RemoteEntry]) {
@@ -452,6 +500,8 @@ private struct EntryRow: View {
     let odd: Bool
     let open: () -> Void
     @Stored private var hover = false
+    /// Hay filas arrastradas encima de esta carpeta.
+    @Stored private var target = false
 
     var body: some View {
         let selected = browser.selection.contains(entry.path)
@@ -498,8 +548,18 @@ private struct EntryRow: View {
             Rectangle().fill(SwiftUI.Color(t.accent)).frame(width: 2).opacity(selected ? 1 : 0)
                 .shadow(color: SwiftUI.Color(t.accent), radius: t.glow(4))
         }
+        .overlay {
+            if target, entry.isDirectory {
+                RoundedRectangle(cornerRadius: 4).strokeBorder(SwiftUI.Color(t.accent), lineWidth: 1.5).allowsHitTesting(false)
+            }
+        }
         .contentShape(Rectangle())
         .onHover { hover = $0 }
+        .onDrag { EntryDrag.provider(browser, entry) }
+        // (en una carpeta: dentro; en un archivo: a la carpeta en la que está, como en el Finder)
+        .onDrop(of: [.netdeckEntries], isTargeted: $target) {
+            EntryDrag.drop($0, on: browser, to: entry.isDirectory ? entry.path : RemotePath.parent(entry.path))
+        }
         .gesture(TapGesture(count: 2).onEnded { open() })
         .simultaneousGesture(TapGesture().onEnded { select() })
         .help(entry.path)
@@ -553,6 +613,40 @@ private struct EntryRow: View {
         f.dateFormat = "yyyy-MM-dd HH:mm"
         return f
     }()
+}
+
+/// Soltar encima de la lista: archivos del Mac se suben a la carpeta abierta; filas del explorador se mueven a ella.
+private struct ListDrop: DropDelegate {
+    enum Kind { case upload, move }
+
+    let browser: RemoteBrowser
+    @Binding var kind: Kind?
+    let upload: ([URL]) -> Void
+
+    func dropEntered(info: DropInfo) {
+        kind = info.hasItemsConforming(to: [.netdeckEntries]) ? .move : .upload
+    }
+
+    func dropExited(info: DropInfo) { kind = nil }
+
+    func validateDrop(info: DropInfo) -> Bool { info.hasItemsConforming(to: [.netdeckEntries, .fileURL]) }
+
+    func performDrop(info: DropInfo) -> Bool {
+        kind = nil
+        if info.hasItemsConforming(to: [.netdeckEntries]) {
+            return EntryDrag.drop(info.itemProviders(for: [.netdeckEntries]), on: browser, to: browser.path)
+        }
+        let providers = info.itemProviders(for: [.fileURL])
+        Task { @MainActor in
+            var urls: [URL] = []
+            for p in providers {
+                if let u = try? await p.loadItem(forTypeIdentifier: UTType.fileURL.identifier) as? Data,
+                   let url = URL(dataRepresentation: u, relativeTo: nil), url.isFileURL { urls.append(url) }
+            }
+            if !urls.isEmpty { upload(urls) }
+        }
+        return true
+    }
 }
 
 /// «Enviar a…»: los otros exploradores abiertos (SFTP o FTP), a la carpeta en la que estén. Se copia de servidor a

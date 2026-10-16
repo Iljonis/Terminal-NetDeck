@@ -1733,5 +1733,31 @@ enum Ingles {
             "Start with the sample ones",
         "Unos botones de muestra (show interfaces de Cisco, Juniper y Huawei, ping…) para editarlos a tu gusto":
             "A few sample buttons (Cisco, Juniper and Huawei show interfaces, ping…) to edit as you like",
+        "Carpeta de destino no válida":
+            "Invalid destination folder",
+        "«%@» no se puede mover dentro de sí misma":
+            "“%@” can't be moved into itself",
+        "Ya hay «%@» en %@: no se mueve":
+            "“%@” already exists in %@: not moved",
+        "Mover a…":
+            "Move to…",
+        "Mover «%@» a…":
+            "Move “%@” to…",
+        "Mover %@ elementos a…":
+            "Move %@ items to…",
+        "Carpeta de destino en este servidor (ruta completa). Se mueve sin copiar: no se sustituye nada que ya exista.":
+            "Destination folder on this server (full path). It's moved without copying: nothing that already exists is replaced.",
+        "Mover":
+            "Move",
+        "Carpeta":
+            "Folder",
+        "Moviendo «%@»…":
+            "Moving “%@”…",
+        "Moviendo %@ elementos…":
+            "Moving %@ items…",
+        "Suelta para mover a %@":
+            "Drop to move to %@",
+        "✗ Carpeta de destino no válida":
+            "✗ Invalid destination folder",
 ]
 }

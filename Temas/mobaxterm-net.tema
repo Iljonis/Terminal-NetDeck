@@ -1,0 +1,26 @@
+# MobaXterm Net — Gris carbón y texto blanco, con los colores de estado de un NOC: verde up, rojo down, IPs en azul y protocolos en morado.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = MobaXterm Net
+grupo     = Sistemas
+orden     = 22
+fuentes   = JetBrains Mono, Cascadia Mono, Menlo      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #1e1f22                  # fondo de la ventana de Terminal
+texto         = #ffffff                  # texto normal
+barra         = #16171a                  # barra de pestañas y de botones
+panel         = #2b2d31                  # pestañas y botones inactivos
+pestaña       = #3498db                  # pestaña activa
+sobre_pestaña = #0b0c0e                  # texto sobre la pestaña activa
+acento        = #f1c40f                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #3498db                  # IPs, máscaras, rutas, enlaces
+bien          = #2ecc71                  # up, established, connected
+mal           = #e74c3c                  # down, disconnected, errores
+especial      = #9b59b6                  # dBm, MAC, morado
+apagado       = #8a9099                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+
+# Colores del resaltado (nombre de las reglas = #hex): sin esto salen de los de arriba. Las reglas no cambian.
+resaltado     = white #ffffff, green #2ecc71, red #e74c3c, cyan #3498db, blue #9b59b6

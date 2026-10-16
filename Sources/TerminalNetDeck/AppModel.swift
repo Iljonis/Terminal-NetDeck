@@ -131,9 +131,7 @@ final class AppModel {
         reloadHighlight()
         let settings = settings
         transfers.verify = { settings.verifyTransfers }
-        transfers.showCopied = { [weak self] fs, dir in
-            for b in self?.tabs.compactMap(\.browser) ?? [] where b.shows(dir, of: fs) { b.refresh() }
-        }
+        transfers.showCopied = { [weak self] fs, dir in self?.refreshBrowsers(showing: [dir], of: fs) }
         lastOpen = Self.readOpenTabs()
         Self.instance = self
         loadFavorites()
@@ -490,6 +488,11 @@ final class AppModel {
             transfers.bridge(entries, from: src, to: dst, dir: dir)
             status = L("Copiando de «\(from.route.title)» a «\(to.route.title)»…")
         }
+    }
+
+    /// Refresca (una vez cada uno) los exploradores de ese servidor que enseñan alguna de esas carpetas.
+    func refreshBrowsers(showing dirs: Set<String>, of fs: any RemoteFileSystem, except: RemoteBrowser? = nil) {
+        for b in tabs.compactMap(\.browser) where b !== except && dirs.contains(where: { b.shows($0, of: fs) }) { b.refresh() }
     }
 
     /// Borrar una sesión desde la lista (pregunta antes; queda copia en ssh_config.anterior).

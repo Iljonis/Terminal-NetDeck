@@ -42,6 +42,10 @@ final class RemoteBrowser {
     @ObservationIgnored private var connectTask: Task<Void, Never>?
     @ObservationIgnored private var refreshing = false
     @ObservationIgnored private var refreshAgain = false
+    /// El aviso que queda abajo cuando acabe el refresco (leer la carpeta lo borraría).
+    @ObservationIgnored private var noteAfterRefresh: String?
+    /// Hay un «mover» en marcha (soltar otra vez no lanza otro a la vez).
+    @ObservationIgnored private(set) var moving = false
     /// La contraseña FTP que se está probando (y si vino del Llavero).
     @ObservationIgnored private var probing: CredentialRef?
 
@@ -67,6 +71,7 @@ final class RemoteBrowser {
     }
 
     func disconnect() {
+        closeMD5()                                   // (sin lecturas del MD5 colgadas de una conexión que se cierra)
         connectTask?.cancel()
         connectTask = nil
         if let fs { Task { await fs.close() } }
@@ -251,19 +256,26 @@ final class RemoteBrowser {
 
     /// Vuelve a leer la carpeta y lo desplegado (nada de lo de antes se reutiliza), sin perder lo elegido que siga.
     /// Si llega otro mientras tanto (las copias refrescan a menudo), se hace uno más al acabar, no varios a la vez.
-    func refresh() {
+    /// `note`: el aviso que se deja abajo al acabar (el error de borrar o mover).
+    func refresh(note: String? = nil) {
+        if let note { noteAfterRefresh = note }
         guard !refreshing else { refreshAgain = true; return }
         refreshing = true
         let open = expanded, chosen = selection
         Task {
             await go(path, record: false)
-            for p in open.sorted() { await expand(p) }
+            // (sólo las que siguen ahí: una carpeta movida o borrada no se vuelve a pedir ni da error)
+            for p in open.sorted() where entries.contains(where: { $0.path == p })
+                || children.values.contains(where: { $0.contains { $0.path == p } }) { await expand(p) }
             let present = Set(entries.map(\.path)).union(children.values.joined().map(\.path))
             selection = chosen.intersection(present)
             refreshing = false
             if refreshAgain {
                 refreshAgain = false
                 refresh()
+            } else if let note = noteAfterRefresh {
+                noteAfterRefresh = nil
+                message = note
             }
         }
     }
@@ -355,21 +367,27 @@ final class RemoteBrowser {
     }
 
     /// «Calcular / ver MD5»: se lee el archivo entero del servidor (por su conexión de lectura: se puede seguir
-    /// navegando) y se abre la ventana con el resultado. Cerrarla lo cancela.
+    /// navegando) y se abre la ventana con el resultado. Una sola ventana y una sola lectura por explorador: pedirlo
+    /// otra vez para el mismo archivo no relee nada (salvo que haya fallado); para otro, cancela la anterior. Cerrar
+    /// la ventana (o la pestaña) cancela la lectura y cierra el archivo en el servidor.
     func computeMD5(_ e: RemoteEntry) {
-        guard let fs, !e.isDirectory else { return }
-        md5?.cancel()
+        guard let fs, state == .connected, !e.isDirectory else { return }
+        if let open = md5, open.entry.path == e.path, open.failure == nil { return }
+        closeMD5()
         let check = MD5Check(entry: e)
         md5 = check
-        check.task = Task {
+        let label = label
+        check.task = Task { [weak self] in
+            defer { check.task = nil }
             do {
                 let hash = try await TransferDigest.of(try await fs.openRead(e.path)) { n in
-                    Task { @MainActor in check.read = n }
+                    Task { @MainActor in if n > check.read { check.read = n } }
                 }
+                guard !Task.isCancelled, self?.md5 === check else { return }
                 check.state = .done(hash)
                 DebugLog.log("md5", "\(label):\(e.path) = \(hash)")
             } catch {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, self?.md5 === check else { return }
                 check.state = .failed(error.localizedDescription)
                 ErrorLog.error("md5", "\(label):\(e.path): \(error.localizedDescription)")
             }
@@ -406,7 +424,35 @@ final class RemoteBrowser {
                 }
             }
             if !failed { message = nil }
-            refresh()
+            refresh(note: failed ? message : nil)
+        }
+    }
+
+    /// Mover dentro de este servidor (arrastrar a una carpeta o «Mover a…»): `rename` en el servidor, nada se copia.
+    /// Uno cada vez; al acabar, un solo refresco de este explorador y de los otros de este servidor que enseñen el
+    /// origen o el destino (lo movido sigue elegido).
+    func move(_ list: [RemoteEntry], to dir: String) {
+        guard let fs, state == .connected, !moving, !list.isEmpty else { return }
+        guard let dir = RemoteOps.cleanDirectory(dir) else { message = L("✗ Carpeta de destino no válida"); return }
+        let list = list.filter { RemoteOps.moveProblem($0, to: dir) != .sameFolder }
+        guard !list.isEmpty else { return }
+        moving = true
+        message = list.count == 1 ? L("Moviendo «\(list[0].name)»…") : L("Moviendo \(list.count) elementos…")
+        let from = Set(list.map { RemotePath.parent($0.path) })
+        Task {
+            var note: String?
+            do {
+                let moved = try await RemoteOps.move(fs, list, to: dir)
+                DebugLog.log("explorador", "«\(route.title)» mueve \(moved.count) a \(dir)")
+                message = nil
+                selection = Set(moved)
+            } catch {
+                note = "✗ \(error.localizedDescription)"
+                ErrorLog.error("explorador", "«\(route.title)»: no se ha podido mover a \(dir): \(error.localizedDescription)")
+            }
+            moving = false
+            refresh(note: note)
+            model?.refreshBrowsers(showing: from.union([dir]), of: fs, except: self)
         }
     }
 }
@@ -435,7 +481,12 @@ final class MD5Check {
         return want == hash
     }
 
-    func cancel() { task?.cancel() }
+    var failure: String? { if case .failed(let m) = state { m } else { nil } }
+
+    func cancel() {
+        task?.cancel()
+        task = nil
+    }
 }
 
 // MARK: - transferencias

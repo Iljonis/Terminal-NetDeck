@@ -40,10 +40,13 @@ enum Fonts {
     /// La primera instalada de la lista (la oficial del tema primero), o nil.
     static func firstInstalled(_ families: [String]) -> String? { families.first(where: isInstalled) }
 
+    /// Sin ligaduras (`TerminalFont.strict`): cada carácter en su celda, sin montarse en el de al lado.
     static func terminal(family: String?, size: CGFloat) -> NSFont {
         if let family, isInstalled(family),
-           let f = NSFontManager.shared.font(withFamily: family, traits: [], weight: 5, size: size) { return f }
-        return .monospacedSystemFont(ofSize: size, weight: .regular)
+           let f = NSFontManager.shared.font(withFamily: family, traits: [], weight: 5, size: size) {
+            return TerminalFont.strict(f) as NSFont
+        }
+        return TerminalFont.strict(NSFont.monospacedSystemFont(ofSize: size, weight: .regular)) as NSFont
     }
 
     /// Las monoespaciadas instaladas (para elegir otra).

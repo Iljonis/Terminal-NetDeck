@@ -218,5 +218,6 @@ extension Theme {
     public var highlightPalette: [String: RGB] {
         ["white": text, "yellow": accent, "cyan": accent2, "red": bad, "green": good, "magenta": special,
          "orange": warning, "blue": blue, "dark": background.opaque, "dim": dim]
+            .merging(highlightColors) { $1 }                // (los que fija el tema con «resaltado»)
     }
 }

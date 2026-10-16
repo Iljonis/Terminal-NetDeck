@@ -27,17 +27,23 @@ public struct TransferDigest: Sendable {
         return nil
     }
 
-    /// El MD5 de todo lo que dé `reader` (y lo cierra). `progress`: los bytes leídos hasta ahora.
+    /// Cada cuánto se avisa del progreso (y siempre al acabar): no un aviso por cada trozo de 32 KiB.
+    public static let progressStep: Int64 = 1 << 20
+
+    /// El MD5 de todo lo que dé `reader` (y lo cierra). `progress`: los bytes leídos hasta ahora (cada `progressStep`
+    /// y al final). Cancelado, para en el siguiente trozo y cierra el lector.
     public static func of(_ reader: any RemoteReader, progress: @Sendable (Int64) -> Void = { _ in }) async throws -> String {
         var d = TransferDigest()
-        var read: Int64 = 0
+        var read: Int64 = 0, told: Int64 = 0
         do {
+            try Task.checkCancellation()
             while let chunk = try await reader.read() {
                 try Task.checkCancellation()
                 d.update(chunk)
                 read += Int64(chunk.count)
-                progress(read)
+                if read - told >= progressStep { told = read; progress(read) }
             }
+            if read != told || read == 0 { progress(read) }
         } catch {
             await reader.close()
             throw error
@@ -566,6 +572,71 @@ public enum RemoteOps {
         }
         try await walk(entry.path, entry.name, 0)
         return out
+    }
+
+    /// Una carpeta de destino que se puede usar tal cual: absoluta, sin «.»/«..» ni nombres raros (en FTP un salto de
+    /// línea metería otra orden). Devuelve la ruta limpia («/a/b», sin «/» al final) o nil.
+    public static func cleanDirectory(_ dir: String) -> String? {
+        guard dir.hasPrefix("/") else { return nil }
+        let parts = dir.split(separator: "/").map(String.init)
+        guard parts.allSatisfy(RemotePath.isValidName) else { return nil }
+        return "/" + parts.joined(separator: "/")
+    }
+
+    /// Por qué no se mueve algo a una carpeta del mismo servidor (nil: se puede).
+    public enum MoveProblem: Equatable, Sendable {
+        /// Ya está en esa carpeta (no se hace nada).
+        case sameFolder
+        /// Una carpeta dentro de sí misma o de una suya.
+        case intoItself
+    }
+
+    /// Lo que se puede saber sin preguntar al servidor (`dir` ya limpia, ver `cleanDirectory`).
+    public static func moveProblem(_ entry: RemoteEntry, to dir: String) -> MoveProblem? {
+        if RemotePath.parent(entry.path) == dir { return .sameFolder }
+        if dir == entry.path || dir.hasPrefix(entry.path == "/" ? "/" : entry.path + "/") { return .intoItself }
+        return nil
+    }
+
+    /// Mover dentro del mismo servidor: un `rename` por elemento (atómico en el servidor, con los permisos del usuario;
+    /// nada se copia ni se borra). Antes se comprueba todo (destino válido, nada dentro de sí mismo, nada que pisar,
+    /// con una sola lectura de la carpeta de destino): si algo falla no se mueve nada. Los que ya están allí se saltan.
+    /// Devuelve las rutas nuevas de lo movido; al primer `rename` que falle se para y lanza (lo anterior queda movido).
+    @discardableResult
+    public static func move(_ fs: any RemoteFileSystem, _ entries: [RemoteEntry], to dir: String,
+                            timeout: Int = callTimeout) async throws -> [String] {
+        guard let dir = cleanDirectory(dir) else { throw RemoteError(L("Carpeta de destino no válida")) }
+        var todo: [RemoteEntry] = []
+        for e in entries {
+            switch moveProblem(e, to: dir) {
+            case .sameFolder?: continue
+            case .intoItself?: throw RemoteError(L("«\(e.name)» no se puede mover dentro de sí misma"))
+            case nil:
+                guard RemotePath.isValidName(e.name), !todo.contains(where: { $0.name == e.name }) else {
+                    throw RemoteError(L("Ya hay «\(e.name)» en \(dir): no se mueve"))
+                }
+                todo.append(e)
+            }
+        }
+        guard !todo.isEmpty else { return [] }
+        let there = Set(try await withTimeout(timeout) { try await fs.list(dir) }.map(\.name))
+        if let clash = todo.first(where: { there.contains($0.name) }) {
+            throw RemoteError(L("Ya hay «\(clash.name)» en \(dir): no se mueve"))
+        }
+        var moved: [String] = []
+        for e in todo {
+            try Task.checkCancellation()
+            let to = RemotePath.join(dir, e.name)
+            // (y justo antes, por el nombre: un LIST de FTP puede no enseñar los ocultos, el servidor puede no
+            //  distinguir mayúsculas, y RNTO sí sustituye; SFTP no, pero tampoco sobra)
+            let kind = await fs.kind(of: to), size = await fs.size(of: to)
+            if kind != nil || size != nil {
+                throw RemoteError(L("Ya hay «\(e.name)» en \(dir): no se mueve"))
+            }
+            try await withTimeout(timeout) { try await fs.rename(e.path, to: to) }
+            moved.append(to)
+        }
+        return moved
     }
 
     /// Lo más que se espera cada petición de la interfaz (borrar, renombrar, crear carpeta) a un servidor que no

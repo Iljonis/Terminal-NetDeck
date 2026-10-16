@@ -169,6 +169,32 @@ final class MemoryWriter: RemoteWriter, @unchecked Sendable {
         #expect(seen.value == Int64(body.count))
     }
 
+    /// El progreso del MD5 va a saltos (no un aviso por trozo, que inundaría la ventana) y siempre llega al final.
+    @Test func md5ProgresoASaltos() async throws {
+        let body = Data(repeating: 9, count: 5 * Int(TransferDigest.progressStep) + 1234)
+        let calls = Counter(), last = Counter()
+        let hash = try await TransferDigest.of(BlobReader(body)) { n in calls.add(); last.set(n) }
+        #expect(hash == TransferDigest.hexOf(body))
+        #expect(last.value == Int64(body.count))
+        #expect(calls.count <= 6)
+        let empty = Counter()
+        _ = try await TransferDigest.of(BlobReader(Data())) { empty.set($0); empty.add() }
+        #expect(empty.count == 1 && empty.value == 0)
+    }
+
+    /// Cerrar la ventana del MD5 cancela la lectura: para enseguida y cierra el archivo (nada sigue leyendo).
+    @Test func md5CanceladoCierraElLector() async throws {
+        let r = EndlessReader()
+        let task = Task { try await TransferDigest.of(r) }
+        while r.reads < 3 { try await Task.sleep(for: .milliseconds(2)) }
+        task.cancel()
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(r.closed)
+        let after = r.reads
+        try await Task.sleep(for: .milliseconds(30))
+        #expect(r.reads == after)
+    }
+
     @Test func copiaEnOrdenYConProgreso() async throws {
         let chunks = (0..<200).map { i in Data(repeating: UInt8(i % 256), count: 1000 + i) }
         let w = MemoryWriter()
@@ -291,6 +317,7 @@ final class MemoryFileSystem: RemoteFileSystem, @unchecked Sendable {
         if hangs { try await Task.sleep(for: .seconds(3600)) }
         files[path] = nil
     }
+    /// Como RNTO de FTP: sustituye lo que haya (y `list` no enseña nada, como un LIST sin ocultos).
     func rename(_ from: String, to: String) async throws {
         guard let d = files[from] else { throw RemoteError("no existe") }
         files[from] = nil
@@ -309,8 +336,57 @@ final class MemoryFileSystem: RemoteFileSystem, @unchecked Sendable {
 final class Counter: @unchecked Sendable {
     private let lock = NSLock()
     private var v: Int64 = 0
+    private var n = 0
     func set(_ n: Int64) { lock.withLock { v = n } }
+    func add() { lock.withLock { n += 1 } }
     var value: Int64 { lock.withLock { v } }
+    var count: Int { lock.withLock { n } }
+}
+
+/// Un archivo que no se acaba nunca (lento): sólo para con la cancelación.
+final class EndlessReader: RemoteReader, @unchecked Sendable {
+    private let lock = NSLock()
+    private var n = 0, isClosed = false
+    var reads: Int { lock.withLock { n } }
+    var closed: Bool { lock.withLock { isClosed } }
+    func read() async throws -> Data? {
+        try await Task.sleep(for: .milliseconds(1))
+        lock.withLock { n += 1 }
+        return Data(repeating: 1, count: 32_768)
+    }
+    func close() async { lock.withLock { isClosed = true } }
+}
+
+@Suite struct MoveTests {
+    @Test func carpetaDeDestino() {
+        #expect(RemoteOps.cleanDirectory("/srv/imagenes/") == "/srv/imagenes")
+        #expect(RemoteOps.cleanDirectory("//srv//x") == "/srv/x")
+        #expect(RemoteOps.cleanDirectory("/") == "/")
+        #expect(RemoteOps.cleanDirectory("srv/x") == nil)                  // (relativa)
+        #expect(RemoteOps.cleanDirectory("/srv/../etc") == nil)
+        #expect(RemoteOps.cleanDirectory("/srv/./x") == nil)
+        #expect(RemoteOps.cleanDirectory("/srv/x\r\nDELE y") == nil)        // (FTP: otra orden)
+    }
+
+    /// Un servidor cuyo listado no enseña lo que hay y cuyo rename sustituye (FTP): no se pisa nada.
+    @Test func moverNoPisaAunqueElListadoNoLoEnseñe() async throws {
+        let fs = MemoryFileSystem()
+        fs.files = ["/a/.oculto": Data("nuevo".utf8), "/b/.oculto": Data("ya estaba".utf8)]
+        let e = RemoteEntry(name: ".oculto", path: "/a/.oculto", kind: .file)
+        await #expect(throws: RemoteError.self) { try await RemoteOps.move(fs, [e], to: "/b") }
+        #expect(fs.files["/b/.oculto"] == Data("ya estaba".utf8) && fs.files["/a/.oculto"] != nil)
+    }
+
+    @Test func queNoSePuedeMover() {
+        let dir = RemoteEntry(name: "conf", path: "/srv/conf", kind: .directory)
+        let file = RemoteEntry(name: "a.cfg", path: "/srv/a.cfg", kind: .file)
+        #expect(RemoteOps.moveProblem(file, to: "/srv") == .sameFolder)
+        #expect(RemoteOps.moveProblem(file, to: "/srv/conf") == nil)
+        #expect(RemoteOps.moveProblem(dir, to: "/srv/conf") == .intoItself)
+        #expect(RemoteOps.moveProblem(dir, to: "/srv/conf/sub") == .intoItself)
+        #expect(RemoteOps.moveProblem(dir, to: "/srv/conf-viejo") == nil)    // (empieza igual, pero es otra)
+        #expect(RemoteOps.moveProblem(dir, to: "/") == nil)
+    }
 }
 
 /// Contra el sftp-server de verdad del Mac (/usr/libexec/sftp-server, sin ssh ni red), en una carpeta temporal.
@@ -396,6 +472,45 @@ final class Counter: @unchecked Sendable {
         try await RemoteOps.removeRecursively(fs, RemoteEntry(name: "sub", path: dir.path + "/sub", kind: .directory))
         #expect(try await fs.list(dir.path).isEmpty)
         await #expect(throws: RemoteError.self) { try await fs.list(dir.path + "/no-existe") }
+    }
+
+    /// Mover en el mismo servidor: `rename` (mismo contenido, sin copias ni temporales); si algo no se puede (ya existe
+    /// en el destino, una carpeta dentro de sí misma, destino no válido) no se mueve nada.
+    @Test(.enabled(if: FileManager.default.isExecutableFile(atPath: server)))
+    func moverSinPisarNiCopiar() async throws {
+        let dir = try tempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let fs = try await connect()
+        defer { Task { await fs.close() } }
+        let root = dir.path
+        let body = Data((0..<100_000).map { UInt8(truncatingIfNeeded: $0 &* 13) })
+        try FileManager.default.createDirectory(atPath: root + "/conf/sub", withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(atPath: root + "/destino", withIntermediateDirectories: true)
+        try body.write(to: URL(fileURLWithPath: root + "/imagen.bin"))
+        try Data("x".utf8).write(to: URL(fileURLWithPath: root + "/conf/sub/x.txt"))
+        try Data("ya estaba".utf8).write(to: URL(fileURLWithPath: root + "/destino/imagen.bin"))
+        let image = RemoteEntry(name: "imagen.bin", path: root + "/imagen.bin", kind: .file)
+        let conf = RemoteEntry(name: "conf", path: root + "/conf", kind: .directory)
+
+        // (en el destino ya hay uno con ese nombre: ni ése ni la carpeta se mueven, y el de allí sigue igual)
+        await #expect(throws: RemoteError.self) { try await RemoteOps.move(fs, [conf, image], to: root + "/destino") }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: root).sorted() == ["conf", "destino", "imagen.bin"])
+        #expect(try String(contentsOfFile: root + "/destino/imagen.bin", encoding: .utf8) == "ya estaba")
+
+        // (una carpeta dentro de sí misma, o un destino con «..»: nada)
+        await #expect(throws: RemoteError.self) { try await RemoteOps.move(fs, [image, conf], to: root + "/conf/sub") }
+        await #expect(throws: RemoteError.self) { try await RemoteOps.move(fs, [image], to: root + "/conf/../destino") }
+        #expect(FileManager.default.fileExists(atPath: root + "/imagen.bin"))
+
+        // (la buena: archivo y carpeta con lo de dentro, mismo contenido; lo que ya estaba allí se salta)
+        try FileManager.default.removeItem(atPath: root + "/destino/imagen.bin")
+        let moved = try await RemoteOps.move(fs, [image, conf], to: root + "/destino/")
+        #expect(moved == [root + "/destino/imagen.bin", root + "/destino/conf"])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: root) == ["destino"])
+        #expect(try Data(contentsOf: URL(fileURLWithPath: root + "/destino/imagen.bin")) == body)
+        #expect(FileManager.default.fileExists(atPath: root + "/destino/conf/sub/x.txt"))
+        let again = RemoteEntry(name: "imagen.bin", path: root + "/destino/imagen.bin", kind: .file)
+        #expect(try await RemoteOps.move(fs, [again], to: root + "/destino").isEmpty)
     }
 
     /// El puente: de un servidor a otro (dos conexiones), en memoria.
