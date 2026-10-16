@@ -9,7 +9,7 @@ and 51 themes. Native, fast and in your language.
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v0.8.11](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.8.11)** · macOS 15 or later ·
+Current version: **[v0.8.12](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.8.12)** · macOS 15 or later ·
 free and open source
 
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
