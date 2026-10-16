@@ -96,7 +96,12 @@ Cómo se trabaja con ellos:
 
 ## Publicar una versión
 
-1. `VERSION` en `install.sh`; `./test.sh`; `tools/seguridad_cron.sh`; pasada de `ecc:security-reviewer` /
+**OBLIGATORIO en cada cambio de versión**: actualizar siempre `README.md`, `README.en.md`, `install.sh` y todos los
+ficheros de documentación o scripts que contengan el número de versión actual antes de etiquetar (tag) o publicar una
+release. Compruébalo con `grep -rnE "v?[0-9]+\.[0-9]+\.[0-9]+" README*.md install.sh docs tools` y que ninguno se quede
+en la versión anterior.
+
+1. `VERSION` en `install.sh`; «Versión actual» en `README.md` y «Current version» en `README.en.md`; `./test.sh`; `tools/seguridad_cron.sh`; pasada de `ecc:security-reviewer` /
    `ecc:opensource-sanitizer`.
 2. Commit, push, `git tag -a vX.Y.Z -m "Terminal NetDeck X.Y.Z"` y `git push origin vX.Y.Z`.
 3. Nada más: `.github/workflows/release.yml` comprueba que el tag y `VERSION` coinciden, pasa los tests, hace el .dmg,

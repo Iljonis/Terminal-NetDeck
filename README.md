@@ -9,7 +9,7 @@ y 51 temas. Nativo, rápido y en tu idioma.
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.8.9](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.8.9)** · macOS 15 o posterior ·
+Versión actual: **[v0.8.11](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.8.11)** · macOS 15 o posterior ·
 gratis y de código abierto
 
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
