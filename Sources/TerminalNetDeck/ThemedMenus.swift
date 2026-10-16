@@ -200,25 +200,39 @@ private struct RightClickCatcher: NSViewRepresentable {
         var found: ((UnitPoint) -> Void)?
         override var isFlipped: Bool { true }
 
-        /// Mientras se mira qué hay debajo (para no responder a la vez a la pregunta).
-        private var looking = false
+        /// Todos los que hay en una ventana, para dar el clic al más concreto.
+        private static let all = NSHashTable<Catcher>.weakObjects()
 
-        override func hitTest(_ point: NSPoint) -> NSView? {
-            guard !looking, let e = NSApp.currentEvent else { return nil }
-            let right = e.type == .rightMouseDown || (e.type == .leftMouseDown && e.modifierFlags.contains(.control))
-            guard right, let hit = super.hitTest(point) else { return nil }
-            // Si debajo hay otro menú más concreto (el de una fila bajo el del fondo de la lista), el clic es suyo.
-            if let superview, let root = window?.contentView?.superview {
-                looking = true
-                defer { looking = false }
-                let below = root.hitTest(root.convert(superview.convert(point, to: nil), from: nil))
-                if below is Catcher { return nil }
-            }
-            return hit
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window != nil { Self.all.add(self) } else { Self.all.remove(self) }
         }
 
-        override func rightMouseDown(with event: NSEvent) { report(event) }
-        override func mouseDown(with event: NSEvent) { report(event) }
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            guard let e = NSApp.currentEvent else { return nil }
+            let right = e.type == .rightMouseDown || (e.type == .leftMouseDown && e.modifierFlags.contains(.control))
+            return right ? super.hitTest(point) : nil
+        }
+
+        override func rightMouseDown(with event: NSEvent) { Self.owner(of: event, from: self).report(event) }
+        override func mouseDown(with event: NSEvent) { Self.owner(of: event, from: self).report(event) }
+
+        /// Con un menú dentro de otro (el de una fila bajo el del fondo de la lista) el clic lo recibe el de encima,
+        /// que no tiene por qué ser el más concreto: es del más pequeño que haya bajo el ratón (como el contextMenu
+        /// nativo). Sin preguntar a `hitTest` desde `hitTest`: así ninguno cedía el clic al otro y se perdía. Sólo los
+        /// que están dentro del que lo ha recibido (una fila que el scroll ha sacado de la lista no cuenta) y con el
+        /// ratón dentro de sus bounds (el `visibleRect` de las vistas de SwiftUI no se recorta a ellos).
+        private static func owner(of event: NSEvent, from first: Catcher) -> Catcher {
+            let area = first.convert(first.bounds, to: nil)
+            var best = first
+            for c in all.allObjects where c !== first && c.window === event.window && !c.isHiddenOrHasHiddenAncestor {
+                let frame = c.convert(c.bounds, to: nil)
+                guard frame.contains(event.locationInWindow), area.contains(frame),
+                      frame.width * frame.height < best.bounds.width * best.bounds.height else { continue }
+                best = c
+            }
+            return best
+        }
 
         private func report(_ event: NSEvent) {
             let p = convert(event.locationInWindow, from: nil)
