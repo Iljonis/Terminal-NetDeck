@@ -250,10 +250,20 @@ public actor SFTPFileSystem: RemoteFileSystem {
         return SFTPFileReader(fs: self, handle: h)
     }
 
+    /// Sólo crea uno nuevo (O_EXCL): nunca abre ni trunca uno que ya exista (el origen de una copia incluido).
+    /// Algunos SFTP de equipos de red no admiten O_EXCL: entonces, sin él (sólo se abren nombres nuevos de UUID).
     public func openWrite(_ path: String) async throws -> any RemoteWriter {
+        do {
+            return try await openWrite(path, [.write, .create, .exclusive])
+        } catch let e as RemoteError where e.message == SFTP.message(for: SFTP.Status.unsupported.rawValue, "") {
+            return try await openWrite(path, [.write, .create, .truncate])
+        }
+    }
+
+    private func openWrite(_ path: String, _ flags: SFTP.OpenFlags) async throws -> any RemoteWriter {
         let h = try await handle(.open) {
             $0.string(path)
-            $0.u32(SFTP.OpenFlags([.write, .create, .truncate]).rawValue)
+            $0.u32(flags.rawValue)
             $0.attributes(SFTP.Attributes())
         }
         return SFTPFileWriter(fs: self, handle: h)

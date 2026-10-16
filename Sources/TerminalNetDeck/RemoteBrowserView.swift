@@ -104,6 +104,7 @@ struct RemoteBrowserView: View {
         }
         .background(SwiftUI.Color(t.layer))
         .overlay { if t.neon { Scanlines().opacity(0.5) } }
+        .overlay { if let check = browser.md5 { MD5Panel(browser: browser, check: check) } }
         .onAppear { browser.connect() }
     }
 
@@ -259,6 +260,10 @@ struct RemoteBrowserView: View {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(targets.map(\.path).joined(separator: "\n"), forType: .string)
         } label: { Label(L("Copiar la ruta"), systemImage: "doc.on.doc") }
+        if !e.isDirectory {
+            Button { browser.computeMD5(e) } label: { Label(L("Calcular / ver MD5…"), systemImage: "number.square") }
+                .disabled(targets.count != 1)
+        }
         MenuDivider()
         Button(role: .destructive) { delete(targets) } label: { Label(L("Borrar…"), systemImage: "trash") }
     }
@@ -411,7 +416,7 @@ struct RemoteBrowserView: View {
                 return
             }
             guard let fs = browser.fs, browser.state == .connected else { return }     // (mientras se preguntaba)
-            model.transfers.upload(urls, to: fs, dir: browser.path) { [weak browser] in browser?.refresh() }
+            model.transfers.upload(urls, to: fs, dir: browser.path)
         }
     }
 }
@@ -642,6 +647,108 @@ private struct FTPPasswordPrompt: View {
         let pw = password
         password = ""
         browser.connectFTP(password: pw, save: save ? browser.saveTarget : nil)
+    }
+}
+
+/// «Calcular / ver MD5»: el MD5 de un archivo del servidor, para copiarlo o compararlo con uno conocido (el de la web
+/// del fabricante, el de `verify /md5` en el equipo…) antes o después de pasarlo de un servidor a otro.
+private struct MD5Panel: View {
+    @Environment(\.theme) private var t
+    let browser: RemoteBrowser
+    @Bindable var check: MD5Check
+    @Stored private var copied = false
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        ZStack {
+            SwiftUI.Color.black.opacity(0.35).ignoresSafeArea().onTapGesture { browser.closeMD5() }
+            panel
+        }
+    }
+
+    private var panel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "number.square.fill").font(.system(size: 20)).foregroundStyle(SwiftUI.Color(t.accent))
+                    .shadow(color: SwiftUI.Color(t.accent).opacity(0.7), radius: t.glow(6))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(L("MD5 de «\(check.entry.name)»")).font(t.ui(14, .bold)).foregroundStyle(SwiftUI.Color(t.text))
+                        .lineLimit(1).truncationMode(.middle)
+                    Text(check.entry.path + (check.entry.size.map { " · " + RemoteBrowserView.bytes($0) } ?? ""))
+                        .font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim)).lineLimit(1).truncationMode(.middle)
+                }
+            }
+            result
+            if check.hash != nil { compare }
+            HStack {
+                Spacer()
+                NeonButton(title: check.hash == nil ? L("Cancelar") : L("Cerrar"), icon: "xmark") { browser.closeMD5() }
+                    .keyboardShortcut(.cancelAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 480)
+        .background(RoundedRectangle(cornerRadius: t.corner ?? 8).fill(SwiftUI.Color(t.bar.opaque)))
+        .overlay(RoundedRectangle(cornerRadius: t.corner ?? 8).strokeBorder(SwiftUI.Color(t.accent).opacity(0.4)))
+        .shadow(color: SwiftUI.Color(t.accent).opacity(0.3), radius: t.glow(12))
+    }
+
+    @ViewBuilder private var result: some View {
+        switch check.state {
+        case .computing:
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L("Leyendo del servidor… \(RemoteBrowserView.bytes(check.read))"))
+                    .font(t.ui(11.5)).foregroundStyle(SwiftUI.Color(t.dim))
+                NeonProgress(fraction: check.fraction ?? 0, color: t.accent)
+            }
+        case .done(let hash):
+            HStack(spacing: 8) {
+                Text(hash).font(t.mono(14)).foregroundStyle(SwiftUI.Color(t.text)).textSelection(.enabled)
+                    .padding(.horizontal, 8).frame(height: 30)
+                    .background(RoundedRectangle(cornerRadius: t.corner ?? 5).fill(SwiftUI.Color(t.background.opaque)))
+                Spacer(minLength: 0)
+                NeonButton(title: copied ? L("Copiado") : L("Copiar MD5"), icon: copied ? "checkmark" : "doc.on.doc",
+                           active: copied) {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(hash, forType: .string)
+                    copied = true
+                }
+            }
+        case .failed(let why):
+            Text("✗ \(why)").font(t.ui(11.5)).foregroundStyle(SwiftUI.Color(t.bad))
+        }
+    }
+
+    private var compare: some View {
+        let verdict = check.matches
+        let tint = verdict.map { $0 ? t.good : t.bad } ?? t.accent
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(L("Comparar con MD5 conocido")).font(t.ui(11.5, .bold)).foregroundStyle(SwiftUI.Color(t.text))
+            HStack(spacing: 8) {
+                TextField(L("Pega el MD5 (o la línea de md5sum / verify /md5)"), text: $check.expected)
+                    .textFieldStyle(.plain).font(t.mono(13)).foregroundStyle(SwiftUI.Color(t.text))
+                    .padding(.horizontal, 8).frame(height: 30)
+                    .background(RoundedRectangle(cornerRadius: t.corner ?? 5).fill(SwiftUI.Color(t.background.opaque)))
+                    .overlay(RoundedRectangle(cornerRadius: t.corner ?? 5)
+                        .strokeBorder(SwiftUI.Color(tint).opacity(verdict == nil ? (focused ? 0.8 : 0.3) : 0.9), lineWidth: verdict == nil ? 1 : 2))
+                    .focused($focused)
+                if let verdict {
+                    Image(systemName: verdict ? "checkmark.seal.fill" : "xmark.octagon.fill")
+                        .font(.system(size: 20)).foregroundStyle(SwiftUI.Color(tint))
+                        .shadow(color: SwiftUI.Color(tint).opacity(0.7), radius: t.glow(6))
+                }
+            }
+            Group {
+                switch verdict {
+                case true?: Text(L("✓ Coincide: el archivo es idéntico"))
+                case false?: Text(L("✗ No coincide: el archivo no es el esperado"))
+                case nil: Text(check.expected.isEmpty ? L("Pega un MD5 para comprobar el archivo") : L("No hay un MD5 (32 caracteres hexadecimales) en lo pegado"))
+                }
+            }
+            .font(t.ui(11.5, verdict == nil ? .regular : .bold))
+            .foregroundStyle(SwiftUI.Color(verdict == nil ? t.dim : tint))
+        }
+        .onAppear { focused = true }
     }
 }
 

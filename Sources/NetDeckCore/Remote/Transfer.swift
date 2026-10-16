@@ -14,13 +14,29 @@ public struct TransferDigest: Sendable {
         return x.hex()
     }
 
-    /// El MD5 de todo lo que dé `reader` (y lo cierra).
-    public static func of(_ reader: any RemoteReader) async throws -> String {
+    /// El MD5 que haya en un texto pegado («md5sum», «MD5 (x) = …», «verify /md5 … = …» de Cisco, en mayúsculas…):
+    /// el primer bloque de exactamente 32 hexadecimales, en minúsculas. nil si no hay ninguno.
+    public static func extract(_ text: String) -> String? {
+        let hex = Set("0123456789abcdefABCDEF")
+        var run = ""
+        for c in text + " " {
+            if hex.contains(c) { run.append(c); continue }
+            if run.count == 32 { return run.lowercased() }
+            run = ""
+        }
+        return nil
+    }
+
+    /// El MD5 de todo lo que dé `reader` (y lo cierra). `progress`: los bytes leídos hasta ahora.
+    public static func of(_ reader: any RemoteReader, progress: @Sendable (Int64) -> Void = { _ in }) async throws -> String {
         var d = TransferDigest()
+        var read: Int64 = 0
         do {
             while let chunk = try await reader.read() {
                 try Task.checkCancellation()
                 d.update(chunk)
+                read += Int64(chunk.count)
+                progress(read)
             }
         } catch {
             await reader.close()
@@ -371,6 +387,95 @@ public actor AtomicRemoteWriter: RemoteWriter {
         guard !done else { return }
         done = true
         await cleanUp(abortInner: true)
+    }
+}
+
+// MARK: - el origen, de sólo lectura
+
+/// Una copia sólo lee del origen: nunca lo borra, lo renombra ni lo trunca. El único sitio en el que algo podría
+/// tocarlo es `AtomicRemoteWriter.replace`, que aparta y borra el archivo que ya hubiera en el destino: si la carpeta
+/// de destino es la del origen vista por otro camino (el mismo servidor con otro nombre o por otra sesión, otro
+/// usuario, un enlace, el propio Mac por SFTP), ese «archivo de destino» es el original. Antes de escribir en cada
+/// carpeta se comprueba: se deja en ella un testigo vacío con nombre único y, si el origen lo ve en su carpeta, son la
+/// misma y la copia se para sin escribir nada. El testigo se borra al momento (es lo único que se borra).
+public actor SourceGuard {
+    private let destination: any RemoteFileSystem
+    /// ¿Existe esa ruta en el origen?
+    private let sourceSees: @Sendable (String) async -> Bool
+    /// Cómo se enseña una carpeta del destino en el aviso.
+    private let show: @Sendable (String) -> String
+    /// «carpeta de origen \0 carpeta de destino» → ¿son la misma? (sólo lo comprobado de verdad)
+    private var checked: [String: Bool] = [:]
+
+    public init(destination: any RemoteFileSystem, show: @escaping @Sendable (String) -> String = { $0 },
+                sourceSees: @escaping @Sendable (String) async -> Bool) {
+        self.destination = destination
+        self.show = show
+        self.sourceSees = sourceSees
+    }
+
+    /// De un servidor a otro (o al mismo). FTP no dice el tipo y hay equipos sin SIZE: entonces, en el listado.
+    public static func remote(_ source: any RemoteFileSystem, to destination: any RemoteFileSystem) -> SourceGuard {
+        SourceGuard(destination: destination) { path in
+            if await source.kind(of: path) != nil { return true }
+            if await source.size(of: path) != nil { return true }
+            let name = RemotePath.name(path)
+            return (try? await source.list(RemotePath.parent(path)))?.contains { $0.name == name } ?? false
+        }
+    }
+
+    /// Del Mac a un servidor (un SFTP que puede ser el propio Mac: en el aviso, la ruta con «~»).
+    public static func local(to destination: any RemoteFileSystem) -> SourceGuard {
+        SourceGuard(destination: destination, show: { AppPaths.tilde($0) }) { path in
+            var st = stat()
+            return lstat(path, &st) == 0
+        }
+    }
+
+    /// Lanza un error (sin haber escrito nada) si `target` puede ser el propio `source`, o si no se ha podido
+    /// comprobar (no se sigue a ciegas: se vuelve a probar en la próxima copia).
+    public func check(source: String, target: String) async throws {
+        guard RemotePath.name(source) == RemotePath.name(target) else { return }   // (otro nombre: otro archivo)
+        let srcDir = RemotePath.parent(source), dstDir = RemotePath.parent(target)
+        let key = srcDir + "\u{0}" + dstDir
+        let same: Bool
+        if let known = checked[key] { same = known } else {
+            guard let probed = await probe(srcDir: srcDir, dstDir: dstDir) else {
+                throw RemoteError(L("No se ha podido comprobar que «\(show(dstDir))» no es la carpeta de origen: no se copia"))
+            }
+            same = probed
+            checked[key] = same
+        }
+        if same { throw RemoteError(L("✗ «\(show(dstDir))» es la misma carpeta que la de origen: no se copia nada encima del original")) }
+    }
+
+    /// nil: no se ha podido dejar el testigo.
+    private func probe(srcDir: String, dstDir: String) async -> Bool? {
+        let fs = destination, sees = sourceSees
+        let tag = UUID().uuidString.prefix(12).lowercased()
+        // (fuera de la tarea, que puede estar cancelada: el testigo se borra siempre)
+        return await Task {
+            // (primero sin el punto: los LIST de FTP suelen esconder los «.algo» y algunos no dejan crearlos)
+            for name in ["netdeck-\(tag).testigo", ".netdeck-\(tag).testigo"] {
+                let marker = RemotePath.join(dstDir, name)
+                guard let w = try? await fs.openWrite(marker) else { continue }
+                do { try await w.finish() } catch {
+                    await w.abort()
+                    await Self.discard(fs, marker)
+                    continue
+                }
+                let same = await sees(RemotePath.join(srcDir, name))
+                await Self.discard(fs, marker)
+                return same
+            }
+            return nil
+        }.value
+    }
+
+    private static func discard(_ fs: any RemoteFileSystem, _ marker: String) async {
+        do { try await fs.remove(marker, directory: false) } catch {
+            ErrorLog.warning("transferencia", "No se ha podido borrar el testigo \(fs.label):\(marker): \(error.localizedDescription)")
+        }
     }
 }
 

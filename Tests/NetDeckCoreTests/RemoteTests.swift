@@ -148,6 +148,27 @@ final class MemoryWriter: RemoteWriter, @unchecked Sendable {
 }
 
 @Suite struct TransferTests {
+    /// «Comparar con MD5 conocido»: vale el MD5 solo o la línea entera de cada herramienta; un SHA-256 no cuenta.
+    @Test func md5PegadoDeCualquierHerramienta() {
+        let h = "9e107d9d372bb6826bd81d3542a419d6"
+        #expect(TransferDigest.extract(h) == h)
+        #expect(TransferDigest.extract("  \(h.uppercased())\n") == h)
+        #expect(TransferDigest.extract("\(h)  firmware.bin") == h)                                // md5sum
+        #expect(TransferDigest.extract("MD5 (firmware.bin) = \(h)") == h)                        // md5 de macOS
+        #expect(TransferDigest.extract("verify /md5 (flash:c9300-17.9.bin) = \(h)") == h)        // Cisco
+        #expect(TransferDigest.extract(String(h.dropLast())) == nil)
+        #expect(TransferDigest.extract(String(repeating: "ab", count: 32)) == nil)                // (SHA-256)
+        #expect(TransferDigest.extract("") == nil)
+    }
+
+    @Test func md5ConProgreso() async throws {
+        let body = Data((0..<200_000).map { UInt8(truncatingIfNeeded: $0 &* 3) })
+        let seen = Counter()
+        let hash = try await TransferDigest.of(BlobReader(body)) { seen.set($0) }
+        #expect(hash == TransferDigest.hexOf(body))
+        #expect(seen.value == Int64(body.count))
+    }
+
     @Test func copiaEnOrdenYConProgreso() async throws {
         let chunks = (0..<200).map { i in Data(repeating: UInt8(i % 256), count: 1000 + i) }
         let w = MemoryWriter()
@@ -397,6 +418,116 @@ final class Counter: @unchecked Sendable {
         let plan = try await RemoteOps.plan(src, RemoteEntry(name: "conf", path: a.path + "/conf", kind: .directory))
         #expect(plan.map(\.relative) == ["conf", "conf/sub", "conf/sub/x.txt"])
     }
+
+    /// Ruta, tamaño y MD5 de un archivo del Mac (para ver que el origen sigue igual).
+    func fingerprint(_ path: String) throws -> (Int64, String) {
+        let d = try Data(contentsOf: URL(fileURLWithPath: path))
+        return (Int64(d.count), TransferDigest.hexOf(d))
+    }
+
+    /// Copiar es sólo leer del origen: tras el puente (sustituyendo uno que ya estaba en el destino, que es cuando se
+    /// aparta y se borra algo) y tras bajarlo al Mac, el original sigue en su ruta con el mismo tamaño y MD5, y ni el
+    /// origen ni el destino han recibido un borrar, renombrar o escribir sobre su ruta.
+    @Test(.enabled(if: FileManager.default.isExecutableFile(atPath: server)))
+    func copiarNoTocaElOrigen() async throws {
+        let a = try tempDir(), b = try tempDir(), mac = try tempDir()
+        defer { for d in [a, b, mac] { try? FileManager.default.removeItem(at: d) } }
+        let source = a.path + "/firmware.bin"
+        let body = Data((0..<2_000_000).map { UInt8(truncatingIfNeeded: $0 &* 13 &+ 5) })
+        try body.write(to: URL(fileURLWithPath: source))
+        try Data("otro de antes".utf8).write(to: b.appendingPathComponent("firmware.bin"))
+        let before = try fingerprint(source)
+        let src = RecordingFileSystem(try await connect()), dst = RecordingFileSystem(try await connect())
+        defer { Task { await src.close(); await dst.close() } }
+
+        // de servidor a servidor, con MD5
+        let target = b.path + "/firmware.bin"
+        try await SourceGuard.remote(src, to: dst).check(source: source, target: target)
+        let w = try await AtomicRemoteWriter.open(dst, target, verify: true)
+        try await Transfer.copy(from: try await src.openRead(source), to: w)
+        #expect(try Data(contentsOf: URL(fileURLWithPath: target)) == body)
+        #expect(await w.digest == TransferDigest.hexOf(body))
+
+        // del servidor al Mac, con MD5
+        let local = mac.appendingPathComponent("firmware.bin")
+        try await Transfer.copy(from: try await src.openRead(source), to: try LocalFileWriter(url: local, verify: true))
+        #expect(try Data(contentsOf: local) == body)
+
+        let after = try fingerprint(source)
+        #expect(after == before)
+        #expect(src.changes.isEmpty)                                             // (del origen sólo se ha leído)
+        #expect(!dst.changes.contains { $0.contains(source) })
+        #expect(try FileManager.default.contentsOfDirectory(atPath: a.path) == ["firmware.bin"])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: b.path) == ["firmware.bin"])  // (sin .part, .old ni testigo)
+    }
+
+    /// La misma carpeta por otro camino (aquí un enlace; en la vida real, el mismo equipo con otro nombre u otro
+    /// usuario): `SourceGuard` para la copia antes de escribir nada y el original queda intacto. Igual al subir del Mac
+    /// a un SFTP que es el propio Mac.
+    @Test(.enabled(if: FileManager.default.isExecutableFile(atPath: server)))
+    func mismaCarpetaPorOtroCaminoNoSeCopiaEncima() async throws {
+        let a = try tempDir(), links = try tempDir()
+        defer { try? FileManager.default.removeItem(at: a); try? FileManager.default.removeItem(at: links) }
+        let alias = links.path + "/alias"
+        try FileManager.default.createSymbolicLink(atPath: alias, withDestinationPath: a.path)
+        let source = a.path + "/running-config.txt"
+        try Data("hostname core-01\n".utf8).write(to: URL(fileURLWithPath: source))
+        let before = try fingerprint(source)
+        let src = RecordingFileSystem(try await connect()), dst = RecordingFileSystem(try await connect())
+        defer { Task { await src.close(); await dst.close() } }
+
+        let target = alias + "/running-config.txt"
+        await #expect(throws: RemoteError.self) { try await SourceGuard.remote(src, to: dst).check(source: source, target: target) }
+        await #expect(throws: RemoteError.self) { try await SourceGuard.local(to: dst).check(source: source, target: target) }
+
+        #expect(try fingerprint(source) == before)
+        #expect(src.changes.isEmpty)
+        #expect(!dst.changes.contains { $0.contains("running-config") })        // (sólo el testigo, creado y borrado)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: a.path) == ["running-config.txt"])
+
+        // (carpetas distintas: sigue sin parar nada)
+        let other = try tempDir()
+        defer { try? FileManager.default.removeItem(at: other) }
+        try await SourceGuard.remote(src, to: dst).check(source: source, target: other.path + "/running-config.txt")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: other.path).isEmpty)
+    }
+
+    /// SFTP sólo abre para escribir archivos nuevos: un «.part» nunca puede truncar uno que ya esté.
+    @Test(.enabled(if: FileManager.default.isExecutableFile(atPath: server)))
+    func escribirNoTruncaUnoQueYaExiste() async throws {
+        let a = try tempDir()
+        defer { try? FileManager.default.removeItem(at: a) }
+        let path = a.path + "/datos.bin"
+        try Data("no me trunques".utf8).write(to: URL(fileURLWithPath: path))
+        let fs = try await connect()
+        defer { Task { await fs.close() } }
+        await #expect(throws: (any Error).self) { _ = try await fs.openWrite(path) }
+        #expect(try String(contentsOfFile: path, encoding: .utf8) == "no me trunques")
+    }
+}
+
+/// Un servidor que apunta todo lo que cambia (borrar, renombrar, abrir para escribir, permisos).
+final class RecordingFileSystem: RemoteFileSystem, @unchecked Sendable {
+    let inner: any RemoteFileSystem
+    private let lock = NSLock()
+    private var log: [String] = []
+    init(_ inner: any RemoteFileSystem) { self.inner = inner }
+    var changes: [String] { lock.withLock { log } }
+    private func note(_ s: String) { lock.withLock { log.append(s) } }
+
+    var label: String { inner.label }
+    func home() async throws -> String { try await inner.home() }
+    func list(_ path: String) async throws -> [RemoteEntry] { try await inner.list(path) }
+    func makeDirectory(_ path: String) async throws { note("mkdir \(path)"); try await inner.makeDirectory(path) }
+    func remove(_ path: String, directory: Bool) async throws { note("remove \(path)"); try await inner.remove(path, directory: directory) }
+    func rename(_ from: String, to: String) async throws { note("rename \(from) → \(to)"); try await inner.rename(from, to: to) }
+    func size(of path: String) async -> Int64? { await inner.size(of: path) }
+    func openRead(_ path: String) async throws -> any RemoteReader { try await inner.openRead(path) }
+    func openWrite(_ path: String) async throws -> any RemoteWriter { note("write \(path)"); return try await inner.openWrite(path) }
+    func close() async { await inner.close() }
+    func permissions(of path: String) async -> UInt32? { await inner.permissions(of: path) }
+    func kind(of path: String) async -> RemoteEntry.Kind? { await inner.kind(of: path) }
+    func setPermissions(_ mode: UInt32, of path: String) async throws { note("chmod \(path)"); try await inner.setPermissions(mode, of: path) }
 }
 
 @Suite struct SessionDefaultsTests {

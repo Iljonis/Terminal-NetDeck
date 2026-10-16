@@ -91,6 +91,20 @@ extension ContentView {
                 model.open(ConnectionRoute(title: n, target: Endpoint(user: "tu.usuario", host: h), transport: .sftp))
             }
             if a == "explorador:vista" { model.makeSplit(.side2) }
+            if a == "explorador:md5" {               // la ventana del MD5 de un archivo, comparado (en verde)
+                Task { @MainActor in
+                    for _ in 0..<40 {
+                        try? await Task.sleep(for: .milliseconds(100))
+                        guard let b = model.current?.browser, let f = b.entries.first(where: { !$0.isDirectory }) else { continue }
+                        b.computeMD5(f)
+                        for _ in 0..<40 {
+                            try? await Task.sleep(for: .milliseconds(50))
+                            if let h = b.md5?.hash { b.md5?.expected = "MD5 (\(f.name)) = \(h)"; break }
+                        }
+                        return
+                    }
+                }
+            }
         }
         if a.hasPrefix("pestañas:"), let n = Int(a.dropFirst(9)) {   // «pestañas:12»: muchas, cortas, largas y con salto
             let names = ["core-01", "bastion", "pe-madrid-agregacion-02 ⟵ bastion", "olt-01", "sw-acceso-planta-3-rack-B",

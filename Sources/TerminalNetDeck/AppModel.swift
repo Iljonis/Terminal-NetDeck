@@ -131,6 +131,9 @@ final class AppModel {
         reloadHighlight()
         let settings = settings
         transfers.verify = { settings.verifyTransfers }
+        transfers.showCopied = { [weak self] fs, dir in
+            for b in self?.tabs.compactMap(\.browser) ?? [] where b.shows(dir, of: fs) { b.refresh() }
+        }
         lastOpen = Self.readOpenTabs()
         Self.instance = self
         loadFavorites()
@@ -466,7 +469,8 @@ final class AppModel {
     /// «Enviar a…»: de un explorador a la carpeta en la que está otro, de servidor a servidor (en memoria).
     func send(_ entries: [RemoteEntry], from: RemoteBrowser, to: RemoteBrowser) {
         guard let src = from.fs, let dst = to.fs, !entries.isEmpty else { return }
-        // (mismo servidor y misma carpeta: «sustituir» vaciaría el archivo mientras se lee)
+        // (mismo servidor y misma carpeta: «sustituir» apartaría y borraría el original. Aviso rápido aquí; si se llega
+        //  a la misma carpeta por otro camino —otro nombre del equipo, otro usuario, un enlace—, `SourceGuard` la para)
         if from.route.target.host == to.route.target.host, from.route.target.port == to.route.target.port,
            from.route.transport == to.route.transport, entries.contains(where: { RemotePath.parent($0.path) == to.path }) {
             status = L("✗ Es la misma carpeta del mismo servidor: elige otra de destino")
@@ -483,7 +487,7 @@ final class AppModel {
             }
             // (mientras se preguntaba, alguno pudo desconectarse o cambiar de carpeta)
             guard from.fs === src, to.fs === dst, to.path == dir else { return }
-            transfers.bridge(entries, from: src, to: dst, dir: dir) { [weak to] in to?.refresh() }
+            transfers.bridge(entries, from: src, to: dst, dir: dir)
             status = L("Copiando de «\(from.route.title)» a «\(to.route.title)»…")
         }
     }

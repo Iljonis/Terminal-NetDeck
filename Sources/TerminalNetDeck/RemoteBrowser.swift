@@ -36,8 +36,12 @@ final class RemoteBrowser {
     private(set) var forward: [String] = []
     /// Lo último que ha fallado (se ve abajo, en rojo).
     var message: String?
+    /// La ventana del MD5 de un archivo (nil: cerrada).
+    var md5: MD5Check?
     @ObservationIgnored weak var model: AppModel?
     @ObservationIgnored private var connectTask: Task<Void, Never>?
+    @ObservationIgnored private var refreshing = false
+    @ObservationIgnored private var refreshAgain = false
     /// La contraseña FTP que se está probando (y si vino del Llavero).
     @ObservationIgnored private var probing: CredentialRef?
 
@@ -245,12 +249,29 @@ final class RemoteBrowser {
 
     func goUp() { if path != "/" { open(RemotePath.parent(path)) } }
 
+    /// Vuelve a leer la carpeta y lo desplegado (nada de lo de antes se reutiliza), sin perder lo elegido que siga.
+    /// Si llega otro mientras tanto (las copias refrescan a menudo), se hace uno más al acabar, no varios a la vez.
     func refresh() {
-        let open = expanded
+        guard !refreshing else { refreshAgain = true; return }
+        refreshing = true
+        let open = expanded, chosen = selection
         Task {
             await go(path, record: false)
             for p in open.sorted() { await expand(p) }
+            let present = Set(entries.map(\.path)).union(children.values.joined().map(\.path))
+            selection = chosen.intersection(present)
+            refreshing = false
+            if refreshAgain {
+                refreshAgain = false
+                refresh()
+            }
         }
+    }
+
+    /// ¿Se ve aquí lo que se copie a `dir` de `other`? (el mismo servidor y esa carpeta, abierta o desplegada)
+    func shows(_ dir: String, of other: any RemoteFileSystem) -> Bool {
+        guard state == .connected, let fs, fs === other || fs.label == other.label else { return false }
+        return path == dir || expanded.contains(dir)
     }
 
     func toggle(_ e: RemoteEntry) {
@@ -333,6 +354,33 @@ final class RemoteBrowser {
         }
     }
 
+    /// «Calcular / ver MD5»: se lee el archivo entero del servidor (por su conexión de lectura: se puede seguir
+    /// navegando) y se abre la ventana con el resultado. Cerrarla lo cancela.
+    func computeMD5(_ e: RemoteEntry) {
+        guard let fs, !e.isDirectory else { return }
+        md5?.cancel()
+        let check = MD5Check(entry: e)
+        md5 = check
+        check.task = Task {
+            do {
+                let hash = try await TransferDigest.of(try await fs.openRead(e.path)) { n in
+                    Task { @MainActor in check.read = n }
+                }
+                check.state = .done(hash)
+                DebugLog.log("md5", "\(label):\(e.path) = \(hash)")
+            } catch {
+                guard !Task.isCancelled else { return }
+                check.state = .failed(error.localizedDescription)
+                ErrorLog.error("md5", "\(label):\(e.path): \(error.localizedDescription)")
+            }
+        }
+    }
+
+    func closeMD5() {
+        md5?.cancel()
+        md5 = nil
+    }
+
     func rename(_ e: RemoteEntry, to name: String) {
         guard let fs, RemotePath.isValidName(name), name != e.name else { if name != e.name { message = L("✗ Nombre no válido") }; return }
         let to = RemotePath.join(RemotePath.parent(e.path), name)
@@ -361,6 +409,33 @@ final class RemoteBrowser {
             refresh()
         }
     }
+}
+
+// MARK: - MD5
+
+/// El MD5 de un archivo del servidor: calculándose (con lo leído), hecho o fallido.
+@MainActor @Observable
+final class MD5Check {
+    enum State: Equatable { case computing, done(String), failed(String) }
+
+    let entry: RemoteEntry
+    var state = State.computing
+    var read: Int64 = 0
+    /// Lo pegado en «Comparar con MD5 conocido».
+    var expected = ""
+    @ObservationIgnored var task: Task<Void, Never>?
+
+    init(entry: RemoteEntry) { self.entry = entry }
+
+    var hash: String? { if case .done(let h) = state { h } else { nil } }
+    var fraction: Double? { entry.size.map { $0 > 0 ? min(1, Double(read) / Double($0)) : 1 } }
+    /// nil: no hay nada que comparar todavía (o lo pegado no lleva un MD5).
+    var matches: Bool? {
+        guard let hash, let want = TransferDigest.extract(expected) else { return nil }
+        return want == hash
+    }
+
+    func cancel() { task?.cancel() }
 }
 
 // MARK: - transferencias
@@ -405,28 +480,51 @@ final class TransferJob: Identifiable {
     }
 }
 
+/// Refresca el destino entre archivo y archivo, como mucho cada `TransferCenter.showEvery` (las copias de muchos
+/// archivos pequeños no se pasan el rato listando).
+private final class ShowCopied: @unchecked Sendable {
+    private let clock = ContinuousClock()
+    private var last: ContinuousClock.Instant
+    private let show: @MainActor () -> Void
+
+    init(_ show: @escaping @MainActor () -> Void) {
+        self.show = show
+        last = clock.now
+    }
+
+    /// (sólo desde la tarea de la copia, una cosa detrás de otra)
+    func tick() async {
+        guard clock.now - last >= TransferCenter.showEvery else { return }
+        last = clock.now
+        await show()
+    }
+}
+
 /// Las copias de todas las pestañas (se ven en la parte de abajo de cualquier explorador).
 @MainActor @Observable
 final class TransferCenter {
     private(set) var jobs: [TransferJob] = []
     /// ¿Comprobar el MD5 de cada archivo al acabar? (lo pone la app con el ajuste)
     @ObservationIgnored var verify: () -> Bool = { true }
-    /// Al acabar una copia: refrescar el explorador de destino.
-    @ObservationIgnored var onFinish: ((TransferJob) -> Void)?
+    /// Que se vea lo copiado: refrescar los exploradores de ese servidor que enseñan esa carpeta (lo pone la app).
+    /// Al acabar cada copia (bien, mal o cancelada) y, en las largas, cada `showEvery` entre archivo y archivo.
+    @ObservationIgnored var showCopied: ((any RemoteFileSystem, String) -> Void)?
+    nonisolated static let showEvery: Duration = .seconds(2)
 
     var active: Int { jobs.filter { !$0.finished }.count }
 
     func clearFinished() { jobs.removeAll { $0.finished } }
 
     /// Entre dos servidores (o el mismo): lectura y escritura a la vez, en memoria; nada pasa por el disco del Mac.
-    func bridge(_ entries: [RemoteEntry], from src: any RemoteFileSystem, to dst: any RemoteFileSystem, dir: String,
-                refresh: @escaping @MainActor () -> Void) {
+    func bridge(_ entries: [RemoteEntry], from src: any RemoteFileSystem, to dst: any RemoteFileSystem, dir: String) {
         let job = TransferJob(title: entries.count == 1 ? entries[0].name : L("\(entries.count) elementos"),
                               from: src.label, to: "\(dst.label):\(dir)")
         let verify = verify()
-        run(job, refresh: refresh) { job in
+        run(job, destination: (dst, dir)) { job in
             let items = try await Self.plan(entries, in: src)
             await MainActor.run { job.total = items.compactMap(\.size).reduce(0, +) }
+            let origin = SourceGuard.remote(src, to: dst)                       // (el origen, de sólo lectura)
+            let shown = ShowCopied { [weak self] in self?.showCopied?(dst, dir) }
             for it in items {
                 try Task.checkCancellation()
                 guard RemoteOps.isSafeRelative(it.relative) else { continue }  // (nombres del origen que saldrían de `dir`)
@@ -435,12 +533,14 @@ final class TransferCenter {
                     try? await dst.makeDirectory(target)                       // (si ya existe, se sigue)
                     continue
                 }
+                try await origin.check(source: it.source, target: target)
                 let base = await MainActor.run { job.done }
                 try await Self.copy(from: { try await src.openRead(it.source) },
                                     to: { try await AtomicRemoteWriter.open(dst, target, verify: verify) }) { n in
                     Task { @MainActor in job.done = max(job.done, base + n) }
                 }
                 await MainActor.run { job.finishedFile(base: base, size: it.size, verified: verify) }
+                await shown.tick()
             }
         }
     }
@@ -450,7 +550,7 @@ final class TransferCenter {
         let job = TransferJob(title: entries.count == 1 ? entries[0].name : L("\(entries.count) elementos"),
                               from: src.label, to: AppPaths.tilde(folder.path))
         let verify = verify()
-        run(job, refresh: {}) { job in
+        run(job, destination: nil) { job in
             let items = try await Self.plan(entries, in: src)
             await MainActor.run { job.total = items.compactMap(\.size).reduce(0, +) }
             var roots: [String: URL] = [:]                                     // (raíz pedida → nombre libre en el Mac)
@@ -477,29 +577,33 @@ final class TransferCenter {
     }
 
     /// Del Mac al servidor (archivos o carpetas enteras).
-    func upload(_ urls: [URL], to dst: any RemoteFileSystem, dir: String, refresh: @escaping @MainActor () -> Void) {
+    func upload(_ urls: [URL], to dst: any RemoteFileSystem, dir: String) {
         let job = TransferJob(title: urls.count == 1 ? urls[0].lastPathComponent : L("\(urls.count) elementos"),
                               from: L("Este Mac"), to: "\(dst.label):\(dir)")
         let verify = verify()
-        run(job, refresh: refresh) { job in
+        run(job, destination: (dst, dir)) { job in
             let items = try Self.localPlan(urls)
             await MainActor.run { job.total = items.compactMap(\.size).reduce(0, +) }
+            let origin = SourceGuard.local(to: dst)                             // (SFTP al propio Mac: misma carpeta)
+            let shown = ShowCopied { [weak self] in self?.showCopied?(dst, dir) }
             for it in items {
                 try Task.checkCancellation()
                 guard RemoteOps.isSafeRelative(it.relative) else { continue }
                 let target = RemotePath.join(dir, it.relative)
                 if it.isDirectory { try? await dst.makeDirectory(target); continue }
+                try await origin.check(source: it.source, target: target)
                 let base = await MainActor.run { job.done }
                 try await Self.copy(from: { try LocalFileReader(url: URL(fileURLWithPath: it.source)) },
                                     to: { try await AtomicRemoteWriter.open(dst, target, verify: verify) }) { n in
                     Task { @MainActor in job.done = max(job.done, base + n) }
                 }
                 await MainActor.run { job.finishedFile(base: base, size: it.size, verified: verify) }
+                await shown.tick()
             }
         }
     }
 
-    private func run(_ job: TransferJob, refresh: @escaping @MainActor () -> Void,
+    private func run(_ job: TransferJob, destination: (fs: any RemoteFileSystem, dir: String)?,
                      _ body: @escaping @Sendable (TransferJob) async throws -> Void) {
         jobs.insert(job, at: 0)
         // (como mucho 30: fuera las acabadas más antiguas; sin leer `jobs` mientras se cambia)
@@ -521,8 +625,7 @@ final class TransferCenter {
                 job.state = Task.isCancelled ? .cancelled : .failed(error.localizedDescription)
                 if !Task.isCancelled { ErrorLog.error("transferencia", "«\(job.title)» \(job.from) → \(job.to): \(error.localizedDescription)") }
             }
-            refresh()
-            onFinish?(job)
+            if let d = destination { showCopied?(d.fs, d.dir) }
         }
     }
 

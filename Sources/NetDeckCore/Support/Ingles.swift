@@ -1623,6 +1623,32 @@ enum Ingles {
             "Opens in the app's graphical browser (upload, download, rename, delete). FTP isn't encrypted: prefer SFTP if the device supports it. The password comes from the Keychain or is asked for.",
         "✗ Es la misma carpeta del mismo servidor: elige otra de destino":
             "✗ That's the same folder on the same server: pick another destination",
+        "✗ «%@» es la misma carpeta que la de origen: no se copia nada encima del original":
+            "✗ “%@” is the same folder as the source: nothing is copied over the original",
+        "No se ha podido comprobar que «%@» no es la carpeta de origen: no se copia":
+            "Couldn't check that “%@” isn't the source folder: nothing copied",
+        "Calcular / ver MD5…":
+            "Compute / show MD5…",
+        "MD5 de «%@»":
+            "MD5 of “%@”",
+        "Leyendo del servidor… %@":
+            "Reading from the server… %@",
+        "Copiado":
+            "Copied",
+        "Copiar MD5":
+            "Copy MD5",
+        "Comparar con MD5 conocido":
+            "Compare with a known MD5",
+        "Pega el MD5 (o la línea de md5sum / verify /md5)":
+            "Paste the MD5 (or the md5sum / verify /md5 line)",
+        "✓ Coincide: el archivo es idéntico":
+            "✓ Match: the file is identical",
+        "✗ No coincide: el archivo no es el esperado":
+            "✗ No match: this isn't the expected file",
+        "Pega un MD5 para comprobar el archivo":
+            "Paste an MD5 to check the file",
+        "No hay un MD5 (32 caracteres hexadecimales) en lo pegado":
+            "There's no MD5 (32 hex characters) in what you pasted",
         "Abre la sesión tal como está, sin guardar los cambios":
             "Opens the session as it is, without saving the changes",
         "Guarda los cambios sin abrir ninguna pestaña":

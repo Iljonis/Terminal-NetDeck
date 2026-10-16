@@ -128,6 +128,8 @@ public protocol RemoteFileSystem: AnyObject, Sendable {
     /// Tamaño (para la barra de progreso), si se sabe.
     func size(of path: String) async -> Int64?
     func openRead(_ path: String) async throws -> any RemoteReader
+    /// Para un archivo nuevo (los temporales «.part» y el testigo de `SourceGuard`, de nombre único); SFTP no deja
+    /// abrir uno que ya exista.
     func openWrite(_ path: String) async throws -> any RemoteWriter
     func close() async
     /// Permisos Unix (0o644…) de un archivo, si el servidor los da (nil: no existe o no se sabe).
