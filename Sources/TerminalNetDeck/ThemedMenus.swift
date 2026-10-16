@@ -200,10 +200,21 @@ private struct RightClickCatcher: NSViewRepresentable {
         var found: ((UnitPoint) -> Void)?
         override var isFlipped: Bool { true }
 
+        /// Mientras se mira qué hay debajo (para no responder a la vez a la pregunta).
+        private var looking = false
+
         override func hitTest(_ point: NSPoint) -> NSView? {
-            guard let e = NSApp.currentEvent else { return nil }
+            guard !looking, let e = NSApp.currentEvent else { return nil }
             let right = e.type == .rightMouseDown || (e.type == .leftMouseDown && e.modifierFlags.contains(.control))
-            return right ? super.hitTest(point) : nil
+            guard right, let hit = super.hitTest(point) else { return nil }
+            // Si debajo hay otro menú más concreto (el de una fila bajo el del fondo de la lista), el clic es suyo.
+            if let superview, let root = window?.contentView?.superview {
+                looking = true
+                defer { looking = false }
+                let below = root.hitTest(root.convert(superview.convert(point, to: nil), from: nil))
+                if below is Catcher { return nil }
+            }
+            return hit
         }
 
         override func rightMouseDown(with event: NSEvent) { report(event) }

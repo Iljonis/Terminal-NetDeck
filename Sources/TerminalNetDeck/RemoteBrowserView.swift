@@ -294,9 +294,8 @@ struct RemoteBrowserView: View {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(targets.map(\.path).joined(separator: "\n"), forType: .string)
         } label: { Label(L("Copiar la ruta"), systemImage: "doc.on.doc") }
-        if !e.isDirectory {
+        if !e.isDirectory {                          // (el del archivo del clic, aunque haya otros elegidos)
             Button { browser.computeMD5(e) } label: { Label(L("Calcular / ver MD5…"), systemImage: "number.square") }
-                .disabled(targets.count != 1)
         }
         MenuDivider()
         Button(role: .destructive) { delete(targets) } label: { Label(L("Borrar…"), systemImage: "trash") }
