@@ -101,14 +101,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Desarrollo: NETDECK_SNAPSHOT=/ruta.png → la app guarda una imagen de su ventana (sin permisos de pantalla).
+    /// NETDECK_SNAPSHOT_CLICK=«x,y» (puntos desde arriba a la izquierda de la ventana) hace antes un clic derecho ahí,
+    /// por la cola de eventos como uno de verdad: el menú que abra sale en la imagen «-1.png». NETDECK_SNAPSHOT_WAIT:
+    /// los segundos hasta la imagen (2,5; más para una sesión de verdad).
+    static var snapshotWait: Double {
+        ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_WAIT"].flatMap(Double.init).map { min(max($0, 1), 120) } ?? 2.5
+    }
+
     private func snapshot(to path: String) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+        if let spec = ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_CLICK"] {
+            let n = spec.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+            if n.count == 2 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { Self.rightClick(x: n[0], y: n[1]) }
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.snapshotWait) {
             for (i, w) in NSApp.windows.filter({ $0.isVisible && $0.contentView != nil }).enumerated() {
                 guard let v = w.contentView, let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { continue }
                 v.cacheDisplay(in: v.bounds, to: rep)
                 let url = URL(fileURLWithPath: i == 0 ? path : path.replacingOccurrences(of: ".png", with: "-\(i).png"))
                 try? rep.representation(using: .png, properties: [:])?.write(to: url)
             }
+        }
+    }
+
+    @MainActor private static func rightClick(x: Double, y: Double) {
+        guard let w = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil }), let v = w.contentView else { return }
+        let p = NSPoint(x: x, y: v.bounds.height - y)
+        for type in [NSEvent.EventType.rightMouseDown, .rightMouseUp] {
+            guard let e = NSEvent.mouseEvent(with: type, location: p, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                             windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
+                                             pressure: 1) else { continue }
+            NSApp.postEvent(e, atStart: false)
         }
     }
 

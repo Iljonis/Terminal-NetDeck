@@ -5,7 +5,8 @@
 #   TEMA=neo-tokyo tools/capturas.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
-swift build --product TerminalNetDeck 2>&1 | grep -E "error" && exit 1
+# (con pipefail, «swift build | grep && exit 1» no paraba si no compilaba: seguía con el binario anterior)
+if ! log=$(swift build --product TerminalNetDeck 2>&1); then echo "$log" | grep -E "error:" | head -20; exit 1; fi
 BIN="$(swift build --show-bin-path)/TerminalNetDeck"
 OUT=docs/capturas
 TEMA="${TEMA:-neo-tokyo}"

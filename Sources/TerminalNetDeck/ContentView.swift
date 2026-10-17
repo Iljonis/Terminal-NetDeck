@@ -76,11 +76,11 @@ extension ContentView {
         // (sólo en una captura: si no, lo que abren se guardaría en tus pestañas)
         let env = ProcessInfo.processInfo.environment
         guard env["NETDECK_SNAPSHOT"] != nil, let a = env["NETDECK_SNAPSHOT_ACTION"] else { return }
-        if a.hasPrefix("tab:") {
-            model.quickConnect(String(a.dropFirst(4)))
+        if a.hasPrefix("tab:") { model.quickConnect(String(a.dropFirst(4))) }
+        if a.hasPrefix("tab:") || a == "terminal" {
             // (y el texto de la pestaña, para comprobar que la salida llega al terminal)
             if let path = ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + AppDelegate.snapshotWait) {
                     let text = model.current.map { $0.lines(from: 0).joined(separator: "\n") } ?? ""
                     try? text.write(toFile: path + ".txt", atomically: true, encoding: .utf8)
                 }
@@ -112,6 +112,45 @@ extension ContentView {
             for i in 0..<max(0, min(n, 40)) {
                 model.open(ConnectionRoute(title: names[i % names.count] + (i < names.count ? "" : "-\(i)"),
                                            target: Endpoint(user: "tu.usuario", host: "192.0.2.\(i + 1)")))
+            }
+        }
+        if a == "terminal" {                         // «terminal»: una local con la salida de ejemplo ($NETDECK_HOME/salida.txt), resaltada
+            let s = model.open(ConnectionRoute.local(shell: "/bin/sh"))   // (sh: sin el rc de zsh, que puede limpiar la pantalla)
+            let sample = (try? Data(contentsOf: AppPaths.home.appendingPathComponent("salida.txt"))) ?? Data()
+            let path = env["NETDECK_SNAPSHOT"]
+            Task { @MainActor in                         // (cuando la shell ya ha arrancado: al arrancar se limpia el terminal)
+                for _ in 0..<40 where s.revision == 0 { try? await Task.sleep(for: .milliseconds(50)) }
+                try? await Task.sleep(for: .milliseconds(300))
+                s.pipe.queue.async {                    // (como `receive`; y lo que sale del resaltado, para comprobarlo)
+                    let out = s.pipe.highlighter.process(Array(sample)[...])
+                    s.pipe.view?.feed(byteArray: Array("\u{1b}[2J\u{1b}[H".utf8)[...] + out[...])
+                    if s.pipe.counter.bump() { s.pipe.onOutput() }
+                    if let path { try? Data(out).write(to: URL(fileURLWithPath: path + ".resaltado.txt")) }
+                }
+            }
+        }
+        // (NETDECK_SNAPSHOT_MD5: el MD5 del archivo más pequeño del explorador, entrando en la primera carpeta si no hay
+        // ninguno; NETDECK_SNAPSHOT_DOWNLOAD=carpeta: lo baja ahí)
+        if env["NETDECK_SNAPSHOT_MD5"] != nil || env["NETDECK_SNAPSHOT_DOWNLOAD"] != nil {
+            Task { @MainActor in
+                var entered = 0
+                for _ in 0..<300 {
+                    try? await Task.sleep(for: .milliseconds(100))
+                    guard let b = model.current?.browser, !b.entries.isEmpty else { continue }
+                    let files = b.entries.filter { !$0.isDirectory }
+                    if files.isEmpty, entered < 3, let d = b.entries.first(where: \.isDirectory) {
+                        entered += 1
+                        b.open(d.path)
+                        try? await Task.sleep(for: .milliseconds(800))
+                        continue
+                    }
+                    guard let f = files.min(by: { ($0.size ?? .max) < ($1.size ?? .max) }) else { continue }
+                    if env["NETDECK_SNAPSHOT_MD5"] != nil { b.computeMD5(f) }
+                    if let d = env["NETDECK_SNAPSHOT_DOWNLOAD"], let fs = b.fs {
+                        model.transfers.download([f], from: fs, to: URL(fileURLWithPath: d, isDirectory: true))
+                    }
+                    return
+                }
             }
         }
         if a == "sesion-nueva" { model.editSessions(.new(group: nil, kind: .telnet)) }

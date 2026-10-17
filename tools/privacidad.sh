@@ -82,9 +82,12 @@ if [ ${#propios[@]} -gt 0 ]; then
 fi
 
 # La app compilada y el .dmg
-revisar_app() {  # carpeta .app
+revisar_app() {  # carpeta .app [local: la de install.sh, que apunta a tu carpeta del código a propósito]
   local app=$1 s
   s=$(find "$app" -type f \( -perm -u+x -o -name '*.plist' -o -name '*.tema' -o -name '*.yml' \) -exec strings -a {} + 2>/dev/null)
+  # (`NetDeckSource` sólo lo lleva la instalación local, para «Actualizar» desde el código; el .dmg lo lleva vacío y se
+  # comprueba aparte: sin esto, cada ./install.sh daba un falso aviso que tapaba los de verdad)
+  [ "${2:-}" = local ] && s=$(echo "$s" | grep -v '<key>NetDeckSource</key>')
   if echo "$s" | grep -qE "/Users/$(id -un)([^A-Za-z0-9._-]|$)"; then aviso "$app lleva tu carpeta personal"; fi
   if [ ${#propios[@]} -gt 0 ]; then
     while IFS= read -r p; do
@@ -96,7 +99,7 @@ revisar_app() {  # carpeta .app
   fi
 }
 if [ $binario = 1 ]; then
-  if [ -d "build/Terminal NetDeck.app" ]; then revisar_app "build/Terminal NetDeck.app"; fi
+  if [ -d "build/Terminal NetDeck.app" ]; then revisar_app "build/Terminal NetDeck.app" local; fi
   if [ -f dist/Terminal-NetDeck.dmg ]; then
     m=$(mktemp -d)
     if hdiutil attach -nobrowse -readonly -mountpoint "$m" dist/Terminal-NetDeck.dmg >/dev/null 2>&1; then

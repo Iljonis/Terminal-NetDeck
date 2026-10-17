@@ -20,6 +20,10 @@ Repositorio público: https://github.com/Iljonis/Terminal-NetDeck
   `NETDECK_SNAPSHOT=/ruta.png [NETDECK_SNAPSHOT_ACTION=settings:general|settings:botones|tab:usuario@equipo|setup:0|sesion-nueva|explorador|explorador:vista|pestañas:N]`
   (el explorador, con `NETDECK_SFTP_SERVER=/usr/libexec/sftp-server NETDECK_SFTP_DIR=<carpeta>`: SFTP sin ssh ni red).
   NETDECK_HOME cambia la carpeta personal: nunca captures con tus datos reales (sesiones, recientes, pestañas).
+  Más: `NETDECK_SNAPSHOT_ACTION=terminal` (pestaña local con `tools/demo/salida.txt` resaltada; deja `.txt` y
+  `.resaltado.txt`), `NETDECK_SNAPSHOT_CLICK=x,y` (clic derecho sintético; el menú sale en `-1.png`),
+  `NETDECK_SNAPSHOT_WAIT=s`, `NETDECK_SNAPSHOT_MD5=1` / `NETDECK_SNAPSHOT_DOWNLOAD=carpeta` (explorador). En la imagen
+  de la app SwiftTerm no sale: `tools/verificar_demo.sh` usa `screencapture` si la Terminal tiene permiso de grabación.
 
 ## Idiomas (castellano de España e inglés)
 
@@ -62,6 +66,14 @@ Repositorio público: https://github.com/Iljonis/Terminal-NetDeck
 - **Rutas en pantalla**: siempre con `AppPaths.tilde(…)` (la carpeta personal como «~»; así tampoco salen en capturas).
 - Ejemplos y tests sin datos reales: IPs `192.0.2.x` / `198.51.100.x` / `203.0.113.x` (RFC 5737), `tu.usuario`,
   `core-01`, `bastion`.
+
+## Verificación integral en demo (obligatoria)
+
+Antes de cualquier commit, tag o informe final de tests: una pasada funcional en el entorno de DEMO
+(`tools/verificar_demo.sh`, con `NETDECK_HOME` temporal y `tools/demo`; nunca con tus datos reales) que compruebe
+que terminal, explorador SFTP/FTP, pestañas, temas, resaltado y menús funcionan sin regresiones; se miran las
+capturas, no sólo que existan. Y antes del commit, un informe: problemas detectados, arreglos y estado de
+`./test.sh` y `tools/privacidad.sh`.
 
 ## Git
 

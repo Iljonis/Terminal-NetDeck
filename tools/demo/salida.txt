@@ -1,0 +1,29 @@
+core-01#show ip interface brief
+Interface              IP-Address      OK? Method Status                Protocol
+GigabitEthernet0/0/0   192.0.2.11      YES NVRAM  up                    up
+GigabitEthernet0/0/1   198.51.100.1    YES NVRAM  administratively down down
+TenGigabitEthernet0/1  203.0.113.5     YES manual down                  down
+core-01#show interfaces Te0/1 transceiver | include dBm
+  Rx power: -3.12 dBm   Tx power: -2.40 dBm   Rx (alarma): -31.50 dBm
+core-01#ping 192.0.2.1 repeat 5
+!!!!!  Success rate is 100 percent (5/5)   5 packets transmitted, 0% packet loss
+tu.usuario@bastion:~$ ls -l configuracion/
+-rw-r--r--  1 tu.usuario  staff  4096 oct 17 10:12 file-fl.cfg
+Ligaduras (cada letra en su celda): fi fl ffi ffl  ->  =>  !=  ==  <=  >=  www  |||
+Acentos y símbolos: añadir configuración · ¿Interfaz caída? ✓ ✗ ⚠ ─│┌┐└┘├┤ ▁▂▃▄▅▆▇█
+[30m█[0m[31m█[0m[32m█[0m[33m█[0m[34m█[0m[35m█[0m[36m█[0m[37m█[0m [90m█[0m[91m█[0m[92m█[0m[93m█[0m[94m█[0m[95m█[0m[96m█[0m[97m█[0m  [1mnegrita[0m [3mcursiva[0m [4msubrayado[0m [7minverso[0m
+[48;5;16m [0m[48;5;19m [0m[48;5;22m [0m[48;5;25m [0m[48;5;28m [0m[48;5;31m [0m[48;5;34m [0m[48;5;37m [0m[48;5;40m [0m[48;5;43m [0m[48;5;46m [0m[48;5;49m [0m[48;5;52m [0m[48;5;55m [0m[48;5;58m [0m[48;5;61m [0m[48;5;64m [0m[48;5;67m [0m[48;5;70m [0m[48;5;73m [0m[48;5;76m [0m[48;5;79m [0m[48;5;82m [0m[48;5;85m [0m[48;5;88m [0m[48;5;91m [0m[48;5;94m [0m[48;5;97m [0m[48;5;100m [0m[48;5;103m [0m[48;5;106m [0m[48;5;109m [0m[48;5;112m [0m[48;5;115m [0m[48;5;118m [0m[48;5;121m [0m[48;5;124m [0m[48;5;127m [0m[48;5;130m [0m[48;5;133m [0m[48;5;136m [0m[48;5;139m [0m[48;5;142m [0m[48;5;145m [0m[48;5;148m [0m[48;5;151m [0m[48;5;154m [0m[48;5;157m [0m[48;5;160m [0m[48;5;163m [0m[48;5;166m [0m[48;5;169m [0m[48;5;172m [0m[48;5;175m [0m[48;5;178m [0m[48;5;181m [0m[48;5;184m [0m[48;5;187m [0m[48;5;190m [0m[48;5;193m [0m[48;5;196m [0m[48;5;199m [0m[48;5;202m [0m[48;5;205m [0m[48;5;208m [0m[48;5;211m [0m[48;5;214m [0m[48;5;217m [0m[48;5;220m [0m[48;5;223m [0m[48;5;226m [0m[48;5;229m [0m
+tu.usuario@core-01> show route summary
+Router ID: 192.0.2.11    inet.0: 12 destinations, 14 routes (12 active, 0 holddown, 2 hidden)
+<PE-MAD-01>display interface brief
+[~PE-MAD-01-GigabitEthernet0/0/1]
+%LINK-3-UPDOWN: Interface GigabitEthernet0/0/1, changed state to down
+%LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet0/0/0, changed state to up
+*A:PE-MAD-01>config>router# show router interface
+[ex:/configure service vprn "100"]
+A:admin@PE-MAD-01# show port 1/1/c1/1
+Admin State       : Up                Oper State        : Down
+Local AS          : 65001             IPv6 : 2001:db8::1/64
+12 2026/10/17 10:12:01 CEST MAJOR: PORT #2004 Base Port 1/1/c1/1 esat-1/1/3 lag-10
+13 2026/10/17 10:14:22 CEST CLEARED: PORT #2005 Base Port 1/1/c1/1 "Interface is operational"
+core-01# 
