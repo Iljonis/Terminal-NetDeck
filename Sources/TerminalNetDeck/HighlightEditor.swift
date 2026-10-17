@@ -44,6 +44,15 @@ struct HighlightRuleList: View {
             HStack {
                 Text(L("Reglas (\(rules.count))"))
                 Spacer()
+                let missing = model.missingBundledRules
+                if !missing.isEmpty {
+                    Button(L("Añadir las nuevas de serie (\(missing.count))")) {
+                        if let err = model.addMissingBundledRules() { message = "✗ \(err)" } else {
+                            message = L("✓ Añadidas: \(missing.map(\.description).joined(separator: " · "))")
+                        }
+                    }
+                    .help(L("Reglas que trae la app y no están en las tuyas; las tuyas no cambian"))
+                }
                 Button(L("Nueva regla…")) { editing = Target(index: nil, rule: nil) }
                 Button(L("Restaurar las de serie…"), action: restore)
             }
@@ -221,10 +230,7 @@ struct HighlightRuleEditor: View {
         return out
     }
 
-    private func palette(_ th: Theme) -> [String: RGB] {
-        let cfg = model.highlightConfig
-        return model.settings.highlightThemeColors ? th.highlightPalette : th.highlightPalette.merging(cfg.palette) { $1 }
-    }
+    private func palette(_ th: Theme) -> [String: RGB] { model.highlightPalette(for: th) }
 
     private func load() {
         guard !loaded else { return }
@@ -285,7 +291,8 @@ struct HighlightRuleEditor: View {
                 get: { SwiftUI.Color(value.wrappedValue.flatMap { palette[$0] ?? RGB(hex: $0) } ?? RGB(128, 128, 128)) },
                 set: { c in
                     guard let s = NSColor(c).usingColorSpace(.sRGB) else { return }
-                    value.wrappedValue = RGB(s.redComponent * 255, s.greenComponent * 255, s.blueComponent * 255).description
+                    func v(_ x: CGFloat) -> Double { Double(min(max(x, 0), 1) * 255) }     // (P3: fuera de 0…1)
+                    value.wrappedValue = RGB(v(s.redComponent), v(s.greenComponent), v(s.blueComponent)).description
                 }), supportsOpacity: false)
                 .labelsHidden()
                 .help(L("\(title): otro color (#rrggbb)"))

@@ -96,6 +96,26 @@ public struct HighlightConfig: Sendable {
 
     public init() {}
 
+    /// Las de `bundled` (las de serie) que no están en `rules` (por descripción): las que ha traído una versión nueva.
+    public static func missing(from bundled: [HighlightRule], in rules: [HighlightRule]) -> [HighlightRule] {
+        let have = Set(rules.map(\.description))
+        return bundled.filter { !have.contains($0.description) }
+    }
+
+    /// `rules` con las de serie que les faltan, cada una detrás de la de serie que la precede (si está; si no, al
+    /// principio, como en el archivo de serie). Las que ya están, cambiadas o no, y las propias se quedan como están.
+    public static func addingMissing(from bundled: [HighlightRule], to rules: [HighlightRule]) -> [HighlightRule] {
+        var out = rules
+        var after: String?                       // la última de serie ya colocada
+        for b in bundled {
+            if let i = out.firstIndex(where: { $0.description == b.description }) { after = out[i].description; continue }
+            let at = after.flatMap { a in out.firstIndex { $0.description == a }.map { $0 + 1 } } ?? 0
+            out.insert(b, at: at)
+            after = b.description
+        }
+        return out
+    }
+
     public init(contentsOf url: URL) throws {
         try self.init(text: String(contentsOf: url, encoding: .utf8))
     }

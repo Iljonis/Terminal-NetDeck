@@ -37,6 +37,12 @@ final class AppSettings {
     var highlightThemeColors: Bool { didSet { d.set(highlightThemeColors, forKey: "highlightThemeColors") } }
     /// Reglas apagadas (por su descripción).
     var highlightDisabled: Set<String> { didSet { d.set(Array(highlightDisabled), forKey: "highlightDisabled") } }
+    /// Colores del resaltado elegidos a mano, por tema (id del tema → nombre del color → «#rrggbb»): sólo el texto que
+    /// colorea el resaltado; la interfaz sigue con los del tema. Por tema: un verde que se lee en uno oscuro no se lee
+    /// en uno claro.
+    var highlightColors: [String: [String: String]] { didSet { d.set(highlightColors, forKey: "highlightColors") } }
+    /// Reglas de serie que se han quitado o renombrado de las propias: «Añadir las nuevas de serie» ya no las ofrece.
+    var highlightDismissed: Set<String> { didSet { d.set(Array(highlightDismissed), forKey: "highlightDismissed") } }
     /// Barra de botones (como barra.conf de NetDeck): arriba, abajo u oculta; con categorías (☰ Grupo) o todos en fila.
     var buttonBar: String { didSet { d.set(buttonBar, forKey: "buttonBar") } }
     var buttonBarGrouped: Bool { didSet { d.set(buttonBarGrouped, forKey: "buttonBarGrouped") } }
@@ -121,6 +127,8 @@ final class AppSettings {
         highlightSource = HighlightSource(rawValue: d.string(forKey: "highlightSource") ?? "") ?? .auto
         highlightThemeColors = d.object(forKey: "highlightThemeColors") as? Bool ?? true
         highlightDisabled = Set(d.stringArray(forKey: "highlightDisabled") ?? [])
+        highlightColors = d.dictionary(forKey: "highlightColors") as? [String: [String: String]] ?? [:]
+        highlightDismissed = Set(d.stringArray(forKey: "highlightDismissed") ?? [])
         debugLog = d.object(forKey: "debugLog") as? Bool ?? true
         logEnabled = d.object(forKey: "logEnabled") as? Bool ?? true
         let barra = AppPaths.readConf(AppPaths.netdeck.appendingPathComponent("barra.conf"))

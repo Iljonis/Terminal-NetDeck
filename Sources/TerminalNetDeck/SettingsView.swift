@@ -486,6 +486,7 @@ struct HighlightSettings: View {
             Section(L("Vista previa")) {
                 HighlightPreview(enabled: s.highlightEnabled).environment(\.theme, model.themes.current)
             }
+            HighlightColorsSection()
             HighlightRuleList()
         }
         .formStyle(.themed)
@@ -494,6 +495,59 @@ struct HighlightSettings: View {
         .onChange(of: s.highlightSource) { model.reloadHighlight() }
     }
 
+}
+
+/// Ajustes → Resaltado: qué tono es cada color con nombre del resaltado («green», «red»…) con el tema actual. Las
+/// reglas siguen diciendo el nombre; sólo cambia el texto que colorean en el terminal, y sólo con este tema.
+struct HighlightColorsSection: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.theme) private var t
+
+    var body: some View {
+        let th = model.themes.current
+        let palette = model.highlightPalette(for: th)
+        let mine = model.settings.highlightColors[th.id] ?? [:]
+        Section {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12, alignment: .leading)], alignment: .leading, spacing: 8) {
+                ForEach(HighlightStyle.colorNames, id: \.self) { n in
+                    HStack(spacing: 6) {
+                        ColorPicker(n, selection: Binding(
+                            get: { SwiftUI.Color(palette[n] ?? th.text) },
+                            set: { c in
+                                guard let s = NSColor(c).usingColorSpace(.sRGB) else { return }
+                                // (un color fuera de sRGB, de P3, da componentes fuera de 0…1: «#rrggbb» no los cabe)
+                                func v(_ x: CGFloat) -> Double { Double(min(max(x, 0), 1) * 255) }
+                                model.setHighlightColor(n, RGB(v(s.redComponent), v(s.greenComponent), v(s.blueComponent)))
+                            }), supportsOpacity: false)
+                            .labelsHidden()
+                            .help(L("Elegir el color «\(n)»"))
+                        // (el nombre, en su color y sobre el fondo del terminal: así se ve si se lee)
+                        Text(n).font(.callout.monospaced().bold())
+                            .foregroundStyle(SwiftUI.Color(palette[n] ?? th.text))
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(RoundedRectangle(cornerRadius: 4).fill(SwiftUI.Color(th.background)))
+                        if mine[n] != nil {
+                            Button { model.setHighlightColor(n, nil) } label: { Image(systemName: "arrow.uturn.backward") }
+                                .buttonStyle(.borderless).help(L("Volver al color del tema"))
+                        }
+                    }
+                }
+            }
+        } header: {
+            HStack {
+                Text(L("Colores del resaltado (tema «\(th.name)»)"))
+                Spacer()
+                Button(L("Volver a los del tema")) {
+                    model.settings.highlightColors[th.id] = nil
+                    model.applyHighlight()
+                }
+                .disabled(mine.isEmpty)
+            }
+        } footer: {
+            Text(L("Sólo cambian el texto que colorea el resaltado en el terminal, y sólo con este tema: la interfaz y los demás temas siguen igual. Las reglas dicen el nombre («f.green»); aquí eliges qué verde es."))
+                .font(t.ui(11))
+        }
+    }
 }
 
 // MARK: - registro de las sesiones

@@ -208,7 +208,11 @@ private struct RightClickCatcher: NSViewRepresentable {
             if window != nil { Self.all.add(self) } else { Self.all.remove(self) }
         }
 
+        /// Mientras se comprueba si uno está de verdad bajo el ratón (`reachable`), sólo responde ése.
+        private static var probe: Catcher?
+
         override func hitTest(_ point: NSPoint) -> NSView? {
+            if let p = Self.probe { return p === self ? super.hitTest(point) : nil }
             guard let e = NSApp.currentEvent else { return nil }
             let right = e.type == .rightMouseDown || (e.type == .leftMouseDown && e.modifierFlags.contains(.control))
             return right ? super.hitTest(point) : nil
@@ -221,17 +225,31 @@ private struct RightClickCatcher: NSViewRepresentable {
         /// que no tiene por qué ser el más concreto: es del más pequeño que haya bajo el ratón (como el contextMenu
         /// nativo). Sin preguntar a `hitTest` desde `hitTest`: así ninguno cedía el clic al otro y se perdía. Sólo los
         /// que están dentro del que lo ha recibido (una fila que el scroll ha sacado de la lista no cuenta) y con el
-        /// ratón dentro de sus bounds (el `visibleRect` de las vistas de SwiftUI no se recorta a ellos).
+        /// ratón dentro de sus bounds (el `visibleRect` de las vistas de SwiftUI no se recorta a ellos). Una fila que
+        /// asoma a medias por el borde de la lista (la última, cortada) también, si es lo que hay bajo el ratón: si no,
+        /// su clic derecho abría el menú del fondo («Nueva carpeta…») en vez del suyo.
         private static func owner(of event: NSEvent, from first: Catcher) -> Catcher {
             let area = first.convert(first.bounds, to: nil)
+            let p = event.locationInWindow
             var best = first
             for c in all.allObjects where c !== first && c.window === event.window && !c.isHiddenOrHasHiddenAncestor {
                 let frame = c.convert(c.bounds, to: nil)
-                guard frame.contains(event.locationInWindow), area.contains(frame),
-                      frame.width * frame.height < best.bounds.width * best.bounds.height else { continue }
+                guard frame.contains(p), area.intersects(frame),
+                      frame.width * frame.height < best.bounds.width * best.bounds.height,
+                      area.contains(frame) || reachable(c, at: p) else { continue }
                 best = c
             }
             return best
+        }
+
+        /// ¿Es `c` lo que la ventana encuentra en `p` (con lo que lo recorta y lo que tiene encima)? Sólo responde él
+        /// a `hitTest` mientras tanto; se pregunta desde el clic, nunca desde `hitTest`. Así una fila tapada por la
+        /// cabecera fija de una lista no se lleva el clic de la cabecera.
+        private static func reachable(_ c: Catcher, at p: NSPoint) -> Bool {
+            guard let root = c.window?.contentView?.superview ?? c.window?.contentView else { return false }
+            probe = c
+            defer { probe = nil }
+            return root.hitTest(root.superview?.convert(p, from: nil) ?? p) === c
         }
 
         private func report(_ event: NSEvent) {

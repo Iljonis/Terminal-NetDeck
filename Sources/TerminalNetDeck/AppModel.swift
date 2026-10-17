@@ -193,10 +193,25 @@ final class AppModel {
 
     private func applyHighlight(to s: TerminalSession) {
         let rules = highlightConfig.rules.filter { !settings.highlightDisabled.contains($0.description) }
-        let palette = settings.highlightThemeColors
-            ? themes.current.highlightPalette
-            : themes.current.highlightPalette.merging(highlightConfig.palette) { $1 }
-        s.highlight(rules: rules, palette: palette, enabled: settings.highlightEnabled)
+        s.highlight(rules: rules, palette: highlightPalette(for: themes.current), enabled: settings.highlightEnabled)
+    }
+
+    /// Los colores con nombre del resaltado («green», «red»…) con el tema `th`: los del tema (o la paleta del archivo
+    /// de reglas, sin «Con los colores del tema») y encima los elegidos a mano para ese tema. Sólo para el texto
+    /// resaltado: la interfaz no los usa.
+    func highlightPalette(for th: Theme) -> [String: RGB] {
+        let base = settings.highlightThemeColors ? th.highlightPalette : th.highlightPalette.merging(highlightConfig.palette) { $1 }
+        let mine = (settings.highlightColors[th.id] ?? [:]).compactMapValues(RGB.init(hex:))
+        return base.merging(mine) { $1 }
+    }
+
+    /// Un color del resaltado para el tema actual (nil = el que trae).
+    func setHighlightColor(_ name: String, _ c: RGB?) {
+        let id = themes.current.id
+        var mine = settings.highlightColors[id] ?? [:]
+        mine[name] = c?.description
+        settings.highlightColors[id] = mine.isEmpty ? nil : mine
+        applyHighlight()
     }
 
     static var customHighlightURL: URL { AppPaths.support.appendingPathComponent("resaltado.yml") }
@@ -205,6 +220,15 @@ final class AppModel {
     /// copia `.anterior`) y a partir de ahí se usan esas. `renamed`: descripción vieja → nueva (para que una regla
     /// apagada siga apagada). nil = bien; si no, el error.
     func saveHighlightRules(_ rules: [HighlightRule], renamed: [String: String] = [:]) -> String? {
+        // (las que no se han podido leer no están en `rules`: guardar las borraría; primero, que se arreglen)
+        guard highlightConfig.problems.isEmpty else {
+            return L("Hay reglas que no se pueden leer (\(highlightConfig.problems.joined(separator: " · "))): arréglalas en el editor y pulsa Recargar; así no se pierden")
+        }
+        // (las de serie que se quitan o renombran no se vuelven a ofrecer como «nuevas»)
+        if let bundled = bundledHighlightRules {
+            let kept = Set(rules.map(\.description)), serie = Set(bundled.map(\.description))
+            settings.highlightDismissed.formUnion(highlightConfig.rules.map(\.description).filter { !kept.contains($0) && serie.contains($0) })
+        }
         var cfg = highlightConfig
         cfg.rules = rules
         cfg.problems = []
@@ -225,6 +249,25 @@ final class AppModel {
         return nil
     }
 
+    /// Las reglas de serie que no están en las que se usan (las que ha traído una versión nueva y no llegan a quien
+    /// tiene las suyas). Vacío si se usan las de la app.
+    var missingBundledRules: [HighlightRule] {
+        guard let app = highlightURL(.app), highlightFile?.standardizedFileURL != app.standardizedFileURL,
+              highlightConfig.problems.isEmpty, let bundled = bundledHighlightRules else { return [] }
+        return HighlightConfig.missing(from: bundled, in: highlightConfig.rules).filter { !settings.highlightDismissed.contains($0.description) }
+    }
+
+    /// Las de serie, leídas una vez (no cambian con la app abierta; nil si no se pueden leer).
+    @ObservationIgnored private lazy var bundledHighlightRules: [HighlightRule]? =
+        highlightURL(.app).flatMap { try? HighlightConfig(contentsOf: $0) }?.rules
+
+    /// Añade a las reglas propias las de serie que les faltan, cada una en su sitio; las demás no se tocan.
+    func addMissingBundledRules() -> String? {
+        guard let bundled = bundledHighlightRules else { return L("No encuentro las reglas de la app") }
+        let offered = bundled.filter { !settings.highlightDismissed.contains($0.description) }
+        return saveHighlightRules(HighlightConfig.addingMissing(from: offered, to: highlightConfig.rules))
+    }
+
     /// «Restaurar las de serie»: el archivo personalizado vuelve a ser el de la app (queda copia `.anterior`) y todas
     /// las reglas, encendidas.
     func restoreBundledHighlight() -> String? {
@@ -241,6 +284,7 @@ final class AppModel {
             return error.localizedDescription
         }
         settings.highlightDisabled = []
+        settings.highlightDismissed = []
         settings.highlightSource = .custom
         reloadHighlight()
         return nil
@@ -413,6 +457,11 @@ final class AppModel {
     }
 
     private func noteRecent(_ name: String) {
+        recents.removeAll { $0 == name }
+        recents.insert(name, at: 0)
+        if recents.count > 10 { recents.removeLast() }
+        // (las capturas de desarrollo no tocan tus recientes, como tampoco tus pestañas)
+        guard ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil else { return }
         AppPaths.ensure(AppPaths.netdeck)
         let line = "\(Int(Date().timeIntervalSince1970))\t\(name)\n"
         if let h = try? FileHandle(forWritingTo: Self.recentsFile) {
@@ -422,9 +471,6 @@ final class AppModel {
         } else {
             try? line.write(to: Self.recentsFile, atomically: true, encoding: .utf8)
         }
-        recents.removeAll { $0 == name }
-        recents.insert(name, at: 0)
-        if recents.count > 10 { recents.removeLast() }
     }
 
     // MARK: - al arrancar: sesión de inicio y terminal local

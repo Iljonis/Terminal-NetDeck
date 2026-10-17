@@ -9,7 +9,7 @@ and 51 themes. Native, fast and in your language.
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v0.8.12](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.8.12)** · macOS 15 or later ·
+Current version: **[v0.9.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.0)** · macOS 15 or later ·
 free and open source
 
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
@@ -137,8 +137,10 @@ cd Terminal-NetDeck
   without saving.
 - **Import** from SecureCRT, MobaXterm, PuTTY, electerm, CSV or another `ssh_config`; **export** to JSON or CSV.
   Never passwords.
-- **ChromaTerm-style output highlighting** (IPs, MACs, interfaces, states, BGP, dBm, errors…) in the theme's colours,
-  editable with a live preview.
+- **ChromaTerm-style output highlighting** (IPs, MACs, interfaces, states, BGP, dBm, errors…) for Cisco, Juniper,
+  Huawei, Nokia SR-OS (classic and MD-CLI prompts, `1/1/c1/1` ports, alarms) and Linux, in the theme's colours,
+  editable with a live preview. You can pick the shade of each highlight colour, per theme, without touching the
+  interface; if you have your own rules, each release's new ones are added with one click.
 - **Session logging** to clean text and **search** across all logs (IPs, MACs in any format…).
 - **No locale warnings** on Linux servers: ssh doesn't send the Mac's language unless you turn it on.
 - **Spanish (Spain) and English**, switched instantly in Settings → General → Language.
@@ -257,6 +259,7 @@ swift build
 swift run TerminalNetDeck -idioma en   # in English
 ./test.sh                              # privacy check + core tests
 tools/capturas.sh                      # regenerates docs/capturas with sample data
+tools/verificar_demo.sh                # functional pass on the demo before a commit or tag
 ```
 
 | Module | Contents |

@@ -524,6 +524,9 @@ struct HighlightPreview: View {
         2026-10-13 14:51:02 %LINK-3-UPDOWN: Interface GigabitEthernet0/1, changed state to down
         tu.usuario@bastion:~$ ping -c1 192.0.2.1
         64 bytes from 192.0.2.1: icmp_seq=1 ttl=64 time=1.23 ms --- 0% packet loss
+        A:admin@PE-MAD-01# show port 1/1/c1/1
+        Admin State       : Up                Oper State        : Down
+        12 2026/10/17 10:12:01 CEST MAJOR: PORT #2004 Base Port 1/1/c1/1 lag-10 · CLEARED
         """
 
     var body: some View {
@@ -538,7 +541,7 @@ struct HighlightPreview: View {
 
     private var attributed: AttributedString {
         let cfg = model.highlightConfig
-        let palette = model.settings.highlightThemeColors ? t.highlightPalette : t.highlightPalette.merging(cfg.palette) { $1 }
+        let palette = model.highlightPalette(for: t)
         let h = Highlighter(rules: cfg.rules.filter { !model.settings.highlightDisabled.contains($0.description) }, palette: palette)
         return Self.render(Self.sample, with: enabled ? h : nil, palette: palette, theme: t)
     }

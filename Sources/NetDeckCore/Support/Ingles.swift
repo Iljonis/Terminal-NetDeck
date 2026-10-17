@@ -1759,5 +1759,23 @@ enum Ingles {
             "Drop to move to %@",
         "✗ Carpeta de destino no válida":
             "✗ Invalid destination folder",
+        "Elegir el color «%@»":
+            "Choose the “%@” color",
+        "Volver al color del tema":
+            "Back to the theme color",
+        "Colores del resaltado (tema «%@»)":
+            "Highlight colors (theme “%@”)",
+        "Volver a los del tema":
+            "Back to the theme ones",
+        "Sólo cambian el texto que colorea el resaltado en el terminal, y sólo con este tema: la interfaz y los demás temas siguen igual. Las reglas dicen el nombre («f.green»); aquí eliges qué verde es.":
+            "Only the text the highlighting colors in the terminal changes, and only with this theme: the interface and the other themes stay as they are. Rules say the name (“f.green”); here you choose which green it is.",
+        "Añadir las nuevas de serie (%@)":
+            "Add the new built-in ones (%@)",
+        "✓ Añadidas: %@":
+            "✓ Added: %@",
+        "Reglas que trae la app y no están en las tuyas; las tuyas no cambian":
+            "Rules that come with the app and are not in yours; yours do not change",
+        "Hay reglas que no se pueden leer (%@): arréglalas en el editor y pulsa Recargar; así no se pierden":
+            "Some rules cannot be read (%@): fix them in the editor and press Reload, so they are not lost",
 ]
 }

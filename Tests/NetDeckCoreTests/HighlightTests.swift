@@ -151,6 +151,83 @@ import Testing
         #expect(HighlightRule.problem(regex: "(?P<n>x)y") == nil)               // (sintaxis de Python)
     }
 
+    /// Los nombres largos de Cisco se colorean enteros, como «GigabitEthernet»: «TenGigabitEthernet0/1» salía sin color
+    /// (la regla aceptaba «TenGigabitE» y luego esperaba el número).
+    @Test func interfacesConNombreLargo() throws {
+        let c = try HighlightConfig(contentsOf: Self.rulesFile)
+        let h = Highlighter(rules: c.rules, palette: Theme.builtIn.highlightPalette)
+        for name in ["GigabitEthernet0/0/0", "TenGigabitEthernet0/1", "TwentyFiveGigE1/0/1", "FortyGigabitEthernet1/1/1",
+                     "HundredGigE0/0/0/1", "HundredGigabitEthernet0/1/0", "FourHundredGigE0/0/0/2", "TenGigE0/0/0/3",
+                     "Te1/0/1"] {
+            let line = "interface \(name) is up"
+            let r = try #require(line.range(of: name))
+            #expect(h.styledRuns(line).contains { $0.range.lowerBound <= r.lowerBound && $0.range.upperBound >= r.upperBound },
+                    "\(name)")
+        }
+    }
+
+    /// Nokia SR7750 (SR-OS / TiMOS): prompts clásico y MD-CLI, contexto, puertos, alarmas, estados, AS e IPs.
+    @Test func nokiaSROS() throws {
+        let c = try HighlightConfig(contentsOf: Self.rulesFile)
+        let h = Highlighter(rules: c.rules, palette: Theme.builtIn.highlightPalette)
+        func color(_ word: String, in line: String) -> String? {
+            guard let r = line.range(of: word) else { return "«\(word)» no está" }
+            return h.styledRuns(line).first { $0.range.lowerBound <= r.lowerBound && $0.range.upperBound >= r.upperBound }?
+                .style.foreground
+        }
+        func runStyle(_ word: String, in line: String) -> HighlightStyle? {
+            guard let r = line.range(of: word) else { return nil }
+            return h.styledRuns(line).first { $0.range.lowerBound <= r.lowerBound && $0.range.upperBound >= r.upperBound }?.style
+        }
+        let classic = "*A:PE-MAD-01>config>router# show router interface"
+        #expect(color("*", in: classic) == "red")                  // cambios sin guardar
+        #expect(color("A", in: classic) == "magenta")              // CPM activa
+        #expect(color("PE-MAD-01", in: classic) == "yellow")
+        #expect(color(">config>router", in: classic) == "blue")
+        #expect(color("# ", in: classic) == nil || color("#", in: classic) == "red")
+        #expect(color("show", in: classic) == nil && runStyle("show", in: classic)?.bold == true)   // la orden, en negrita
+        let md = "A:admin@PE-MAD-01# admin display-config"
+        #expect(color("admin@", in: md) == nil)                   // (usuario y @ van aparte)
+        #expect(color("PE-MAD-01", in: md) == "yellow")
+        #expect(color("admin display-config", in: md) == nil)
+        #expect(h.styledRuns(md).contains { md[$0.range] == "admin" && $0.range.lowerBound > md.startIndex && $0.style.bold })
+        let ctx = "[ex:/configure service vprn \"100\"]"
+        #expect(color("ex:", in: ctx) == "magenta")
+        #expect(color("/configure service vprn \"100\"", in: ctx) == "blue")
+        for port in ["1/1/1", "1/1/c1/1", "1/2/c2", "esat-1/1/3", "lag-10"] {
+            #expect(color(port, in: "Port \(port) is up") == "yellow", "\(port)")
+        }
+        #expect(color("2026/10/17", in: "5 2026/10/17 10:12:01.33 CEST MINOR: PORT #2004") == "dim")   // fecha, no puerto
+        #expect(color("0/75/0/0", in: "  Input queue: 0/75/0/0 (size/max/drops/flushes)") == nil)    // la cola de Cisco, no
+        for (w, col) in [("CRITICAL", "red"), ("MAJOR", "red"), ("MINOR", "orange"), ("WARNING", "orange"), ("CLEARED", "green"),
+                         ("FLAG_NOK", "red")] {
+            #expect(color(w, in: "12 2026/10/17 10:12:01 CEST \(w): CHASSIS #2001 Base") == col, "\(w)")
+        }
+        let state = "Admin State       : Up                Oper State        : Down"
+        #expect(color("Admin State", in: state) == "blue" && color("Oper State", in: state) == "blue")
+        #expect(color("Up", in: state) == "green" && color("Down", in: state) == "red")
+        #expect(color("Local AS          : 65001", in: "Local AS          : 65001") == "blue")
+        #expect(color("Autonomous System : 65001", in: "Autonomous System : 65001") == "blue")
+        #expect(color("2001:db8::1/64", in: "IPv6 Address : 2001:db8::1/64") == "cyan")
+    }
+
+    /// Las reglas de serie que no están en las personalizadas (las que trae una versión nueva) se añaden en su sitio,
+    /// detrás de la de serie que las precede; las del usuario (cambiadas o suyas) no se tocan.
+    @Test func anadirLasNuevasDeSerie() throws {
+        func r(_ d: String, _ re: String = "x") throws -> HighlightRule {
+            try HighlightRule(description: d, regex: re, styles: [0: HighlightStyle(foreground: "red")])
+        }
+        let bundled = try [r("A"), r("Nueva1"), r("B"), r("C"), r("Nueva2")]
+        let mine = try [r("Mía"), r("C", "cambiada"), r("A")]
+        #expect(HighlightConfig.missing(from: bundled, in: mine).map(\.description) == ["Nueva1", "B", "Nueva2"])
+        let merged = HighlightConfig.addingMissing(from: bundled, to: mine)
+        #expect(merged.map(\.description) == ["Mía", "C", "Nueva2", "A", "Nueva1", "B"])
+        #expect(merged.first { $0.description == "C" }?.source == "cambiada")
+        #expect(HighlightConfig.addingMissing(from: bundled, to: merged).map(\.description) == merged.map(\.description))
+        let none = try [r("Nueva0")]
+        #expect(HighlightConfig.addingMissing(from: none, to: []).map(\.description) == ["Nueva0"])
+    }
+
     @Test func reglasDeSerieNuevas() throws {
         let c = try HighlightConfig(contentsOf: Self.rulesFile)
         let h = Highlighter(rules: c.rules, palette: Theme.builtIn.highlightPalette)

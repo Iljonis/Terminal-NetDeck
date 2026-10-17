@@ -9,7 +9,7 @@ y 51 temas. Nativo, rápido y en tu idioma.
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.8.12](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.8.12)** · macOS 15 o posterior ·
+Versión actual: **[v0.9.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.0)** · macOS 15 o posterior ·
 gratis y de código abierto
 
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
@@ -138,8 +138,10 @@ cd Terminal-NetDeck
   sin guardar.
 - **Importar** de SecureCRT, MobaXterm, PuTTY, electerm, CSV u otro `ssh_config`; **exportar** a JSON o CSV.
   Nunca contraseñas.
-- **Resaltado de la salida** tipo ChromaTerm (IPs, MAC, interfaces, estados, BGP, dBm, errores…) con los colores del
-  tema, editable con vista previa.
+- **Resaltado de la salida** tipo ChromaTerm (IPs, MAC, interfaces, estados, BGP, dBm, errores…) para Cisco, Juniper,
+  Huawei, Nokia SR-OS (prompts clásico y MD-CLI, puertos `1/1/c1/1`, alarmas) y Linux, con los colores del tema,
+  editable con vista previa. Puedes elegir qué tono es cada color del resaltado, por tema, sin tocar la interfaz; si
+  tienes reglas tuyas, las nuevas de cada versión se añaden con un clic.
 - **Registro** de las sesiones en texto limpio y **búsqueda** en todos ellos (IP, MAC en cualquier formato…).
 - **Sin avisos de locale** en servidores Linux: ssh no manda el idioma del Mac salvo que lo actives.
 - **Español de España e inglés**, se cambia al momento en Ajustes → General → Idioma.
@@ -259,6 +261,7 @@ swift build
 swift run TerminalNetDeck              # -idioma en: en inglés
 ./test.sh                              # privacidad + tests del núcleo
 tools/capturas.sh                      # regenera docs/capturas con datos de ejemplo
+tools/verificar_demo.sh                # pasada funcional en la demo antes de un commit o tag
 ```
 
 | Módulo | Contenido |
