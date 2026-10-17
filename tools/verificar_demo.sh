@@ -47,7 +47,9 @@ caso() {   # nombre idioma tema acción [clic x,y] [subcarpeta del explorador] [
   local ok=1
   if [ -s "$png" ]; then
     [ $real = 1 ] || cp "$png" "$OUT/$nombre.png"
-    [ -s "$casa/captura-1.png" ] && cp "$casa/captura-1.png" "$OUT/$nombre-menu.png"
+    # (la 2.ª ventana: con clic, el menú que abre; sin clic, una hoja o un tooltip que esté a la vista, no un menú)
+    local otra=ventana; [ -n "$clic" ] && otra=menu
+    [ -s "$casa/captura-1.png" ] && cp "$casa/captura-1.png" "$OUT/$nombre-$otra.png"
     [ -n "$clic" ] && [ ! -s "$casa/captura-1.png" ] && { echo "✗ $nombre: el clic derecho no abre ningún menú"; ok=0; }
     # (el del archivo, con sus 8 filas, es mucho más alto que el del fondo de la lista, con 3: así se sabe cuál ha salido)
     if [ -n "$menu" ] && [ -s "$casa/captura-1.png" ]; then

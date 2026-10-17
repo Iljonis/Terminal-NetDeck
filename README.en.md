@@ -275,7 +275,8 @@ tools/verificar_demo.sh                # functional pass on the demo before a co
 
 The code is written in Spanish (Spain) and the interface is translated into English. The project conventions
 (translatable strings, sample data, passwords, security) and how review agents are used are in
-[CLAUDE.md](CLAUDE.md). Tests run on GitHub Actions on every push.
+[CLAUDE.md](CLAUDE.md). Tests run on GitHub Actions on every push. To propose changes or report a bug, see
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

@@ -276,7 +276,8 @@ tools/verificar_demo.sh                # pasada funcional en la demo antes de un
 | `Temas/` · `Resaltado/` | Catálogo de temas y reglas de resaltado |
 
 Las convenciones del proyecto (textos traducibles, datos de ejemplo, contraseñas, seguridad) y cómo se trabaja con
-agentes de revisión están en [CLAUDE.md](CLAUDE.md). Los tests se ejecutan en GitHub Actions en cada push.
+agentes de revisión están en [CLAUDE.md](CLAUDE.md). Los tests se ejecutan en GitHub Actions en cada push. Para
+proponer cambios o avisar de un error, mira [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licencia
 
