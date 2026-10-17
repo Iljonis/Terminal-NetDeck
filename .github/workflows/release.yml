@@ -13,7 +13,9 @@ jobs:
   release:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0          # historia y tags: las notas salen de los commits desde el tag anterior
       - name: Xcode más reciente y castellano (los tests comprueban los textos en castellano)
         run: |
           sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
@@ -32,6 +34,13 @@ jobs:
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
+        # Notas: título y viñetas de cada commit desde el tag anterior (--generate-notes sólo mira PRs y aquí no hay)
         run: |
+          anterior=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          {
+            git log --no-merges --format='### %s%n%n%b' ${anterior:+"$anterior.."}"$GITHUB_REF_NAME"
+            echo "Descarga \`Terminal-NetDeck.dmg\` (macOS 15 o posterior); si ya la tienes, la app lo ofrece en «Actualizar ahora»."
+            [ -z "$anterior" ] || echo "**Cambios**: https://github.com/$GITHUB_REPOSITORY/compare/$anterior...$GITHUB_REF_NAME"
+          } > notas.md
           gh release create "$GITHUB_REF_NAME" dist/Terminal-NetDeck.dmg --title "Terminal NetDeck ${GITHUB_REF_NAME#v}" \
-            --generate-notes --verify-tag
+            --notes-file notas.md --verify-tag

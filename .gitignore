@@ -8,3 +8,11 @@ dist/
 .claude/worktrees/
 .claude/settings.local.json
 tools/privacidad.local
+
+# Paquetes, registros y restos de tests o capturas que nunca se suben
+*.dmg
+*.log
+*.profraw
+*.xcresult/
+.env
+.env.*
