@@ -38,9 +38,30 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 
 1. **Descarga** `Terminal-NetDeck.dmg` de la [última versión](https://github.com/Iljonis/Terminal-NetDeck/releases/latest).
 2. **Ábrelo** y arrastra **Terminal NetDeck** a **Aplicaciones**.
-3. **La primera vez**, haz clic derecho sobre la app → **Abrir** (no está firmada por Apple, así que macOS lo pregunta
-   una sola vez).
+3. **La primera vez**, ábrela con clic derecho → **Abrir** (ver [Instalación y primer uso en
+   macOS](#instalación-y-primer-uso-en-macos)).
 4. El asistente te guía: dónde están tus sesiones, tema, fuente, contraseñas y resaltado.
+
+### Instalación y primer uso en macOS
+
+Terminal NetDeck es gratuita y no usa una cuenta de desarrollador de Apple (99 $/año): la app lleva una firma local
+(*ad-hoc*), no la notarización de Apple. Por eso, la primera vez que abres la copia descargada, macOS avisa de que no
+puede comprobar quién la ha hecho. Sólo hay que autorizarla una vez, de una de estas dos formas:
+
+- **Método gráfico (recomendado):** en **Aplicaciones**, haz clic derecho (o Control + clic) sobre
+  `Terminal NetDeck.app` → **Abrir** y confirma con **Abrir** en el aviso de macOS.
+  Si tu macOS sólo ofrece **Hecho** o **Trasladar a la papelera**, ve a **Ajustes del Sistema → Privacidad y
+  seguridad**, baja hasta el aviso de Terminal NetDeck y pulsa **Abrir igualmente**.
+- **Método por Terminal:** retira el atributo de cuarentena que macOS pone a lo descargado:
+
+  ```bash
+  xattr -cr "/Applications/Terminal NetDeck.app"
+  ```
+
+  (Si la instalaste en `~/Applications`, cambia la ruta.)
+
+Después se abre como cualquier otra app. Las actualizaciones desde la propia app no vuelven a pedirlo, y si la
+compilas con `./install.sh` tampoco hace falta.
 
 Tus datos se quedan en tu Mac: la configuración en `~/Library/Application Support/Terminal NetDeck/`, las sesiones en
 formato `ssh_config` y las contraseñas, sólo en el Llavero de macOS.

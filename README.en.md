@@ -38,8 +38,30 @@ that into one macOS app, built around one idea: **it should never play a trick o
 
 1. **Download** `Terminal-NetDeck.dmg` from the [latest release](https://github.com/Iljonis/Terminal-NetDeck/releases/latest).
 2. **Open it** and drag **Terminal NetDeck** to **Applications**.
-3. **The first time**, right-click the app → **Open** (it isn't signed by Apple, so macOS asks just once).
+3. **The first time**, open it with right-click → **Open** (see [Installation & First Run on
+   macOS](#installation--first-run-on-macos)).
 4. The setup assistant walks you through it: where your sessions are, theme, font, passwords and highlighting.
+
+### Installation & First Run on macOS
+
+Terminal NetDeck is free and doesn't use an Apple developer account ($99/year): the app carries a local (*ad-hoc*)
+signature instead of Apple's notarization. That's why, the first time you open the downloaded copy, macOS warns that
+it can't verify who made it. You only need to allow it once, in either of these two ways:
+
+- **Graphical method (recommended):** in **Applications**, right-click (or Control-click) `Terminal NetDeck.app` →
+  **Open**, then confirm with **Open** in the macOS warning.
+  If your macOS only offers **Done** or **Move to Trash**, go to **System Settings → Privacy & Security**, scroll
+  down to the Terminal NetDeck notice and click **Open Anyway**.
+- **Terminal method:** remove the quarantine attribute macOS adds to downloads:
+
+  ```bash
+  xattr -cr "/Applications/Terminal NetDeck.app"
+  ```
+
+  (If you installed it in `~/Applications`, change the path.)
+
+After that it opens like any other app. Updates from the app itself don't ask again, and building it with
+`./install.sh` doesn't need this either.
 
 Your data stays on your Mac: settings in `~/Library/Application Support/Terminal NetDeck/`, sessions in `ssh_config`
 format and passwords only in the macOS Keychain.
