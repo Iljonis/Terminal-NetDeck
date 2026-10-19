@@ -369,17 +369,28 @@ public struct SessionFile: Sendable {
 
     static let checkTimeout: TimeInterval = 10
 
+    public static let includeLine = "Include ~/.config/netdeck/ssh_config"
+
+    /// ¿Lo incluye ya? Una línea «Include» (sin comentar; ssh no distingue mayúsculas) con ~/.config/netdeck/ssh_config
+    /// o con la ruta entera.
+    public static func hasInclude(_ sshConfigText: String) -> Bool {
+        sshConfigText.components(separatedBy: .newlines).contains { l in
+            let t = l.trimmingCharacters(in: .whitespaces)
+            return t.lowercased().hasPrefix("include") && t.contains(".config/netdeck/ssh_config")
+        }
+    }
+
     /// Que ~/.ssh/config incluya el de NetDeck (como su instalador, con copia del de antes). true si ya lo incluía o se ha añadido.
     @discardableResult
     public static func ensureInclude(sshConfig: URL = AppPaths.home.appendingPathComponent(".ssh/config")) -> Bool {
         let fm = FileManager.default
-        let line = "Include ~/.config/netdeck/ssh_config"
+        let line = includeLine
         let old: String
         do { old = try SafeFile.read(sshConfig) ?? "" } catch {
             DebugLog.log("sesiones", "\(sshConfig.path) no se puede leer: no añado el Include")
             return false
         }
-        if old.contains(line) { return true }
+        if hasInclude(old) { return true }
         try? fm.createDirectory(at: sshConfig.deletingLastPathComponent(), withIntermediateDirectories: true,
                                 attributes: [.posixPermissions: 0o700])
         if fm.fileExists(atPath: sshConfig.path) {

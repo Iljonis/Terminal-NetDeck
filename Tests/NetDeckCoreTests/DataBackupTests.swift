@@ -161,6 +161,87 @@ private func perms(_ u: URL) -> Int { (try? FileManager.default.attributesOfItem
         #expect(v.snapshots.isEmpty)
     }
 
+    /// Antes de cada guardado, las sesiones de antes van a copias/ssh_config.bak (fuera de ~/.config/netdeck): si luego
+    /// se borra la carpeta, se recuperan de ahí aunque haya una copia de versión más vieja; un archivo vacío no la pisa.
+    @Test func copiaAntesDeGuardar() throws {
+        let c = try Casa()
+        defer { c.remove() }
+        let b = c.backup
+        let vieja = try #require(b.snapshot(reason: "version-0.9.0"))
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -3600)],
+                                              ofItemAtPath: vieja.appendingPathComponent("ssh_config").path)
+        let antes = try #require(try SafeFile.read(c.sessions))
+        #expect(b.backupSessionsBeforeSave())
+        #expect(try SafeFile.read(b.sessionsBak) == antes)
+        #expect(perms(b.sessionsBak) == 0o600)
+        var f = SessionFile(text: antes)
+        var nueva = EditableSession(name: "core-02")
+        nueva.host = "192.0.2.12"
+        f.sessions.append(nueva)
+        #expect(f.save(to: c.sessions, validate: false) == nil)
+
+        // (vaciarlo a propósito no pisa la copia buena)
+        try SafeFile.write("", to: c.sessions)
+        #expect(b.backupSessionsBeforeSave())
+        #expect(try SafeFile.read(b.sessionsBak) == antes)
+
+        try FileManager.default.removeItem(at: c.netdeck)
+        #expect(b.sessionCandidates.first?.lastPathComponent == "ssh_config.bak")
+        let r = try #require(b.recoverSessionsIfMissing())
+        #expect(r.source.lastPathComponent == "ssh_config.bak")
+        #expect(r.count == 3)
+        #expect(b.snapshots.count == 1)                           // (no es una copia más: no echa a ninguna)
+    }
+
+    /// Una copia de versión más nueva que la .bak va antes que ella.
+    @Test func laBakMasViejaVaDetras() throws {
+        let c = try Casa()
+        defer { c.remove() }
+        let b = c.backup
+        #expect(b.backupSessionsBeforeSave())
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -3600)], ofItemAtPath: b.sessionsBak.path)
+        let nueva = try #require(b.snapshot(reason: "version-0.9.1"))
+        #expect(b.sessionCandidates.map { $0.resolvingSymlinksInPath().path }
+                == [nueva.appendingPathComponent("ssh_config"), b.sessionsBak].map { $0.resolvingSymlinksInPath().path })
+    }
+
+    /// El archivo está pero ~/.ssh/config ya no lo incluye (o el Include está comentado): la lista saldría vacía. Se
+    /// vuelve a incluir sin tocar las sesiones, con copia del ~/.ssh/config de antes; si ya está, no se toca.
+    @Test func vuelveAPonerElInclude() throws {
+        let c = try Casa()
+        defer { c.remove() }
+        let b = c.backup
+        let antes = try #require(try SafeFile.read(c.sessions))
+        #expect(!b.restoreIncludeIfMissing(sshConfig: c.sshConfig))   // (ya lo incluye)
+
+        let propio = "# Include ~/.config/netdeck/ssh_config\nHost *\n    ServerAliveInterval 30\n"
+        try SafeFile.write(propio, to: c.sshConfig)
+        #expect(b.restoreIncludeIfMissing(sshConfig: c.sshConfig))
+        let ahora = try #require(try SafeFile.read(c.sshConfig))
+        #expect(SessionFile.hasInclude(ahora))
+        #expect(ahora.hasSuffix(propio))                             // (lo tuyo, tal cual, debajo)
+        #expect(perms(c.sshConfig) == 0o600)
+        let copias = try FileManager.default.contentsOfDirectory(atPath: c.sshConfig.deletingLastPathComponent().path)
+            .filter { $0.hasPrefix("config.antes-netdeck-") }
+        #expect(copias.count == 1)
+        #expect(try SafeFile.read(c.sessions) == antes)
+        #expect(!b.restoreIncludeIfMissing(sshConfig: c.sshConfig))   // (una sola vez)
+
+        // (sin sesiones no se añade nada: quien sólo usa su ~/.ssh/config no lo necesita)
+        let sin = try Casa(withSessions: false)
+        defer { sin.remove() }
+        try SafeFile.write("Host *\n", to: sin.sshConfig)
+        #expect(!sin.backup.restoreIncludeIfMissing(sshConfig: sin.sshConfig))
+        #expect(try SafeFile.read(sin.sshConfig) == "Host *\n")
+    }
+
+    @Test func detectaElInclude() {
+        #expect(SessionFile.hasInclude("Include ~/.config/netdeck/ssh_config\n"))
+        #expect(SessionFile.hasInclude("  include /Users/tu.usuario/.config/netdeck/ssh_config\n"))
+        #expect(!SessionFile.hasInclude("# Include ~/.config/netdeck/ssh_config\n"))
+        #expect(!SessionFile.hasInclude("Host core-01\n    HostName 192.0.2.11\n"))
+    }
+
     /// Dos copias en el mismo segundo no se pisan.
     @Test func mismoSegundo() throws {
         let c = try Casa()

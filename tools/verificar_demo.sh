@@ -1,7 +1,7 @@
 #!/bin/bash
 # tools/verificar_demo.sh — pasada funcional en la DEMO antes de un commit o tag (ver CLAUDE.md): abre la app con datos
 # de ejemplo (NETDECK_HOME temporal con tools/demo, nunca tus sesiones ni el Llavero) en cada pantalla principal
-# (terminal, explorador SFTP, pestañas, temas, resaltado, menús de clic derecho, ajustes) y guarda una captura de cada
+# (terminal, selección rectangular, explorador SFTP, pestañas, temas, resaltado, menús de clic derecho, ajustes) y guarda una captura de cada
 # una. Falla si alguna no sale, si un clic derecho no abre menú o si el terminal no muestra la salida de ejemplo.
 # Con permiso de grabación de pantalla para la Terminal, la captura es la de la pantalla (con el terminal tal cual se
 # ve); sin él, la que hace la app de su ventana, donde SwiftTerm no sale. El menú de un clic derecho, la que hace la
@@ -33,7 +33,7 @@ caso() {   # nombre idioma tema acción [clic x,y] [subcarpeta del explorador] [
   dd if=/dev/zero of="$casa/ficheros/firmware/ios-xe-17.12.bin" bs=1024 count=512 2>/dev/null
   NETDECK_SFTP_SERVER=/usr/libexec/sftp-server NETDECK_SFTP_DIR="$casa/ficheros${sub:+/$sub}" \
   NETDECK_HOME="$casa" NETDECK_SAMPLES=1 NETDECK_SNAPSHOT="$png" NETDECK_SNAPSHOT_ACTION="$accion" \
-  NETDECK_SNAPSHOT_CLICK="$clic" \
+  NETDECK_SNAPSHOT_CLICK="$clic" NETDECK_SNAPSHOT_BLOCK="${BLOQUE:-}" \
     "$BIN" -idioma "$idioma" -themeID "$tema" -themeAuto NO -sshConfigPath "$casa/.ssh/config" -configured YES \
            -asistenteVisto YES -sidebarVisible YES -buttonBar arriba >/dev/null 2>&1 &
   local pid=$!
@@ -86,6 +86,14 @@ print("; ".join(fallos))
 PY
 )
     [ -n "$r" ] && { echo "✗ $nombre: $r"; ok=0; }
+    # (⌥ + arrastrar: sólo la columna de las IP; y la 1.ª fila, la misma celda de partida que la selección de SwiftTerm)
+    if [ -n "${BLOQUE:-}" ]; then
+      cp "$png.bloque.txt" "$OUT/$nombre.bloque.txt" 2>/dev/null
+      [ "$(cat "$png.bloque.txt" 2>/dev/null)" = "$(printf 'IP-Address\n192.0.2.11\n198.51.100.1\n203.0.113.5')" ] \
+        || { echo "✗ $nombre: la selección rectangular no es la columna de las IP: «$(tr '\n' '|' < "$png.bloque.txt" 2>/dev/null)»"; ok=0; }
+      [[ "$(cat "$png.linea.txt" 2>/dev/null)" == IP-Address* ]] \
+        || { echo "✗ $nombre: la celda de la app no es la de SwiftTerm («$(cat "$png.linea.txt" 2>/dev/null)»)"; ok=0; }
+    fi
   fi
   [ $ok = 1 ] && echo "✓ $nombre" || fallos=$((fallos + 1))
   rm -rf "$casa"
@@ -96,12 +104,14 @@ caso portada-en            en neo-tokyo     ""
 caso terminal-mobaxterm    es mobaxterm-net terminal
 caso terminal-neo-tokyo    es neo-tokyo     terminal
 caso terminal-papel        es papel         terminal
+BLOQUE=1,23,4,35 caso terminal-bloque es neo-tokyo terminal
 caso pestanas              es neo-tokyo     "pestañas:12"
 caso explorador            es mobaxterm-net explorador
 caso explorador-vista      es neo-tokyo     explorador:vista
 caso explorador-md5        es neo-tokyo     explorador:md5
 caso sesion-nueva          es neo-tokyo     sesion-nueva
 caso ajustes-general       en neo-tokyo     settings:general
+caso ajustes-terminal      es neo-tokyo     settings:terminal
 caso ajustes-temas         es neo-tokyo     settings:temas
 caso ajustes-resaltado     es neo-tokyo     settings:resaltado
 caso ajustes-botones       es neo-tokyo     settings:botones

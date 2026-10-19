@@ -15,7 +15,7 @@ struct SettingsOverlay: View {
         ("listas", L("Listas"), "list.bullet.rectangle"), ("temas", L("Temas"), "paintpalette.fill"),
         ("fuentes", L("Fuentes"), "textformat"), ("resaltado", L("Resaltado"), "highlighter"),
         ("botones", L("Botones"), "rectangle.grid.1x2.fill"), ("registro", L("Registro"), "record.circle"),
-        ("general", L("General"), "gearshape.fill"),
+        ("terminal", L("Terminal"), "terminal.fill"), ("general", L("General"), "gearshape.fill"),
     ] }
 
     var body: some View {
@@ -86,6 +86,7 @@ struct SettingsOverlay: View {
         case "resaltado": HighlightSettings()
         case "botones": ButtonSettings()
         case "registro": LogSettings()
+        case "terminal": TerminalSettings()
         case "general": GeneralSettings()
         default: PasswordSettings()
         }
@@ -664,18 +665,44 @@ struct GeneralSettings: View {
                 Text(L("Desactivado, los servidores usan su propio idioma y no salen avisos como «setlocale: LC_CTYPE». Se aplica a las conexiones nuevas."))
                     .font(t.ui(11)).foregroundStyle(.secondary)
             }
-            Section(L("Ratón")) {
-                Toggle(L("Copiar al seleccionar"), isOn: $s.copyOnSelect)
-                Toggle(L("Pegar con clic derecho"), isOn: $s.pasteOnRightClick)
-                Text(L("Como en PuTTY o SecureCRT. El clic derecho pega igual que ⌘V; con ⌃ o ⌥ abre el menú de siempre."))
-                    .font(t.ui(11)).foregroundStyle(.secondary)
-            }
             Section(L("Ventana")) {
                 Toggle(L("Mostrar la lista de sesiones"), isOn: $s.sidebarVisible)
                 Toggle(L("Efecto CRT en la portada (rejilla y líneas de barrido)"), isOn: $s.crtEffect)
             }
         }
         .formStyle(.themed)
+    }
+}
+
+// MARK: - terminal
+
+/// Historial (scrollback) y ratón de las terminales.
+struct TerminalSettings: View {
+    @Environment(\.theme) private var t
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var s = model.settings
+        Form {
+            Section(L("Historial")) {
+                ThemedPicker(L("Líneas guardadas por pestaña"), selection: $s.scrollback) { o in
+                    if !TerminalHistory.options.contains(s.scrollback) { o.append((s.scrollback, TerminalHistory.label(s.scrollback))) }
+                    for n in TerminalHistory.options { o.append((n, TerminalHistory.label(n))) }
+                }
+                Text(L("Las que puedes volver a ver subiendo con la rueda o la barra. Se aplica también a las pestañas abiertas: si bajas el número, se pierden las más antiguas que no quepan."))
+                    .font(t.ui(11)).foregroundStyle(.secondary)
+            }
+            Section(L("Ratón")) {
+                Toggle(L("Copiar al seleccionar"), isOn: $s.copyOnSelect)
+                Toggle(L("Pegar con clic derecho"), isOn: $s.pasteOnRightClick)
+                Text(L("Como en PuTTY o SecureCRT. El clic derecho pega igual que ⌘V; con ⌃ o ⌥ abre el menú de siempre."))
+                    .font(t.ui(11)).foregroundStyle(.secondary)
+                Text(L("Selección rectangular: mantén ⌥ y arrastra para elegir sólo unas columnas (p. ej. las IP de un «show ip interface brief»); ⌘C la copia."))
+                    .font(t.ui(11)).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.themed)
+        .onChange(of: s.scrollback) { model.applyScrollback() }
     }
 }
 

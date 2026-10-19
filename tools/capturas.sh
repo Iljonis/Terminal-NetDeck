@@ -3,6 +3,7 @@
 # tus sesiones, ajustes ni el Llavero: la app arranca con NETDECK_HOME en una carpeta temporal.
 #   tools/capturas.sh            → todas
 #   TEMA=neo-tokyo tools/capturas.sh
+#   SOLO=ajustes tools/capturas.sh   → sólo las que contengan eso en el nombre
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # (con pipefail, «swift build | grep && exit 1» no paraba si no compilaba: seguía con el binario anterior)
@@ -14,6 +15,7 @@ mkdir -p "$OUT"
 
 captura() {   # nombre idioma acción
   local nombre=$1 idioma=$2 accion=$3 casa png
+  [ -n "${SOLO:-}" ] && [[ "$nombre" != *"$SOLO"* ]] && return
   casa=$(mktemp -d /tmp/netdeck-demo.XXXX)                      # (ruta corta: se ve en el explorador)
   cp -R tools/demo/. "$casa/"
   png="$casa/captura.png"
@@ -43,10 +45,11 @@ captura portada        es ""
 captura portada-en     en ""
 captura temas          es settings:temas
 captura resaltado      es settings:resaltado
-captura ajustes-en     en settings:general
+captura ajustes-en     en settings:terminal
 captura asistente      es setup:0
 captura pestanas       es "pestañas:9"
 captura explorador     es explorador:vista
 
 # (la barra de pestañas, sola: la terminal no sale en estas capturas)
+[ -z "${SOLO:-}" ] || [[ pestanas == *"$SOLO"* ]] || exit 0
 swift tools/recortar.swift "$OUT/pestanas.png" "$OUT/pestanas.png" 72 && echo "✓ $OUT/pestanas.png (barra)"

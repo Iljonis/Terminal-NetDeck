@@ -7,8 +7,10 @@ Repositorio público: https://github.com/Iljonis/Terminal-NetDeck
 
 - `swift build` · `swift run TerminalNetDeck` (desarrollo; `-idioma en` en inglés; cualquier ajuste se puede forzar
   igual: `-sshConfigPath /ruta`, `-themeID neo-tokyo`…)
-- `./test.sh` — primero `tools/privacidad.sh` (nada personal en lo que se publica) y luego los tests del núcleo (Swift
-  Testing). Siempre en verde antes de un commit. También en GitHub Actions.
+- `./test.sh` — primero `tools/privacidad.sh` (nada personal en lo que se publica), `tools/test_actualizacion.sh` (el
+  paso de install.sh que cambia la app, `tools/sustituir_app.sh`, deja sesiones, ~/.ssh/config, botones y listas
+  idénticos) y luego los tests del núcleo (Swift Testing, con `NETDECK_HOME` temporal). Siempre en verde antes de un
+  commit. También en GitHub Actions.
 - `tools/privacidad.sh [--binario]` — IPs privadas, rutas `/Users/…`, correos, claves, tokens y contraseñas en el código,
   temas, reglas y plantillas; con `--binario` también la app de `build/` y el `.dmg`. Tus direcciones (las de tu
   ssh_config y las de `tools/privacidad.local`, que no se sube) se comprueban sin publicarlas.

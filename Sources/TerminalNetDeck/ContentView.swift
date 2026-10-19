@@ -127,6 +127,29 @@ extension ContentView {
                     if s.pipe.counter.bump() { s.pipe.onOutput() }
                     if let path { try? Data(out).write(to: URL(fileURLWithPath: path + ".resaltado.txt")) }
                 }
+                // (NETDECK_SNAPSHOT_BLOCK=«f1,c1,f2,c2»: arrastre normal por la 1.ª fila (lo selecciona SwiftTerm, en
+                // «.linea.txt») y ⌥ + arrastre por el rectángulo («.bloque.txt»), por las mismas celdas: si la celda que
+                // calcula la app no fuera la de SwiftTerm, no coincidirían. El rectángulo se queda en la captura.)
+                guard let spec = env["NETDECK_SNAPSHOT_BLOCK"], let path else { return }
+                let n = spec.split(separator: ",").compactMap { Int($0) }
+                guard n.count == 4 else { return }
+                try? await Task.sleep(for: .milliseconds(800))
+                let v = s.view
+                func drag(_ a: (Int, Int), _ b: (Int, Int), option: Bool) {
+                    let flags: NSEvent.ModifierFlags = option ? .option : []
+                    func ev(_ type: NSEvent.EventType, _ c: (Int, Int)) -> NSEvent? {
+                        NSEvent.mouseEvent(with: type, location: v.convert(v.point(ofCell: c.0, c.1), to: nil), modifierFlags: flags,
+                                           timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: v.window?.windowNumber ?? 0,
+                                           context: nil, eventNumber: 0, clickCount: 1, pressure: 1)
+                    }
+                    if let e = ev(.leftMouseDown, a) { v.mouseDown(with: e) }
+                    if let e = ev(.leftMouseDragged, b) { v.mouseDragged(with: e) }
+                    if let e = ev(.leftMouseUp, b) { v.mouseUp(with: e) }
+                }
+                drag((n[0], n[1]), (n[0], n[3]), option: false)
+                try? (v.getSelection() ?? "").write(toFile: path + ".linea.txt", atomically: true, encoding: .utf8)
+                drag((n[0], n[1]), (n[2], n[3]), option: true)
+                try? (v.blockText ?? "").write(toFile: path + ".bloque.txt", atomically: true, encoding: .utf8)
             }
         }
         // (NETDECK_SNAPSHOT_MD5: el MD5 del archivo más pequeño del explorador, entrando en la primera carpeta si no hay

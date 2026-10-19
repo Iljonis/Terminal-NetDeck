@@ -98,7 +98,11 @@ final class AppSettings {
     var copyOnSelect: Bool { didSet { d.set(copyOnSelect, forKey: Self.copyOnSelectKey) } }
     var pasteOnRightClick: Bool { didSet { d.set(pasteOnRightClick, forKey: Self.pasteOnRightClickKey) } }
 
+    /// Líneas que guarda cada terminal para volver atrás (Ajustes → Terminal); también a las pestañas abiertas.
+    var scrollback: Int { didSet { d.set(scrollback, forKey: TerminalHistory.key) } }
+
     init() {
+        scrollback = TerminalHistory.current
         sendLocale = d.bool(forKey: Self.sendLocaleKey)
         shareJump = d.object(forKey: Self.shareJumpKey) as? Bool ?? true
         copyOnSelect = d.bool(forKey: Self.copyOnSelectKey)

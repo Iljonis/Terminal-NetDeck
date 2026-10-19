@@ -321,6 +321,12 @@ final class AppModel {
         applyAppearance()
     }
 
+    /// El historial (scrollback) de Ajustes → Terminal, a todas las pestañas abiertas.
+    func applyScrollback() {
+        let n = settings.scrollback
+        tabs.forEach { $0.view.changeScrollback(n) }
+    }
+
     /// Tema automático: el claro o el oscuro según el Mac (se llama al cambiar la apariencia).
     func followAppearance() {
         guard settings.themeAuto else { return }
@@ -419,6 +425,7 @@ final class AppModel {
 
     /// Guarda el ssh_config de NetDeck (comprobado con ssh -G) y que ~/.ssh/config lo incluya.
     func saveSessions(_ file: SessionFile) -> String? {
+        DataBackup.standard.backupSessionsBeforeSave()          // (copias/ssh_config.bak: fuera de ~/.config/netdeck)
         if let err = file.save() {
             ErrorLog.error("sesiones", "no se han podido guardar: \(err)")
             return err
@@ -440,16 +447,19 @@ final class AppModel {
 
     /// Antes de leer nada: si falta el archivo de sesiones y consta que las había (p. ej. el desinstalador de NetDeck
     /// borra ~/.config/netdeck entera y el Include de ~/.ssh/config), se recupera de la mejor copia y se vuelve a
-    /// incluir; y al estrenar versión, copia de todo (actualizar arrastrando el .dmg no pasa por el Updater).
+    /// incluir; si está pero falta sólo el Include, se vuelve a poner; y al estrenar versión, copia de todo (actualizar
+    /// arrastrando el .dmg no pasa por el Updater).
     private func protectUserData() {
         let backup = DataBackup.standard
         let d = UserDefaults.standard
         if !sessionFile.sessions.isEmpty { d.set(true, forKey: Self.hadSessionsKey) }
+        let usesDefault = settings.sshConfigURL.standardizedFileURL == SessionManager.defaultConfigURL.standardizedFileURL
         if d.bool(forKey: Self.hadSessionsKey), let (source, n) = backup.recoverSessionsIfMissing() {
-            if settings.sshConfigURL.standardizedFileURL == SessionManager.defaultConfigURL.standardizedFileURL {
-                SessionFile.ensureInclude()
-            }
+            if usesDefault { SessionFile.ensureInclude() }
             status = L("✗ Faltaba el archivo de sesiones: recuperadas \(n) sesiones de \(AppPaths.tilde(source.path))")
+        } else if usesDefault, backup.restoreIncludeIfMissing(sshConfig: SessionManager.defaultConfigURL) {
+            // (el archivo estaba, pero ~/.ssh/config ya no lo incluía: la lista salía vacía)
+            status = L("✗ ~/.ssh/config no incluía tus sesiones: vuelto a incluir (copia del anterior junto a él)")
         }
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
         if d.string(forKey: "ultimaVersion") != version {

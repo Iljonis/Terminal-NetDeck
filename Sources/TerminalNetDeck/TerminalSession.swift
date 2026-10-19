@@ -87,15 +87,130 @@ final class NetDeckTerminalView: TerminalView {
         performFindPanelAction(item)
     }
 
-    // Ratón tipo PuTTY/SecureCRT (Ajustes → General → Ratón; los dos apagados de serie).
+    // Selección rectangular: ⌥ + arrastrar (como SecureCRT o iTerm), sólo las columnas del rectángulo de cada fila.
+    // SwiftTerm no la tiene: se dibuja encima y el texto sale de la pantalla (`BlockSelection`). Si el programa del
+    // equipo sigue al ratón, ⌥ + arrastrar es suyo.
+
+    /// El rectángulo (filas y columnas de pantalla) y su texto: lo que copia ⌘C mientras esté.
+    private(set) var block: BlockSelection?
+    private(set) var blockText: String?
+    private var blockAnchor: (row: Int, col: Int)?
+    private var blockDragged = false
+    private var blockDimensions = (cols: 80, rows: 24)
+    private lazy var blockOverlay: BlockOverlay = {
+        let v = BlockOverlay(frame: .zero)
+        addSubview(v, positioned: .above, relativeTo: nil)
+        return v
+    }()
+
+    private func wantsBlock(_ event: NSEvent) -> Bool {
+        event.modifierFlags.contains(.option) && (!allowMouseReporting || currentMouseMode == .off)
+    }
+
+    /// El tamaño de la celda, como lo calcula SwiftTerm (alto de la letra por el interlineado, ancho de la «W»,
+    /// ajustados a los píxeles de la pantalla).
+    var cellSize: CGSize {
+        let f = font
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        let w = f.advancement(forGlyph: f.glyph(withName: "W")).width
+        let h = ceil((f.ascender - f.descender + f.leading) * lineSpacing)
+        return CGSize(width: max(1, (w * scale).rounded() / scale), height: max(1, ceil(h * scale) / scale))
+    }
+
+    /// La celda de pantalla (fila desde arriba, columna) bajo un punto de la vista.
+    func cell(at p: CGPoint) -> (row: Int, col: Int) {
+        let c = cellSize
+        return (min(max(0, Int((bounds.height - p.y) / c.height)), blockDimensions.rows - 1),
+                min(max(0, Int(p.x / c.width)), blockDimensions.cols - 1))
+    }
+
+    /// El centro de una celda de pantalla, en puntos de la vista (capturas y pruebas).
+    func point(ofCell row: Int, _ col: Int) -> CGPoint {
+        let c = cellSize
+        return CGPoint(x: (CGFloat(col) + 0.5) * c.width, y: bounds.height - (CGFloat(row) + 0.5) * c.height)
+    }
+
+    private func showBlock(_ b: BlockSelection) {
+        block = b
+        let c = cellSize
+        blockOverlay.color = selectedTextBackgroundColor
+        blockOverlay.frame = NSRect(x: CGFloat(b.cols.lowerBound) * c.width,
+                                    y: bounds.height - CGFloat(b.rows.upperBound + 1) * c.height,
+                                    width: CGFloat(b.cols.count) * c.width, height: CGFloat(b.rows.count) * c.height)
+        blockOverlay.isHidden = false
+    }
+
+    /// Quita el rectángulo (al hacer clic, teclear o moverse la pantalla: deja de corresponder a lo que se ve).
+    func clearBlock() {
+        guard block != nil || blockAnchor != nil else { return }
+        block = nil
+        blockText = nil
+        blockAnchor = nil
+        blockOverlay.isHidden = true
+    }
+
+    /// El texto del rectángulo con lo que hay ahora en pantalla.
+    func blockContents(_ b: BlockSelection) -> String {
+        let snap = terminalStateSnapshot()
+        var screen = Array(repeating: (text: "", cellWidths: [Int]()), count: snap.dimensions.rows)
+        for r in snap.visibleRows where screen.indices.contains(r.row) { screen[r.row] = (r.text, r.cellWidths) }
+        return b.text(of: screen)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard wantsBlock(event) else {
+            clearBlock()
+            super.mouseDown(with: event)
+            return
+        }
+        clearBlock()
+        selectNone()
+        window?.makeFirstResponder(self)
+        let d = terminalStateSnapshot().dimensions
+        blockDimensions = (max(1, d.cols), max(1, d.rows))
+        blockAnchor = cell(at: convert(event.locationInWindow, from: nil))
+        blockDragged = false
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let a = blockAnchor else { super.mouseDragged(with: event); return }
+        blockDragged = true
+        showBlock(BlockSelection(from: a, to: cell(at: convert(event.locationInWindow, from: nil))))
+    }
+
+    // Ratón tipo PuTTY/SecureCRT (Ajustes → Terminal → Ratón; los dos apagados de serie).
 
     /// Copiar al seleccionar: al soltar el botón, lo seleccionado (si hay algo) va al portapapeles.
     override func mouseUp(with event: NSEvent) {
+        if let a = blockAnchor {
+            blockAnchor = nil
+            guard blockDragged else { clearBlock(); return }          // (⌥ + clic sin arrastrar: nada)
+            let b = BlockSelection(from: a, to: cell(at: convert(event.locationInWindow, from: nil)))
+            showBlock(b)
+            blockText = blockContents(b)
+            if UserDefaults.standard.bool(forKey: AppSettings.copyOnSelectKey), let t = blockText, !t.isEmpty {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(t, forType: .string)
+            }
+            return
+        }
         super.mouseUp(with: event)
         guard UserDefaults.standard.bool(forKey: AppSettings.copyOnSelectKey), selectionActive,
               let text = getSelection(), !text.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    /// ⌘C: el rectángulo si lo hay; si no, la selección de siempre.
+    override func copy(_ sender: Any) {
+        guard let t = blockText, !t.isEmpty else { super.copy(sender); return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(t, forType: .string)
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        if newSize != frame.size { clearBlock() }
+        super.setFrameSize(newSize)
     }
 
     /// Pegar con clic derecho: por `paste(_:)`, el mismo camino que ⌘V (pegado entre corchetes y lo que haga la app
@@ -121,7 +236,7 @@ final class NetDeckTerminalView: TerminalView {
             i.isEnabled = enabled
             m.addItem(i)
         }
-        item(L("Copiar"), #selector(copy(_:)), "c", enabled: selectionActive)
+        item(L("Copiar"), #selector(copy(_:)), "c", enabled: selectionActive || blockText?.isEmpty == false)
         item(L("Pegar"), #selector(paste(_:)), "v", enabled: NSPasteboard.general.string(forType: .string) != nil)
         m.addItem(.separator())
         item(L("Seleccionar todo"), #selector(selectAll(_:)), "a")
@@ -136,6 +251,20 @@ final class NetDeckTerminalView: TerminalView {
            event.modifierFlags.intersection([.control, .option]).isEmpty,
            !allowMouseReporting || currentMouseMode == .off { return }
         super.rightMouseUp(with: event)
+    }
+}
+
+/// El rectángulo de la selección con ⌥: el color de la selección, translúcido, encima del texto (no recibe clics).
+final class BlockOverlay: NSView {
+    var color = NSColor.selectedTextBackgroundColor { didSet { needsDisplay = true } }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func draw(_ dirtyRect: NSRect) {
+        color.withAlphaComponent(0.45).setFill()
+        bounds.fill()
+        color.setStroke()
+        NSBezierPath(rect: bounds.insetBy(dx: 0.5, dy: 0.5)).stroke()
     }
 }
 
@@ -216,6 +345,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         self.title = route.title
         view = NetDeckTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
         view.optionAsMetaKey = false                   // (⌥ para «@», «#», «|» en teclado español)
+        view.changeScrollback(TerminalHistory.current) // (Ajustes → Terminal; SwiftTerm guarda 500)
         view.terminalDelegate = self
         pipe.view = view
         let counter = pipe.counter
@@ -513,6 +643,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     // MARK: - TerminalViewDelegate
 
     func send(source: TerminalView, data: ArraySlice<UInt8>) {
+        view.clearBlock()
         if exited {
             if data.contains(13) { onReconnect?(self) } else if Array(data) == [27] { onCloseRequest?(self) }
             return
@@ -529,7 +660,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
 
     func setTerminalTitle(source: TerminalView, title: String) {}
     func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
-    func scrolled(source: TerminalView, position: Double) {}
+    func scrolled(source: TerminalView, position: Double) { view.clearBlock() }
     func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
     func iTermContent(source: TerminalView, content: ArraySlice<UInt8>) {}
     func bell(source: TerminalView) { NSSound.beep() }

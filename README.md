@@ -51,8 +51,8 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 
 1. **Descarga** `Terminal-NetDeck.dmg` de la [última versión](https://github.com/Iljonis/Terminal-NetDeck/releases/latest).
 2. **Ábrelo** y arrastra **Terminal NetDeck** a **Aplicaciones**.
-3. **Autoriza la app una vez.** La app se distribuye con firma *ad-hoc*, sin notarizar. Retira la cuarentena desde
-   Terminal:
+3. **Autoriza la app una vez.** La app se distribuye con firma *ad hoc* y sin notarizar. El método recomendado es
+   retirar el atributo de cuarentena desde Terminal:
 
    ```bash
    sudo xattr -cr "/Applications/Terminal NetDeck.app"
@@ -66,7 +66,9 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 Las actualizaciones desde la propia app y las instalaciones con `./install.sh` no necesitan este paso.
 
 Tus datos se quedan en tu Mac: la configuración en `~/Library/Application Support/Terminal NetDeck/`, las sesiones en
-formato `ssh_config` y las contraseñas, sólo en el Llavero de macOS.
+formato `ssh_config` y las contraseñas, sólo en el Llavero de macOS. Actualizar sólo sustituye la app: antes se copian
+tus sesiones, `~/.ssh/config`, botones y listas en `~/Library/Application Support/Terminal NetDeck/copias/`, y si al
+arrancar faltara el archivo de sesiones o su `Include`, la app los recupera sola.
 
 ![Asistente de bienvenida](docs/capturas/asistente.png)
 
@@ -165,6 +167,9 @@ cd Terminal-NetDeck
   Huawei, Nokia SR-OS (prompts clásico y MD-CLI, puertos `1/1/c1/1`, alarmas) y Linux, con los colores del tema,
   editable con vista previa. Puedes elegir qué tono es cada color del resaltado, por tema, sin tocar la interfaz; si
   tienes reglas tuyas, las nuevas de cada versión se añaden con un clic.
+- **Selección rectangular:** mantén ⌥ y arrastra para copiar sólo unas columnas (las IP de un `show ip interface
+  brief`, sin el resto de la línea).
+- **Historial configurable:** 2.500 líneas por pestaña de serie; 1.000, 5.000 o 10.000 en Ajustes → Terminal.
 - **Registro** de las sesiones en texto limpio y **búsqueda** en todos ellos (IP, MAC en cualquier formato…).
 - **Sin avisos de locale** en servidores Linux: ssh no manda el idioma del Mac salvo que lo actives.
 - **Español de España e inglés**, se cambia al momento en Ajustes → General → Idioma.
@@ -245,7 +250,7 @@ serie, **NetDeck Cyberpunk**.
 |---|---|
 | ![Inicio](docs/capturas/portada.png) **Inicio:** tus sesiones a un clic y conexión rápida | ![Explorador](docs/capturas/explorador.png) **Explorador SFTP** en vista dividida |
 | ![Temas](docs/capturas/temas.png) **Galería de temas** con vista previa | ![Resaltado](docs/capturas/resaltado.png) **Reglas de resaltado** editables |
-| ![Ajustes](docs/capturas/ajustes-en.png) **Ajustes** (aquí, en inglés) | ![Asistente](docs/capturas/asistente.png) **Asistente** de la primera vez |
+| ![Ajustes](docs/capturas/ajustes-en.png) **Ajustes → Terminal:** historial y selección rectangular (aquí, en inglés) | ![Asistente](docs/capturas/asistente.png) **Asistente** de la primera vez |
 
 ![Barra de pestañas adaptativas](docs/capturas/pestanas.png)
 
@@ -262,6 +267,7 @@ serie, **NetDeck Cyberpunk**.
 | ⇧⌘M | MultiExec |
 | ⌘F / ⇧⌘F | Buscar en la salida / en todos los registros |
 | Esc o ⌘. | Cortar cualquier secuencia automática |
+| ⌥ + arrastrar | Selección rectangular (sólo esas columnas); ⌘C la copia |
 | ⌘, | Ajustes |
 
 ## Seguridad y privacidad
@@ -270,6 +276,8 @@ serie, **NetDeck Cyberpunk**.
 - MultiExec y el pegado seguro sólo llegan a pestañas SSH/Telnet: nunca a una terminal local, SFTP o consola serie.
 - Tus archivos (`ssh_config`, botones, listas) nunca se sobrescriben si no se pueden leer, con copia `.anterior` en cada
   guardado; carpetas y archivos de la app sólo para ti (0700/0600).
+- Antes de cada actualización y de cada guardado de sesiones, copia fuera de `~/.config/netdeck`; un test comprueba en
+  cada cambio que actualizar deja tus sesiones idénticas.
 - Actualizaciones sólo de github.com, comprobadas con su sha256 y su firma, y nada se instala sin tu clic.
 - Firma ad hoc con hardened runtime.
 - Cada cambio pasa una comprobación de privacidad (nada personal en el código, la app ni el `.dmg`) y, cada semana,
@@ -282,7 +290,7 @@ serie, **NetDeck Cyberpunk**.
 ```bash
 swift build
 swift run TerminalNetDeck              # -idioma en: en inglés
-./test.sh                              # privacidad + tests del núcleo
+./test.sh                              # privacidad + actualizar sin tocar tus datos + tests del núcleo
 tools/capturas.sh                      # regenera docs/capturas con datos de ejemplo
 tools/verificar_demo.sh                # pasada funcional en la demo antes de un commit o tag
 ```

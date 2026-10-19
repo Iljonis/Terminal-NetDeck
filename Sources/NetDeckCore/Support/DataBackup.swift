@@ -68,6 +68,39 @@ public struct DataBackup: Sendable {
         return dir
     }
 
+    /// Las sesiones tal como estaban antes del último guardado (fuera de ~/.config/netdeck: se salva aunque se borre).
+    public var sessionsBak: URL { directory.appendingPathComponent("ssh_config.bak") }
+
+    /// Antes de guardar las sesiones: el archivo de ahora a `sessionsBak` (0600). Sólo si tiene alguna sesión (un archivo
+    /// vacío no pisa una copia buena) y se puede leer. false si no se ha podido copiar (se apunta; no impide guardar:
+    /// `SafeFile.backup` deja además su `.anterior`).
+    @discardableResult
+    public func backupSessionsBeforeSave() -> Bool {
+        do {
+            guard let text = try SafeFile.read(sessions.resolvingSymlinksInPath()),
+                  !SessionFile(text: text).sessions.isEmpty else { return true }
+            AppPaths.ensure(directory)
+            try SafeFile.write(text, to: sessionsBak)
+            return true
+        } catch {
+            ErrorLog.warning("copias", "sin \(AppPaths.tilde(sessionsBak.path)): \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// Si hay sesiones pero ~/.ssh/config ya no las incluye (el desinstalador de NetDeck quita el Include; también otra
+    /// herramienta que lo reescriba), la lista se queda vacía aunque el archivo siga intacto: vuelve a poner el Include
+    /// (con copia del ~/.ssh/config de antes). true si lo ha añadido; si no faltaba, no hay sesiones o no se puede leer,
+    /// false y no se toca.
+    @discardableResult
+    public func restoreIncludeIfMissing(sshConfig: URL) -> Bool {
+        guard let text = try? SafeFile.read(sessions), !SessionFile(text: text).sessions.isEmpty,
+              let config = try? SafeFile.read(sshConfig), !SessionFile.hasInclude(config) else { return false }
+        guard SessionFile.ensureInclude(sshConfig: sshConfig) else { return false }
+        ErrorLog.warning("sesiones", "\(AppPaths.tilde(sshConfig.path)) no incluía \(AppPaths.tilde(sessions.path)): vuelto a incluir")
+        return true
+    }
+
     /// Las copias de la app, de la más nueva a la más vieja.
     public var snapshots: [URL] {
         let all = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
@@ -81,12 +114,18 @@ public struct DataBackup: Sendable {
     }
 
     /// Dónde puede haber sesiones guardadas, por orden de confianza (no por fecha: una copia ajena con fecha futura no
-    /// gana): las copias de la app (la más nueva primero) y `.anterior`/`.original`. Las «netdeck-copia-*» de NetDeck,
-    /// aparte (`foreignCandidates`): mirar ~/Documents puede sacar el aviso de privacidad de macOS.
+    /// gana): las copias de la app (la más nueva primero; `sessionsBak` delante si es más reciente que ella: se guardó
+    /// algo después de copiar) y `.anterior`/`.original`. Las «netdeck-copia-*» de NetDeck, aparte
+    /// (`foreignCandidates`): mirar ~/Documents puede sacar el aviso de privacidad de macOS.
     public var sessionCandidates: [URL] {
-        let out = snapshots.map { $0.appendingPathComponent(Self.sessionsName) }
-            + [sessions.appendingPathExtension("anterior"), sessions.appendingPathExtension("original")]
-        return out.filter { FileManager.default.fileExists(atPath: $0.path) }
+        let fm = FileManager.default
+        func date(_ u: URL) -> Date { ((try? fm.attributesOfItem(atPath: u.path))?[.modificationDate] as? Date) ?? .distantPast }
+        var own = snapshots.map { $0.appendingPathComponent(Self.sessionsName) }.filter { fm.fileExists(atPath: $0.path) }
+        if fm.fileExists(atPath: sessionsBak.path) {
+            if let newest = own.first, date(newest) > date(sessionsBak) { own.append(sessionsBak) } else { own.insert(sessionsBak, at: 0) }
+        }
+        return own + [sessions.appendingPathExtension("anterior"), sessions.appendingPathExtension("original")]
+            .filter { fm.fileExists(atPath: $0.path) }
     }
 
     /// Las «netdeck-copia-AAAAMMDD-HHMMSS» de NetDeck, la más nueva primero (por el nombre).

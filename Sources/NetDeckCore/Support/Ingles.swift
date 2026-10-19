@@ -1779,5 +1779,14 @@ enum Ingles {
             "Some rules cannot be read (%@): fix them in the editor and press Reload, so they are not lost",
         "✗ Faltaba el archivo de sesiones: recuperadas %@ sesiones de %@":
             "✗ The sessions file was missing: %@ sessions recovered from %@",
+        "✗ ~/.ssh/config no incluía tus sesiones: vuelto a incluir (copia del anterior junto a él)":
+            "✗ ~/.ssh/config no longer included your sessions: included again (the previous one is backed up next to it)",
+        "%@ líneas": "%@ lines",
+        "Historial": "Scrollback",
+        "Líneas guardadas por pestaña": "Lines kept per tab",
+        "Las que puedes volver a ver subiendo con la rueda o la barra. Se aplica también a las pestañas abiertas: si bajas el número, se pierden las más antiguas que no quepan.":
+            "The lines you can scroll back to with the wheel or the scroll bar. Also applies to open tabs: lowering it drops the oldest lines that no longer fit.",
+        "Selección rectangular: mantén ⌥ y arrastra para elegir sólo unas columnas (p. ej. las IP de un «show ip interface brief»); ⌘C la copia.":
+            "Rectangular selection: hold ⌥ and drag to pick just some columns (e.g. the IPs of a “show ip interface brief”); ⌘C copies it.",
 ]
 }

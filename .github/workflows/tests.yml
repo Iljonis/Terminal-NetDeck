@@ -17,6 +17,8 @@ jobs:
           swift --version
       - name: Privacidad (nada personal en el repositorio)
         run: tools/privacidad.sh
+      - name: Actualizar conserva tus datos
+        run: tools/test_actualizacion.sh
       - name: Compilar
         run: |
           set -o pipefail
@@ -24,4 +26,4 @@ jobs:
       - name: Tests
         run: |
           set -o pipefail
-          swift test 2>&1 | tee test.log || { grep -E '✘|error:|Expectation failed|recorded an issue' test.log | head -40 | sed 's/^/::error::/'; exit 1; }
+          NETDECK_HOME=$(mktemp -d) swift test 2>&1 | tee test.log || { grep -E '✘|error:|Expectation failed|recorded an issue' test.log | head -40 | sed 's/^/::error::/'; exit 1; }

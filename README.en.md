@@ -51,8 +51,8 @@ that into one macOS app, built around one idea: **it should never play a trick o
 
 1. **Download** `Terminal-NetDeck.dmg` from the [latest release](https://github.com/Iljonis/Terminal-NetDeck/releases/latest).
 2. **Open it** and drag **Terminal NetDeck** to **Applications**.
-3. **Allow the app once.** The app ships with an *ad-hoc* signature and is not notarized. Remove the quarantine
-   attribute from Terminal:
+3. **Allow the app once.** The app ships with an *ad hoc* signature and is not notarized. The recommended method is
+   to remove the quarantine attribute from Terminal:
 
    ```bash
    sudo xattr -cr "/Applications/Terminal NetDeck.app"
@@ -66,7 +66,9 @@ that into one macOS app, built around one idea: **it should never play a trick o
 Updates from the app itself and installs with `./install.sh` don't need this step.
 
 Your data stays on your Mac: settings in `~/Library/Application Support/Terminal NetDeck/`, sessions in `ssh_config`
-format and passwords only in the macOS Keychain.
+format and passwords only in the macOS Keychain. Updating only replaces the app: your sessions, `~/.ssh/config`,
+buttons and lists are first backed up to `~/Library/Application Support/Terminal NetDeck/copias/`, and if the sessions
+file or its `Include` were ever missing at launch, the app restores them on its own.
 
 ![Setup assistant](docs/capturas/asistente.png)
 
@@ -165,6 +167,9 @@ cd Terminal-NetDeck
   Huawei, Nokia SR-OS (classic and MD-CLI prompts, `1/1/c1/1` ports, alarms) and Linux, in the theme's colours,
   editable with a live preview. You can pick the shade of each highlight colour, per theme, without touching the
   interface; if you have your own rules, each release's new ones are added with one click.
+- **Rectangular selection:** hold ⌥ and drag to copy just some columns (the IPs of a `show ip interface brief`,
+  without the rest of the line).
+- **Configurable scrollback:** 2,500 lines per tab by default; 1,000, 5,000 or 10,000 in Settings → Terminal.
 - **Session logging** to clean text and **search** across all logs (IPs, MACs in any format…).
 - **No locale warnings** on Linux servers: ssh doesn't send the Mac's language unless you turn it on.
 - **Spanish (Spain) and English**, switched instantly in Settings → General → Language.
@@ -244,7 +249,7 @@ Mac's light or dark mode**, and **every theme passes a WCAG contrast test** (tex
 |---|---|
 | ![Home](docs/capturas/portada-en.png) **Home:** your sessions one click away, plus quick connect | ![Browser](docs/capturas/explorador.png) **SFTP browser** in split view |
 | ![Themes](docs/capturas/temas.png) **Theme gallery** with live preview | ![Highlighting](docs/capturas/resaltado.png) **Editable highlighting rules** |
-| ![Settings](docs/capturas/ajustes-en.png) **Settings** | ![Assistant](docs/capturas/asistente.png) **First-run assistant** |
+| ![Settings](docs/capturas/ajustes-en.png) **Settings → Terminal:** scrollback and rectangular selection | ![Assistant](docs/capturas/asistente.png) **First-run assistant** |
 
 ![Adaptive tab bar](docs/capturas/pestanas.png)
 
@@ -261,6 +266,7 @@ Mac's light or dark mode**, and **every theme passes a WCAG contrast test** (tex
 | ⇧⌘M | MultiExec |
 | ⌘F / ⇧⌘F | Find in the output / in all logs |
 | Esc or ⌘. | Stop any automated sequence |
+| ⌥ + drag | Rectangular selection (just those columns); ⌘C copies it |
 | ⌘, | Settings |
 
 ## Security and privacy
@@ -269,6 +275,8 @@ Mac's light or dark mode**, and **every theme passes a WCAG contrast test** (tex
 - MultiExec and safe paste only reach SSH/Telnet tabs: never a local terminal, SFTP or serial console.
 - Your files (`ssh_config`, buttons, lists) are never overwritten when they can't be read, with a `.anterior` backup on
   every save; the app's folders and files are for your eyes only (0700/0600).
+- A backup outside `~/.config/netdeck` before every update and every sessions save; a test checks on every change that
+  updating leaves your sessions untouched.
 - Updates only from github.com, checked against their sha256 and signature, and nothing is installed without your click.
 - Ad hoc signature with the hardened runtime.
 - Every change goes through a privacy check (nothing personal in the code, the app or the `.dmg`) and, every week, a
@@ -281,7 +289,7 @@ Mac's light or dark mode**, and **every theme passes a WCAG contrast test** (tex
 ```bash
 swift build
 swift run TerminalNetDeck -idioma en   # in English
-./test.sh                              # privacy check + core tests
+./test.sh                              # privacy check + update keeps your data + core tests
 tools/capturas.sh                      # regenerates docs/capturas with sample data
 tools/verificar_demo.sh                # functional pass on the demo before a commit or tag
 ```
