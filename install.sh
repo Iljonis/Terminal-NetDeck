@@ -160,6 +160,19 @@ if [ -n "${PRODUCTO_ABIERTO:-}" ]; then
     pkill -KILL -x "$PRODUCTO_ABIERTO" 2>/dev/null || true
   fi
 fi
+# Antes de cambiar la app, copia de tus datos (sesiones, ~/.ssh/config, botones, listas) en «copias» de Application
+# Support, como hace la app al actualizarse. Sólo se sustituye la app: tus archivos no se tocan.
+if [ -d "$destino/$NOMBRE.app" ]; then
+  copia="$SOPORTE/copias/$(date +%Y%m%d-%H%M%S)-instalar-$VERSION"
+  mkdir -p "$copia" && chmod 700 "$SOPORTE" "$SOPORTE/copias" "$copia" || echo "   ${A}(sin carpeta de copias)${N}"
+  for par in "ssh_config:$HOME/.config/netdeck/ssh_config" "ssh-config:$HOME/.ssh/config" \
+             "botones.txt:$HOME/.config/netdeck/botones.txt" "listas.json:$SOPORTE/listas.json"; do
+    if [ -f "${par#*:}" ]; then
+      cp -L "${par#*:}" "$copia/${par%%:*}" && chmod 600 "$copia/${par%%:*}" || echo "   ${A}(sin copia de ${par#*:})${N}"
+    fi
+  done
+  rmdir "$copia" 2>/dev/null || echo "   copia de tus datos: ~${copia#"$HOME"}"
+fi
 echo "   copiando a ${destino}…"
 rm -rf "$destino/$NOMBRE.app"
 cp -R "$APP" "$destino/"

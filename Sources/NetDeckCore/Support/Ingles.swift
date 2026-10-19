@@ -1777,5 +1777,7 @@ enum Ingles {
             "Rules that come with the app and are not in yours; yours do not change",
         "Hay reglas que no se pueden leer (%@): arréglalas en el editor y pulsa Recargar; así no se pierden":
             "Some rules cannot be read (%@): fix them in the editor and press Reload, so they are not lost",
+        "✗ Faltaba el archivo de sesiones: recuperadas %@ sesiones de %@":
+            "✗ The sessions file was missing: %@ sessions recovered from %@",
 ]
 }

@@ -26,6 +26,7 @@ enum Updater {
                 let (tmp, _) = try await URLSession.shared.download(from: dmg)
                 let new = try await Task.detached { try prepare(download: tmp, sha256: sha, bundleID: id, version: r.version) }.value
                 model.saveOpenTabs()
+                DataBackup.standard.snapshot(reason: "actualizar-\(r.version)")      // (sesiones y demás, por si acaso)
                 try relaunch(replacing: current, with: new)
                 DebugLog.log("actualizaciones", "instalando la \(r.version)")
                 NSApp.terminate(nil)

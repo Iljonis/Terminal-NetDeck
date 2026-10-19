@@ -127,6 +127,7 @@ final class AppModel {
         DebugLog.enabled = settings.debugLog
         DebugLog.log("app", "arranca \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")"
                      + " (\(Bundle.main.bundlePath)) · ssh_config \(settings.sshConfigURL.path)")
+        if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil { protectUserData() }
         reloadSessions()
         reloadHighlight()
         let settings = settings
@@ -426,11 +427,36 @@ final class AppModel {
             SessionFile.ensureInclude()
         }
         reloadSessions()
+        if !file.sessions.isEmpty { UserDefaults.standard.set(true, forKey: Self.hadSessionsKey) }
         status = L("Sesiones guardadas (\(file.sessions.count))")
         return nil
     }
 
     var sessionFile: SessionFile { (try? SessionFile(contentsOf: SessionFile.defaultURL)) ?? SessionFile() }
+
+    /// Hubo sesiones guardadas en este Mac: sólo entonces, si falta el archivo, se recupera (quien usa sólo su
+    /// ~/.ssh/config no lo tiene nunca, y no se le crea ni se mira su carpeta Documentos).
+    private static let hadSessionsKey = "sesionesGuardadas"
+
+    /// Antes de leer nada: si falta el archivo de sesiones y consta que las había (p. ej. el desinstalador de NetDeck
+    /// borra ~/.config/netdeck entera y el Include de ~/.ssh/config), se recupera de la mejor copia y se vuelve a
+    /// incluir; y al estrenar versión, copia de todo (actualizar arrastrando el .dmg no pasa por el Updater).
+    private func protectUserData() {
+        let backup = DataBackup.standard
+        let d = UserDefaults.standard
+        if !sessionFile.sessions.isEmpty { d.set(true, forKey: Self.hadSessionsKey) }
+        if d.bool(forKey: Self.hadSessionsKey), let (source, n) = backup.recoverSessionsIfMissing() {
+            if settings.sshConfigURL.standardizedFileURL == SessionManager.defaultConfigURL.standardizedFileURL {
+                SessionFile.ensureInclude()
+            }
+            status = L("✗ Faltaba el archivo de sesiones: recuperadas \(n) sesiones de \(AppPaths.tilde(source.path))")
+        }
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        if d.string(forKey: "ultimaVersion") != version {
+            backup.snapshot(reason: "version-\(version)")
+            d.set(version, forKey: "ultimaVersion")
+        }
+    }
 
     private static var favoritesFile: URL { AppPaths.netdeck.appendingPathComponent("favoritas") }
     private static var recentsFile: URL { AppPaths.netdeck.appendingPathComponent("recientes") }

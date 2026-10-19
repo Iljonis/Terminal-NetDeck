@@ -107,7 +107,10 @@ final class SetupWizard {
         if needsCopy {
             do {
                 try fm.createDirectory(at: destination, withIntermediateDirectories: true)
-                if fm.fileExists(atPath: installedApp.path) { try fm.removeItem(at: installedApp) }   // (versión anterior)
+                if fm.fileExists(atPath: installedApp.path) {                                       // (versión anterior)
+                    DataBackup.standard.snapshot(reason: "instalar")                               // (sólo se cambia la app)
+                    try fm.removeItem(at: installedApp)
+                }
                 try fm.copyItem(at: bundleURL, to: installedApp)
                 log.append(L("✓ App instalada en \(AppPaths.tilde(installedApp.path))"))
             } catch {
