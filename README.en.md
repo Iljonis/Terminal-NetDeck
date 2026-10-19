@@ -10,8 +10,9 @@ and 51 themes. Native, fast and in your language.
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
 Current version: **[v0.9.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.0)** · macOS 15 or later ·
-free and open source
+open source (MIT)
 
+[![Version](https://img.shields.io/badge/version-v0.9.0-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.0)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -34,34 +35,35 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - When something goes wrong (a password fails, a server stops answering, a copy breaks off), the app stops, tells
   you, and never leaves anything half done.
 
-## Install in two minutes
+## Key features
+
+- **Output highlighting** for Cisco, Juniper, Huawei, Nokia SR-OS and Linux: IPs, interfaces, states, BGP, alarms.
+- **SFTP/FTP browser** with atomic copies, built-in MD5 verification and server-to-server transfers.
+- **Multi-tab** with split view, MultiExec and safe paste; **51 themes** with WCAG contrast.
+- **Sessions with jump hosts** on top of your `ssh_config`, passwords only in the macOS Keychain.
+
+## Requirements & compatibility
+
+- macOS Sequoia (15.0) or later.
+- To build from source: Swift 6 (Xcode or Command Line Tools).
+
+## Installation & First Run on macOS 15 (Sequoia)
 
 1. **Download** `Terminal-NetDeck.dmg` from the [latest release](https://github.com/Iljonis/Terminal-NetDeck/releases/latest).
 2. **Open it** and drag **Terminal NetDeck** to **Applications**.
-3. **The first time**, open it with right-click → **Open** (see [Installation & First Run on
-   macOS](#installation--first-run-on-macos)).
-4. The setup assistant walks you through it: where your sessions are, theme, font, passwords and highlighting.
+3. **Allow the app once.** The app ships with an *ad-hoc* signature and is not notarized. Remove the quarantine
+   attribute from Terminal:
 
-### Installation & First Run on macOS
+   ```bash
+   sudo xattr -cr "/Applications/Terminal NetDeck.app"
+   ```
 
-Terminal NetDeck is free and doesn't use an Apple developer account ($99/year): the app carries a local (*ad-hoc*)
-signature instead of Apple's notarization. That's why, the first time you open the downloaded copy, macOS warns that
-it can't verify who made it. You only need to allow it once, in either of these two ways:
+   > **Graphical alternative:** open the app once and, after the macOS warning, go to **System Settings → Privacy &
+   > Security → Open Anyway**.
 
-- **Graphical method (recommended):** in **Applications**, right-click (or Control-click) `Terminal NetDeck.app` →
-  **Open**, then confirm with **Open** in the macOS warning.
-  If your macOS only offers **Done** or **Move to Trash**, go to **System Settings → Privacy & Security**, scroll
-  down to the Terminal NetDeck notice and click **Open Anyway**.
-- **Terminal method:** remove the quarantine attribute macOS adds to downloads:
+4. **Open it.** The setup assistant configures sessions, theme, font, passwords and highlighting.
 
-  ```bash
-  xattr -cr "/Applications/Terminal NetDeck.app"
-  ```
-
-  (If you installed it in `~/Applications`, change the path.)
-
-After that it opens like any other app. Updates from the app itself don't ask again, and building it with
-`./install.sh` doesn't need this either.
+Updates from the app itself and installs with `./install.sh` don't need this step.
 
 Your data stays on your Mac: settings in `~/Library/Application Support/Terminal NetDeck/`, sessions in `ssh_config`
 format and passwords only in the macOS Keychain.
@@ -299,6 +301,11 @@ The code is written in Spanish (Spain) and the interface is translated into Engl
 (translatable strings, sample data, passwords, security) and how review agents are used are in
 [CLAUDE.md](CLAUDE.md). Tests run on GitHub Actions on every push. To propose changes or report a bug, see
 [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Support & contributing
+
+- **Bugs and requests:** [GitHub Issues](https://github.com/Iljonis/Terminal-NetDeck/issues).
+- **Contributing:** see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

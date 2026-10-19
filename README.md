@@ -10,8 +10,9 @@ y 51 temas. Nativo, rápido y en tu idioma.
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
 Versión actual: **[v0.9.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.0)** · macOS 15 o posterior ·
-gratis y de código abierto
+código abierto (MIT)
 
+[![Versión](https://img.shields.io/badge/versión-v0.9.0-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.0)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -34,34 +35,35 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - Si algo sale mal (una contraseña que falla, un servidor que no contesta, una copia que se corta), la app se para,
   te avisa y no deja nada a medias.
 
-## Instalar en dos minutos
+## Funciones clave
+
+- **Resaltado de la salida** para Cisco, Juniper, Huawei, Nokia SR-OS y Linux: IPs, interfaces, estados, BGP, alarmas.
+- **Explorador SFTP/FTP** con copias atómicas, verificación MD5 integrada y envío de servidor a servidor.
+- **Multipestaña** con vista dividida, MultiExec y pegado seguro; **51 temas** con contraste WCAG.
+- **Sesiones con saltos** sobre tu `ssh_config` y contraseñas sólo en el Llavero de macOS.
+
+## Requisitos y compatibilidad
+
+- macOS Sequoia (15.0) o posterior.
+- Para compilar desde el código: Swift 6 (Xcode o Command Line Tools).
+
+## Instalación y primer uso en macOS 15 (Sequoia)
 
 1. **Descarga** `Terminal-NetDeck.dmg` de la [última versión](https://github.com/Iljonis/Terminal-NetDeck/releases/latest).
 2. **Ábrelo** y arrastra **Terminal NetDeck** a **Aplicaciones**.
-3. **La primera vez**, ábrela con clic derecho → **Abrir** (ver [Instalación y primer uso en
-   macOS](#instalación-y-primer-uso-en-macos)).
-4. El asistente te guía: dónde están tus sesiones, tema, fuente, contraseñas y resaltado.
+3. **Autoriza la app una vez.** La app se distribuye con firma *ad-hoc*, sin notarizar. Retira la cuarentena desde
+   Terminal:
 
-### Instalación y primer uso en macOS
+   ```bash
+   sudo xattr -cr "/Applications/Terminal NetDeck.app"
+   ```
 
-Terminal NetDeck es gratuita y no usa una cuenta de desarrollador de Apple (99 $/año): la app lleva una firma local
-(*ad-hoc*), no la notarización de Apple. Por eso, la primera vez que abres la copia descargada, macOS avisa de que no
-puede comprobar quién la ha hecho. Sólo hay que autorizarla una vez, de una de estas dos formas:
+   > **Alternativa gráfica:** abre la app una vez y, tras el aviso de macOS, ve a **Ajustes del Sistema → Privacidad y
+   > seguridad → Abrir igualmente**.
 
-- **Método gráfico (recomendado):** en **Aplicaciones**, haz clic derecho (o Control + clic) sobre
-  `Terminal NetDeck.app` → **Abrir** y confirma con **Abrir** en el aviso de macOS.
-  Si tu macOS sólo ofrece **Hecho** o **Trasladar a la papelera**, ve a **Ajustes del Sistema → Privacidad y
-  seguridad**, baja hasta el aviso de Terminal NetDeck y pulsa **Abrir igualmente**.
-- **Método por Terminal:** retira el atributo de cuarentena que macOS pone a lo descargado:
+4. **Ábrela.** El asistente configura sesiones, tema, fuente, contraseñas y resaltado.
 
-  ```bash
-  xattr -cr "/Applications/Terminal NetDeck.app"
-  ```
-
-  (Si la instalaste en `~/Applications`, cambia la ruta.)
-
-Después se abre como cualquier otra app. Las actualizaciones desde la propia app no vuelven a pedirlo, y si la
-compilas con `./install.sh` tampoco hace falta.
+Las actualizaciones desde la propia app y las instalaciones con `./install.sh` no necesitan este paso.
 
 Tus datos se quedan en tu Mac: la configuración en `~/Library/Application Support/Terminal NetDeck/`, las sesiones en
 formato `ssh_config` y las contraseñas, sólo en el Llavero de macOS.
@@ -299,6 +301,11 @@ tools/verificar_demo.sh                # pasada funcional en la demo antes de un
 Las convenciones del proyecto (textos traducibles, datos de ejemplo, contraseñas, seguridad) y cómo se trabaja con
 agentes de revisión están en [CLAUDE.md](CLAUDE.md). Los tests se ejecutan en GitHub Actions en cada push. Para
 proponer cambios o avisar de un error, mira [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Soporte y contribución
+
+- **Errores y peticiones:** [GitHub Issues](https://github.com/Iljonis/Terminal-NetDeck/issues).
+- **Contribuir:** consulta [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licencia
 
