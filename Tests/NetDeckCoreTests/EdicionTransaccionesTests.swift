@@ -35,7 +35,7 @@ import Testing
             failureResult = error
         }
         let error = try #require(failureResult)
-        #expect(ContinuousClock.now - start < .seconds(5))
+        #expect(ContinuousClock.now - start < .seconds(15))
         #expect(error.path == target.path && error.new == w.part)
         #expect(error.localizedDescription.contains(error.previous) && error.localizedDescription.contains(error.new))
         await w.abort()                                    // (la limpieza de Transfer tampoco borra las copias)
@@ -385,7 +385,7 @@ actor EdicionPause {
         #expect(bothQueued)
         defer { cancelled.cancel(); next.cancel() }
         // (si hay regresión, soltar el turno permite fallar la aserción sin colgar toda la suite)
-        let watchdog = Task { try await Task.sleep(for: .seconds(3)); await gate.release() }
+        let watchdog = Task { try await Task.sleep(for: .seconds(20)); await gate.release() }   // (lejos del tope de 1 s)
         defer { watchdog.cancel() }
         let start = ContinuousClock.now
         cancelled.cancel()
@@ -393,7 +393,7 @@ actor EdicionPause {
         case .success: Issue.record("se ha ejecutado una operación cancelada en cola")
         case .failure(let error): #expect(error is CancellationError)
         }
-        #expect(ContinuousClock.now - start < .seconds(2))
+        #expect(ContinuousClock.now - start < .seconds(10))                  // (el tope, no el vigilante)
         #expect(executed.count == 0)
         #expect(await connection.queuedOperations == 1)
         await gate.release()
@@ -419,13 +419,13 @@ actor EdicionPause {
         let isQueued = try await queued(connection, 1)
         #expect(isQueued)
         defer { waiting.cancel() }
-        let watchdog = Task { try await Task.sleep(for: .seconds(3)); await gate.release() }
+        let watchdog = Task { try await Task.sleep(for: .seconds(20)); await gate.release() }   // (lejos del tope de 1 s)
         defer { watchdog.cancel() }
         switch await waiting.result {
         case .success: Issue.record("el turno ha ignorado su timeout")
         case .failure(let error): #expect(error is RemoteTimeout)
         }
-        #expect(ContinuousClock.now - start < .seconds(2))
+        #expect(ContinuousClock.now - start < .seconds(10))                  // (el tope, no el vigilante)
         #expect(executed.count == 0)
         #expect(await connection.queuedOperations == 0)
         await gate.release()

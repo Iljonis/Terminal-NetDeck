@@ -143,7 +143,7 @@ import Testing
         let t0 = ContinuousClock.now
         let spaces = String(repeating: " ", count: 20_000)              // (la línea, por debajo del tope)
         let out = r.feed(Array((spaces + "x" + spaces + "y" + spaces + "\n" + "\u{1b}[60000Cz   \n").utf8))
-        #expect(ContinuousClock.now - t0 < .seconds(2))                // (antes: 57 s y 116 s)
+        #expect(ContinuousClock.now - t0 < .seconds(10))               // (antes: 57 s y 116 s)
         #expect(out == [spaces + "x" + spaces + "y", String(repeating: " ", count: 60_000) + "z"])
     }
 

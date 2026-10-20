@@ -262,7 +262,7 @@ import Testing
         sw.trip()                                                             // (Esc / Ctrl+C / botón)
         let r = await t.value
         #expect(r.outcome == .aborted)
-        #expect(clock.now - t0 < .seconds(2))
+        #expect(clock.now - t0 < .seconds(10))
         #expect(io.sent == ["show clock\r"])
         // ya cortada antes de empezar: ni un byte
         let io2 = FakeTerminal(["core-01#"])

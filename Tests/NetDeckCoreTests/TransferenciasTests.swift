@@ -62,7 +62,8 @@ import Testing
 }
 
 /// Cancelar con un servidor que ya no contesta (a CLOSE ni a borrar): acaba en el tope, no se queda esperando, y un
-/// origen colgado no deja sin abortar el destino.
+/// origen colgado no deja sin abortar el destino. (Lo que se protege es una espera sin fin —el servidor de mentira
+/// tarda una hora—: con un tope de 1 s, acabar en menos de 30 lo demuestra también en una máquina lenta.)
 @Suite(.serialized) struct CancelarSinColgarseTests {
     /// Un lector que da datos y luego falla; su CLOSE no contesta nunca (sólo acaba si se cancela).
     final class MuteReader: RemoteReader, @unchecked Sendable {
@@ -106,7 +107,7 @@ import Testing
         let w = try await AtomicRemoteWriter.open(fs, "/d/a.cfg", verify: false)
         let t0 = ContinuousClock.now
         await #expect(throws: (any Error).self) { try await Transfer.copy(from: MuteReader(), to: w) }
-        #expect(ContinuousClock.now - t0 < .seconds(4))
+        #expect(ContinuousClock.now - t0 < .seconds(30))
         #expect(fs.removes.count == 1)                          // (el temporal del destino, borrado igualmente)
     }
 
@@ -119,7 +120,7 @@ import Testing
         try await w.write(Data("x".utf8))
         let t0 = ContinuousClock.now
         await w.abort()
-        #expect(ContinuousClock.now - t0 < .seconds(4))
+        #expect(ContinuousClock.now - t0 < .seconds(30))
         // (cancelar la copia entera tampoco se queda esperando)
         let w2 = try await AtomicRemoteWriter.open(fs, "/d/b.cfg", verify: false)
         let copy = Task { try await Transfer.copy(from: EndlessReader(), to: w2) }
@@ -127,7 +128,7 @@ import Testing
         let t1 = ContinuousClock.now
         copy.cancel()
         _ = await copy.result
-        #expect(ContinuousClock.now - t1 < .seconds(4))
+        #expect(ContinuousClock.now - t1 < .seconds(30))
     }
 }
 

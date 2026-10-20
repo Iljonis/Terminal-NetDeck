@@ -149,7 +149,9 @@ import Testing
     }
 
     private func waitUntil(_ condition: () -> Bool) -> Bool {
-        let deadline = DispatchTime.now().uptimeNanoseconds + 3_000_000_000
+        // (es una condición: acaba en cuanto se cumple; el plazo sólo dice cuánto tarda en fallar si nunca llega, y
+        // en una máquina lenta de integración continua 3 s no bastaban para 1 MB por el pseudoterminal)
+        let deadline = DispatchTime.now().uptimeNanoseconds + 30_000_000_000
         repeat {
             if condition() { return true }
             usleep(1000)

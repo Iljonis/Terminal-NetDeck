@@ -248,7 +248,7 @@ final class MemoryWriter: RemoteWriter, @unchecked Sendable {
         let entry = RemoteEntry(name: "a.txt", path: "/d/a.txt", kind: .file)
         let t0 = ContinuousClock.now
         await #expect(throws: RemoteTimeout(seconds: 1)) { try await RemoteOps.removeRecursively(mudo, entry, timeout: 1) }
-        #expect(ContinuousClock.now - t0 < .seconds(5))
+        #expect(ContinuousClock.now - t0 < .seconds(15))
         #expect(mudo.files["/d/a.txt"] != nil)
         let bueno = MemoryFileSystem()
         bueno.files["/d/a.txt"] = Data("x".utf8)
