@@ -8,13 +8,17 @@ final class RowDrag<ID: Hashable> {
     /// El espacio de coordenadas de la fila (el `HStack` lleva `.coordinateSpace(.named(space))`).
     let space = UUID()
     @ObservationIgnored var frames: [ID: CGRect] = [:]
+    /// Dónde no empieza el arrastre de cada uno (la ✕ de una pestaña: pulsarla y mover no la cambia de sitio).
+    @ObservationIgnored var blocked: [ID: CGRect] = [:]
     private(set) var dragging: ID?
     private(set) var offset: CGFloat = 0
     @ObservationIgnored private var grab: CGFloat = 0
 
     /// `order`: la fila tal como está ahora; `move(id, target)`: `id` ocupa el sitio de `target`.
     func changed(_ id: ID, _ v: DragGesture.Value, order: [ID], move: (ID, ID) -> Void) {
+        if SnapshotDrags.enabled { SnapshotDrags.gestureEvents += 1 }      // (pruebas de la barra)
         guard let f = frames[id] else { return }
+        if dragging == nil, blocked[id]?.contains(v.startLocation) == true { return }
         if dragging == nil {
             frames = frames.filter { order.contains($0.key) }      // (los de vistas que ya no están)
             dragging = id

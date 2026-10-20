@@ -40,6 +40,7 @@ struct ButtonBarView: View {
                     ForEach(shown.map(\.id), id: \.self) { id in
                         if let b = shown.first(where: { $0.id == id }) {
                             CommandChip(button: b)
+                                .snapshotFrame(id == shown.first?.id ? "boton:0" : "boton:\(id)")
                                 .reorderable(id, in: drag, order: { order(grouped) },
                                              move: { model.moveButton($0, onto: $1) }, end: { model.saveButtonOrder() })
                         }

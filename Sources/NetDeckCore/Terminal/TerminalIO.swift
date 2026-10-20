@@ -14,9 +14,12 @@ public protocol TerminalIO: AnyObject, Sendable {
     func lines(from row: Int) -> [String]
     /// Cambia con cada salida del equipo (para saber si la pantalla lleva un rato quieta).
     var revision: Int { get }
+    /// El prompt propio de su sesión («# @prompt …»); nil = el genérico.
+    var promptRule: PromptRule? { get }
 }
 
 public extension TerminalIO {
+    var promptRule: PromptRule? { nil }
     func send(_ text: String) { send(bytes: Array(text.utf8)) }
     /// Una línea + Intro (CR, como el teclado).
     func sendLine(_ text: String) { send(text + "\r") }
@@ -24,18 +27,33 @@ public extension TerminalIO {
     func linesAbove(_ n: Int) -> [String] { Array(lines(from: max(0, cursorRow - n)).dropLast()) }
 }
 
+/// El reloj de las esperas que sondean la pantalla: el de verdad o, en las pruebas, uno que avanza lo pedido sin
+/// depender de cuándo despierte el sistema a la tarea (con el pool de Swift ocupado, un sleep de 5 ms tardaba un
+/// segundo y los topes de las pruebas vencían sin que el equipo de mentira hubiera podido contestar).
+public protocol PollClock: Sendable {
+    /// Tiempo transcurrido desde un origen fijo.
+    func now() -> Duration
+    func sleep(for duration: Duration) async throws
+}
+
+public struct SystemPollClock: PollClock {
+    private static let origin = ContinuousClock.now
+    public init() {}
+    public func now() -> Duration { ContinuousClock.now - Self.origin }
+    public func sleep(for duration: Duration) async throws { try await Task.sleep(for: duration) }
+}
+
 /// Esperas que sondean la pantalla y se cortan con Esc.
 @MainActor
 enum Poll {
     /// Llama a `check` cada `every` hasta que devuelve algo, se acaba `timeout` (nil) o se pulsa Esc (lanza).
-    static func until<T>(every: Duration, timeout: Duration, abort: AbortSwitch,
+    static func until<T>(every: Duration, timeout: Duration, abort: AbortSwitch, clock: any PollClock = SystemPollClock(),
                          _ check: () -> T?) async throws -> T? {
-        let clock = ContinuousClock()
-        let end = clock.now + timeout
-        while clock.now < end {
+        let end = clock.now() + timeout
+        while clock.now() < end {
             try abort.check()
             if let v = check() { return v }
-            try await Task.sleep(for: every)
+            try await clock.sleep(for: every)
         }
         try abort.check()
         return check()

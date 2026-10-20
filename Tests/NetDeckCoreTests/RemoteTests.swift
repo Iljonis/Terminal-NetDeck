@@ -324,6 +324,7 @@ final class MemoryFileSystem: RemoteFileSystem, @unchecked Sendable {
         files[to] = d
     }
     func size(of path: String) async -> Int64? { files[path].map { Int64($0.count) } }
+    func lookup(_ path: String) async throws -> RemoteEntry.Kind? { files[path] != nil ? .file : nil }
     func openRead(_ path: String) async throws -> any RemoteReader {
         guard var d = files[path] else { throw RemoteError("no existe") }
         if corruptReads, !d.isEmpty { d[0] ^= 0xFF }
@@ -432,11 +433,10 @@ final class EndlessReader: RemoteReader, @unchecked Sendable {
         #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path) == ["config.bak"])
         #expect(try FileManager.default.attributesOfItem(atPath: path)[.posixPermissions] as? Int == 0o600)
 
-        // (si con ese nombre hay una carpeta, no se aparta ni se esconde: error y todo como estaba)
+        // (si con ese nombre hay una carpeta, no se aparta ni se esconde: error antes de escribir y todo como estaba)
         try FileManager.default.createDirectory(atPath: dir.path + "/sub", withIntermediateDirectories: false)
         try Data("dentro".utf8).write(to: URL(fileURLWithPath: dir.path + "/sub/a.txt"))
-        let w3 = try await AtomicRemoteWriter.open(fs, dir.path + "/sub", verify: true)
-        await #expect(throws: (any Error).self) { try await Transfer.copy(from: BlobReader(Data("x".utf8)), to: w3) }
+        await #expect(throws: (any Error).self) { _ = try await AtomicRemoteWriter.open(fs, dir.path + "/sub", verify: true) }
         #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path).sorted() == ["config.bak", "sub"])
         #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path + "/sub") == ["a.txt"])
     }

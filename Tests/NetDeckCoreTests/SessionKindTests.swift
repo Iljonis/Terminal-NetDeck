@@ -110,15 +110,15 @@ private let kinds = """
 
         // serie: screen con velocidad y bits de datos
         let serie = try route("consola-01")
-        #expect(serie.command.executable == "/usr/bin/screen")
-        #expect(serie.command.arguments == ["/dev/cu.usbserial-0001", "115200,cs8,-ixon,-ixoff"])
+        #expect(serie.command.executable == "/usr/bin/false")        // (el puerto lo abre la app: SerialPort)
+        #expect(serie.serial == SerialLine(device: "/dev/cu.usbserial-0001", speed: 115200))
         #expect(!serie.usesPasswords && !serie.acceptsMultiExec && !serie.isLoopback)
     }
 
     @Test func serieComprobadaAlAbrir() {
         let r = ConnectionRoute.serial(SerialLine(device: "/dev/cu.usbserial-0001"), title: "c")
         #expect(r.launchProblem { _ in true } == nil)
-        #expect(r.launchProblem { $0 != "/usr/bin/screen" }?.contains("screen") == true)
+        #expect(r.launchProblem { $0 != "/usr/bin/screen" } == nil)    // (ya no hace falta screen)
         #expect(r.launchProblem { $0 != "/dev/cu.usbserial-0001" }?.contains("USB") == true)
         var bad = r
         bad.serial?.device = "/dev/cu.x;rm -rf ~"
@@ -132,7 +132,7 @@ private let kinds = """
             #expect(SerialLine(annotation: bad) == nil, "\(bad)")
         }
         let ok = SerialLine(annotation: "/dev/tty.usbserial-A9 9600 7E2")
-        #expect(ok?.frame == "7E2" && ok?.parity == .even && ok?.screenArguments == ["/dev/tty.usbserial-A9", "9600,cs7,-ixon,-ixoff"])
+        #expect(ok?.frame == "7E2" && ok?.parity == .even && ok?.dataBits == 7 && ok?.stopBits == 2)
         #expect(SerialLine(annotation: "/dev/cu.usbmodem1")?.annotation == "/dev/cu.usbmodem1 9600 8N1")
         var f = SessionFile()
         var s = EditableSession(name: "consola")
@@ -157,7 +157,7 @@ private let kinds = """
         #expect(l.isLocal && !l.acceptsMultiExec && !l.usesPasswords)
         let s = ConnectionRoute.serial(SerialLine(device: "/dev/cu.usbserial-0001", speed: 57600), title: "c", sessionName: "c")
         let back = try JSONDecoder().decode(ConnectionRoute.self, from: JSONEncoder().encode(s))
-        #expect(back == s && back.command.arguments.last == "57600,cs8,-ixon,-ixoff")
+        #expect(back == s && back.serial?.speed == 57600)
     }
 
     @Test func notasQueRomperianElArchivo() {

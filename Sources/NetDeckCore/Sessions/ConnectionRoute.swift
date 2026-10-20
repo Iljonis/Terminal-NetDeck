@@ -28,6 +28,8 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     public var localShell: String?
     /// Sesión de consola por puerto serie (transport .serial).
     public var serial: SerialLine?
+    /// Perfil del formulario «Conectar sin guardar» (sólo en memoria; nunca sustituye al ssh_config).
+    public var transientProfile: TerminalProfile?
 
     // (sin `configJumps`: es el ProxyJump del ssh_config del momento; una pestaña guardada lo recalcula al abrirse con
     // `SessionManager.refreshConfigJumps`, para no entrar por un salto que ya se cambió)
@@ -55,7 +57,7 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
         return r
     }
 
-    /// Consola por puerto serie (screen); no es un equipo de red.
+    /// Consola por puerto serie (la abre la app: `SerialPort`); no es un equipo de red.
     public static func serial(_ line: SerialLine, title: String, sessionName: String? = nil) -> ConnectionRoute {
         var r = ConnectionRoute(title: title, target: Endpoint(host: line.device), transport: .serial, sessionName: sessionName)
         r.serial = line
@@ -111,12 +113,13 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     /// ssh_config, saltos, puerto y usuario que la consola), sin reenvíos ni orden local. nil si no es SFTP.
     public var sftpSubsystemCommand: (executable: String, arguments: [String])? { sftpSubsystemCommand(sharing: nil) }
 
-    /// El del explorador, con la conexión al último salto compartida (`sharing`) si se puede.
-    public func sftpSubsystemCommand(sharing: JumpSharing?) -> (executable: String, arguments: [String])? {
+    /// El del explorador, con la conexión al último salto compartida (`sharing`) si se puede. `configFile`: el ssh_config
+    /// elegido en Ajustes si no es ~/.ssh/config (`-F`; ssh lo pasa también a los saltos de -J).
+    public func sftpSubsystemCommand(sharing: JumpSharing?, configFile: String? = nil) -> (executable: String, arguments: [String])? {
         guard transport == .sftp, !isLocal else { return nil }
-        var a = ["-T", "-x", "-a", "-o", "ClearAllForwardings=yes", "-o", "PermitLocalCommand=no", "-o", "RequestTTY=no",
+        var a = Self.configOptions(configFile) + ["-T", "-x", "-a", "-o", "ClearAllForwardings=yes", "-o", "PermitLocalCommand=no", "-o", "RequestTTY=no",
                  "-o", "BatchMode=no", "-o", "RemoteCommand=none", "-s"]
-        a += jumpOptions(sharing)
+        a += jumpOptions(sharing, configFile: configFile)
         if let alias {
             a += ["--", alias]
         } else {
@@ -130,9 +133,8 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     /// Por qué no se puede abrir la pestaña (falta el programa o el puerto serie), o nil. `exists`: para los tests.
     public func launchProblem(exists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }) -> String? {
         if transport == .serial {
-            let dev = serial?.device ?? ""
-            guard let s = serial, s.isValid else { return L("Puerto serie no válido: «\(dev)»") }
-            if !exists(SerialLine.screen) { return L("No está /usr/bin/screen en este Mac: hace falta para el puerto serie") }
+            let s = serial ?? SerialLine()                  // (sin puerto: «ruta no válida»)
+            if let p = s.problem { return p }
             if !exists(s.device) { return L("No está «\(s.device)»: ¿está conectado el adaptador USB-serie?") }
             return nil
         }
@@ -177,18 +179,21 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
 
     /// Orden que abre la pestaña. Telnet con salto: «ssh -t salto telnet equipo puerto» (transparente para el usuario).
     /// Siempre «--» antes del destino: aunque algo empezara por «-», ssh y sftp no lo leerían como una opción.
-    /// sftp: como ssh (alias del ssh_config o -P/-J usuario@equipo). Serie: screen. FTP no tiene consola (/usr/bin/false):
-    /// su pestaña es sólo el explorador.
+    /// sftp: como ssh (alias del ssh_config o -P/-J usuario@equipo). Serie y FTP no tienen orden (/usr/bin/false): el puerto lo abre la app (`SerialPort`) y
+    /// la pestaña FTP es sólo el explorador.
     public var command: (executable: String, arguments: [String]) { command(sharing: nil) }
 
     /// La orden con la conexión al último salto compartida (`sharing`; nil = como siempre): ssh y sftp, con un
     /// ProxyCommand multiplexado en vez de -J (también si el salto viene del ProxyJump del alias); telnet por salto, el
     /// propio ssh al salto es el multiplexado. Si algo no es seguro para la shell o la ruta del socket no cabe, como siempre.
-    public func command(sharing: JumpSharing?) -> (executable: String, arguments: [String]) {
+    /// `configFile`: el ssh_config elegido en Ajustes si no es ~/.ssh/config: ssh, sftp y el ssh al salto de telnet lo
+    /// leen con «-F» (y ssh lo pasa a los saltos de -J y al ProxyCommand compartido).
+    public func command(sharing: JumpSharing?, configFile: String? = nil) -> (executable: String, arguments: [String]) {
+        let f = Self.configOptions(configFile)
         if isLocal { return (Self.loginShell(localShell, allowed: Self.systemShells), ["-l"]) }
         switch transport {
         case .ssh:
-            var a = jumpOptions(sharing)
+            var a = f + jumpOptions(sharing, configFile: configFile)
             if let alias {
                 a += ["--", alias]
             } else {
@@ -200,12 +205,12 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
         case .telnet:
             let telnet = [target.host] + (target.port.map { [String($0)] } ?? [])
             guard let last = jumps.last else { return ("/usr/bin/env", ["telnet"] + telnet) }
-            var a = ["-t"]
+            var a = f + ["-t"]
             if let sharing, let socket = sharing.socket(for: jumps.map(\.description)) { a += sharing.options(socket: socket) }
             if jumps.count > 1 { a += ["-J", jumps.dropLast().map(\.description).joined(separator: ",")] }
             return ("/usr/bin/ssh", a + ["--", last.description, "telnet"] + telnet)
         case .sftp:
-            var a = jumpOptions(sharing)
+            var a = f + jumpOptions(sharing, configFile: configFile)
             if let alias {
                 a += ["--", alias]
             } else {
@@ -214,22 +219,25 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
                 a += ["--", (target.user.map { "\($0)@" } ?? "") + h]
             }
             return ("/usr/bin/sftp", a)
-        case .serial:
-            guard let s = serial, s.isValid else { return ("/usr/bin/false", []) }
-            return (SerialLine.screen, s.screenArguments)
-        case .ftp, .local:
+        case .serial, .ftp, .local:
             return ("/usr/bin/false", [])
         }
     }
 
+    /// «-F archivo» si hay un ssh_config propio (vacío o nil: el de siempre).
+    static func configOptions(_ configFile: String?) -> [String] {
+        guard let configFile, !configFile.isEmpty else { return [] }
+        return ["-F", configFile]
+    }
+
     /// «-J a,b» o, compartiendo, «-o ProxyCommand=…» con los mismos saltos (los de `jumpSpec` o los del alias).
-    private func jumpOptions(_ sharing: JumpSharing?) -> [String] {
+    private func jumpOptions(_ sharing: JumpSharing?, configFile: String?) -> [String] {
         let explicit = jumpSpec?.isEmpty == false ? jumpSpec : nil
         let hops = explicit ?? (alias != nil ? configJumps ?? [] : [])
         // (%h llega a la shell del ProxyCommand: también el equipo de destino tiene que ser seguro)
         if let sharing, !hops.isEmpty, Endpoint(host: target.host).isShellSafe,
            let socket = sharing.socket(for: jumps.isEmpty ? hops : jumps.map(\.description)),
-           let proxy = sharing.proxyCommand(hops: hops, socket: socket) {
+           let proxy = sharing.proxyCommand(hops: hops, socket: socket, configFile: configFile) {
             return ["-o", "ProxyCommand=\(proxy)"]
         }
         return explicit.map { ["-J", $0.joined(separator: ",")] } ?? []

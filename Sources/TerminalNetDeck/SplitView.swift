@@ -11,11 +11,15 @@ struct SplitArea: View {
     var body: some View {
         Group {
             switch split.layout {
-            case .side2: HSplitView { pane(0); pane(1) }
-            case .stack2: VSplitView { pane(0); pane(1) }
-            case .cols3: HSplitView { pane(0); pane(1); pane(2) }
-            case .onePlusTwo: HSplitView { pane(0); VSplitView { pane(1); pane(2) } }
-            case .grid4: VSplitView { HSplitView { pane(0); pane(1) }; HSplitView { pane(2); pane(3) } }
+            case .side2: part("root", count: 2) { pane($0) }
+            case .stack2: part("root", count: 2, vertical: true) { pane($0) }
+            case .cols3: part("root", count: 3) { pane($0) }
+            case .onePlusTwo:
+                part("root", count: 2) { i in
+                    if i == 0 { pane(0) } else { part("right", count: 2, vertical: true) { pane($0 + 1) } }
+                }
+            case .grid4:
+                part("root", count: 2, vertical: true) { row in part("row-\(row)", count: 2) { pane(row * 2 + $0) } }
             case .grid: grid
             }
         }
@@ -27,22 +31,21 @@ struct SplitArea: View {
         let n = max(split.panes.count, 1)
         let cols = Int(Double(n).squareRoot().rounded(.up))
         let rows = (n + cols - 1) / cols
-        return VSplitView {
-            ForEach(0..<rows, id: \.self) { r in
-                HSplitView {
-                    ForEach(0..<cols, id: \.self) { c in
-                        if r * cols + c < n { pane(r * cols + c) }
-                    }
-                }
-            }
+        return part("root", count: rows, vertical: true) { r in
+            part("row-\(r)", count: min(cols, n - r * cols)) { c in pane(r * cols + c) }
         }
+    }
+
+    private func part<C: View>(_ key: String, count: Int, vertical: Bool = false,
+                              @ViewBuilder content: @escaping (Int) -> C) -> some View {
+        WeightedSplit(key: key, count: count, vertical: vertical, content: content)
     }
 
     @ViewBuilder private func pane(_ i: Int) -> some View {
         if i < split.panes.count, let s = model.tab(split.panes[i]) {
-            SplitPane(session: s).frame(minWidth: 220, minHeight: 120)
+            SplitPane(session: s).frame(minWidth: 0, minHeight: 0)
         } else {
-            EmptyPane(index: i).frame(minWidth: 220, minHeight: 120)
+            EmptyPane(index: i).frame(minWidth: 0, minHeight: 0)
         }
     }
 }
@@ -149,5 +152,44 @@ struct EmptyPane: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(SwiftUI.Color(t.panel).opacity(0.25))
         .overlay(Rectangle().strokeBorder(SwiftUI.Color(t.panel), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
+    }
+}
+
+
+/// Los tamaños se expresan como proporciones: la misma disposición sirve en otra pantalla.
+private struct WeightedSplit<Content: View>: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.theme) private var t
+    let key: String
+    let count: Int
+    let vertical: Bool
+    @ViewBuilder let content: (Int) -> Content
+    @Stored private var initial: [Double]?
+    var body: some View {
+        GeometryReader { g in
+            let length = max(1, (vertical ? g.size.height : g.size.width) - CGFloat(max(0, count - 1)) * 6)
+            let weights = model.splitWeights(key, count: count)
+            let layout = vertical ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
+            layout {
+                ForEach(0..<count, id: \.self) { i in
+                    content(i).frame(width: vertical ? nil : length * weights[i], height: vertical ? length * weights[i] : nil)
+                        .frame(maxWidth: vertical ? .infinity : nil, maxHeight: vertical ? nil : .infinity).clipped()
+                    if i + 1 < count {
+                        Rectangle().fill(SwiftUI.Color(t.panel)).frame(width: vertical ? nil : 6, height: vertical ? 6 : nil)
+                            .contentShape(Rectangle())
+                            .gesture(DragGesture(minimumDistance: 1).onChanged { v in
+                                let start = initial ?? weights; initial = start
+                                let delta = Double(vertical ? v.translation.height : v.translation.width) / Double(length)
+                                let pair = start[i] + start[i + 1], minimum = min(0.12, pair / 3)
+                                var next = start
+                                next[i] = min(max(start[i] + delta, minimum), pair - minimum)
+                                next[i + 1] = pair - next[i]
+                                model.setSplitWeights(next, key: key)
+                            }.onEnded { _ in initial = nil })
+                            .accessibilityLabel(L("Separador de paneles"))
+                    }
+                }
+            }
+        }
     }
 }

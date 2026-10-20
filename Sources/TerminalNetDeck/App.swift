@@ -74,7 +74,12 @@ struct NetDeckCommands: Commands {
                 .keyboardShortcut("h", modifiers: [.command, .shift])
             Divider()
             Button(L("Reconectar")) { model.current.map(model.reconnect) }.keyboardShortcut("r").disabled(model.modalOpen)
+            Button(L("Enviar BREAK (consola serie)")) { model.current?.sendSerialBreak() }
+                .disabled(model.modalOpen || model.current?.route.transport != .serial || model.current?.exited != false)
             Button(L("Clonar pestaña")) { model.current.map(model.duplicate) }.keyboardShortcut("d").disabled(model.modalOpen)
+            Button(L("Mostrar/ocultar el explorador SFTP")) { model.current.map(model.toggleSidePanel) }
+                .keyboardShortcut("b", modifiers: [.command, .shift])
+                .disabled(model.modalOpen || !(model.current.map { SFTPPanel.offers($0.route) } ?? false))
             Divider()
             Button(L("Pestaña siguiente")) { model.selectNext(1) }.keyboardShortcut("]", modifiers: [.command, .shift]).disabled(model.modalOpen)
             Button(L("Pestaña anterior")) { model.selectNext(-1) }.keyboardShortcut("[", modifiers: [.command, .shift]).disabled(model.modalOpen)
@@ -87,6 +92,11 @@ struct NetDeckCommands: Commands {
         CommandMenu(L("Herramientas")) {
             Button(L("Listas de equipos…")) { model.sheet = .list }.keyboardShortcut("l", modifiers: [.command, .shift]).disabled(model.modalOpen)
             Button(L("Pegado seguro…")) { model.sheet = .paste }.keyboardShortcut("v", modifiers: [.command, .shift]).disabled(model.modalOpen)
+            Button(L("Macros…")) { model.sheet = .macros }.disabled(model.modalOpen)
+            Button(L("Túneles SSH…")) { model.sheet = .tunnels }.disabled(model.modalOpen)
+            Button(L("Espacios de trabajo…")) { model.sheet = .workspaces }.disabled(model.modalOpen)
+            Button(model.recording == nil ? L("Grabar macro") : L("Parar la grabación")) { model.toggleRecording() }
+                .disabled(model.modalOpen || (model.recording == nil && model.current == nil))
             Button(L("Buscar en todos los registros…")) { model.sheet = .logs }.keyboardShortcut("f", modifiers: [.command, .shift]).disabled(model.modalOpen)
         }
     }
@@ -97,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // (con «swift run» no hay .app: que salga en el Dock y con ventana al frente)
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
+        MainActor.assumeIsolated { TunnelSignals.install() }
         if let path = ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] { snapshot(to: path) }
     }
 
@@ -112,16 +123,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let spec = ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_CLICK"] {
             let n = spec.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
             if n.count == 2 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { Self.rightClick(x: n[0], y: n[1]) }
+                // (el clic, cuando lo de la ventana ya está, no a tiempo fijo: con el Mac cargado el explorador aún no
+                // había listado a los 1,8 s y el clic caía en el fondo o en nada; la imagen, después del clic)
+                Task { @MainActor in
+                    let start = ContinuousClock.now
+                    try? await Task.sleep(for: .seconds(1.8))
+                    while !Self.contentReady, ContinuousClock.now - start < .seconds(15) { try? await Task.sleep(for: .milliseconds(100)) }
+                    try? await Task.sleep(for: .milliseconds(300))          // (que se pinte lo recién listado)
+                    let before = Self.visibleWindows.count, clicked = ContinuousClock.now
+                    Self.rightClick(x: n[0], y: n[1])
+                    // (y la imagen cuando ha salido el menú, no a los 0,7 s: cargado, el Mac tardaba más en sacarlo)
+                    try? await Task.sleep(for: .seconds(max(0.7, Self.snapshotWait - 1.8)))
+                    while Self.visibleWindows.count <= before, ContinuousClock.now - clicked < .seconds(5) {
+                        try? await Task.sleep(for: .milliseconds(100))
+                    }
+                    try? await Task.sleep(for: .milliseconds(300))          // (que acabe de pintarse)
+                    Self.capture(to: path)
+                }
+                return
             }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.snapshotWait) {
-            for (i, w) in NSApp.windows.filter({ $0.isVisible && $0.contentView != nil }).enumerated() {
-                guard let v = w.contentView, let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { continue }
-                v.cacheDisplay(in: v.bounds, to: rep)
-                let url = URL(fileURLWithPath: i == 0 ? path : path.replacingOccurrences(of: ".png", with: "-\(i).png"))
-                try? rep.representation(using: .png, properties: [:])?.write(to: url)
-            }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.snapshotWait) { Self.capture(to: path) }
+    }
+
+    /// Los exploradores de las pestañas, conectados y con su carpeta listada (aunque esté vacía).
+    @MainActor private static var contentReady: Bool {
+        (AppModel.instance?.allBrowsers ?? []).map(\.1).allSatisfy { $0.state == .connected && !$0.path.isEmpty }
+    }
+
+    @MainActor private static var visibleWindows: [NSWindow] { NSApp.windows.filter { $0.isVisible && $0.contentView != nil } }
+
+    @MainActor private static func capture(to path: String) {
+        for (i, w) in visibleWindows.enumerated() {
+            guard let v = w.contentView, let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { continue }
+            v.cacheDisplay(in: v.bounds, to: rep)
+            let url = URL(fileURLWithPath: i == 0 ? path : path.replacingOccurrences(of: ".png", with: "-\(i).png"))
+            try? rep.representation(using: .png, properties: [:])?.write(to: url)
         }
     }
 
@@ -139,7 +176,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
     func applicationWillTerminate(_ notification: Notification) {
-        MainActor.assumeIsolated { AppModel.instance?.saveOpenTabs() }
+        MainActor.assumeIsolated {
+            AppModel.instance?.saveOpenTabs()
+            AppModel.instance?.allBrowsers.forEach { $0.1.edits?.finish() }     // (las copias de edición sin nada pendiente)
+            AppModel.instance?.tunnelRunner.stopAll()                           // (ningún ssh de túnel sigue tras salir)
+        }
         DebugLog.log("app", "sale")
         DebugLog.flush()
         ErrorLog.flush()

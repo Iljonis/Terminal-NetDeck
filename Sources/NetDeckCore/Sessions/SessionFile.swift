@@ -20,6 +20,8 @@ public struct EditableSession: Hashable, Sendable, Identifiable {
     public var kind = SessionProfile.Transport.ssh
     /// «# @serie …» (sólo cuenta si `kind` es .serial).
     public var serial = SerialLine()
+    /// Perfil de terminal («# @fuente», «# @tema», «# @scrollback», «# @teclado», «# @prompt»): vacío = Ajustes.
+    public var terminal = TerminalProfile()
     /// Comentarios libres del bloque («# lo que sea», «# @proyecto X»): se conservan tal cual, sin el «# ».
     public var notes: [String] = []
     /// Opciones que el editor no gestiona: se conservan tal cual.
@@ -46,7 +48,7 @@ public struct EditableSession: Hashable, Sendable, Identifiable {
 
     /// Una sesión nueva: con tu usuario del Mac (se puede cambiar) y el puerto de su tipo.
     public static func new(group: String, name: String, kind: SessionProfile.Transport = .ssh,
-                           user: String = NSUserName()) -> EditableSession {
+                           user: String = AppPaths.userName) -> EditableSession {
         var s = EditableSession(group: group, name: name)
         s.kind = kind
         s.port = defaultPort(kind)
@@ -65,7 +67,7 @@ public struct EditableSession: Hashable, Sendable, Identifiable {
     public static func == (a: Self, b: Self) -> Bool {
         (a.group, a.name, a.summary, a.host, a.user, a.port) == (b.group, b.name, b.summary, b.host, b.user, b.port)
             && (a.jump, a.keyFile, a.legacy, a.credential, a.kind, a.extra) == (b.jump, b.keyFile, b.legacy, b.credential, b.kind, b.extra)
-            && (a.serial, a.notes) == (b.serial, b.notes)
+            && (a.serial, a.notes, a.terminal) == (b.serial, b.notes, b.terminal)
     }
 
     public func hash(into h: inout Hasher) { h.combine(name) }
@@ -114,6 +116,8 @@ public struct SessionFile: Sendable {
         #    # @clave-grupo NOMBRE   (debajo de @grupo) la contraseña con nombre de todo el grupo
         #    # @telnet · # @tipo sftp|ftp|serie|local   tipo de sesión (sin nada: ssh)
         #    # @serie /dev/cu.usbserial-0001 9600 8N1    puerto serie (con «@tipo serie»)
+        #    # @fuente Menlo 13 · # @tema ID · # @scrollback 10000 · # @teclado meta retroceso-h
+        #    # @prompt REGEX      perfil de la pestaña (sin ellas, lo de Ajustes)
         #  Un grupo con «/» (Clientes/Madrid/Core) se ve como carpetas dentro de carpetas.
         #  Los bloques «Host *», «Host a b» o «Match» no son sesiones: se conservan tal cual,
         #  al final (o al principio si estaban antes de la primera sesión).
@@ -166,6 +170,10 @@ public struct SessionFile: Sendable {
                 }
                 else if s.hasPrefix("# @serie "), let l = SerialLine(annotation: String(s.dropFirst(9))) { sessions[i].serial = l }
                 else if s.hasPrefix("# @clave ") { sessions[i].credential = String(s.dropFirst(9)).trimmed }
+                else if let (k, v) = SSHConfigParser.note(s), TerminalProfile.keys.contains(k) {
+                    // (la primera de cada clave, como al conectar; una que no vale se ignora con aviso)
+                    if !sessions[i].terminal.has(k) { sessions[i].terminal.read(k, v, session: sessions[i].name) }
+                }
                 else if s.hasPrefix("#") {
                     let n = String(s.dropFirst()).trimmed
                     if !n.isEmpty { sessions[i].notes.append(n) }
@@ -251,6 +259,7 @@ public struct SessionFile: Sendable {
                 if !s.credential.isEmpty { out += "    # @clave \(s.credential)\n" }
                 if s.kind == .telnet { out += "    # @telnet\n" } else if s.kind != .ssh { out += "    # @tipo \(s.kind.annotation)\n" }
                 if s.kind == .serial { out += "    # @serie \(s.serial.annotation)\n" }
+                out += s.terminal.annotations.map { "    # @\($0.key) \($0.value)\n" }.joined()
                 out += s.notes.map { "    # \($0)\n" }.joined()
                 if !s.host.isEmpty { out += "    HostName \(s.host)\n" }     // (un «HostName» vacío rompe ssh)
                 if !s.user.isEmpty { out += "    User \(s.user)\n" }
@@ -294,6 +303,10 @@ public struct SessionFile: Sendable {
             if s.notes.contains(where: { $0.hasPrefix("@grupo") || $0.hasPrefix("@clave-grupo") }) {
                 out.append(L("«\(s.name)»: una nota no puede empezar por @grupo ni @clave-grupo"))
             }
+            if let k = TerminalProfile.keys.first(where: { k in s.notes.contains { $0.lowercased().hasPrefix("@" + k) } }) {
+                out.append(L("«\(s.name)»: «@\(k)» va en la sección Perfil, no en las notas"))
+            }
+            out += s.terminal.problems().map { L("«\(s.name)»: \($0)") }
         }
         return out
     }
@@ -302,7 +315,14 @@ public struct SessionFile: Sendable {
     /// ssh en todo el Mac), copia del anterior (.anterior) y se cambia. Devuelve el error, o nil.
     @discardableResult
     public func save(to url: URL = SessionFile.defaultURL, validate: Bool = true) -> String? {
-        if let p = problems().first { return p }
+        let (tmp, err) = prepare(url, validate: validate)
+        guard let tmp else { return err }
+        return Self.install(tmp, at: url, count: sessions.count)
+    }
+
+    /// El archivo nuevo en «url.tmp», ya comprobado con «ssh -G» (si no vale, queda como «.rechazado»). Sin tocar `url`.
+    func prepare(_ url: URL, validate: Bool) -> (URL?, String?) {
+        if let p = problems().first { return (nil, p) }
         let fm = FileManager.default
         try? fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let tmp = url.appendingPathExtension("tmp")
@@ -310,14 +330,20 @@ public struct SessionFile: Sendable {
             try render().write(to: tmp, atomically: true, encoding: .utf8)
             try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tmp.path)
         } catch {
-            return error.localizedDescription
+            return (nil, error.localizedDescription)
         }
         if validate, let err = Self.sshCheck(tmp, host: sessions.first?.name ?? "x") {
             let rejected = url.appendingPathExtension("rechazado")
             try? fm.removeItem(at: rejected)
             try? fm.moveItem(at: tmp, to: rejected)
-            return L("ssh no lo entiende: \(err)")
+            return (nil, L("ssh no lo entiende: \(err)"))
         }
+        return (tmp, nil)
+    }
+
+    /// Cambia `url` por el temporal ya comprobado (copia antes con `SafeFile.backup`). Si falla, `url` queda como estaba.
+    static func install(_ tmp: URL, at url: URL, count: Int) -> String? {
+        let fm = FileManager.default
         do {
             try SafeFile.backup(url)                     // (si no se puede leer o copiar, no se toca)
             if fm.fileExists(atPath: url.path) {
@@ -329,7 +355,7 @@ public struct SessionFile: Sendable {
             try? fm.removeItem(at: tmp)
             return error.localizedDescription
         }
-        DebugLog.log("sesiones", "guardadas \(sessions.count) en \(url.path)")
+        DebugLog.log("sesiones", "guardadas \(count) en \(url.path)")
         return nil
     }
 
@@ -339,15 +365,19 @@ public struct SessionFile: Sendable {
             || $0.properties.generalCategory == .paragraphSeparator || $0.value == 0x85 }
     }
 
-    static func sshCheck(_ file: URL, host: String) -> String? {
+    /// «ssh -G» sobre `file`. Si ssh no se puede ejecutar (o no es /usr/bin/ssh), error: un archivo sin comprobar no
+    /// se da por bueno. Es síncrono y puede tardar hasta `checkTimeout`: desde la app, sólo fuera del hilo principal
+    /// (`saveInBackground`).
+    static func sshCheck(_ file: URL, host: String, ssh: String = "/usr/bin/ssh") -> String? {
+        guard FileManager.default.isExecutableFile(atPath: ssh) else { return L("no se puede ejecutar \(ssh)") }
         let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
+        p.executableURL = URL(fileURLWithPath: ssh)
         p.arguments = ["-G", "-F", file.path, "--", host]
         let err = Pipe()
         p.standardOutput = FileHandle.nullDevice
         p.standardError = err
         p.standardInput = FileHandle.nullDevice
-        do { try p.run() } catch { return nil }
+        do { try p.run() } catch { return L("no se puede ejecutar \(ssh): \(error.localizedDescription)") }
         // (se lee mientras corre: con mucho que decir, ssh se quedaría esperando a que alguien vacíe la tubería; y
         // como mucho `checkTimeout`: un Include o un «Match exec» que no acaba no deja la app colgada al guardar)
         let expired = Once()
@@ -363,6 +393,8 @@ public struct SessionFile: Sendable {
         if expired.isTaken, p.terminationReason == .uncaughtSignal {
             return L("ssh -G no ha contestado en \(Int(checkTimeout)) s (¿un Include o «Match exec» que no acaba?)")
         }
+        // (muerto por una señal ajena: tampoco vale como comprobado)
+        if p.terminationReason == .uncaughtSignal { return L("ssh -G ha terminado con la señal \(p.terminationStatus)") }
         let msg = String(decoding: data, as: UTF8.self).trimmed
         return p.terminationStatus == 0 ? nil : (msg.isEmpty ? L("código \(p.terminationStatus)") : msg)
     }
@@ -371,46 +403,135 @@ public struct SessionFile: Sendable {
 
     public static let includeLine = "Include ~/.config/netdeck/ssh_config"
 
-    /// ¿Lo incluye ya? Una línea «Include» (sin comentar; ssh no distingue mayúsculas) con ~/.config/netdeck/ssh_config
-    /// o con la ruta entera.
-    public static func hasInclude(_ sshConfigText: String) -> Bool {
-        sshConfigText.components(separatedBy: .newlines).contains { l in
-            let t = l.trimmingCharacters(in: .whitespaces)
-            return t.lowercased().hasPrefix("include") && t.contains(".config/netdeck/ssh_config")
+    /// ¿Lo incluye ya? Sólo una directiva «Include» de verdad, leída igual que la lee `SSHConfigParser` (mayúsculas,
+    /// «Include=…», varias rutas, comillas, «~» y rutas relativas a `sshDirectory`, por defecto ~/.ssh) con una ruta que
+    /// sea exactamente ~/.config/netdeck/ssh_config. No cuentan los comentarios, otra palabra que empiece por «include»,
+    /// una ruta que sólo lo contenga (…/ssh_config.bak) ni un Include dentro de un bloque «Host»/«Match» que no sea
+    /// para todos (sólo valdría para esos equipos).
+    public static func hasInclude(_ sshConfigText: String, sshDirectory: URL? = nil) -> Bool {
+        let wanted = Set([defaultURL, AppPaths.home.appendingPathComponent(".config/netdeck/ssh_config")]
+            .flatMap { [$0.standardizedFileURL.path, $0.resolvingSymlinksInPath().standardizedFileURL.path] })
+        var global = true                                   // (antes del primer Host/Match, o en «Host *»/«Match all»)
+        for raw in sshConfigText.components(separatedBy: .newlines) {
+            guard let (key, value) = SSHConfigParser.directive(raw) else { continue }
+            switch key {
+            case "host": global = SSHConfigParser.arguments(value) == ["*"]
+            case "match": global = SSHConfigParser.arguments(value).map { $0.lowercased() } == ["all"]
+            case "include" where global:
+                if SSHConfigParser.includePaths(value, sshDirectory: sshDirectory).contains(where: wanted.contains) { return true }
+            default: break
+            }
+        }
+        return false
+    }
+
+    /// Qué haría falta para que `sshConfig` incluya el de NetDeck, sin tocar nada: el archivo de verdad (si es un enlace,
+    /// al que apunta), su texto de ahora (nil si no existe) y el nuevo (nil si ya lo incluye). Error si no se puede leer.
+    struct IncludePlan {
+        var target: URL
+        var old: String?
+        var new: String?
+    }
+
+    static func includePlan(_ sshConfig: URL) throws -> IncludePlan {
+        let target = sshConfig.resolvingSymlinksInPath()
+        // (el propio archivo de sesiones no se incluye a sí mismo)
+        if target.standardizedFileURL.path == defaultURL.resolvingSymlinksInPath().standardizedFileURL.path {
+            return IncludePlan(target: target, old: nil, new: nil)
+        }
+        let old = try SafeFile.read(target)
+        if let old, hasInclude(old, sshDirectory: target.deletingLastPathComponent()) { return IncludePlan(target: target, old: old, new: nil) }
+        let new = "# Sesiones de NetDeck (☰ Menú → Sesiones, o comando: sesiones)\n\(includeLine)\n\n" + (old ?? "")
+        return IncludePlan(target: target, old: old, new: new)
+    }
+
+    /// Escribe el Include con `SafeFile` (`.anterior`/`.original` y además una copia con fecha), atómico y 0600. Si
+    /// falla, el archivo queda como estaba.
+    static func applyInclude(_ plan: IncludePlan) throws {
+        guard let new = plan.new else { return }
+        let fm = FileManager.default
+        try fm.createDirectory(at: plan.target.deletingLastPathComponent(), withIntermediateDirectories: true,
+                               attributes: [.posixPermissions: 0o700])
+        if fm.fileExists(atPath: plan.target.path) {
+            try SafeFile.backup(plan.target)
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "yyyyMMdd-HHmmss"
+            let stamped = plan.target.appendingPathExtension("antes-netdeck-\(f.string(from: Date()))")
+            if !fm.fileExists(atPath: stamped.path) { try fm.copyItem(at: plan.target, to: stamped) }
+        }
+        try SafeFile.write(new, to: plan.target)
+        DebugLog.log("sesiones", "añadido «\(includeLine)» a \(plan.target.path)")
+    }
+
+    /// Deja `sshConfig` como antes de `applyInclude` (si no existía, se quita). true si lo ha conseguido.
+    static func undoInclude(_ plan: IncludePlan) -> Bool {
+        guard plan.new != nil else { return true }
+        do {
+            if let old = plan.old { try SafeFile.write(old, to: plan.target) } else { try FileManager.default.removeItem(at: plan.target) }
+            return true
+        } catch {
+            ErrorLog.error("sesiones", "no se ha podido dejar \(AppPaths.tilde(plan.target.path)) como estaba: \(error.localizedDescription)")
+            return false
         }
     }
 
-    /// Que ~/.ssh/config incluya el de NetDeck (como su instalador, con copia del de antes). true si ya lo incluía o se ha añadido.
+    /// Que `sshConfig` (~/.ssh/config o el que se haya elegido en Ajustes) incluya el de NetDeck, como su instalador.
+    /// true si ya lo incluía o se ha añadido; si falla algo, false y no se toca.
     @discardableResult
     public static func ensureInclude(sshConfig: URL = AppPaths.home.appendingPathComponent(".ssh/config")) -> Bool {
-        let fm = FileManager.default
-        let line = includeLine
-        let old: String
-        do { old = try SafeFile.read(sshConfig) ?? "" } catch {
-            DebugLog.log("sesiones", "\(sshConfig.path) no se puede leer: no añado el Include")
-            return false
-        }
-        if hasInclude(old) { return true }
-        try? fm.createDirectory(at: sshConfig.deletingLastPathComponent(), withIntermediateDirectories: true,
-                                attributes: [.posixPermissions: 0o700])
-        if fm.fileExists(atPath: sshConfig.path) {
-            let f = DateFormatter()
-            f.dateFormat = "yyyyMMdd-HHmmss"
-            do {
-                try fm.copyItem(at: sshConfig, to: sshConfig.appendingPathExtension("antes-netdeck-\(f.string(from: Date()))"))
-            } catch {
-                DebugLog.log("sesiones", "sin copia de \(sshConfig.path): no lo toco")
-                return false
-            }
-        }
-        let text = "# Sesiones de NetDeck (☰ Menú → Sesiones, o comando: sesiones)\n\(line)\n\n" + old
         do {
-            try text.write(to: sshConfig, atomically: true, encoding: .utf8)
-            try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: sshConfig.path)
-            DebugLog.log("sesiones", "añadido «\(line)» a \(sshConfig.path)")
+            try applyInclude(try includePlan(sshConfig))
             return true
         } catch {
+            ErrorLog.warning("sesiones", "sin Include en \(AppPaths.tilde(sshConfig.path)): \(error.localizedDescription)")
             return false
         }
+    }
+
+    /// Guardar las sesiones como desde el gestor. Primero se comprueba todo sin tocar nada (las sesiones con «ssh -G» y
+    /// que `sshConfig`, ~/.ssh/config o el elegido en Ajustes, se pueda leer); luego la copia de las de ahora
+    /// (`DataBackup.backupSessionsBeforeSave`; sin ella no se guarda), el Include y el archivo de sesiones. Si falla el
+    /// último paso, el ssh_config vuelve a como estaba: o se guardan los dos o ninguno. Devuelve el error, o nil.
+    /// Síncrono: desde la app, `saveInBackground`.
+    public func save(to url: URL = SessionFile.defaultURL, including sshConfig: URL, backup: DataBackup,
+                     validate: Bool = true) -> String? {
+        save(to: url, including: sshConfig, backup: backup, validate: validate, install: Self.install)
+    }
+
+    /// (`install`: para los tests, que hacen fallar el último paso)
+    func save(to url: URL, including sshConfig: URL, backup: DataBackup, validate: Bool,
+              install: (URL, URL, Int) -> String?) -> String? {
+        let (prepared, err) = prepare(url, validate: validate)
+        guard let tmp = prepared else { return err }
+        let fm = FileManager.default
+        let plan: IncludePlan
+        do { plan = try Self.includePlan(sshConfig) } catch {
+            try? fm.removeItem(at: tmp)
+            return L("no se ha podido añadir el Include a \(AppPaths.tilde(sshConfig.path)): no se ha guardado nada")
+        }
+        guard backup.backupSessionsBeforeSave() else {
+            try? fm.removeItem(at: tmp)
+            return L("no se ha podido hacer la copia de seguridad de las sesiones (\(AppPaths.tilde(backup.sessionsBak.path))): no se ha guardado nada")
+        }
+        do { try Self.applyInclude(plan) } catch {
+            try? fm.removeItem(at: tmp)
+            return L("no se ha podido añadir el Include a \(AppPaths.tilde(sshConfig.path)): no se ha guardado nada")
+        }
+        if let err = install(tmp, url, sessions.count) {
+            try? fm.removeItem(at: tmp)
+            return Self.undoInclude(plan) ? err
+                : L("\(err) · y \(AppPaths.tilde(plan.target.path)) no ha vuelto a como estaba: tienes su copia en .anterior")
+        }
+        return nil
+    }
+
+    /// Lo mismo, fuera del hilo principal («ssh -G» puede tardar hasta `checkTimeout`: la ventana no se congela).
+    public func saveInBackground(to url: URL = SessionFile.defaultURL, including sshConfig: URL, backup: DataBackup,
+                                 validate: Bool = true) async -> String? {
+        let file = self
+        return await Task.detached(priority: .userInitiated) {
+            file.save(to: url, including: sshConfig, backup: backup, validate: validate)
+        }.value
     }
 }

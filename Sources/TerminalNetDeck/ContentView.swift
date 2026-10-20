@@ -60,6 +60,9 @@ struct ContentView: View {
                 case .sessions: SessionEditor()
                 case .fill: ButtonFillSheet()
                 case .logs: LogSearchSheet()
+                case .macros: MacroSheet()
+                case .tunnels: TunnelSheet()
+                case .workspaces: WorkspaceSheet()
                 }
             }
             .environment(model)
@@ -112,6 +115,10 @@ extension ContentView {
             for i in 0..<max(0, min(n, 40)) {
                 model.open(ConnectionRoute(title: names[i % names.count] + (i < names.count ? "" : "-\(i)"),
                                            target: Endpoint(user: "tu.usuario", host: "192.0.2.\(i + 1)")))
+            }
+            // (NETDECK_SNAPSHOT_DRAGS=/ruta.txt: arrastres y clics de prueba en la barra; ver `SnapshotDrags`)
+            if SnapshotDrags.enabled, let path = env["NETDECK_SNAPSHOT_DRAGS"] {
+                Task { @MainActor in await SnapshotDrags.run(model, report: path) }
             }
         }
         if a == "terminal" {                         // «terminal»: una local con la salida de ejemplo ($NETDECK_HOME/salida.txt), resaltada
@@ -176,6 +183,62 @@ extension ContentView {
                 }
             }
         }
+        if a == "panel-sftp" {                       // «panel-sftp»: terminal con la salida de ejemplo y el explorador lateral (NETDECK_SFTP_SERVER)
+            let s = model.open(ConnectionRoute.local(shell: "/bin/sh"))
+            let r = ConnectionRoute(title: "core-01", target: Endpoint(user: "tu.usuario", host: "192.0.2.10"), transport: .sftp)
+            let p = SFTPSidePanel(key: "captura", layout: SFTPPanelLayout(visible: true, width: 470), model: model, route: r)
+            s.sidePanel = p
+            p.show(in: s)
+            let sample = (try? Data(contentsOf: AppPaths.home.appendingPathComponent("salida.txt"))) ?? Data()
+            Task { @MainActor in
+                for _ in 0..<40 where s.revision == 0 { try? await Task.sleep(for: .milliseconds(50)) }
+                try? await Task.sleep(for: .milliseconds(300))
+                s.pipe.queue.async {
+                    let out = s.pipe.highlighter.process(Array(sample)[...])
+                    s.pipe.view?.feed(byteArray: Array("\u{1b}[2J\u{1b}[H".utf8)[...] + out[...])
+                    if s.pipe.counter.bump() { s.pipe.onOutput() }
+                }
+            }
+        }
+        if a == "espacios" || a == "espacios:verificar" {
+            let first = model.open(ConnectionRoute.local(shell: "/bin/sh"))
+            let second = model.open(ConnectionRoute.local(shell: "/bin/sh"))
+            model.makeSplit(.side2)
+            model.setSplitWeights([0.3, 0.7], key: "root")
+            model.selection = first.id
+            if a == "espacios:verificar", let path = env["NETDECK_SNAPSHOT"] {
+                Task { @MainActor in
+                    let w = model.captureWorkspace(name: "Guardia")
+                    var errors: [String] = []
+                    do {
+                        try WorkspaceLibrary(workspaces: [w]).save()
+                        for s in model.tabs { model.close(s) }
+                        let lib = try WorkspaceLibrary.load()
+                        model.multiExecOn = true
+                        if !(await model.restoreWorkspace(lib.workspaces[0], replacing: true)) { errors.append("restauración") }
+                        if model.tabs.count != 2 || model.tabs.map(\.route.localShell) != ["/bin/sh", "/bin/sh"] { errors.append("pestañas") }
+                        if model.selection != model.tabs.first?.id { errors.append("selección") }
+                        if model.split?.fractions["root"] != [0.3, 0.7] || !model.showSplit { errors.append("disposición") }
+                        if model.multiExecOn { errors.append("MultiExec") }
+                    } catch { errors.append(error.localizedDescription) }
+                    try? (errors.isEmpty ? "OK espacios: guardar, cerrar, cargar y restaurar" : "ERROR " + errors.joined(separator: ", "))
+                        .write(toFile: path + ".espacios.txt", atomically: true, encoding: .utf8)
+                    model.sheet = .workspaces
+                }
+            } else {
+                _ = second
+                model.sheet = .workspaces
+            }
+        }
+        if a == "macros" {                           // «macros»: el editor con una recién grabada (sin guardar)
+            model.macroDraft = Macro(name: "Revisar interfaces", confirm: true, steps: Macro.recorded(
+                ["terminal length 0", "show ip interface brief", "show interfaces GigabitEthernet0/0/1"]) + [.text(#"core-01#"#, timeout: 30), .pause(1)])
+            model.sheet = .macros
+        }
+        if a.hasPrefix("tuneles") {                  // «tuneles»: el gestor (los de $NETDECK_HOME); «tuneles:iniciar», todos en marcha
+            if a == "tuneles:iniciar" { model.tunnels.tunnels.forEach(model.startTunnel) }
+            model.sheet = .tunnels
+        }
         if a == "sesion-nueva" { model.editSessions(.new(group: nil, kind: .telnet)) }
         if a.hasPrefix("settings") { model.openSettings(a.split(separator: ":").dropFirst().first.map(String.init) ?? "contraseñas") }
         if a.hasPrefix("split") {                    // «split»: 3 pestañas en 1 + 2 con MultiExec
@@ -227,7 +290,7 @@ struct TopBar: View {
                         }
                         // arrastrar una pestaña la cambia de sitio (sólo el orden: la terminal y su proceso siguen igual)
                         ForEach(model.tabs) { s in
-                            TabChip(session: s, width: each)
+                            TabChip(session: s, width: each, dragSpace: drag.space) { drag.blocked[s.id] = $0 }
                                 .id(s.id)
                                 .reorderable(s.id, in: drag, order: { model.tabs.map(\.id) },
                                              move: { model.moveTab($0, to: $1) }, end: {})
@@ -253,9 +316,15 @@ struct TopBar: View {
             .layoutPriority(1)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { leftWidth = $0 }
             Spacer(minLength: Self.spacerMin)
+                .snapshotFrame("hueco")
             HStack(spacing: Self.spacing) {
                 IconButton(icon: "doc.on.clipboard.fill") { model.sheet = .paste }
                     .help(L("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)"))
+                MacroMenu()
+                    .help(L("Macros: grabar, reproducir (en la pestaña o en MultiExec) y editar"))
+                IconButton(icon: "point.3.connected.trianglepath.dotted", active: model.tunnelRunner.activeCount > 0,
+                           badge: model.tunnelRunner.activeCount > 0 ? "\(model.tunnelRunner.activeCount)" : nil) { model.sheet = .tunnels }
+                    .help(L("Túneles SSH: locales, remotos y SOCKS; iniciar, parar y su estado"))
                 IconMenu(icon: "rectangle.split.3x1.fill", active: model.split != nil) {
                     ForEach(Split.Layout.allCases) { l in Button(l.title) { model.makeSplit(l) } }
                     MenuDivider()
@@ -286,6 +355,9 @@ struct TopBar: View {
                     .help(L("MultiExec: lo que escribes va a la vez a los paneles (⇧⌘M). Clic derecho en un panel → excluirlo"))
                 IconButton(icon: "stop.circle.fill", tint: t.bad) { model.abortAll() }
                     .help(L("Corta cualquier secuencia automática (Esc o Ctrl+C en el terminal, ⌘.)"))
+                IconButton(icon: "sidebar.right", active: model.current?.sidePanel?.visible == true) { model.current.map(model.toggleSidePanel) }
+                    .help(L("Explorador SFTP al lado del terminal ssh: mismo equipo, usuario y saltos (⇧⌘B)"))
+                    .disabled(!(model.current.map { SFTPPanel.offers($0.route) } ?? false) || model.showSplit)
                 IconButton(icon: "sidebar.left", active: model.settings.sidebarVisible) { model.settings.sidebarVisible.toggle() }
                     .help(L("Mostrar/ocultar sesiones (⌃⌘S)"))
                 IconButton(icon: "gearshape.fill") { model.openSettings() }
@@ -532,11 +604,21 @@ struct TabChip: View {
     let session: TerminalSession
     /// El que le toca en la barra (todas igual de anchas); el título se corta por el centro si no cabe.
     var width: CGFloat = TopBar.tabMax
+    /// El espacio de coordenadas de la fila y a quién decirle dónde está la ✕ (ahí no empieza el arrastre).
+    var dragSpace: AnyHashable = 0
+    var onCloseFrame: (CGRect?) -> Void = { _ in }
     @Stored private var hover = false
+
+    static let closeSize: CGFloat = 24
+
+    private var selected: Bool {
+        model.selection == session.id && (!model.showSplit || model.split?.panes.contains(session.id) == true)
+    }
+    private var showsClose: Bool { selected || hover }
 
     var body: some View {
         let inSplit = model.split?.panes.contains(session.id) == true
-        let selected = model.selection == session.id && (!model.showSplit || inSplit)
+        let selected = selected
         let notice = model.notices[session.id] != nil
         HStack(spacing: 7) {
             Circle()
@@ -549,21 +631,30 @@ struct TabChip: View {
             Spacer(minLength: 0)
             if session.activity { Text("•").font(t.ui(13, .black)).foregroundStyle(SwiftUI.Color(t.warning)) }
             if notice { Image(systemName: "key.fill").font(.system(size: 10)).foregroundStyle(SwiftUI.Color(t.warning)) }
-            // (la ✕ sólo ocupa sitio en la activa o al pasar por encima: en las estrechas, el título se lleva el hueco)
-            if selected || hover {
+            // (la ✕ sólo ocupa sitio en la activa o al pasar por encima: en las estrechas, el título se lleva el hueco.
+            // Se pulsa en 24×24 alrededor del icono, que queda donde estaba: el margen de la derecha se come lo de más)
+            if showsClose {
                 Button { model.close(session) } label: {
                     Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+                        .frame(width: Self.closeSize, height: Self.closeSize)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(TabCloseStyle(color: selected ? t.onTab : t.accent2, corner: t.neon ? 3 : 5))
+                .help(L("Cerrar la pestaña"))
+                .accessibilityLabel(L("Cerrar «\(session.tabTitle)»"))
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(dragSpace)) } action: { onCloseFrame($0) }
+                .onDisappear { onCloseFrame(nil) }
+                .snapshotFrame("x:\(session.id)")
             }
         }
         .foregroundStyle(SwiftUI.Color(selected ? t.onTab : t.accent2))
         .padding(.leading, width < 130 ? 9 : 12)
-        .padding(.trailing, width < 130 ? 11 : 16)
+        .padding(.trailing, max(0, (width < 130 ? 11 : 16) - (showsClose ? (Self.closeSize - 9) / 2 : 0)))
         .frame(width: width, height: 29)
         .background(ChamferShape(radius: t.corner).fill(SwiftUI.Color(selected ? t.tab : t.panel).opacity(selected ? 1 : (hover ? 0.95 : 0.6))))
         .shadow(color: SwiftUI.Color(t.tab).opacity(selected ? 0.6 : 0), radius: t.glow(8))
         .contentShape(Rectangle())
+        .snapshotFrame("tab:\(session.id)")
         .onTapGesture { model.show(session) }
         .onHover { hover = $0 }
         .help(session.pathDescription)
@@ -571,6 +662,22 @@ struct TabChip: View {
     }
 
     private func dotColor(_ notice: Bool) -> RGB { session.statusColor(t, notice: notice) }
+}
+
+/// La ✕ de una pestaña: fondo redondeado al pasar el ratón y más marcado al pulsar, con el color de la pestaña.
+private struct TabCloseStyle: ButtonStyle {
+    let color: RGB
+    let corner: CGFloat
+    @Stored private var hover = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(RoundedRectangle(cornerRadius: corner)
+                .fill(SwiftUI.Color(color).opacity(configuration.isPressed ? 0.32 : (hover ? 0.16 : 0))))
+            .scaleEffect(configuration.isPressed ? 0.9 : 1)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+            .onHover { hover = $0 }
+    }
 }
 
 /// Clic derecho en una pestaña o en la cabecera de un panel.
@@ -601,6 +708,12 @@ struct SessionTabMenu: View {
         MenuDivider()
         if session.browser != nil, session.route.transport == .sftp {
             Button(session.showConsole ? L("Vista gráfica") : L("Consola sftp")) { model.setConsole(!session.showConsole, in: session) }
+        }
+        if SFTPPanel.offers(session.route) {
+            Button(session.sidePanel?.visible == true ? L("Ocultar el explorador SFTP") : L("Explorador SFTP al lado (⇧⌘B)")) {
+                model.show(session)
+                model.toggleSidePanel(session)
+            }
         }
         Button(role: .destructive) { model.close(session) } label: { Text(L("Cerrar")) }
     }
@@ -681,10 +794,16 @@ struct MainArea: View {
         } else if let s = model.current {
             VStack(spacing: 0) {
                 if let e = model.notices[s.id] { PasswordNotice(session: s, event: e) }
-                SessionContent(session: s, focused: true, inset: 8)
+                SessionContent(session: s, focused: true, inset: 8, sidePanel: true)
                     .id(s.id)
+                    .overlay(alignment: .topLeading) {
+                        // (con el explorador lateral a la vista, el ● REC va a la izquierda: a la derecha estaría encima de él)
+                        if s.sidePanel?.visible == true { RecBadge(session: s, compact: true).padding(.top, 8).padding(.leading, 12) }
+                    }
                     .overlay(alignment: .topTrailing) {
-                        if s.browser == nil || s.showConsole { RecBadge(session: s).padding(.top, 8).padding(.trailing, 18) }
+                        if (s.browser == nil || s.showConsole) && s.sidePanel?.visible != true {
+                            RecBadge(session: s).padding(.top, 8).padding(.trailing, 18)
+                        }
                     }
             }
             .background(SwiftUI.Color(t.layer))
@@ -695,21 +814,36 @@ struct MainArea: View {
 }
 
 /// Lo de dentro de una pestaña: la terminal o, en SFTP/FTP, el explorador (o su consola, con la barra para volver).
+/// `sidePanel` (la pestaña sola, no en la vista dividida): el explorador SFTP a la derecha del terminal ssh, si está a la vista.
 struct SessionContent: View {
     let session: TerminalSession
     var focused = false
     var inset: CGFloat = 8
+    var sidePanel = false
 
     var body: some View {
         if let b = session.browser, !session.showConsole {
             RemoteBrowserView(session: session, browser: b)
-        } else {
-            VStack(spacing: 0) {
-                if session.browser != nil { RemoteConsoleBar(session: session) }
-                TerminalHost(session: session, focused: focused)
-                    .padding(.leading, inset)
-                    .padding(.top, inset * 0.75)
+        } else if sidePanel {
+            GeometryReader { g in
+                HStack(spacing: 0) {
+                    console
+                    if let p = session.sidePanel, p.visible {
+                        SFTPSidePanelView(session: session, panel: p, available: g.size.width)
+                    }
+                }
             }
+        } else {
+            console
+        }
+    }
+
+    private var console: some View {
+        VStack(spacing: 0) {
+            if session.browser != nil { RemoteConsoleBar(session: session) }
+            TerminalHost(session: session, focused: focused)
+                .padding(.leading, inset)
+                .padding(.top, inset * 0.75)
         }
     }
 }

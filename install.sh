@@ -19,7 +19,7 @@ NOMBRE="Terminal NetDeck"
 PRODUCTO=TerminalNetDeck
 ANTIGUO=NetDeckProvisional          # (nombre del ejecutable hasta la v0.4)
 ID=io.netdeck.terminal
-VERSION=0.9.1
+VERSION=0.9.2
 # Repositorio de GitHub («usuario/repo») para las actualizaciones; NETDECK_REPO= (vacío) para no buscarlas.
 REPO="${NETDECK_REPO-Iljonis/Terminal-NetDeck}"
 [[ -z $REPO || $REPO =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "NETDECK_REPO no válido: «$REPO» (usuario/repo)"; exit 1; }
@@ -70,7 +70,13 @@ mkdir -p "$destino" build
 
 echo "${C}▚ NETDECK${N} // $NOMBRE $VERSION"
 echo "   compilando (release)…"
-swift build -c release --product "$PRODUCTO" 2>&1 | grep -E "error|warning: .*Sources" || true
+# (si no compila se para: nunca se monta la app con el ejecutable de una compilación anterior)
+if ! swift build -c release --product "$PRODUCTO" > build/compilacion.log 2>&1; then
+  grep -E "error" build/compilacion.log | head -20
+  echo "${M}✗ No se ha compilado${N} (todo en build/compilacion.log): no se instala nada"
+  exit 1
+fi
+grep -E "warning: .*Sources" build/compilacion.log || true
 BIN_DIR=$(swift build -c release --show-bin-path)
 [ -x "$BIN_DIR/$PRODUCTO" ] || { echo "${M}✗ No se ha compilado${N}"; exit 1; }
 
@@ -125,7 +131,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 # Firma ad hoc con «hardened runtime» (sin derechos extra: la app no carga código de fuera, y el askpass, que es el
 # mismo ejecutable, no hereda variables DYLD_*)
-codesign --force --options runtime --sign - "$APP" >/dev/null 2>&1 || echo "   ${A}(sin firmar)${N}"
+if ! codesign --force --options runtime --sign - "$APP" >/dev/null 2>&1 || ! codesign --verify --strict "$APP" >/dev/null 2>&1; then
+  echo "${M}✗ No se ha podido firmar la app${N} (codesign): no se instala ni se empaqueta"
+  exit 1
+fi
 
 if [ $asistente = 1 ]; then
   echo "${V}✓${N} Abriendo el asistente desde build/ (no se instala nada hasta que pulses «Instalar»)"

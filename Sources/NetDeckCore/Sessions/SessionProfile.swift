@@ -3,7 +3,7 @@ import Foundation
 /// Una sesión de NetDeck: un «Host» del ssh_config (con sus anotaciones) o una conexión rápida.
 public struct SessionProfile: Identifiable, Hashable, Sendable {
     /// Tipo de sesión. ssh y telnet llegan al equipo (directo o por salto); sftp es ssh por debajo (mismo alias, saltos y
-    /// askpass); sftp y ftp se abren en el explorador de archivos de la app; serie, con screen; local, la shell del Mac.
+    /// askpass); sftp y ftp se abren en el explorador de archivos de la app; serie, el puerto abierto por la app; local, la shell del Mac.
     public enum Transport: String, Sendable, Codable, CaseIterable {
         case ssh, telnet, sftp, ftp, serial, local
 
@@ -52,6 +52,8 @@ public struct SessionProfile: Identifiable, Hashable, Sendable {
     public var legacy: Bool
     /// «# @serie /dev/cu.… 9600 8N1» (sesiones de consola por puerto serie).
     public var serial: SerialLine?
+    /// «# @fuente», «# @tema», «# @scrollback», «# @teclado», «# @prompt»: lo que no dice, de Ajustes.
+    public var terminal = TerminalProfile()
 
     public init(name: String, hostName: String? = nil, user: String? = nil, port: Int? = nil,
                 proxyJump: [String] = [], transport: Transport = .ssh, group: String? = nil,

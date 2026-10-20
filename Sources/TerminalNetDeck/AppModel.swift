@@ -6,7 +6,7 @@ import Observation
 @MainActor @Observable
 final class AppModel {
     enum Sheet: String, Identifiable {
-        case connect, paste, list, sessions, fill, logs
+        case connect, paste, list, sessions, fill, logs, macros, tunnels, workspaces
         var id: String { rawValue }
     }
 
@@ -26,6 +26,8 @@ final class AppModel {
     let policy = CredentialPolicy()
     /// Copias de los exploradores SFTP/FTP (también de servidor a servidor).
     let transfers = TransferCenter()
+    /// Visible y ancho del explorador lateral de cada sesión (panel-sftp.json).
+    @ObservationIgnored private var panelStore = SFTPPanelStore()
     @ObservationIgnored let multiExec = MultiExecGroup()
     /// Lo que afecta a varias pestañas (pegado a todas, listas): Esc en cualquiera lo corta.
     @ObservationIgnored let sharedGate = AutomationGate()
@@ -83,6 +85,8 @@ final class AppModel {
     @ObservationIgnored private var focusWatch: NSKeyValueObservation?
     @ObservationIgnored private var appearanceWatch: NSKeyValueObservation?
     @ObservationIgnored private var stillWatch: Any?
+    /// La vista a la que se ha dado el clic en una zona de reordenar: le van también el arrastre y el soltar.
+    @ObservationIgnored private var stillTarget: NSView?
     @ObservationIgnored private var frameBeforeFill: NSRect?
     /// Pestañas abiertas la última vez (para reabrirlas).
     var lastOpen: [ConnectionRoute] = []
@@ -131,12 +135,20 @@ final class AppModel {
         reloadSessions()
         reloadHighlight()
         let settings = settings
+        // MultiExec: pide un secreto o aún no ha llegado a su primer prompt (lo tecleado iría al askpass como contraseña)
+        multiExec.awaitingAuth = { io in
+            SecretPrompt.asks(io.cursorLine) || (io as? TerminalSession).map { !$0.loggedIn && !$0.exited } == true
+        }
         transfers.verify = { settings.verifyTransfers }
         transfers.showCopied = { [weak self] fs, dir in self?.refreshBrowsers(showing: [dir], of: fs) }
         lastOpen = Self.readOpenTabs()
         Self.instance = self
         loadFavorites()
         reloadButtons()
+        reloadMacros()                              // (sólo las lee: ninguna se ejecuta al arrancar)
+        reloadTunnels()                             // (ídem: ningún túnel arranca solo)
+        reloadWorkspaces()
+        tunnelRunner.onChange = { [weak self] id, state in self?.tunnelChanged(id, state) }
         if CommandLine.arguments.contains("--reabrir") { DispatchQueue.main.async { self.reopenLast() } }
         if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil {
             DispatchQueue.main.async { self.openStartupTabs() }                   // (después de reabrir, si toca)
@@ -194,7 +206,7 @@ final class AppModel {
 
     private func applyHighlight(to s: TerminalSession) {
         let rules = highlightConfig.rules.filter { !settings.highlightDisabled.contains($0.description) }
-        s.highlight(rules: rules, palette: highlightPalette(for: themes.current), enabled: settings.highlightEnabled)
+        s.highlight(rules: rules, palette: highlightPalette(for: s.theme ?? themes.current), enabled: settings.highlightEnabled)
     }
 
     /// Los colores con nombre del resaltado («green», «red»…) con el tema `th`: los del tema (o la paleta del archivo
@@ -311,6 +323,7 @@ final class AppModel {
         }
         // Instalación limpia: sin ssh_config no hay sesiones (los ejemplos, sólo para capturas: NETDECK_SAMPLES=1).
         if sessions.profiles.isEmpty, ProcessInfo.processInfo.environment["NETDECK_SAMPLES"] != nil { sessions.loadSamples() }
+        tabs.forEach(refreshProfile)                // (el perfil recién guardado, también a las abiertas)
     }
 
     // MARK: - ajustes en vivo
@@ -323,8 +336,7 @@ final class AppModel {
 
     /// El historial (scrollback) de Ajustes → Terminal, a todas las pestañas abiertas.
     func applyScrollback() {
-        let n = settings.scrollback
-        tabs.forEach { $0.view.changeScrollback(n) }
+        tabs.forEach(applyProfile)                // (las que heredan; las de «# @scrollback» se quedan con el suyo)
     }
 
     /// Tema automático: el claro o el oscuro según el Mac (se llama al cambiar la apariencia).
@@ -337,7 +349,7 @@ final class AppModel {
 
     /// Tema, fuente y colores del resaltado a todas las pestañas abiertas.
     func applyAppearance() {
-        tabs.forEach { $0.apply(theme: themes.current, font: terminalFont) }
+        tabs.forEach(applyProfile)
         styleWindows()
         applyHighlight()
     }
@@ -362,10 +374,30 @@ final class AppModel {
         }
     }
 
-    var terminalFont: NSFont {
-        let t = themes.current
-        let family = settings.fontFamily.isEmpty ? Fonts.firstInstalled(t.fonts) : settings.fontFamily
-        return Fonts.terminal(family: family, size: settings.fontSize > 0 ? settings.fontSize : CGFloat(t.size - 1))
+    var terminalFont: NSFont { terminalFont(theme: themes.current, family: settings.fontFamily, size: settings.fontSize) }
+
+    /// `family` "" = la del tema; `size` 0 = el del tema.
+    func terminalFont(theme t: Theme, family: String, size: Double) -> NSFont {
+        Fonts.terminal(family: family.isEmpty ? Fonts.firstInstalled(t.fonts) : family, size: size > 0 ? size : CGFloat(t.size - 1))
+    }
+
+    /// El perfil de la sesión de la pestaña (`TerminalProfile`; lo que no dice, de Ajustes): tema, fuente, historial,
+    /// teclado y prompt. Al abrir, al reconectar, al guardar las sesiones y al cambiar Ajustes.
+    func applyProfile(to s: TerminalSession) {
+        let e = s.profile.resolved(theme: themes.current.id, fontFamily: settings.fontFamily, fontSize: settings.fontSize,
+                                   scrollback: settings.scrollback, session: s.route.sessionName ?? s.title,
+                                   themeExists: { [themes] in themes.theme(id: $0) != nil }, fontInstalled: Fonts.isInstalled)
+        let th = themes.theme(id: e.theme) ?? themes.current
+        s.apply(theme: th, font: terminalFont(theme: th, family: e.fontFamily, size: e.fontSize))
+        s.apply(scrollback: e.scrollback, optionAsMeta: e.optionAsMeta, backspaceSendsCtrlH: e.backspaceSendsCtrlH)
+        s.promptRule = e.prompt
+    }
+
+    /// El perfil guardado de la sesión de `s` (sin sesión guardada, todo de Ajustes).
+    private func refreshProfile(_ s: TerminalSession) {
+        s.profile = s.route.transientProfile ?? s.route.sessionName.flatMap(sessions.profile(named:))?.terminal ?? TerminalProfile()
+        applyProfile(to: s)
+        applyHighlight(to: s)
     }
 
     // MARK: - pestañas
@@ -423,21 +455,24 @@ final class AppModel {
         showSplit = true
     }
 
-    /// Guarda el ssh_config de NetDeck (comprobado con ssh -G) y que ~/.ssh/config lo incluya.
-    func saveSessions(_ file: SessionFile) -> String? {
-        DataBackup.standard.backupSessionsBeforeSave()          // (copias/ssh_config.bak: fuera de ~/.config/netdeck)
-        if let err = file.save() {
+    /// Guarda el ssh_config de NetDeck fuera del hilo principal («ssh -G» puede tardar: la ventana no se congela). Antes,
+    /// copia de las de ahora (sin ella no se guarda nada) y que el ssh_config de Ajustes (~/.ssh/config u otro elegido)
+    /// lo incluya; si falla algún paso, no se sigue y el error sale también como aviso (✗ en `status`).
+    func saveSessions(_ file: SessionFile) async -> String? {
+        guard !savingSessions else { return L("Ya se están guardando las sesiones") }    // (dos clics seguidos)
+        savingSessions = true
+        defer { savingSessions = false }
+        if let err = await file.saveInBackground(including: settings.sshConfigURL, backup: .standard) {
             ErrorLog.error("sesiones", "no se han podido guardar: \(err)")
+            status = "✗ \(err)"
             return err
-        }
-        if settings.sshConfigURL.standardizedFileURL == SessionManager.defaultConfigURL.standardizedFileURL {
-            SessionFile.ensureInclude()
         }
         reloadSessions()
         if !file.sessions.isEmpty { UserDefaults.standard.set(true, forKey: Self.hadSessionsKey) }
         status = L("Sesiones guardadas (\(file.sessions.count))")
         return nil
     }
+    @ObservationIgnored private var savingSessions = false
 
     var sessionFile: SessionFile { (try? SessionFile(contentsOf: SessionFile.defaultURL)) ?? SessionFile() }
 
@@ -453,13 +488,21 @@ final class AppModel {
         let backup = DataBackup.standard
         let d = UserDefaults.standard
         if !sessionFile.sessions.isEmpty { d.set(true, forKey: Self.hadSessionsKey) }
-        let usesDefault = settings.sshConfigURL.standardizedFileURL == SessionManager.defaultConfigURL.standardizedFileURL
+        // (el ssh_config elegido en Ajustes, o ~/.ssh/config: el que tiene que incluir las sesiones)
+        let config = settings.sshConfigURL
         if d.bool(forKey: Self.hadSessionsKey), let (source, n) = backup.recoverSessionsIfMissing() {
-            if usesDefault { SessionFile.ensureInclude() }
+            SessionFile.ensureInclude(sshConfig: config)
             status = L("✗ Faltaba el archivo de sesiones: recuperadas \(n) sesiones de \(AppPaths.tilde(source.path))")
-        } else if usesDefault, backup.restoreIncludeIfMissing(sshConfig: SessionManager.defaultConfigURL) {
-            // (el archivo estaba, pero ~/.ssh/config ya no lo incluía: la lista salía vacía)
-            status = L("✗ ~/.ssh/config no incluía tus sesiones: vuelto a incluir (copia del anterior junto a él)")
+        } else {
+            do {
+                // (el archivo estaba, pero el ssh_config ya no lo incluía o no existía: la lista salía vacía)
+                if try backup.restoreIncludeIfMissing(sshConfig: config) {
+                    status = L("✗ \(AppPaths.tilde(config.path)) no incluía tus sesiones: vuelto a incluir (copia del anterior junto a él)")
+                }
+            } catch {
+                ErrorLog.error("sesiones", "no se ha podido comprobar el Include en \(AppPaths.tilde(config.path)): \(error.localizedDescription)")
+                status = L("✗ No se ha podido comprobar que \(AppPaths.tilde(config.path)) incluya tus sesiones: \(error.localizedDescription)")
+            }
         }
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
         if d.string(forKey: "ultimaVersion") != version {
@@ -574,7 +617,37 @@ final class AppModel {
 
     /// Refresca (una vez cada uno) los exploradores de ese servidor que enseñan alguna de esas carpetas.
     func refreshBrowsers(showing dirs: Set<String>, of fs: any RemoteFileSystem, except: RemoteBrowser? = nil) {
-        for b in tabs.compactMap(\.browser) where b !== except && dirs.contains(where: { b.shows($0, of: fs) }) { b.refresh() }
+        for (_, b) in allBrowsers where b !== except && dirs.contains(where: { b.shows($0, of: fs) }) { b.refresh() }
+    }
+
+    /// Todos los exploradores: los de las pestañas SFTP/FTP y los laterales de las ssh.
+    var allBrowsers: [(TerminalSession, RemoteBrowser)] {
+        tabs.compactMap { s in (s.browser ?? s.sidePanel?.browser).map { (s, $0) } }
+    }
+
+    // MARK: - explorador lateral
+
+    /// Mostrar u ocultar el explorador SFTP al lado del terminal ssh (⇧⌘B). Ocultarlo no corta su conexión.
+    func toggleSidePanel(_ s: TerminalSession) {
+        guard SFTPPanel.offers(s.route) || s.sidePanel != nil else { return }
+        let key = SFTPPanel.key(for: s.route)
+        let p = s.sidePanel ?? SFTPSidePanel(key: key, layout: panelStore.layout(for: key), model: self)
+        s.sidePanel = p
+        if p.visible {
+            p.visible = false
+            p.waitingForLogin = false
+            DispatchQueue.main.async { s.view.window?.makeFirstResponder(s.view) }
+        } else {
+            p.show(in: s)
+        }
+        rememberPanel(p)
+    }
+
+    func rememberPanel(_ p: SFTPSidePanel) {
+        guard ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil else { return }   // (las capturas no cuentan)
+        do { try panelStore.set(p.layout, for: p.key) } catch {
+            ErrorLog.warning("panel-sftp", "no se ha podido guardar: \(error.localizedDescription)")
+        }
     }
 
     /// Borrar una sesión desde la lista (pregunta antes; queda copia en ssh_config.anterior).
@@ -588,7 +661,7 @@ final class AppModel {
             var f = sessionFile
             guard let i = f.sessions.firstIndex(where: { $0.name == name }) else { return }
             f.sessions.remove(at: i)
-            if let err = saveSessions(f) { status = "✗ \(err)"; return }
+            if await saveSessions(f) != nil { return }
             if favorites.contains(name) { toggleFavorite(name) }
         }
     }
@@ -603,6 +676,22 @@ final class AppModel {
             message: L("Para llegar, la app entraría en «\(jump)» y escribiría allí «\(cmd)». Lo que escribas después (también la contraseña del destino) pasará por la shell de ese salto: hazlo sólo si confías en él. La contraseña del destino no se escribirá sola."),
             ok: L("Entrar por el salto"))
         return ok && tabs.contains(where: { $0.id == s.id })
+    }
+
+    /// La clave del equipo de «s» no es la de known_hosts: ¿quitar la vieja y reconectar? Como MobaXterm o SecureCRT,
+    /// pero «Cancelar» es lo de por defecto: puede ser alguien interceptando la conexión.
+    func confirmHostKey(_ s: TerminalSession, _ m: HostKeyMismatch) async -> Bool {
+        guard tabs.contains(where: { $0.id == s.id }) else { return false }
+        let host = m.host ?? s.route.target.host
+        var message = L("La clave que presenta el equipo no es la guardada en known_hosts. Puede que se haya reinstalado o cambiado, o que alguien esté interceptando la conexión (ataque «man in the middle»). Acepta sólo si sabes por qué ha cambiado.")
+        if let fp = m.fingerprint { message += "\n\n" + L("Huella de la clave nueva (\(m.keyType ?? "?")): \(fp)") }
+        if let f = m.file {
+            let place = m.line.map { "\(AppPaths.tilde(f)):\($0)" } ?? AppPaths.tilde(f)
+            message += "\n" + L("Clave antigua en \(place)")
+        }
+        let r = await ThemedAlert.run(L("⚠️ La clave del equipo «\(host)» ha cambiado"), message: message,
+                                      buttons: [L("Cancelar"), L("Aceptar y Actualizar Clave")], destructive: 1)
+        return r.button == 1 && tabs.contains(where: { $0.id == s.id })
     }
 
     /// Terminal local: tu shell de inicio, como shell de login, en tu carpeta.
@@ -625,15 +714,24 @@ final class AppModel {
         s.onReconnect = { [weak self] s in self?.reconnect(s) }
         s.onCloseRequest = { [weak self] s in self?.close(s) }
         s.confirmHop = { [weak self] s, r in await self?.confirmHop(s, r) ?? false }
+        s.onHostKeyChanged = { [weak self] s, m in await self?.confirmHostKey(s, m) ?? false }
+        s.onLogFailed = { [weak self] _, message in self?.status = message }
+        s.onProblem = { [weak self] _, message in self?.status = message }
         s.onForwardingRefused = { [weak self] s in
             do { return try self?.sessions.typedHop(for: s.route) } catch {
                 DebugLog.log("salto", "«\(s.title)»: \(error.localizedDescription)")
                 return nil
             }
         }
-        s.apply(theme: themes.current, font: terminalFont)
-        applyHighlight(to: s)
+        refreshProfile(s)
         if route.transport == .sftp || route.transport == .ftp { s.browser = RemoteBrowser(route: route, model: self) }
+        // (el explorador lateral recordado como visible: se ve, y conecta cuando entre el terminal)
+        let panelKey = SFTPPanel.key(for: route)
+        if SFTPPanel.offers(route), panelStore.layout(for: panelKey).visible {
+            let p = SFTPSidePanel(key: panelKey, layout: panelStore.layout(for: panelKey), model: self)
+            s.sidePanel = p
+            p.show(in: s)
+        }
         tabs.append(s)
         selection = s.id
         syncMultiExec()
@@ -660,6 +758,7 @@ final class AppModel {
         s.terminate()
         _ = Askpass.takeGiven(session: s.id)             // (lo que dejó el askpass si se cierra antes de entrar)
         multiExec.leave(s)
+        if recording == s.id { stopRecording() }
         notices[s.id] = nil
         excluded.remove(s.id)
         let i = tabs.firstIndex { $0 === s } ?? 0
@@ -691,8 +790,11 @@ final class AppModel {
     }
 
     func reconnect(_ s: TerminalSession) {
+        // (una secuencia compartida tampoco puede saltar a una conexión nueva)
+        sharedGate.abortAll(); s.gate.abortAll()
         DebugLog.log("pestaña", "«\(s.title)» reconectar")
         notices[s.id] = nil
+        refreshProfile(s)
         if let b = s.browser, !s.showConsole { b.reconnect() } else { s.restart() }
     }
 
@@ -824,15 +926,17 @@ final class AppModel {
         let paster = SafePaster(allowDangerous: allowDangerous)
         if toAll {
             let sw = sharedGate.begin()
-            pasteTargets = Set(multiExec.terminals.compactMap { ($0 as? TerminalSession)?.id })
-            defer { sharedGate.end(sw); pasteTargets = [] }
+            let ids = Set(multiExec.terminals.filter(multiExec.accepts).compactMap { ($0 as? TerminalSession)?.id })
+            guard let ticket = automationReservation.reserve(ids) else { sharedGate.end(sw); status = L("⏳ La pestaña ya tiene una secuencia en marcha; pulsa Esc para cortarla"); return }
+            defer { sharedGate.end(sw); automationReservation.release(ticket) }
             let reports = await multiExec.paste(text, paster: paster, abort: sw)
             let failed = reports.contains { if case .completed = $0.outcome { false } else { true } }
             status = (failed ? "✗ " : "") + L("Pegado en \(reports.count): ") + reports.map { describe($0) }.joined(separator: " · ")
         } else if let s = current {
+            guard s.route.acceptsMultiExec, macroAccepts(s) else { status = L("✗ El pegado seguro requiere una pestaña SSH/Telnet autenticada"); return }
+            guard let ticket = automationReservation.reserve([s.id]) else { status = L("⏳ La pestaña ya tiene una secuencia en marcha; pulsa Esc para cortarla"); return }
             let sw = s.gate.begin()
-            pasteTargets = [s.id]
-            defer { s.gate.end(sw); pasteTargets = [] }
+            defer { s.gate.end(sw); automationReservation.release(ticket) }
             status = describe(await paster.paste(text, into: s, abort: sw))
         }
     }
@@ -871,7 +975,7 @@ final class AppModel {
     }
 
     /// Las pestañas en las que está pegando el pegado a todas.
-    @ObservationIgnored private var pasteTargets: Set<TerminalSession.ID> = []
+    @ObservationIgnored private let automationReservation = AutomationReservation()
 
     func abortAll() {
         sharedGate.abortAll()
@@ -903,7 +1007,7 @@ final class AppModel {
         }
         // Mientras se pega, lo tecleado no se mezcla con las líneas que se envían (sólo en el pegado: esperando un
         // salto puede tocar escribir una contraseña a mano).
-        if pasteTargets.contains(s.id) {
+        if automationReservation.contains(s.id) {
             status = L("⏳ Enviando… Esc para cortar (lo que tecleas no se envía)")
             return true
         }
@@ -912,6 +1016,7 @@ final class AppModel {
             runButton(b)
             return true
         }
+        if recording == s.id { recorder?.feed(bytes, from: s) }      // (sólo lo tecleado; nunca lo que escribe la app)
         if bytes.contains(13) { s.noteCommand() }                     // Intro
         guard multiExecOn else { return false }
         let sent = multiExec.broadcast(bytes, from: s)
@@ -919,6 +1024,150 @@ final class AppModel {
             DebugLog.log("multiexec", "Intro desde «\(s.title)» → \(multiExecTargets.map(\.title).joined(separator: ", "))")
         }
         return sent
+    }
+
+    // MARK: - túneles
+
+    /// Los túneles guardados (tuneles.json) y sus procesos ssh (`Tunnels.swift`).
+    var tunnels = TunnelLibrary()
+    var tunnelsError: String?
+    var tunnelWarnings: [String] = []
+    let tunnelRunner = TunnelManager()
+    /// La «sesión» del askpass de cada túnel en marcha (para confirmar la contraseña que ha valido).
+    @ObservationIgnored var tunnelAskpass: [Tunnel.ID: UUID] = [:]
+
+    var workspaces = WorkspaceLibrary()
+    var workspacesError: String?
+
+    // MARK: - macros
+
+    /// Las macros guardadas (macros.json). Cargarlas no ejecuta nada: sólo `runMacro`, desde un clic del usuario.
+    var macros = MacroLibrary()
+    /// macros.json no se ha podido usar (ilegible, roto o de otra versión): no se toca; al guardar se aparta.
+    var macrosError: String?
+    var macroWarnings: [String] = []
+    /// Pestaña en la que se graba.
+    var recording: TerminalSession.ID?
+    @ObservationIgnored private var recorder: MacroRecorder?
+    /// Lo recién grabado, para el editor.
+    var macroDraft: Macro?
+    /// Hay una macro reproduciéndose (el botón ■ la para).
+    var macroRunning = false
+
+    func reloadMacros() {
+        let r = MacroLibrary.load()
+        macros = r.library
+        macrosError = r.error
+        macroWarnings = r.warnings
+        if let e = r.error {
+            ErrorLog.error("macros", e)
+            status = "✗ " + e
+        }
+        r.warnings.forEach { ErrorLog.warning("macros", $0) }
+    }
+
+    func saveMacros(_ lib: MacroLibrary) -> String? {
+        do {
+            try lib.save(setAsideUnusable: macrosError != nil)
+            macros = lib
+            macrosError = nil
+            macroWarnings = []
+            status = L("Macros guardadas (\(lib.macros.count)) en \(AppPaths.tilde(MacroLibrary.defaultURL.path))")
+            return nil
+        } catch {
+            ErrorLog.error("macros", "no se han podido guardar: \(error.localizedDescription)")
+            return error.localizedDescription
+        }
+    }
+
+    /// Grabar en la pestaña activa (o parar y abrir el editor con lo grabado).
+    func toggleRecording() {
+        if recording != nil { stopRecording(); return }
+        guard let s = current, !s.exited, s.browser == nil || s.showConsole else {
+            status = L("✗ Para grabar una macro, abre antes una pestaña de terminal")
+            return
+        }
+        let r = MacroRecorder()
+        r.awaitingAuth = multiExec.awaitingAuth
+        recorder = r
+        recording = s.id
+        DebugLog.log("macros", "grabando en «\(s.title)»")
+        status = L("● Grabando una macro en «\(s.title)»: escribe las órdenes (las contraseñas no se graban)")
+        s.view.window?.makeFirstResponder(s.view)
+    }
+
+    func stopRecording() {
+        guard let r = recorder else { return }
+        recorder = nil
+        recording = nil
+        DebugLog.log("macros", "grabación parada: \(r.lines.count) líneas, \(r.skipped) sin grabar")
+        guard !r.lines.isEmpty else {
+            status = L("Grabación parada: no hay órdenes que guardar")
+            return
+        }
+        macroDraft = Macro(name: macros.uniqueName(L("macro")), steps: r.steps)
+        status = L("■ Grabadas \(r.lines.count) órdenes") + (r.skipped > 0 ? L(" · \(r.skipped) sin grabar (secretos)") : "")
+        if !modalOpen { sheet = .macros }
+    }
+
+    /// Reproduce una macro en la pestaña activa o en las de MultiExec que aceptan lo repartido. Sólo desde un clic.
+    func runMacro(_ m: Macro, toAll: Bool) async {
+        if let p = m.problem { status = L("✗ Macro «\(m.name)»: \(p)"); return }
+        guard !macroRunning else { status = L("⏳ Ya hay una macro en marcha (■ para pararla)"); return }
+        let targets: [TerminalSession] = toAll ? multiExecTargets.filter(multiExec.accepts)
+                                               : (current.map { [$0] } ?? []).filter(macroAccepts)
+        guard !targets.isEmpty else { status = L("✗ No hay ninguna pestaña donde reproducir «\(m.name)»"); return }
+        if recording != nil, targets.contains(where: { $0.id == recording }) {
+            status = L("✗ Para la grabación antes de reproducir una macro en esa pestaña")
+            return
+        }
+        let names = targets.map(\.title).joined(separator: ", ")
+        if m.confirm, !(await ThemedAlert.confirm(L("¿Reproducir «\(m.name)»?"),
+                                                 message: L("\(m.lines.count) órdenes en \(names)"), ok: L("Reproducir"))) { return }
+        let dangerous = m.dangerousLines
+        if !dangerous.isEmpty, !(await ThemedAlert.confirm(L("«\(m.name)» lleva órdenes peligrosas"),
+                                                          message: dangerous.prefix(5).joined(separator: "\n") + L("\n\nEn: \(names)"),
+                                                          ok: L("Reproducir igualmente"), destructive: true)) {
+            status = L("⎋ «\(m.name)» no se ha reproducido")
+            return
+        }
+        // (tras el aviso pueden haberse cerrado o haber empezado a autenticarse: se vuelve a mirar)
+        let live = targets.filter { t in tabs.contains { $0 === t } && !t.exited && (toAll ? multiExec.accepts(t) : macroAccepts(t)) }
+        guard !live.isEmpty else { return }
+        guard let ticket = automationReservation.reserve(Set(live.map(\.id))) else {
+            status = L("⏳ La pestaña ya tiene una secuencia en marcha; pulsa Esc para cortarla"); return
+        }
+        let player = MacroPlayer(allowDangerous: !dangerous.isEmpty)
+        macroRunning = true
+        DebugLog.log("macros", "«\(m.name)» en \(live.map(\.title))")
+        status = L("▶ «\(m.name)»") + (live.count > 1 ? " ×\(live.count)" : "") + L(" · Esc para cortar")
+        defer { macroRunning = false; automationReservation.release(ticket) }
+        if toAll {
+            let sw = sharedGate.begin()
+            defer { sharedGate.end(sw) }
+            let tasks = live.map { s in Task { @MainActor in await player.run(m, on: s, abort: sw) } }
+            var reports: [MacroReport] = []
+            for t in tasks { reports.append(await t.value) }
+            let failed = reports.contains { $0.outcome != .completed }
+            status = (failed ? "✗ " : "") + L("«\(m.name)» en \(reports.count): ") + reports.map(describe).joined(separator: " · ")
+        } else if let s = live.first {
+            let sw = s.gate.begin()
+            defer { s.gate.end(sw) }
+            status = "\(describe(await player.run(m, on: s, abort: sw))) · «\(m.name)»"
+        }
+    }
+
+    private func describe(_ r: MacroReport) -> String {
+        switch r.outcome {
+        case .completed: L("✓ \(r.sent)/\(r.total) órdenes")
+        case .aborted: L("⎋ parada en \(r.sent)/\(r.total)")
+        case .deviceError(let n, let out): L("✗ error en el paso \(n): \(out)")
+        case .pager(let n): L("✗ paginador en el paso \(n) (falta «terminal length 0»)")
+        case .timeout(let n): L("✗ sin respuesta a tiempo en el paso \(n)")
+        case .dangerousNotConfirmed(let n, let c): L("✗ paso \(n) peligroso sin confirmar: \(c)")
+        case .secretPrompt(let n): L("🔑 piden contraseña en el paso \(n): paro (no escribo nada ahí)")
+        case .invalid(let p): L("✗ macro no válida: \(p)")
+        }
     }
 
     // MARK: - botones (como la barra de NetDeck)
@@ -973,7 +1222,11 @@ final class AppModel {
             return
         }
         let cmd = values.map(b.filled) ?? b.command
-        let targets = multiExecOn ? multiExecTargets : (current.map { [$0] } ?? []).filter { !$0.exited }
+        // (con MultiExec, no a las que se están autenticando: lo escrito iría como contraseña)
+        let targets = multiExecOn ? multiExecTargets.filter(multiExec.accepts) : (current.map { [$0] } ?? []).filter(macroAccepts)
+        if b.mode != .session, targets.contains(where: { automationReservation.contains($0.id) }) {
+            status = L("⏳ La pestaña ya tiene una secuencia en marcha; pulsa Esc para cortarla"); return
+        }
         DebugLog.log("botones", "«\(b.name)» (\(b.mode.rawValue)) en \(targets.map(\.title))")
         switch b.mode {
         case .session:
@@ -1082,16 +1335,36 @@ final class AppModel {
         // pulsar en una zona de reordenar (pestañas en la barra de título, botones): la ventana no se mueve hasta soltar
         if let m = stillWatch { NSEvent.removeMonitor(m) }
         // (Ctrl+clic abre el menú y su ratón arriba no llega: ése y el clic derecho no bloquean nada)
-        stillWatch = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp, .rightMouseDown]) { [weak self] e in
-            MainActor.assumeIsolated {
-                guard let self, let w = self.window else { return }
-                if e.type != .leftMouseDown || e.modifierFlags.contains(.control) { w.isMovable = true; return }
-                guard e.window === w else { return }
-                let h = w.contentView?.bounds.height ?? w.frame.height
-                let p = CGPoint(x: e.locationInWindow.x, y: h - e.locationInWindow.y)
-                w.isMovable = !self.stillZones.values.contains { $0.contains(p) }
+        // En la barra de título no basta con eso: la ventana se queda el arrastre (para moverla) aunque no se pueda mover,
+        // y a la pestaña sólo le llegaba el clic. Ahí el clic, el arrastre y el soltar van directos a la vista, sin pasar
+        // por la ventana; fuera de las zonas (los huecos libres de la barra) se sigue moviendo la ventana como siempre.
+        stillWatch = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .rightMouseDown]) { [weak self] event in
+            nonisolated(unsafe) let e = event                       // (cola principal)
+            let consumed = MainActor.assumeIsolated { () -> Bool in
+                guard let self, let w = self.window else { return false }
+                if let v = self.stillTarget {
+                    switch e.type {
+                    case .leftMouseDragged: v.mouseDragged(with: e); return true
+                    case .leftMouseUp: self.stillTarget = nil; w.isMovable = true; v.mouseUp(with: e); return true
+                    default: self.stillTarget = nil
+                    }
+                }
+                if e.type != .leftMouseDown || e.modifierFlags.contains(.control) {
+                    if e.type != .leftMouseDragged { w.isMovable = true }
+                    return false
+                }
+                guard e.window === w, let content = w.contentView else { return false }
+                let p = CGPoint(x: e.locationInWindow.x, y: content.bounds.height - e.locationInWindow.y)
+                let still = self.stillZones.values.contains { $0.contains(p) }
+                w.isMovable = !still
+                guard still, let v = content.hitTest(content.superview?.convert(e.locationInWindow, from: nil) ?? e.locationInWindow)
+                else { return false }
+                self.stillTarget = v
+                if !w.isKeyWindow { w.makeKeyAndOrderFront(nil) }      // (lo que haría la ventana con el clic)
+                v.mouseDown(with: e)
+                return true
             }
-            return e
+            return consumed ? nil : event
         }
         styleWindows()
         fullScreen = w.styleMask.contains(.fullScreen)
@@ -1314,4 +1587,5 @@ struct Split: Equatable {
 
     var layout: Layout
     var panes: [TerminalSession.ID]
+    var fractions: [String: [Double]] = [:]
 }

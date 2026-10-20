@@ -42,7 +42,7 @@ import Testing
     @Test func archivoDeRegistro() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
-        let log = try #require(SessionLogger(directory: dir, name: "core 01/x", host: "192.0.2.1"))
+        let log = try SessionLogger(directory: dir, name: "core 01/x", host: "192.0.2.1")
         log.feed(Array("\u{1b}[32mhola\u{1b}[0m\r\nadiós".utf8)[...])
         log.close()
         let text = try String(contentsOf: log.url, encoding: .utf8)
@@ -63,7 +63,7 @@ import Testing
         #expect(PromptDevice.name("admin@mx-01> ") == "mx-01")
         #expect(PromptDevice.name("root@rut955:~#") == "rut955")
         #expect(PromptDevice.name("[admin@MikroTik] >") == "MikroTik")
-        #expect(PromptDevice.name("A:admin@bb01.almeria#") == "bb01.almeria")
+        #expect(PromptDevice.name("A:admin@bb01.ejemplo#") == "bb01.ejemplo")
         #expect(PromptDevice.name("*A:bb01>config>router#") == "bb01")
         #expect(PromptDevice.name("Password:") == nil)
         #expect(PromptDevice.name("show ip route") == nil)

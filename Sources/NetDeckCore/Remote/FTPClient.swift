@@ -228,13 +228,14 @@ public enum FTPParse {
         let f = line.split(separator: " ", omittingEmptySubsequences: true)
         if let first = f.first, first.count == 10, "dl-cbps".contains(first.first!) {
             guard f.count >= 9 else { return nil }
-            // (el nombre: lo que queda tras la hora/año; puede llevar espacios)
+            // (el nombre: lo que queda tras la hora/año y UN espacio; puede llevar espacios, también delante: « a» no
+            // es «a», que sería otro archivo)
             var rest = Substring(line)
             for _ in 0..<8 {
                 rest = rest.drop(while: { $0 == " " })
                 rest = rest.drop(while: { $0 != " " })
             }
-            var name = String(rest.drop(while: { $0 == " " }))
+            var name = String(rest.dropFirst())
             let kind: RemoteEntry.Kind = first.first == "d" ? .directory : first.first == "l" ? .link : first.first == "-" ? .file : .other
             if kind == .link, let r = name.range(of: " -> ") { name = String(name[..<r.lowerBound]) }
             guard RemotePath.isValidName(name) else { return nil }
@@ -252,12 +253,26 @@ public enum FTPParse {
             rest = rest.drop(while: { $0 == " " })
             rest = rest.drop(while: { $0 != " " })
         }
-        let name = String(rest.drop(while: { $0 == " " }))
+        // (IIS alinea en columnas: el nombre empieza siempre en la 39; los espacios de más hasta ahí son del nombre. Sin
+        // esas columnas no se sabe dónde empieza: con espacios delante, mejor no enseñarlo que confundirlo con otro)
+        let start = line.distance(from: line.startIndex, to: rest.startIndex)      // (el espacio tras el tamaño)
+        let gap = rest.prefix(while: { $0 == " " }).count
+        let name: String
+        if start < Self.iisNameColumn, start + gap >= Self.iisNameColumn {
+            name = String(line.dropFirst(Self.iisNameColumn))
+        } else if gap == 1 {
+            name = String(rest.dropFirst())
+        } else {
+            return nil
+        }
         guard RemotePath.isValidName(name) else { return nil }
         let isDir = f[2].uppercased() == "<DIR>"
         return RemoteEntry(name: name, path: RemotePath.join(dir, name), kind: isDir ? .directory : .file,
                            size: isDir ? nil : Int64(f[2]))
     }
+
+    /// «01-31-24  09:15AM       <DIR>          nombre»: IIS pone el nombre en la columna 39.
+    static let iisNameColumn = 39
 
     static func unixMode(_ s: String) -> UInt32? {
         guard s.count == 9 else { return nil }
@@ -297,7 +312,12 @@ actor FTPConnection {
     private let control: TCPStream
     private var buffer = Data()
     private var busy = false
-    private var turn: [CheckedContinuation<Void, Never>] = []
+    private struct Turn {
+        let id: UUID
+        let continuation: CheckedContinuation<Void, Error>
+    }
+    private var turn: [Turn] = []
+    var queuedOperations: Int { turn.count }
     private(set) var features: Set<String> = []
     /// EPSV ha dado un puerto al que no se puede conectar, o no lo entiende (NAT, cortafuegos): desde entonces, PASV.
     /// Lo hereda cada conexión nueva del mismo servidor (`FTPFileSystem`), para no perder 10 s en cada archivo.
@@ -333,15 +353,37 @@ actor FTPConnection {
         _ = try await command("TYPE I")
     }
 
-    /// Para usar la conexión sin que se cruce otra orden en medio.
+    /// Para usar la conexión sin que se cruce otra orden en medio. Cancelar una espera sólo la quita de la cola:
+    /// no cierra el control que está usando otra operación.
     func exclusive<T: Sendable>(_ body: @Sendable (FTPConnection) async throws -> T) async throws -> T {
-        while busy { await withCheckedContinuation { turn.append($0) } }
-        busy = true
-        defer {
-            busy = false
-            if !turn.isEmpty { turn.removeFirst().resume() }
-        }
+        try await acquireTurn()
+        defer { releaseTurn() }
+        try Task.checkCancellation()                         // (también si se canceló justo al recibir el turno)
         return try await body(self)
+    }
+
+    private func acquireTurn() async throws {
+        try Task.checkCancellation()
+        if !busy { busy = true; return }
+        let id = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+                if Task.isCancelled { c.resume(throwing: CancellationError()) }
+                else { turn.append(Turn(id: id, continuation: c)) }
+            }
+        } onCancel: {
+            Task { await self.cancelTurn(id) }
+        }
+    }
+
+    private func cancelTurn(_ id: UUID) {
+        guard let i = turn.firstIndex(where: { $0.id == id }) else { return }
+        turn.remove(at: i).continuation.resume(throwing: CancellationError())
+    }
+
+    private func releaseTurn() {
+        if turn.isEmpty { busy = false }
+        else { turn.removeFirst().continuation.resume() }    // (busy sigue reservado al siguiente: no se cuela nadie)
     }
 
     private func readLine() async throws -> String {

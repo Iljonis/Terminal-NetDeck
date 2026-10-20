@@ -48,14 +48,17 @@ final class RemoteBrowser {
     @ObservationIgnored private(set) var moving = false
     /// La contraseña FTP que se está probando (y si vino del Llavero).
     @ObservationIgnored private var probing: CredentialRef?
+    /// «Editar»: lo bajado para editar y su subida al guardarlo.
+    @ObservationIgnored private(set) var edits: RemoteEdits?
 
     init(route: ConnectionRoute, model: AppModel) {
         self.route = route
         self.model = model
+        edits = RemoteEdits(browser: self)
     }
 
     var isFTP: Bool { route.transport == .ftp }
-    var user: String { route.target.user ?? model?.sessions.profile(named: route.sessionName ?? "")?.effectiveUser ?? NSUserName() }
+    var user: String { route.target.user ?? model?.sessions.profile(named: route.sessionName ?? "")?.effectiveUser ?? AppPaths.userName }
     var label: String { "\(route.transport.label) \(user)@\(route.target.host)" }
 
     // MARK: conexión
@@ -81,6 +84,12 @@ final class RemoteBrowser {
         state = .idle
     }
 
+    /// Al cerrar la pestaña (o el panel lateral con ella): la conexión y su ssh, y las copias de edición sin nada pendiente.
+    func shutdown() {
+        disconnect()
+        edits?.finish()
+    }
+
     /// «Cancelar» mientras conecta: corta ya (FTP cierra el socket; SFTP termina ssh) y lo deja en «no conectado».
     func cancelConnect() {
         guard state == .connecting else { return }
@@ -96,7 +105,7 @@ final class RemoteBrowser {
         // (desarrollo y capturas: NETDECK_SFTP_SERVER habla SFTP directamente, sin ssh ni red)
         let dev = ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] != nil
             ? ProcessInfo.processInfo.environment["NETDECK_SFTP_SERVER"] : nil
-        guard let cmd = dev.map({ ($0, [String]()) }) ?? r.sftpSubsystemCommand(sharing: AppSettings.jumpSharing) else {
+        guard let cmd = dev.map({ ($0, [String]()) }) ?? r.sftpSubsystemCommand(sharing: AppSettings.jumpSharing, configFile: AppSettings.sshConfigFile) else {
             state = .failed(L("Equipo no válido: «\(r.target.host)»"))
             return
         }

@@ -18,7 +18,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 tests=1; [ "${1:-}" = --sin-tests ] && tests=0
-LOG="$HOME/Library/Logs/Terminal NetDeck/seguridad.log"
+LOG="${NETDECK_HOME:-$HOME}/Library/Logs/Terminal NetDeck/seguridad.log"
 mkdir -p "$(dirname "$LOG")" && chmod 700 "$(dirname "$LOG")" 2>/dev/null
 problemas=0
 salida() { echo "$*"; echo "$*" >>"$LOG"; }
@@ -28,43 +28,24 @@ bien() { salida "✓ $*"; }
 salida "=== $(date '+%F %T') · auditoría de seguridad ($(git rev-parse --short HEAD 2>/dev/null))"
 
 # ── 1. Dependencias contra OSV.dev ─────────────────────────────────────
-consulta=$(python3 - <<'PY'
-import json
-pins = json.load(open("Package.resolved"))["pins"]
-q = []
-for p in pins:
-    loc = p["location"].removesuffix(".git").replace("https://", "")
-    v = p["state"].get("version")
-    if v:
-        q.append({"package": {"ecosystem": "SwiftURL", "name": loc}, "version": v})
-print(json.dumps({"queries": q}))
-PY
-)
-if respuesta=$(curl -sf --max-time 30 -H 'Content-Type: application/json' -d "$consulta" https://api.osv.dev/v1/querybatch); then
-  informe=$(python3 - "$consulta" "$respuesta" <<'PY'
-import json, sys
-q = json.loads(sys.argv[1])["queries"]
-r = json.loads(sys.argv[2]).get("results", [])
-malas = []
-for qq, rr in zip(q, r):
-    vulns = rr.get("vulns") or []
-    if vulns:
-        malas.append(f'{qq["package"]["name"]} {qq["version"]}: ' + ", ".join(v["id"] for v in vulns))
-print(len(q))
-for m in malas:
-    print(m)
-PY
-)
-  total=$(echo "$informe" | head -1)
-  vulnerables=$(echo "$informe" | tail -n +2)
+# (tools/osv.py comprueba la consulta y la respuesta entera: una comprobación incompleta nunca sale como correcta)
+osvdir=$(mktemp -d)
+if ! python3 tools/osv.py consulta Package.resolved >"$osvdir/consulta.json" 2>"$osvdir/error"; then
+  mal "dependencias no comprobadas: $(cat "$osvdir/error")"
+elif ! curl -sf --max-time 30 -H 'Content-Type: application/json' -d @"$osvdir/consulta.json" \
+       https://api.osv.dev/v1/querybatch >"$osvdir/respuesta.json"; then
+  mal "dependencias no comprobadas: no se ha podido consultar OSV.dev (¿sin red?)"
+elif ! vulnerables=$(python3 tools/osv.py informe "$osvdir/consulta.json" "$osvdir/respuesta.json" 2>"$osvdir/error"); then
+  mal "dependencias no comprobadas: $(cat "$osvdir/error")"
+else
+  total=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["queries"]))' "$osvdir/consulta.json")
   if [ -z "$vulnerables" ]; then
     bien "dependencias: $total sin vulnerabilidades conocidas (OSV.dev)"
   else
     while IFS= read -r l; do mal "dependencia con vulnerabilidades: $l (https://osv.dev)"; done <<<"$vulnerables"
   fi
-else
-  mal "no se ha podido consultar OSV.dev (¿sin red?)"
 fi
+rm -rf "$osvdir"
 
 # ── 2. Privacidad ──────────────────────────────────────────────────────
 if out=$(tools/privacidad.sh --binario 2>&1); then bien "privacidad: ${out#*✓ }"; else mal "privacidad:"; salida "$out"; fi
@@ -96,7 +77,7 @@ if [ -d "$APP" ]; then
 else
   salida "· sin build/Terminal NetDeck.app: endurecimiento no comprobado (./install.sh --dmg para crearla)"
 fi
-SOPORTE="$HOME/Library/Application Support/Terminal NetDeck"
+SOPORTE="${NETDECK_HOME:-$HOME}/Library/Application Support/Terminal NetDeck"
 if [ -d "$SOPORTE" ]; then
   abiertas=$(find "$SOPORTE" \( -type d -perm -o=r -o -type f -perm -o=r \) 2>/dev/null | head -5)
   if [ -z "$abiertas" ]; then bien "datos de la app sólo para ti"; else mal "archivos de la app legibles por otros:"; salida "$abiertas"; fi

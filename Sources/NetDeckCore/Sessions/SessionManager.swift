@@ -120,6 +120,7 @@ public final class SessionManager {
             if !r.jumps.isEmpty { r.jumpSpec = r.jumps.map(\.description) }
         }
         r.sessionName = nil
+        r.transientProfile = s.terminal
         return r
     }
 
@@ -177,6 +178,7 @@ public final class SessionManager {
         r.thenCommand = cmd
         r.thenUser = target.user
         r.sessionName = route.sessionName
+        r.transientProfile = route.transientProfile       // («Conectar» sin guardar: su perfil, también por el salto)
         r.manualHop = true
         return r
     }

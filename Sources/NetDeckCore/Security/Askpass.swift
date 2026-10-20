@@ -35,11 +35,39 @@ public enum Askpass {
     }
 
     /// Las contraseñas que el askpass ha dado a esa pestaña (para confirmarlas cuando llega al prompt).
-    public static func takeGiven(session: UUID) -> [CredentialRef] {
+    public static func takeGiven(session: UUID) -> [CredentialRef] { takeAttempts(session: session).compactMap(\.ref) }
+
+    /// Un intento de entrar en `host`: con una guardada (`ref`) o escrita a mano sin guardar (nil).
+    public struct Attempt: Equatable, Sendable {
+        public var ref: CredentialRef?
+        public var host: String?
+        public init(ref: CredentialRef?, host: String?) { self.ref = ref; self.host = host }
+    }
+
+    /// Los intentos de esa pestaña, en orden (y se olvidan).
+    public static func takeAttempts(session: UUID) -> [Attempt] {
         let url = AppPaths.sessions.appendingPathComponent(session.uuidString)
         defer { try? FileManager.default.removeItem(at: url) }
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
-        return text.components(separatedBy: .newlines).compactMap { decodeGiven($0)?.ref }
+        return text.components(separatedBy: .newlines).compactMap(decodeAttempt)
+    }
+
+    /// Ya ha entrado: de cada equipo sólo vale el último intento (ssh no pasa de ahí sin entrar); los de antes en ese
+    /// equipo no valían. Si el último fue a mano, no se confirma ninguna guardada (la rechazada sigue bloqueada y el
+    /// reintento a mano no la desbloquea). Las de otros equipos (los saltos) han entrado.
+    public static func attribute(_ attempts: [Attempt]) -> (confirmed: [CredentialRef], failed: [CredentialRef]) {
+        var last: [String: Int] = [:]
+        for (i, a) in attempts.enumerated() { last[a.host?.lowercased() ?? ""] = i }
+        var confirmed: [CredentialRef] = [], failed: [CredentialRef] = []
+        for (i, a) in attempts.enumerated() {
+            guard let ref = a.ref else { continue }
+            if last[a.host?.lowercased() ?? ""] == i { if !confirmed.contains(ref) { confirmed.append(ref) } }
+        }
+        for a in attempts {
+            guard let ref = a.ref, !confirmed.contains(ref), !failed.contains(ref) else { continue }
+            failed.append(ref)
+        }
+        return (confirmed, failed)
     }
 
     /// En la pestaña `session` ssh pregunta ya por `host`: las dadas antes a OTROS equipos de esa pestaña (los saltos)
@@ -171,8 +199,24 @@ public enum Askpass {
 
     /// Una línea del archivo de la pestaña: «@equipo\tservicio\tcuenta» (el equipo al que se dio; las de antes, sin él).
     /// (el equipo sale de la pregunta: sin tabuladores ni caracteres de control, que moverían los campos)
-    static func encodeGiven(_ r: CredentialRef, host: String) -> String {
-        "@\(host.filter { !$0.isNewline && $0.asciiValue.map { $0 >= 32 && $0 != 127 } ?? true })\t\(encode(r))"
+    static func encodeGiven(_ r: CredentialRef, host: String) -> String { "\(hostField(host))\t\(encode(r))" }
+
+    /// Escrita a mano sin guardar en `host`.
+    static func encodeManual(host: String) -> String { "\(hostField(host))\t\(manualMark)" }
+
+    static func hostField(_ host: String) -> String {
+        "@" + host.filter { !$0.isNewline && $0 != "\t" && $0.asciiValue.map { $0 >= 32 && $0 != 127 } ?? true }
+    }
+
+    /// Escrita a mano sin guardarla: «@equipo\ta-mano» (cuenta como intento, pero no es ninguna guardada).
+    static let manualMark = "a-mano"
+
+    static func decodeAttempt(_ s: String) -> Attempt? {
+        if s.hasPrefix("@") {
+            let (h, _, rest) = String(s.dropFirst()).partition("\t")
+            if rest == manualMark { return Attempt(ref: nil, host: h.isEmpty ? nil : h) }
+        }
+        return decodeGiven(s).map { Attempt(ref: $0.ref, host: $0.host) }
     }
 
     static func decodeGiven(_ s: String) -> (ref: CredentialRef, host: String?)? {
@@ -211,10 +255,12 @@ public enum Askpass {
 
         func given(_ ref: CredentialRef?) {
             try? SafeFile.write(ref.map(encode) ?? "", to: state)
-            guard let ref, let session else { return }
+            guard let session else { return }
+            // (también la escrita a mano sin guardar: así, si entra, no se confirma la guardada que falló antes)
+            let line = ref.map { encodeGiven($0, host: host) } ?? encodeManual(host: host)
             let url = AppPaths.ensure(AppPaths.sessions).appendingPathComponent(session)
             let old = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
-            try? SafeFile.write(old + encodeGiven(ref, host: host) + "\n", to: url)
+            try? SafeFile.write(old + line + "\n", to: url)
         }
 
         /// Te la pide; te ofrece guardarla (si la guardada falló, por defecto sí).

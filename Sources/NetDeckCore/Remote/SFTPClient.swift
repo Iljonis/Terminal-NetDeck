@@ -4,6 +4,7 @@ import Foundation
 /// pestañas). Las peticiones van en paralelo (cada una con su id): lecturas y escrituras de varios trozos a la vez.
 public actor SFTPFileSystem: RemoteFileSystem {
     public nonisolated let label: String
+    public nonisolated let renameDoesNotOverwrite = true       // (SSH_FXP_RENAME de SFTP v3, sin extensión POSIX)
     private let process: ChildProcess
     private var buffer = Data()
     private var nextID: UInt32 = 1
@@ -141,7 +142,7 @@ public actor SFTPFileSystem: RemoteFileSystem {
         let code = try r.u32()
         let text = (try? r.string()) ?? ""
         if code == SFTP.Status.ok.rawValue || (allowEOF && code == SFTP.Status.eof.rawValue) { return }
-        throw RemoteError(SFTP.message(for: code, text))
+        throw RemoteError(SFTP.message(for: code, text), missing: code == SFTP.Status.noSuchFile.rawValue)
     }
 
     private func handle(_ kind: SFTP.Kind, _ body: (inout SFTP.Writer) -> Void) async throws -> Data {
@@ -231,6 +232,16 @@ public actor SFTPFileSystem: RemoteFileSystem {
 
     public func kind(of path: String) async -> RemoteEntry.Kind? {
         (try? await stat(path, follow: false))?.kind
+    }
+
+    /// lstat: «no such file» es que no hay nada; cualquier otro error, o un tipo que no dice, no se da por bueno.
+    public func lookup(_ path: String) async throws -> RemoteEntry.Kind? {
+        let a: SFTP.Attributes
+        do { a = try await stat(path, follow: false) } catch let e as RemoteError where e.missing { return nil }
+        guard a.permissions != nil else {
+            throw RemoteError(L("No se sabe qué es «\(RemotePath.name(path))» en el destino: no se sustituye"))
+        }
+        return a.kind
     }
 
     public func setPermissions(_ mode: UInt32, of path: String) async throws {

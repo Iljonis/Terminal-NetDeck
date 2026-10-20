@@ -39,9 +39,10 @@ caso() {   # nombre idioma tema acción [clic x,y] [subcarpeta del explorador] [
   local pid=$!
   for _ in $(seq 1 60); do [ -s "$png" ] && break; sleep 0.25; done
   sleep 0.3
-  local rect real=0
-  rect=$([ -n "$VENTANA" ] && "$VENTANA" "$pid")
-  [ -n "$rect" ] && screencapture -x -R "$rect" "$OUT/$nombre.png" 2>/dev/null && [ -s "$OUT/$nombre.png" ] && real=1
+  local win real=0
+  # (sólo la ventana de la app, por su número: nunca un rectángulo de la pantalla, que podría llevar otras apps)
+  win=$([ -n "$VENTANA" ] && "$VENTANA" "$pid")
+  [[ $win =~ ^[0-9]+$ ]] && screencapture -x -o -l "$win" "$OUT/$nombre.png" 2>/dev/null && [ -s "$OUT/$nombre.png" ] && real=1
   [ $real = 0 ] && echo "  · $nombre: sin captura de pantalla (¿permiso de grabación para la Terminal?); va la de la app"
   kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
   local ok=1
@@ -51,12 +52,16 @@ caso() {   # nombre idioma tema acción [clic x,y] [subcarpeta del explorador] [
     local otra=ventana; [ -n "$clic" ] && otra=menu
     [ -s "$casa/captura-1.png" ] && cp "$casa/captura-1.png" "$OUT/$nombre-$otra.png"
     [ -n "$clic" ] && [ ! -s "$casa/captura-1.png" ] && { echo "✗ $nombre: el clic derecho no abre ningún menú"; ok=0; }
-    # (el del archivo, con sus 8 filas, es mucho más alto que el del fondo de la lista, con 3: así se sabe cuál ha salido)
+    # (el del archivo, con sus 8 filas, es mucho más alto que el del fondo de la lista, con 3: así se sabe cuál ha salido.
+    # En proporción a la ventana: en una pantalla sin Retina las dos imágenes salen con la mitad de píxeles, y con un
+    # tope fijo el del archivo, de 232 px, pasaba por el del fondo según en qué pantalla se abriera la ventana)
     if [ -n "$menu" ] && [ -s "$casa/captura-1.png" ]; then
-      local alto
+      local alto ventana rel
       alto=$(sips -g pixelHeight "$casa/captura-1.png" | awk '/pixelHeight/ {print $2}')
-      [ "$menu" = archivo ] && [ "$alto" -lt 300 ] && { echo "✗ $nombre: sale el menú del fondo, no el del archivo"; ok=0; }
-      [ "$menu" = fondo ] && [ "$alto" -ge 300 ] && { echo "✗ $nombre: sale el menú de un archivo, no el del fondo"; ok=0; }
+      ventana=$(sips -g pixelHeight "$png" | awk '/pixelHeight/ {print $2}')
+      rel=$((alto * 1000 / ventana))                             # (archivo ≈ 270 ‰, fondo ≈ 100 ‰)
+      [ "$menu" = archivo ] && [ "$rel" -lt 175 ] && { echo "✗ $nombre: sale el menú del fondo, no el del archivo"; ok=0; }
+      [ "$menu" = fondo ] && [ "$rel" -ge 175 ] && { echo "✗ $nombre: sale el menú de un archivo, no el del fondo"; ok=0; }
     fi
   else
     echo "✗ $nombre: sin captura (¿la app no arranca?)"; ok=0
@@ -95,6 +100,10 @@ PY
         || { echo "✗ $nombre: la celda de la app no es la de SwiftTerm («$(cat "$png.linea.txt" 2>/dev/null)»)"; ok=0; }
     fi
   fi
+  if [ "$accion" = "espacios:verificar" ]; then
+    cp "$png.espacios.txt" "$OUT/$nombre.espacios.txt" 2>/dev/null
+    grep -q '^OK espacios:' "$png.espacios.txt" 2>/dev/null || { echo "✗ $nombre: falla el flujo de espacios"; ok=0; }
+  fi
   [ $ok = 1 ] && echo "✓ $nombre" || fallos=$((fallos + 1))
   rm -rf "$casa"
 }
@@ -109,6 +118,12 @@ caso pestanas              es neo-tokyo     "pestañas:12"
 caso explorador            es mobaxterm-net explorador
 caso explorador-vista      es neo-tokyo     explorador:vista
 caso explorador-md5        es neo-tokyo     explorador:md5
+caso panel-sftp            es neo-tokyo     panel-sftp
+caso macros                es neo-tokyo     macros
+caso macros-en             en neo-tokyo     macros
+caso tuneles               es neo-tokyo     tuneles
+caso espacios              es neo-tokyo     espacios:verificar
+caso espacios-en           en neo-tokyo     espacios:verificar
 caso sesion-nueva          es neo-tokyo     sesion-nueva
 caso ajustes-general       en neo-tokyo     settings:general
 caso ajustes-terminal      es neo-tokyo     settings:terminal

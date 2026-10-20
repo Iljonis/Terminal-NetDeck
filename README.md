@@ -9,10 +9,10 @@ y 51 temas. Nativo, rápido y en tu idioma.
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.9.1](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.1)** · macOS 15 o posterior ·
+Versión actual: **[v0.9.2](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.2)** · macOS 15 o posterior ·
 código abierto (MIT)
 
-[![Versión](https://img.shields.io/badge/versión-v0.9.1-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.1)
+[![Versión](https://img.shields.io/badge/versión-v0.9.2-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.2)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -33,7 +33,7 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - Tus sesiones son las de tu `ssh_config`: `ssh core-01` sigue funcionando desde cualquier otra terminal.
 - Las contraseñas viven sólo en el Llavero y sólo se escriben para el usuario y el equipo que de verdad las piden.
 - Si algo sale mal (una contraseña que falla, un servidor que no contesta, una copia que se corta), la app se para,
-  te avisa y no deja nada a medias.
+  te avisa y conserva las copias que puedan necesitar recuperación.
 
 ## Funciones clave
 
@@ -41,6 +41,37 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - **Explorador SFTP/FTP** con copias atómicas, verificación MD5 integrada y envío de servidor a servidor.
 - **Multipestaña** con vista dividida, MultiExec y pegado seguro; **51 temas** con contraste WCAG.
 - **Sesiones con saltos** sobre tu `ssh_config` y contraseñas sólo en el Llavero de macOS.
+
+### Novedades de 0.9.2
+
+- **SFTP junto al terminal SSH:** mismo equipo, configuración `-F` y saltos; ancho recordado por sesión.
+  Se conecta al llegar el terminal a su prompt. Una ruta con salto escrito a mano no ofrece este panel.
+- **Edición remota:** abre archivos de texto de hasta 5 MB en tu editor. Al guardar comprueba la versión remota
+  y avisa de conflictos; puedes conservar la edición como copia. Al cerrar la pestaña las copias locales abiertas
+  se conservan en `~/Library/Application Support/Terminal NetDeck/edicion/` para que puedas recuperarlas.
+  En SFTP la subida sólo sustituye el archivo si sigue como se bajó. En FTP el servidor no garantiza no pisar un
+  archivo que aparezca a la vez: cada guardado pide confirmar «Sobrescribir» o «Guardar como copia».
+- **Espacios de trabajo:** Herramientas → Espacios de trabajo guarda orden, selección, panel SFTP y distribución
+  de las pestañas, incluidos los tamaños relativos de los paneles. Puedes añadirlas a la ventana o sustituir las
+  actuales con confirmación. Las sesiones se resuelven de nuevo por nombre; las borradas se avisan. No se guardan
+  conexiones loopback ni saltos escritos a mano. MultiExec queda apagado y no se ejecutan macros ni túneles.
+- **Macros:** grabar, editar y reproducir órdenes, esperar prompt o texto y añadir pausas. La reproducción se para
+  ante errores, paginadores o peticiones de secretos. La grabación omite una línea si no puede reconocer con seguridad
+  el prompt antes de su primera tecla, también al pegar por fragmentos. No incluyas secretos en órdenes ni macros.
+- **Túneles SSH:** locales (`-L`), remotos (`-R`) y SOCKS (`-D`), con estado e inicio/parada explícitos.
+  Escucha local por defecto; la exposición a otros equipos requiere marcarla. Si el ssh_config ya define reenvíos,
+  el gestor rechaza el inicio para evitar activar escuchas ocultas. El puerto remoto depende además de GatewayPorts
+  y de los permisos del servidor. Ningún túnel se inicia al cargar su lista.
+- **Perfiles por sesión:** tema, fuente, tamaño, historial, teclado y prompt en anotaciones del propio ssh_config
+  (`# @tema`, `# @fuente`, `# @scrollback`, `# @teclado`, `# @prompt`); lo no definido hereda de Ajustes.
+  «Conectar» sin guardar aplica el perfil del formulario sólo a esa pestaña. Las expresiones regulares tienen límites
+  de coste y no convierten una petición de contraseña/OTP ni un rechazo en un prompt válido.
+- **Consola serie nativa:** aplica y comprueba la trama, cancela la salida pendiente al cerrar y permite enviar
+  BREAK desde el menú Terminal. La compatibilidad con adaptadores concretos requiere probar el hardware.
+- **Pestañas:** arrastre en toda su superficie y cierre con una zona de 24 × 24 puntos que resalta al pasar el ratón.
+- **Actualización:** conserva staging y la app anterior incluso si falla la restauración. Las copias previas incluyen
+  también macros, túneles, espacios y estado del panel SFTP. Si esa copia no se puede hacer (un archivo ilegible, sin
+  carpeta de copias), no se instala ni se actualiza: la app de antes sigue tal cual y se dice por qué.
 
 ## Requisitos y compatibilidad
 
@@ -128,14 +159,16 @@ cd Terminal-NetDeck
   llevan `--` antes del destino y al importar sesiones sólo pasan las opciones de ssh seguras (fuera `ProxyCommand`,
   bloques `Host *`, reenvíos de puertos…).
 
-### 📂 Explorador SFTP/FTP que no pierde archivos
+### 📂 Explorador SFTP/FTP con protección de archivos
 
 - Árbol y lista con tamaños, permisos, dueño y fecha; subir arrastrando desde el Finder, bajar, renombrar, borrar.
 - **Copias atómicas:** se escribe primero en un temporal y sólo al acabar se sustituye el archivo. Una copia que falla
-  o cancelas no deja nada a medias ni borra el original, y se conservan sus permisos.
+  o cancelas conserva los archivos recuperables y sus permisos; si el servidor no confirma el reemplazo, se indican
+  las rutas que debes revisar.
 - **Integridad MD5:** cada archivo se vuelve a leer del destino y su MD5 tiene que coincidir con el del origen.
 - **De servidor a servidor** («Enviar a…»), SFTP ↔ SFTP o SFTP ↔ FTP, en memoria y sin tocar el disco del Mac.
-- **Cancelar es inmediato**, y un servidor que no contesta se corta a los 30 segundos en vez de colgar la ventana.
+- **Cancelación con esperas acotadas:** un reemplazo incierto conserva sus temporales y la copia anterior para
+  recuperarlos.
 
 ![Explorador SFTP en vista dividida](docs/capturas/explorador.png)
 
@@ -158,7 +191,7 @@ cd Terminal-NetDeck
 
 ### 🧰 Y además
 
-- **Tipos de sesión:** SSH, Telnet, SFTP, FTP, terminal local y consola serie (`screen`).
+- **Tipos de sesión:** SSH, Telnet, SFTP, FTP, terminal local y consola serie (velocidad, bits, paridad y parada aplicados y comprobados).
 - **Gestor de sesiones** con carpetas (`Clientes/Madrid/Core`), favoritas, recientes y botón **Conectar** para probar
   sin guardar.
 - **Importar** de SecureCRT, MobaXterm, PuTTY, electerm, CSV u otro `ssh_config`; **exportar** a JSON o CSV.
@@ -274,6 +307,9 @@ serie, **NetDeck Cyberpunk**.
 
 - Contraseñas sólo en el Llavero, con la regla de usuario y de equipo, y bloqueo de 15 minutos tras un fallo.
 - MultiExec y el pegado seguro sólo llegan a pestañas SSH/Telnet: nunca a una terminal local, SFTP o consola serie.
+  Una línea sólo se reparte si la empiezas en el prompt del equipo, y sólo a las pestañas que están en el suyo: lo que
+  escribes en una contraseña, passphrase, OTP o cualquier petición que no sea un prompt se queda en su pestaña. Si un
+  equipo tiene un prompt raro, ponlo en el perfil de la sesión (`# @prompt`).
 - Tus archivos (`ssh_config`, botones, listas) nunca se sobrescriben si no se pueden leer, con copia `.anterior` en cada
   guardado; carpetas y archivos de la app sólo para ti (0700/0600).
 - Antes de cada actualización y de cada guardado de sesiones, copia fuera de `~/.config/netdeck`; un test comprueba en

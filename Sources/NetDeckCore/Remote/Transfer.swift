@@ -53,6 +53,25 @@ public struct TransferDigest: Sendable {
     }
 }
 
+/// No se sabe si un renombrado llegó a aplicarse: no se borra ninguna de las rutas recuperables.
+public struct ReplaceStuckError: LocalizedError, Equatable, Sendable {
+    public let path: String
+    public let previous: String
+    public let new: String
+    public var errorDescription: String? {
+        L("No se ha podido confirmar la sustitución de «\(AppPaths.tilde(path))». Revisa el destino y las copias conservadas: anterior «\(AppPaths.tilde(previous))»; nueva «\(AppPaths.tilde(new))».")
+    }
+}
+
+/// La versión que debe tener el archivo apartado antes de publicar una edición (nil permite sobrescribir).
+public struct RemoteFileVersion: Sendable, Equatable {
+    public let md5: String
+    public let size: Int64
+    public init(md5: String, size: Int64) { self.md5 = md5; self.size = size }
+}
+
+public enum RemoteVersionConflict: Error, Sendable, Equatable { case changed, removed, unsupported }
+
 /// El destino no tiene lo mismo que el origen (MD5 distinto): no se ha dejado con el nombre bueno.
 public struct IntegrityError: LocalizedError, Equatable {
     public let name: String
@@ -191,15 +210,26 @@ public enum Transfer {
             } onCancel: {
                 Task { await pipe.fail(CancellationError()) }
             }
-            await reader.close()
+            await closeSource(reader)
             return total
         } catch {
-            // (fuera de la tarea, que puede estar cancelada: así se cierra el origen y se borra el temporal de verdad)
+            // (fuera de la tarea, que puede estar cancelada: así se cierra el origen y se borra el temporal de verdad; a
+            // la vez y con tope: un origen que no contesta al CLOSE no deja sin abortar el destino)
             await Task {
-                await reader.close()
-                await writer.abort()
+                async let source: Void = closeSource(reader)
+                async let target: Void = writer.abort()
+                _ = await (source, target)
             }.value
             throw error is CancellationError ? RemoteError(L("Cancelada")) : error
+        }
+    }
+}
+
+extension Transfer {
+    /// Cerrar el origen, con el mismo tope que la limpieza del destino (un servidor mudo no deja la copia colgada).
+    static func closeSource(_ reader: any RemoteReader) async {
+        do { try await RemoteOps.withTimeout(AtomicRemoteWriter.cleanupSeconds) { await reader.close() } } catch {
+            ErrorLog.warning("transferencia", "el origen no contesta al cerrarlo")
         }
     }
 }
@@ -286,25 +316,30 @@ public final class LocalFileWriter: RemoteWriter, @unchecked Sendable {
 
 /// Escribe en un servidor sin dejar nunca medio archivo con el nombre bueno: primero en «.nombre.xxxxxxxx.part» (en la
 /// misma carpeta), al acabar (y con `verify`, tras volver a leerlo y comprobar que su MD5 es el de lo enviado) se
-/// renombra encima del destino. Si falla, se cancela o el MD5 no cuadra, el temporal se borra y el archivo que hubiera
-/// queda como estaba.
+/// renombra encima del destino. Ante un resultado incierto se conservan las rutas recuperables y se indican en el error.
 public actor AtomicRemoteWriter: RemoteWriter {
     public nonisolated let path: String
     public nonisolated let part: String
     private let fs: any RemoteFileSystem
     private let inner: any RemoteWriter
     private let verify: Bool
+    private let expected: RemoteFileVersion?
+    private let replacementSeconds: Int
     private var running = TransferDigest()
     private var done = false
+    private var finishing = false
     /// El MD5 de lo enviado (tras `finish`).
     public private(set) var digest: String?
 
-    private init(fs: any RemoteFileSystem, path: String, part: String, inner: any RemoteWriter, verify: Bool) {
+    private init(fs: any RemoteFileSystem, path: String, part: String, inner: any RemoteWriter, verify: Bool,
+                 expected: RemoteFileVersion?, replacementSeconds: Int) {
         self.fs = fs
         self.path = path
         self.part = part
         self.inner = inner
         self.verify = verify
+        self.expected = expected
+        self.replacementSeconds = replacementSeconds
     }
 
     /// «/datos/copia.bin» → «/datos/.copia.bin.1a2b3c4d.part» (o sin el punto delante: `hidden` false).
@@ -314,7 +349,10 @@ public actor AtomicRemoteWriter: RemoteWriter {
     }
 
     /// Algunos servidores FTP no dejan crear archivos que empiezan por «.»: entonces el temporal va sin el punto.
-    public static func open(_ fs: any RemoteFileSystem, _ path: String, verify: Bool) async throws -> AtomicRemoteWriter {
+    public static func open(_ fs: any RemoteFileSystem, _ path: String, verify: Bool,
+                            expected: RemoteFileVersion? = nil, replacementSeconds: Int = 10) async throws -> AtomicRemoteWriter {
+        guard expected == nil || fs.renameDoesNotOverwrite else { throw RemoteVersionConflict.unsupported }
+        _ = try await existingFile(fs, path)                // (una carpeta o un enlace: ni el temporal se escribe)
         var part = partPath(for: path)
         let inner: any RemoteWriter
         do { inner = try await fs.openWrite(part) } catch {
@@ -322,7 +360,8 @@ public actor AtomicRemoteWriter: RemoteWriter {
             part = partPath(for: path, hidden: false)
             inner = try await fs.openWrite(part)
         }
-        return AtomicRemoteWriter(fs: fs, path: path, part: part, inner: inner, verify: verify)
+        return AtomicRemoteWriter(fs: fs, path: path, part: part, inner: inner, verify: verify,
+                                  expected: expected, replacementSeconds: replacementSeconds)
     }
 
     public func write(_ data: Data) async throws {
@@ -331,6 +370,9 @@ public actor AtomicRemoteWriter: RemoteWriter {
     }
 
     public func finish() async throws {
+        guard !done, !finishing else { throw RemoteError(L("Cancelada")) }
+        finishing = true
+        defer { finishing = false }
         let sent = running.hex()
         do {
             try await inner.finish()
@@ -341,6 +383,10 @@ public actor AtomicRemoteWriter: RemoteWriter {
             try await replace()
             done = true
             digest = sent
+        } catch let stuck as ReplaceStuckError {
+            done = true                                     // (el temporal ES el nuevo: no se borra)
+            ErrorLog.error("transferencia", stuck.errorDescription ?? "")
+            throw stuck
         } catch {
             done = true
             await cleanUp(abortInner: true)             // (si `inner.finish` falló, su handle sigue abierto)
@@ -348,49 +394,132 @@ public actor AtomicRemoteWriter: RemoteWriter {
         }
     }
 
-    /// Fuera de la tarea (que puede estar cancelada: sus esperas acabarían al momento sin borrar nada).
+    /// Lo más que se espera a la limpieza (el CLOSE y el borrado del temporal) de un servidor que ya no contesta.
+    nonisolated(unsafe) static var cleanupSeconds = 10
+
+    /// Fuera de la tarea (que puede estar cancelada: sus esperas acabarían al momento sin borrar nada), pero con tope:
+    /// si el servidor deja de contestar, cancelar acaba igual y el temporal se queda (y se apunta dónde).
     private func cleanUp(abortInner: Bool) async {
-        let fs = fs, inner = inner, part = part
+        let fs = fs, inner = inner, part = part, seconds = Self.cleanupSeconds
         await Task {
-            if abortInner { await inner.abort() }
-            try? await fs.remove(part, directory: false)
+            do {
+                try await RemoteOps.withTimeout(seconds) {
+                    if abortInner { await inner.abort() }
+                    try? await fs.remove(part, directory: false)
+                }
+            } catch {
+                ErrorLog.warning("transferencia", "el servidor no contesta al cancelar: queda el temporal \(part)")
+            }
         }.value
     }
 
-    /// El temporal pasa a ser el destino, con los permisos del que hubiera (un 0600 o un script 0755 no cambian).
-    /// FTP (RNTO) suele pisar el que haya; SFTP v3 no: entonces el de antes se aparta a «.nombre.xxxx.old», entra el
-    /// nuevo y el apartado se borra; si el nuevo no puede entrar, el apartado vuelve a su sitio. Nunca se queda sin
-    /// ninguno de los dos.
-    /// Sólo se aparta un archivo normal: si con ese nombre hay una carpeta o un enlace, se quedan como están (error).
+    /// Cada espera del reemplazo tiene tope y recibe la cancelación. Si se pierde la respuesta a un rename,
+    /// podría haberse aplicado: se conservan todas las rutas, sin otro rename ni borrado a ciegas.
     private func replace() async throws {
-        let kind = await fs.kind(of: path)
-        if kind == .file, let mode = await fs.permissions(of: path) { try? await fs.setPermissions(mode, of: part) }
-        do {
-            try await fs.rename(part, to: path)
-            return
-        } catch {
-            try Task.checkCancellation()
-            // (FTP no dice el tipo: SIZE sólo contesta con archivos)
-            let isFile = if let kind { kind == .file } else { (await fs.size(of: path)) != nil }
-            guard isFile else { throw error }                               // (no había otro archivo: es otro fallo)
-        }
+        let fs = fs, path = path, part = part, seconds = replacementSeconds
+        guard expected == nil || fs.renameDoesNotOverwrite else { throw RemoteVersionConflict.unsupported }
         let old = String(Self.partPath(for: path).dropLast(5)) + ".old"
-        let fs = fs, path = path, part = part
-        // (todo el cambio fuera de la tarea, que puede cancelarse a medias: nunca queda el original apartado)
-        try await Task {
-            try await fs.rename(path, to: old)
-            do {
-                try await fs.rename(part, to: path)
-            } catch {
-                try? await fs.rename(old, to: path)
-                throw error
+        let stuck = ReplaceStuckError(path: path, previous: old, new: part)
+        let kind = try await RemoteOps.withTimeout(seconds) { try await Self.existingFile(fs, path) }
+        if expected != nil, kind == nil { throw RemoteVersionConflict.removed }
+        if kind == .file {
+            try await RemoteOps.withTimeout(seconds) {
+                if let mode = await fs.permissions(of: path) { try? await fs.setPermissions(mode, of: part) }
+                try Task.checkCancellation()
             }
-            try? await fs.remove(old, directory: false)
-        }.value
+        }
+        try Task.checkCancellation()
+        // (FTP puede pisar directamente; una edición con versión esperada SIEMPRE valida el archivo apartado)
+        if expected == nil {
+            do {
+                try await RemoteOps.withTimeout(seconds) { try await fs.rename(part, to: path) }
+                return
+            } catch {
+                if Self.uncertain(error) {
+                    throw ReplaceStuckError(path: path, previous: path, new: part)
+                }
+                guard kind == .file else { throw error }
+                // (una respuesta perdida también puede llegar como error de conexión: comprobar antes de apartar)
+                do {
+                    let source = try await RemoteOps.withTimeout(seconds) { try await fs.lookup(part) }
+                    guard source == .file else { throw ReplaceStuckError(path: path, previous: path, new: part) }
+                } catch { throw ReplaceStuckError(path: path, previous: path, new: part) }
+            }
+        }
+        let current = try await RemoteOps.withTimeout(seconds) { try await Self.existingFile(fs, path) }
+        if expected != nil, current == nil { throw RemoteVersionConflict.removed }
+        try Task.checkCancellation()
+        do {
+            try await RemoteOps.withTimeout(seconds) { try await fs.rename(path, to: old) }
+        } catch {
+            // (también al apartar puede perderse la respuesta después de que el servidor haya movido el archivo)
+            throw stuck
+        }
+        do {
+            if let expected {
+                let matches = try await RemoteOps.withTimeout(seconds) {
+                    guard try await Self.existingFile(fs, old) == .file else { return false }
+                    if let n = await fs.size(of: old), n != expected.size { return false }
+                    return try await TransferDigest.of(try await fs.openRead(old)) == expected.md5
+                }
+                guard matches else { throw RemoteVersionConflict.changed }
+                let occupied = try await RemoteOps.withTimeout(seconds) { try await fs.lookup(path) != nil }
+                guard !occupied else { throw stuck }       // (SFTP además rechaza una aparición posterior al lookup)
+            }
+            try Task.checkCancellation()
+        } catch {
+            try await restore(old, stuck: stuck)
+            throw error
+        }
+        do {
+            try await RemoteOps.withTimeout(seconds) { try await fs.rename(part, to: path) }
+        } catch {
+            // (cancelar la espera no deshace una orden que el servidor ya ha recibido)
+            guard !Self.uncertain(error) else { throw stuck }
+            try await restore(old, stuck: stuck)
+            throw error
+        }
+        // (el nuevo ya está confirmado; si no se puede borrar el anterior, sigue siendo recuperable)
+        do {
+            try await RemoteOps.withTimeout(seconds) { try await fs.remove(old, directory: false) }
+        } catch {
+            ErrorLog.warning("transferencia", "no se ha podido borrar la copia anterior: \(old)")
+        }
+    }
+
+    private static func uncertain(_ error: Error) -> Bool {
+        error is CancellationError || error is RemoteTimeout || Task.isCancelled
+    }
+
+    /// Recuperación independiente de la cancelación del envío, con tope. Con versión esperada, el backend también
+    /// rechaza una aparición posterior al lookup; sin esa garantía sólo se admiten escrituras explícitas.
+    private func restore(_ old: String, stuck: ReplaceStuckError) async throws {
+        let fs = fs, path = path, part = part, seconds = replacementSeconds
+        do {
+            try await Task {
+                try await RemoteOps.withTimeout(seconds) {
+                    guard try await fs.lookup(path) == nil,
+                          try await Self.existingFile(fs, old) == .file,
+                          try await Self.existingFile(fs, part) == .file else { throw stuck }
+                    try Task.checkCancellation()
+                    try await fs.rename(old, to: path)
+                }
+            }.value
+        } catch { throw stuck }
+    }
+
+    /// Qué hay en `path`: un archivo normal (.file) o, confirmado, nada (nil). Una carpeta, un enlace, otra cosa o lo
+    /// que no se puede saber (permisos, un LIST que falla, un tipo desconocido): error, sin tocar nada.
+    static func existingFile(_ fs: any RemoteFileSystem, _ path: String) async throws -> RemoteEntry.Kind? {
+        let kind = try await fs.lookup(path)
+        if let kind, kind != .file {
+            throw RemoteError(L("«\(RemotePath.name(path))» es una carpeta o un enlace en el destino: no se sustituye ni se toca"))
+        }
+        return kind
     }
 
     public func abort() async {
-        guard !done else { return }
+        guard !done, !finishing else { return }
         done = true
         await cleanUp(abortInner: true)
     }

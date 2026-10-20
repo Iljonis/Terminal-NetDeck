@@ -47,13 +47,14 @@ public struct JumpSharing: Hashable, Sendable {
 
     /// El ProxyCommand que sustituye a «-J a,b,c»: «/usr/bin/ssh <multiplexado> -J a,b [-l u] [-p n] -W '[%h]:%p' -- c».
     /// ssh lo pasa por tu shell ($SHELL -c): sólo se genera si cada salto es seguro para cualquier shell (sin comillas,
-    /// «;», «$(…)», «%»…) y nada empieza por «-». nil = se usa -J como siempre.
-    public func proxyCommand(hops: [String], socket: String) -> String? {
+    /// «;», «$(…)», «%»…) y nada empieza por «-». nil = se usa -J como siempre. `configFile`: el ssh_config propio
+    /// («-F»; también tiene que ser una ruta segura para la shell, si no se usa -J, al que ssh ya se lo pasa).
+    public func proxyCommand(hops: [String], socket: String, configFile: String? = nil) -> String? {
         let parsed = hops.compactMap(Endpoint.init(parsing:))
         guard let last = parsed.last, parsed.count == hops.count,
               parsed.allSatisfy({ $0.isShellSafe && !$0.host.contains(":") }),      // (IPv6 en -J: sin multiplexar)
-              Self.safePath.matches(socket) else { return nil }
-        var a = ["/usr/bin/ssh"] + options(socket: socket)
+              Self.safePath.matches(socket), configFile.map(Self.safePath.matches) ?? true else { return nil }
+        var a = ["/usr/bin/ssh"] + ConnectionRoute.configOptions(configFile) + options(socket: socket)
         if parsed.count > 1 { a += ["-J", parsed.dropLast().map(\.description).joined(separator: ",")] }
         if let u = last.user { a += ["-l", u] }
         if let p = last.port { a += ["-p", String(p)] }

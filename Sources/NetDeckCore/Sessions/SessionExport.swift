@@ -22,6 +22,8 @@ public enum SessionExport {
         var serie: String?
         var notas: [String]?
         var opciones: [String]?
+        /// Perfil de terminal: anotación → valor («tema»: «neo-tokyo»); al importar se vuelve a comprobar.
+        var perfil: [String: String]?
     }
 
     struct Document: Codable {
@@ -43,7 +45,8 @@ public enum SessionExport {
                   usuario: opt(s.user), puerto: opt(s.port), salto: opt(s.jump), clave: opt(s.credential),
                   claveFile: opt(s.keyFile), antiguo: s.legacy ? true : nil,
                   serie: s.kind == .serial ? s.serial.annotation : nil,
-                  notas: s.notes.isEmpty ? nil : s.notes, opciones: s.extra.isEmpty ? nil : s.extra)
+                  notas: s.notes.isEmpty ? nil : s.notes, opciones: s.extra.isEmpty ? nil : s.extra,
+                  perfil: s.terminal.isEmpty ? nil : Dictionary(s.terminal.annotations.map { ($0.key, $0.value) }) { a, _ in a })
         })
         let e = JSONEncoder()
         e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
@@ -75,6 +78,7 @@ public enum SessionExport {
             f.serial = e.serie.flatMap(SerialLine.init(annotation:))
             f.notes = e.notas ?? []
             f.extra = e.opciones ?? []
+            for (k, v) in e.perfil ?? [:] { f.terminal.read(k, v, session: e.nombre) }
             return f
         }
     }

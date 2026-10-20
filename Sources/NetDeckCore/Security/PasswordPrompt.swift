@@ -56,6 +56,21 @@ public enum PasswordPrompt {
     }
 }
 
+/// Lo que no debe salir de su pestaña (MultiExec): la petición de una contraseña, de la passphrase de una clave, de un
+/// código de un solo uso (OTP, PIN, token…), la pregunta de ssh por la clave de un equipo nuevo y las preguntas del
+/// askpass («[NetDeck] …», sólo mientras ssh se autentica).
+public enum SecretPrompt {
+    static let other = Pattern(#"(?:^|[\s'(\[])(?:passphrase|pass\s?code|pin|otp|one[- ]time|verification\s+code|security\s+code|token(?:\s+code)?|authenticator(?:\s+code)?|two[- ]factor|2fa|mfa|c[oó]digo)\b[^:]{0,80}:\s*$"#)
+
+    public static func asks(_ line: String) -> Bool {
+        let l = line.trimmed
+        if l.hasPrefix(Askpass.marker) || PasswordPrompt.asksForPassword(l) { return true }
+        if l.hasPrefix("Are you sure you want to continue connecting") { return true }
+        guard l.count <= 160, let r = other.range(in: l) else { return false }
+        return !PasswordPrompt.command.matches(String(l[..<r.lowerBound]))
+    }
+}
+
 /// Usuario y equipo de una orden «ssh …»/«telnet …» tecleada (al conectar o en la shell de un salto).
 public enum CommandLineUser {
     private static let sshOptionsWithArgument = Set("BbcDEeFIiJLlmOoPpQRSWw")

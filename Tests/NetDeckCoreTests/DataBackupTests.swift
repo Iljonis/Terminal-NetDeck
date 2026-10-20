@@ -212,11 +212,11 @@ private func perms(_ u: URL) -> Int { (try? FileManager.default.attributesOfItem
         defer { c.remove() }
         let b = c.backup
         let antes = try #require(try SafeFile.read(c.sessions))
-        #expect(!b.restoreIncludeIfMissing(sshConfig: c.sshConfig))   // (ya lo incluye)
+        #expect(try !b.restoreIncludeIfMissing(sshConfig: c.sshConfig))   // (ya lo incluye)
 
         let propio = "# Include ~/.config/netdeck/ssh_config\nHost *\n    ServerAliveInterval 30\n"
         try SafeFile.write(propio, to: c.sshConfig)
-        #expect(b.restoreIncludeIfMissing(sshConfig: c.sshConfig))
+        #expect(try b.restoreIncludeIfMissing(sshConfig: c.sshConfig))
         let ahora = try #require(try SafeFile.read(c.sshConfig))
         #expect(SessionFile.hasInclude(ahora))
         #expect(ahora.hasSuffix(propio))                             // (lo tuyo, tal cual, debajo)
@@ -225,19 +225,66 @@ private func perms(_ u: URL) -> Int { (try? FileManager.default.attributesOfItem
             .filter { $0.hasPrefix("config.antes-netdeck-") }
         #expect(copias.count == 1)
         #expect(try SafeFile.read(c.sessions) == antes)
-        #expect(!b.restoreIncludeIfMissing(sshConfig: c.sshConfig))   // (una sola vez)
+        #expect(try !b.restoreIncludeIfMissing(sshConfig: c.sshConfig))   // (una sola vez)
 
         // (sin sesiones no se añade nada: quien sólo usa su ~/.ssh/config no lo necesita)
         let sin = try Casa(withSessions: false)
         defer { sin.remove() }
         try SafeFile.write("Host *\n", to: sin.sshConfig)
-        #expect(!sin.backup.restoreIncludeIfMissing(sshConfig: sin.sshConfig))
+        #expect(try !sin.backup.restoreIncludeIfMissing(sshConfig: sin.sshConfig))
         #expect(try SafeFile.read(sin.sshConfig) == "Host *\n")
+    }
+
+    /// Si falta el ssh_config (el de siempre o el elegido en Ajustes), se crea con el Include: las sesiones siguen ahí y
+    /// sin él la lista saldría vacía. Las sesiones, intactas.
+    @Test func sinSshConfigSeReconstruye() throws {
+        let c = try Casa()
+        defer { c.remove() }
+        let antes = try #require(try SafeFile.read(c.sessions))
+        try FileManager.default.removeItem(at: c.sshConfig)
+        #expect(try c.backup.restoreIncludeIfMissing(sshConfig: c.sshConfig))
+        #expect(SessionFile.hasInclude(try #require(try SafeFile.read(c.sshConfig))))
+        let elegido = c.home.appendingPathComponent("otra/ssh_config")
+        #expect(try c.backup.restoreIncludeIfMissing(sshConfig: elegido))
+        #expect(SessionFile.hasInclude(try #require(try SafeFile.read(elegido))))
+        #expect(try SafeFile.read(c.sessions) == antes)
+    }
+
+    /// Un archivo que no se puede leer no es un archivo vacío: error, y no se toca nada.
+    @Test func ilegibleEsError() throws {
+        let c = try Casa()
+        defer { c.remove() }
+        try SafeFile.write("Host *\n", to: c.sshConfig)
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: c.sshConfig.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: c.sshConfig.path) }
+        #expect(throws: (any Error).self) { try c.backup.restoreIncludeIfMissing(sshConfig: c.sshConfig) }
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: c.sshConfig.path)
+        #expect(try SafeFile.read(c.sshConfig) == "Host *\n")
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: c.sessions.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: c.sessions.path) }
+        #expect(throws: (any Error).self) { try c.backup.restoreIncludeIfMissing(sshConfig: c.sshConfig) }
+    }
+
+    /// Antes de cambiar la app la copia es obligatoria: un archivo que no se puede leer es un error (y quien llama no
+    /// cambia la app), sin datos no hay nada que copiar, y con todo legible la copia lleva todos.
+    @Test func copiaObligatoriaAntesDeInstalar() throws {
+        let c = try Casa()
+        defer { c.remove() }
+        let dir = try #require(try c.backup.snapshotBeforeInstall(reason: "instalar-0.9.2"))
+        #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("ssh_config").path))
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: c.sessions.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: c.sessions.path) }
+        #expect(throws: BackupError.self) { try c.backup.snapshotBeforeInstall(reason: "actualizar-0.9.2") }
+        _ = c.backup.snapshot(reason: "version-0.9.2")                              // (la normal no lanza: se salta el ilegible)
+        let vacia = try Casa(withSessions: false)
+        defer { vacia.remove() }
+        for item in vacia.backup.items { try? FileManager.default.removeItem(at: item.url) }
+        #expect(try vacia.backup.snapshotBeforeInstall(reason: "instalar") == nil)
     }
 
     @Test func detectaElInclude() {
         #expect(SessionFile.hasInclude("Include ~/.config/netdeck/ssh_config\n"))
-        #expect(SessionFile.hasInclude("  include /Users/tu.usuario/.config/netdeck/ssh_config\n"))
+        #expect(SessionFile.hasInclude("  include \(AppPaths.home.path)/.config/netdeck/ssh_config\n"))
         #expect(!SessionFile.hasInclude("# Include ~/.config/netdeck/ssh_config\n"))
         #expect(!SessionFile.hasInclude("Host core-01\n    HostName 192.0.2.11\n"))
     }

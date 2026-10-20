@@ -42,7 +42,7 @@ public final class PasswordAutomation {
     private let policy: CredentialPolicy
     private let ledger: CredentialLedger
     private var handledSite: String?
-    private var pending: (ref: CredentialRef, site: String)?
+    private var pending: (ref: CredentialRef, row: Int)?
     private var busy = false
 
     public init(mode: Mode = .suggest, store: CredentialStore, policy: CredentialPolicy = .init(),
@@ -57,12 +57,20 @@ public final class PasswordAutomation {
     /// Mirar la pantalla (tras cada salida del equipo). nil = nada que hacer.
     public func observe(_ io: TerminalIO, gate: AutomationGate) async -> Event? {
         let line = io.cursorLine
-        if !loggedIn, DevicePrompt.generic.matches(line.trimmed) { loggedIn = true }
+        // (el rechazo puede haber quedado encima de una fila vacía o de un prompt, en el mismo bloque de salida)
+        if let p = pending, io.lines(from: p.row).contains(where: PromptRule.authenticationFailed) {
+            pending = nil
+            ledger.markFailed(p.ref)
+            // (la petición que sale con el rechazo es la misma: ya está atendida, sin un segundo aviso)
+            if PasswordPrompt.asksForPassword(line) { handledSite = "\(io.cursorRow):\(line.trimmed)" }
+            return .failed(p.ref)
+        }
+        if !loggedIn, PromptRule.isPrompt(line, custom: io.promptRule) { loggedIn = true }
         var mode = loggedIn ? self.mode : (sessionMode ?? self.mode)
         if onlySuggestDevices, mode == .autoType { mode = .suggest }
         guard mode != .off, !busy else { return nil }
         guard let request = PasswordPrompt.detect(cursorLine: line, above: io.linesAbove(3)) else {
-            if let p = pending, DevicePrompt.generic.matches(line.trimmed) {     // ha entrado
+            if let p = pending, PromptRule.isPrompt(line, custom: io.promptRule) {     // ha entrado
                 ledger.confirm(p.ref)
                 pending = nil
                 return .confirmed(p.ref)
@@ -95,8 +103,8 @@ public final class PasswordAutomation {
         let event: Event?
         // (justo antes de escribir: ni Esc, ni otra pantalla)
         if !sw.isTripped, "\(io.cursorRow):\(io.cursorLine.trimmed)" == site, let pw = secret {
+            pending = (ref, io.cursorRow)
             io.sendLine(pw)
-            pending = (ref, site)
             event = .typed(ref)
         } else {
             ledger.release(ref)
@@ -129,8 +137,8 @@ public final class PasswordAutomation {
         if !force, ledger.isBlocked(ref) { return .blocked }
         guard "\(io.cursorRow):\(io.cursorLine.trimmed)" == site else { return .notAsked }
         if force { ledger.reset(ref) }
+        pending = (ref, io.cursorRow)
         io.sendLine(pw)
-        pending = (ref, site)
         handledSite = site
         return .typed
     }

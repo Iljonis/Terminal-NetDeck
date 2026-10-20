@@ -23,6 +23,8 @@ public enum SessionImporter {
         public var kind = SessionProfile.Transport.ssh
         public var serial: SerialLine?
         public var notes: [String] = []
+        /// Perfil de terminal (ssh_config o JSON de la app), ya comprobado al leerlo.
+        public var terminal = TerminalProfile()
     }
 
     public struct Result: Sendable {
@@ -91,7 +93,7 @@ public enum SessionImporter {
                       host: $0.host.isEmpty && $0.kind.isNetwork ? $0.name : $0.host, user: $0.user, port: $0.port,
                       jump: $0.jump, ref: $0.name, summary: $0.summary, telnet: $0.telnet, keyFile: $0.keyFile,
                       legacy: $0.legacy, extra: $0.extra, kind: $0.kind, serial: $0.kind == .serial ? $0.serial : nil,
-                      notes: $0.notes)
+                      notes: $0.notes, terminal: $0.terminal)
             }, [])
         }
         return ("desconocido", [], [(url.lastPathComponent, L("no reconozco el formato"))])
@@ -113,7 +115,7 @@ public enum SessionImporter {
         "rekeylimit", "escapechar", "hashknownhosts", "fingerprinthash", "visualhostkey",
     ]
 
-    static let reservedNotes = ["grupo", "clave", "tipo", "serie", "telnet", "desc", "antiguo"]
+    static let reservedNotes = ["grupo", "clave", "tipo", "serie", "telnet", "desc", "antiguo"] + TerminalProfile.keys
 
     /// Una opción por línea: cada elemento se parte por sus saltos de línea («ServerAliveInterval 5\nProxyCommand …»
     /// serían dos líneas en el ssh_config), sin caracteres de control, y sólo quedan las de `allowedOptions`.
@@ -346,7 +348,7 @@ public enum SessionImporter {
 
     // MARK: - a sesiones de NetDeck
 
-    /// «Almería Core 1» → «Almeria-Core-1» (es un «Host» de ssh: sin espacios ni comodines).
+    /// «Cádiz Core 1» → «Cadiz-Core-1» (es un «Host» de ssh: sin espacios ni comodines).
     public static func validName(_ t: String) -> String {
         var s = t.trimmed.folding(options: .diacriticInsensitive, locale: nil)
         s = s.replacingOccurrences(of: #"\s+"#, with: "-", options: .regularExpression)
@@ -422,6 +424,7 @@ public enum SessionImporter {
             // (una ruta con comillas o saltos de línea rompería el bloque: se descarta)
             s.keyFile = e.keyFile.contains(where: { $0 == "\"" || $0.isNewline || $0.asciiValue.map { $0 < 32 } == true }) ? "" : e.keyFile
             s.legacy = e.legacy
+            s.terminal = e.terminal
             s.extra = Self.safeExtra(e.extra, session: name)
             if let r = e.ref, byRef[r] == nil { byRef[r] = name }
             out.append((s, e.jump))

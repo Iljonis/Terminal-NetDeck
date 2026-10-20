@@ -91,6 +91,21 @@ final class AppSettings {
         UserDefaults.standard.object(forKey: shareJumpKey) as? Bool ?? true ? JumpSharing.standard() : nil
     }
 
+    /// El ssh_config elegido en Ajustes para pasárselo a ssh/sftp con «-F», o nil si es el ~/.ssh/config de siempre
+    /// (el que ssh lee solo). La pestaña y el explorador lo leen al conectar.
+    static var sshConfigFile: String? {
+        guard let p = UserDefaults.standard.string(forKey: "sshConfigPath"), !p.isEmpty else { return nil }
+        let path = URL(fileURLWithPath: AppPaths.expand(p)).standardizedFileURL.path
+        let real = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".ssh/config").standardizedFileURL.path
+        // (si no existe, ssh no arrancaría con «-F»: el de siempre, y se apunta)
+        guard path != real else { return nil }
+        guard FileManager.default.fileExists(atPath: path) else {
+            ErrorLog.warning("sesiones", "el ssh_config de Ajustes (\(AppPaths.tilde(path))) no existe: ssh usa ~/.ssh/config")
+            return nil
+        }
+        return path
+    }
+
     /// Ratón como en PuTTY/SecureCRT (los dos apagados de serie): lo que seleccionas se copia solo, y el clic derecho
     /// pega (por el mismo camino que ⌘V; ⌃/⌥+clic derecho, el menú de siempre). La vista del terminal los lee al vuelo.
     static let copyOnSelectKey = "copyOnSelect"
@@ -116,7 +131,7 @@ final class AppSettings {
         sessionAutoPassword = d.object(forKey: "sessionAutoPassword") as? Bool ?? true
         devicePasswordMode = PasswordAutomation.Mode(rawValue: d.string(forKey: "devicePasswordMode") ?? "") ?? .suggest
         defaultCredentialName = d.string(forKey: "defaultCredentialName") ?? ""
-        defaultCredentialUser = d.string(forKey: "defaultCredentialUser") ?? NSUserName()
+        defaultCredentialUser = d.string(forKey: "defaultCredentialUser") ?? AppPaths.userName
         themeID = d.string(forKey: "themeID") ?? Theme.builtIn.id
         themeAuto = d.object(forKey: "themeAuto") as? Bool ?? false
         themeLight = d.string(forKey: "themeLight") ?? "papel"

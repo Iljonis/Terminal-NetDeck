@@ -96,8 +96,13 @@ public enum RemotePath {
 
 public struct RemoteError: LocalizedError, Equatable, Sendable {
     public let message: String
+    /// El servidor ha dicho que no existe (SFTP «no such file»): lo único que cuenta como ausencia confirmada.
+    public var missing = false
 
-    public init(_ message: String) { self.message = message }
+    public init(_ message: String, missing: Bool = false) {
+        self.message = message
+        self.missing = missing
+    }
 
     public var errorDescription: String? { message }
 }
@@ -125,6 +130,9 @@ public protocol RemoteFileSystem: AnyObject, Sendable {
     func makeDirectory(_ path: String) async throws
     func remove(_ path: String, directory: Bool) async throws
     func rename(_ from: String, to: String) async throws
+    /// El renombrado rechaza atómicamente un destino existente. Sólo se permite edición con versión esperada si el
+    /// backend lo garantiza (SFTP v3); un lookup previo no ofrece esa garantía en FTP/RNTO.
+    var renameDoesNotOverwrite: Bool { get }
     /// Tamaño (para la barra de progreso), si se sabe.
     func size(of path: String) async -> Int64?
     func openRead(_ path: String) async throws -> any RemoteReader
@@ -136,12 +144,26 @@ public protocol RemoteFileSystem: AnyObject, Sendable {
     func permissions(of path: String) async -> UInt32?
     /// Qué hay con ese nombre, sin seguir enlaces (nil: no existe o el protocolo no lo dice).
     func kind(of path: String) async -> RemoteEntry.Kind?
+    /// Qué hay con ese nombre, sin seguir enlaces, sólo si consta: nil = el servidor confirma que no hay nada. Si no se
+    /// puede saber (permisos, respuesta rara, tipo desconocido, un LIST que falla), lanza un error.
+    func lookup(_ path: String) async throws -> RemoteEntry.Kind?
     /// Cambia los permisos (si el protocolo no sabe, no hace nada).
     func setPermissions(_ mode: UInt32, of path: String) async throws
 }
 
 extension RemoteFileSystem {
+    public var renameDoesNotOverwrite: Bool { false }
     public func permissions(of path: String) async -> UInt32? { nil }
     public func kind(of path: String) async -> RemoteEntry.Kind? { nil }
+    /// Sin un «stat» fiable (FTP): por el listado de la carpeta. Si no sale en él pero SIZE contesta (los «.algo» que
+    /// el LIST esconde), hay algo y no se sabe qué: error. SIZE no demuestra que sea un archivo normal.
+    public func lookup(_ path: String) async throws -> RemoteEntry.Kind? {
+        let name = RemotePath.name(path)
+        if let e = try await list(RemotePath.parent(path)).first(where: { $0.name == name }) { return e.kind }
+        if await size(of: path) != nil {
+            throw RemoteError(L("No se sabe qué es «\(name)» en el destino: no se sustituye"))
+        }
+        return nil
+    }
     public func setPermissions(_ mode: UInt32, of path: String) async throws {}
 }

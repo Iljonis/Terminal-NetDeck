@@ -35,13 +35,15 @@ public struct PasteReport: Equatable, Sendable {
 
 /// Pegado seguro: línea a línea, cada una espera al prompt del equipo (o a que la salida lleve `quiet` quieta) y se
 /// para ante un error de la CLI, un paginador o Esc. Las peligrosas (reload, delete…) sólo con `allowDangerous`.
-/// Si el equipo pide una contraseña («enable», «ssh …») se para: la línea siguiente iría como contraseña (se vería en
+/// Si el equipo pide un secreto (contraseña, passphrase, OTP…) se para: la línea siguiente iría como contraseña (se vería en
 /// el registro del equipo y contaría como intento fallido de la cuenta).
 public struct SafePaster: Sendable {
     public var lineTimeout: Duration = .seconds(20)
     public var quiet: Duration = .milliseconds(500)
     public var poll: Duration = .milliseconds(100)
     public var allowDangerous = false
+    /// El reloj de las esperas (las pruebas ponen uno que no depende de cuándo despierte la tarea).
+    public var clock: any PollClock = SystemPollClock()
 
     public init(allowDangerous: Bool = false) {
         self.allowDangerous = allowDangerous
@@ -52,7 +54,7 @@ public struct SafePaster: Sendable {
     @MainActor
     public func paste(_ text: String, into io: TerminalIO, abort: AbortSwitch) async -> PasteReport {
         let lines = PasteRules.lines(of: text)
-        let prompt = DevicePrompt(sample: io.cursorLine)
+        let prompt = DevicePrompt(sample: io.cursorLine, custom: io.promptRule)
         func report(_ sent: Int, _ o: PasteReport.Outcome) -> PasteReport { .init(sent: sent, total: lines.count, outcome: o) }
 
         for (i, line) in lines.enumerated() {
@@ -60,7 +62,11 @@ public struct SafePaster: Sendable {
                 return report(i, .dangerousNotConfirmed(line: i + 1, command: line))
             }
             if abort.isTripped { return report(i, .aborted) }
-            if PasswordPrompt.asksForPassword(io.cursorLine) { return report(i, .passwordPrompt(line: i)) }
+            if SecretPrompt.asks(io.cursorLine) { return report(i, .passwordPrompt(line: i)) }
+            if PasteRules.pager.matches(io.cursorLine) { return report(i, .pager(line: i)) }
+            if PasteRules.errors.matches(io.cursorLine) || PromptRule.authenticationFailed(io.cursorLine) {
+                return report(i, .deviceError(line: i, output: io.cursorLine.trimmed))
+            }
             let mark = io.cursorRow
             io.sendLine(line)
             let w: Wait
@@ -81,21 +87,25 @@ public struct SafePaster: Sendable {
     }
 
     @MainActor
-    func waitForDevice(_ io: TerminalIO, after mark: Int, prompt: DevicePrompt, abort: AbortSwitch) async throws -> Wait {
-        let clock = ContinuousClock()
+    func waitForDevice(_ io: TerminalIO, after mark: Int, prompt: DevicePrompt, abort: AbortSwitch,
+                       allowQuietFallback: Bool = true) async throws -> Wait {
+        let clock = self.clock
         let start = io.revision
         var rev = start
-        var changed = clock.now
-        let w: Wait? = try await Poll.until(every: poll, timeout: lineTimeout, abort: abort) {
-            if io.revision != rev { rev = io.revision; changed = clock.now }
-            let new = io.lines(from: mark + 1)                     // (los errores salen justo después de la orden)
-            if let bad = new.prefix(4).first(where: PasteRules.errors.matches) { return .error(bad.trimmed) }
+        var changed = clock.now()
+        let w: Wait? = try await Poll.until(every: poll, timeout: lineTimeout, abort: abort, clock: clock) {
+            if io.revision != rev { rev = io.revision; changed = clock.now() }
+            let new = io.lines(from: mark)                         // (incluida una respuesta que sobrescribe la misma fila)
+            if let bad = new.first(where: { PasteRules.errors.matches($0) || PromptRule.authenticationFailed($0) }) {
+                return .error(bad.trimmed)
+            }
             let cur = io.cursorLine
+            if new.contains(where: SecretPrompt.asks) { return .password }
             if PasteRules.pager.matches(cur) { return .pager }
             guard io.cursorRow > mark else { return nil }
-            if PasswordPrompt.asksForPassword(cur) { return .password }
-            if prompt.matches(cur), clock.now - changed >= poll { return .ready }
-            if rev != start, clock.now - changed >= quiet { return .ready }     // prompt desconocido: salida quieta
+            if prompt.matches(cur), clock.now() - changed >= poll { return .ready }
+            if allowQuietFallback, io.promptRule == nil, !cur.trimmed.isEmpty,
+               rev != start, clock.now() - changed >= quiet { return .ready }     // prompt desconocido: salida quieta
             return nil
         }
         return w ?? .timeout

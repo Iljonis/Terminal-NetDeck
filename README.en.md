@@ -9,10 +9,10 @@ and 51 themes. Native, fast and in your language.
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v0.9.1](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.1)** · macOS 15 or later ·
+Current version: **[v0.9.2](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.2)** · macOS 15 or later ·
 open source (MIT)
 
-[![Version](https://img.shields.io/badge/version-v0.9.1-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.1)
+[![Version](https://img.shields.io/badge/version-v0.9.2-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.2)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,32 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - **SFTP/FTP browser** with atomic copies, built-in MD5 verification and server-to-server transfers.
 - **Multi-tab** with split view, MultiExec and safe paste; **51 themes** with WCAG contrast.
 - **Sessions with jump hosts** on top of your `ssh_config`, passwords only in the macOS Keychain.
+
+### New in 0.9.2
+
+- **SFTP beside SSH:** same host, configuration and jumps; panel width remembered per session.
+- **Remote editing:** text files up to 5 MB, remote version checks, conflict choices and separate copies.
+  Open local copies are preserved after closing a tab under `~/Library/Application Support/Terminal NetDeck/edicion/`.
+  Over SFTP the upload only replaces the file if it is still as downloaded. Over FTP the server can't guarantee it won't
+  overwrite a file that appears meanwhile: every save asks you to confirm "Overwrite" or "Save as copy".
+- **Workspaces:** save tab order, selection, SFTP panels and split proportions. Add tabs or replace the window after
+  confirmation. Missing sessions are reported; loopback and manually typed jumps are excluded. MultiExec stays off;
+  no macros or tunnels start automatically.
+- **Macros:** record/edit/replay commands, wait for prompts or text, add pauses. Playback stops at errors, pagers or
+  secret requests. Recording skips commands when their initial prompt cannot be safely recognised, including
+  fragmented pastes. Never put secrets in commands or macros.
+- **SSH tunnels:** local, remote and SOCKS with explicit start/stop and status. Loopback by default; exposing a
+  listener requires explicit selection. Configurations with inherited forwards are rejected to prevent hidden
+  listeners. Remote listening also depends on GatewayPorts and server permissions.
+- **Session profiles:** font, size, theme, scrollback, keyboard and prompt annotations in ssh_config; unspecified
+  values inherit Settings. Connect without saving applies the form's profile to that tab only. User regex matching
+  is bounded and cannot treat authentication failures or password/OTP requests as valid prompts.
+- **Native serial:** framing is applied and checked, closing cancels pending output, and Terminal → Send BREAK
+  sends a native break. Specific USB adapters still require hardware testing.
+- **Tabs:** whole-tab dragging and a highlighted 24 × 24 point close target.
+- **Update recovery:** preserves staging and the previous app even if restoration fails. Backups include macros,
+  tunnels, workspaces and SFTP panel state. If that backup can't be made (an unreadable file, no backup folder),
+  nothing is installed or updated: the previous app stays as it was and you're told why.
 
 ## Requirements & compatibility
 
@@ -128,7 +154,7 @@ cd Terminal-NetDeck
   the destination, and imported sessions only keep safe ssh options (no `ProxyCommand`, no `Host *` blocks, no port
   forwarding…).
 
-### 📂 An SFTP/FTP browser that never loses files
+### 📂 An SFTP/FTP browser with file protection
 
 - Tree and list with sizes, permissions, owner and date; upload by dragging from the Finder, download, rename, delete.
 - **Atomic copies:** files are written to a temporary file first and only replace the real one at the end. A copy that
@@ -158,7 +184,7 @@ cd Terminal-NetDeck
 
 ### 🧰 And also
 
-- **Session types:** SSH, Telnet, SFTP, FTP, local shell and serial console (`screen`).
+- **Session types:** SSH, Telnet, SFTP, FTP, local shell and serial console (speed, data bits, parity and stop bits applied and checked).
 - **Session manager** with folders (`Clients/Madrid/Core`), favourites, recents and a **Connect** button to try one
   without saving.
 - **Import** from SecureCRT, MobaXterm, PuTTY, electerm, CSV or another `ssh_config`; **export** to JSON or CSV.
@@ -273,6 +299,9 @@ Mac's light or dark mode**, and **every theme passes a WCAG contrast test** (tex
 
 - Passwords only in the Keychain, with the user and device rules, and a 15-minute lock after a failure.
 - MultiExec and safe paste only reach SSH/Telnet tabs: never a local terminal, SFTP or serial console.
+  A line is only broadcast if you start it at the device prompt, and only to tabs that are at theirs: whatever you type
+  at a password, passphrase, OTP or any request that isn't a prompt stays in its tab. If a device has an unusual
+  prompt, set it in the session profile (`# @prompt`).
 - Your files (`ssh_config`, buttons, lists) are never overwritten when they can't be read, with a `.anterior` backup on
   every save; the app's folders and files are for your eyes only (0700/0600).
 - A backup outside `~/.config/netdeck` before every update and every sessions save; a test checks on every change that

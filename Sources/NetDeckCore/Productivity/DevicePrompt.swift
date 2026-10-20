@@ -11,8 +11,11 @@ public struct DevicePrompt: Sendable {
     /// Nombre sacado de la muestra («core-01», «admin@core-01»), o nil.
     public let base: String?
     private let pattern: Pattern
+    /// El prompt propio de la sesión («# @prompt …»): si lo hay, manda él (sin contar las peticiones de secretos).
+    private let custom: PromptRule?
 
-    public init(sample: String?) {
+    public init(sample: String?, custom: PromptRule? = nil) {
+        self.custom = custom
         var b: String?
         if let s = sample?.trimmed, Self.generic.matches(s) {
             var rest = Substring(s)
@@ -26,12 +29,72 @@ public struct DevicePrompt: Sendable {
             ?? Self.generic
     }
 
-    public func matches(_ line: String) -> Bool { pattern.matches(line.trimmed) }
+    public func matches(_ line: String) -> Bool {
+        if let custom { return PromptRule.isPrompt(line, custom: custom) }
+        return pattern.matches(line.trimmed)
+    }
+}
+
+/// Prompt propio de una sesión («# @prompt …»): una regex que reconoce el prompt del equipo en lugar del genérico
+/// (`DevicePrompt.generic`) para «ha entrado», el pegado seguro y la contraseña. Una línea que pide un secreto
+/// (`SecretPrompt`: contraseña, passphrase, OTP…) o una pregunta del askpass nunca cuenta como prompt, la acepte o no
+/// la regex: un «.*» no saca a una pestaña de «autenticándose» (MultiExec) ni deja pegar sobre «Password:».
+public struct PromptRule: Hashable, Sendable {
+    public let source: String
+    let pattern: Pattern
+
+    public static let maxLength = 200
+    /// Sólo se mira contra líneas de hasta tantos caracteres (un prompt no es más largo; acota el coste de la regex).
+    static let maxLine = 160
+    private static let rejection = Pattern(#"\b(?:permission denied|access denied|authentication (?:failed|failure)|authorization failed|login (?:incorrect|failed)|invalid (?:password|credentials)|incorrect password|bad password|acceso denegado|autenticaci[oó]n fallida|contrase[nñ]a incorrecta)\b"#)
+    private static let login = Pattern(#"^\s*(?:user\s*name|user|login(?:\s+as)?|usuario)\s*:"#)
+
+    /// Un rechazo nunca confirma credenciales, aunque la regex del usuario lo acepte.
+    public static func authenticationFailed(_ line: String) -> Bool { rejection.matches(line) }
+
+    public init?(_ source: String) {
+        guard Self.problem(source) == nil, let p = Pattern(compiling: source) else { return nil }
+        self.source = source
+        pattern = p
+    }
+
+    /// Por qué no vale (para el usuario), o nil.
+    public static func problem(_ s: String) -> String? {
+        if s.trimmed.isEmpty { return L("vacío") }
+        if s.count > maxLength { return L("más de \(String(maxLength)) caracteres") }
+        if SessionFile.hasControl(s) { return L("saltos de línea o caracteres de control") }
+        if Pattern(compiling: s) == nil { return L("no es una expresión regular válida") }
+        if Pattern.repeticionPeligrosa(en: s) { return L("grupos repetidos con alternativas o cuantificadores (pueden bloquear la app)") }
+        return nil
+    }
+
+    /// La regex sola (sin la protección de los secretos).
+    func accepts(_ line: String) -> Bool {
+        let l = line.trimmed
+        return l.count <= Self.maxLine && pattern.matches(l)
+    }
+
+    /// ¿Es el prompt del equipo? Con `custom`, el suyo; si no, el genérico. Nunca una petición de secreto ni una línea
+    /// del askpass. Las reglas que aceptan vacío necesitan además un prompt genérico reconocible.
+    public static func isPrompt(_ line: String, custom: PromptRule?) -> Bool {
+        let l = line.trimmed
+        guard !l.isEmpty, l.count <= maxLine, !SecretPrompt.asks(l), !authenticationFailed(l),
+              !login.matches(l), !PasteRules.errors.matches(l), !PasteRules.pager.matches(l) else { return false }
+        if let custom {
+            // (una regla que acepta vacío, como «.*», tampoco demuestra que un banner o un fragmento sea un prompt)
+            if custom.pattern.matches(""), !DevicePrompt.generic.matches(l) { return false }
+            return custom.accepts(l)
+        }
+        return DevicePrompt.generic.matches(l)
+    }
+
+    public static func == (a: Self, b: Self) -> Bool { a.source == b.source }
+    public func hash(into h: inout Hasher) { h.combine(source) }
 }
 
 /// El equipo en el que estás de verdad, sacado del prompt (como «detectar» de NetDeck):
 ///   Huawei <core-01> / [~core-01] · Cisco core-01# · IOS-XR RP/0/RSP0/CPU0:pe-01# · Juniper user@mx-01> ·
-///   Linux / Teltonika root@rut955:~# · MikroTik [admin@MikroTik] > · Nokia A:admin@bb01.almeria# / *A:bb01>config>#
+///   Linux / Teltonika root@rut955:~# · MikroTik [admin@MikroTik] > · Nokia A:admin@bb01.ejemplo# / *A:bb01>config>#
 public enum PromptDevice {
     static let n = #"[A-Za-z0-9][A-Za-z0-9._:/-]*"#
     static let prompts: [Pattern] = [

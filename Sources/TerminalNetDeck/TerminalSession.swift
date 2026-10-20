@@ -309,6 +309,12 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     @ObservationIgnored var isVisible = false
     /// Ha llegado a su primer prompt (la contraseña de la sesión, si la dio el askpass, ha valido).
     @ObservationIgnored private(set) var loggedIn = false
+    /// El perfil de su sesión (`TerminalProfile`; lo aplica `AppModel.applyProfile`) y lo que ha quedado de él:
+    /// el tema (también para los colores del resaltado) y el prompt propio («# @prompt …»; nil = el genérico).
+    @ObservationIgnored var profile = TerminalProfile()
+    @ObservationIgnored private(set) var theme: Theme?
+    @ObservationIgnored var promptRule: PromptRule?
+    @ObservationIgnored private var appliedScrollback = TerminalHistory.current
     @ObservationIgnored var onEvent: ((TerminalSession, PasswordAutomation.Event) -> Void)?
     /// Lo que teclea el usuario (Esc, MultiExec, Intro…): true = ya está atendido, no se envía aquí.
     @ObservationIgnored var onInput: ((TerminalSession, [UInt8]) -> Bool)?
@@ -319,10 +325,18 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     @ObservationIgnored var onForwardingRefused: ((TerminalSession) -> ConnectionRoute?)?
     /// ¿Entrar en el salto y escribir allí el ssh? (pregunta al usuario: la contraseña del destino pasará por el salto)
     @ObservationIgnored var confirmHop: ((TerminalSession, ConnectionRoute) async -> Bool)?
+    /// ssh dice que la clave del equipo ha cambiado: ¿quitar la vieja de known_hosts y reconectar? (pregunta al usuario)
+    @ObservationIgnored var onHostKeyChanged: ((TerminalSession, HostKeyMismatch) async -> Bool)?
+    /// El registro no se puede crear o ha dejado de escribirse (el aviso, ya escrito).
+    @ObservationIgnored var onLogFailed: ((TerminalSession, String) -> Void)?
+    /// La consola serie no se abre (ruta, trama o un valor que el puerto no acepta): el aviso «✗ …», ya escrito.
+    @ObservationIgnored var onProblem: ((TerminalSession, String) -> Void)?
     /// El contenedor que la muestra ahora (pestaña o panel de la vista dividida).
     @ObservationIgnored weak var host: NSView?
     /// SFTP/FTP: el explorador de archivos (lo que se ve por defecto); la consola sftp, sólo si se pide.
     @ObservationIgnored var browser: RemoteBrowser?
+    /// El explorador SFTP al lado del terminal (pestañas ssh); nil hasta que se abre la primera vez.
+    var sidePanel: SFTPSidePanel?
     /// Con explorador: se ve la consola en vez de la vista gráfica.
     var showConsole = false
     /// La consola ya ha arrancado (en SFTP espera a que se pida; así no se conecta dos veces).
@@ -331,12 +345,21 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
 
     @ObservationIgnored let pipe = OutputPipe()
     @ObservationIgnored private var process: LocalProcess?
+    /// Consola serie: el puerto abierto por la app (sin proceso).
+    @ObservationIgnored private var serialPort: SerialPort?
     @ObservationIgnored private var environment: [String: String] = [:]
     @ObservationIgnored private var cache: (rev: Int, lines: [String], cursor: Int)?
     @ObservationIgnored private var hopTask: Task<Void, Never>?
     @ObservationIgnored private var fellBack = false
     /// ssh ha dicho que el salto rechaza el reenvío; sólo cuenta si además ssh termina con 255 (`processExited`).
     @ObservationIgnored private var refusalSeen = false
+    /// ssh ha avisado de que la clave del equipo no es la de known_hosts (se pregunta al terminar ssh).
+    @ObservationIgnored private var hostKeyMismatch: HostKeyMismatch?
+    /// Tras quitar la clave vieja con tu permiso: la huella que aceptaste. Si al reconectar ssh pregunta por un equipo
+    /// nuevo con esa misma huella, se contesta «yes» solo; con otra, se deja la pregunta para ti.
+    @ObservationIgnored private var acceptedFingerprint: String?
+    /// Fila del búfer al arrancar el proceso: lo de antes (otra conexión de la misma pestaña) no cuenta.
+    @ObservationIgnored private var launchRow = 0
 
     init(route: ConnectionRoute, passwords: PasswordAutomation, ledger: CredentialLedger) {
         self.route = route
@@ -373,18 +396,9 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     }
 
     private func launch() {
-        let (exe, args) = route.command(sharing: AppSettings.jumpSharing)
-        if let problem = route.launchProblem() {             // (falta screen, el adaptador serie o el programa)
-            _ = pipe.next()
-            state = .exited(nil)
-            ErrorLog.error("pestaña", "«\(title)» no arranca: \(problem)")
-            pipe.say("\u{1b}[38;5;204m[NetDeck] \(problem)\u{1b}[0m"
-                     + L(" · \u{1b}[1mIntro\u{1b}[0m reconectar · \u{1b}[1mEsc\u{1b}[0m cerrar la pestaña\r\n"))
-            return
-        }
-        if route.transport == .serial {
-            pipe.say("\u{1b}[38;5;51m[NetDeck] " + L("screen: para salir, Ctrl-A y luego k") + "\u{1b}[0m\r\n")
-        }
+        if let problem = route.launchProblem() { return fail(problem) }  // (el adaptador serie, su trama o el programa)
+        if route.transport == .serial { return openSerial() }
+        let (exe, args) = route.command(sharing: AppSettings.jumpSharing, configFile: AppSettings.sshConfigFile)
         // (sftp es ssh por debajo: tampoco le llega el idioma del Mac)
         var env = TerminalEnvironment.prepare(ProcessInfo.processInfo.environment, forSSH: exe == "/usr/bin/ssh" || exe == "/usr/bin/sftp",
                                               sendLocale: UserDefaults.standard.bool(forKey: AppSettings.sendLocaleKey))
@@ -399,6 +413,8 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         loggedIn = false
         homeDevice = nil
         hopSent = false
+        hostKeyMismatch = nil
+        launchRow = cursorRow
         _ = Askpass.takeGiven(session: id)      // (lo de una conexión anterior no se confirma con ésta)
         p.startProcess(executable: exe, args: args, environment: env.map { "\($0.key)=\($0.value)" },
                        currentDirectory: route.isLocal ? AppPaths.home.path : nil)     // (la local, en tu carpeta)
@@ -409,18 +425,68 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         if let cmd = route.thenCommand { typeOnJump(cmd) }
     }
 
+    /// No arranca: el motivo en la pestaña (Intro reintenta) y, si es la consola serie, también como aviso.
+    private func fail(_ problem: String) {
+        _ = pipe.next()
+        state = .exited(nil)
+        ErrorLog.error("pestaña", "«\(title)» no arranca: \(problem)")
+        pipe.say("\u{1b}[38;5;204m[NetDeck] \(problem)\u{1b}[0m"
+                 + L(" · \u{1b}[1mIntro\u{1b}[0m reconectar · \u{1b}[1mEsc\u{1b}[0m cerrar la pestaña\r\n"))
+        if route.transport == .serial { onProblem?(self, L("✗ «\(title)»: \(problem)")) }
+    }
+
+    /// Consola serie: la app abre el puerto y le aplica la trama, comprobada (`SerialPort`); si el puerto se cierra
+    /// solo (adaptador desenchufado), como una sesión cerrada: Intro reabre, Esc cierra la pestaña.
+    private func openSerial() {
+        let line = route.serial ?? SerialLine()          // (sin puerto, `SerialPort` lo rechaza con su motivo)
+        serialPort?.close()
+        serialPort = nil
+        let pipe = pipe
+        let gen = pipe.next()
+        do {
+            serialPort = try SerialPort(line, queue: pipe.queue, onData: { pipe.receive($0) }, onClose: { why in
+                guard gen == pipe.current else { return }
+                pipe.say("\r\n\u{1b}[38;5;204m[NetDeck] \(why)\u{1b}[0m")
+                pipe.onExit(gen, nil)
+            })
+        } catch {
+            return fail(error.localizedDescription)
+        }
+        state = .connecting
+        loggedIn = false
+        homeDevice = nil
+        hopSent = false
+        hostKeyMismatch = nil
+        launchRow = cursorRow
+        DebugLog.log("pestaña", "«\(title)» #\(gen) abre el puerto serie \(line.annotation)")
+        pipe.say("\u{1b}[38;5;51m[NetDeck] " + L("\(line.device) a \(String(line.speed)) \(line.frame) · para salir, cierra la pestaña")
+                 + "\u{1b}[0m\r\n")
+    }
+
     /// Empieza a grabar la salida (texto limpio) en `directory`/AAAA-MM-DD/.
     func startLog(in directory: URL) {
         guard logger == nil else { return }
         let host = route.target.description
-        guard let l = SessionLogger(directory: directory, name: route.sessionName ?? title, host: host) else {
-            ErrorLog.error("registro", "«\(title)»: no se puede escribir en \(directory.path)")
+        let l: SessionLogger
+        do { l = try SessionLogger(directory: directory, name: route.sessionName ?? title, host: host) } catch {
+            ErrorLog.error("registro", "«\(title)»: no se puede escribir en \(directory.path): \(error.localizedDescription)")
+            onLogFailed?(self, L("✗ No se graba «\(title)»: no se puede escribir en \(AppPaths.tilde(directory.path)) (\(error.localizedDescription))"))
             return
+        }
+        l.onFailure = { [weak self, weak l] why in
+            Task { @MainActor in if let l { self?.logFailed(l, why) } }
         }
         logger = l
         logFile = l.url
         pipe.queue.async { [pipe] in pipe.sink = { l.feed($0) } }
         DebugLog.log("registro", "«\(title)» → \(l.url.path)")
+    }
+
+    /// No se ha podido escribir en el registro: se deja de grabar (fuera el ● REC) y se avisa.
+    private func logFailed(_ l: SessionLogger, _ why: String) {
+        guard logger === l else { return }
+        stopLog()
+        onLogFailed?(self, L("✗ Se ha dejado de grabar «\(title)»: \(why)"))
     }
 
     func stopLog() {
@@ -435,18 +501,23 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
 
     /// Reconectar en la misma pestaña (el historial se queda).
     func restart() {
+        gate.abortAll()
         guard started else { return startIfNeeded() }
         hopTask?.cancel()
         if !exited { process?.terminate() }
+        serialPort?.close()
         pipe.say(L("\r\n\u{1b}[38;5;51m[NetDeck] Reconectando…\u{1b}[0m\r\n"))
         refusalSeen = false
         launch()
     }
 
     func terminate() {
+        gate.abortAll()
         hopTask?.cancel()
-        browser?.disconnect()
+        browser?.shutdown()
+        sidePanel?.close()
         process?.terminate()
+        serialPort?.close()
         stopLog()
     }
 
@@ -485,6 +556,80 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         hopTask?.cancel()
         state = .exited(code)
         gate.abortAll()
+        if checksHostKey, !loggedIn, code != 0 {
+            // (el aviso de ssh puede no haberse mirado aún: un momento para que llegue y se decide con la pantalla)
+            Task { [weak self] in
+                try? await Task.sleep(for: .milliseconds(150))
+                guard let self, generation == self.pipe.current else { return }
+                if let m = self.hostKeyMismatch ?? HostKeyMismatch.detect(self.lines(from: self.launchRow)) {
+                    self.hostKeyChanged(m, generation: generation, code: code)
+                } else {
+                    self.exitedWithoutHostKey(generation: generation, code: code)
+                }
+            }
+            return
+        }
+        exitedWithoutHostKey(generation: generation, code: code)
+    }
+
+    /// ssh habla con known_hosts de este Mac: ssh y la consola sftp, sin salto «a mano» (ahí el ssh es el del salto).
+    private var checksHostKey: Bool {
+        onHostKeyChanged != nil && !route.isLocal && (route.transport == .ssh || route.transport == .sftp) && route.thenCommand == nil
+    }
+
+    /// La clave del equipo ha cambiado: no se ha conectado. Se pregunta (puede ser alguien en medio); si aceptas, se
+    /// quita la vieja de known_hosts (como «ssh-keygen -R») y se reconecta solo.
+    private func hostKeyChanged(_ found: HostKeyMismatch, generation: Int, code: Int32?) {
+        hostKeyMismatch = nil
+        let m = found
+        // (sin «Host key for … has changed», el equipo lo dice «ssh -G» al comprobarlo, no la pestaña)
+        let host = m.host ?? route.target.host
+        guard m.host.map(KnownHosts.isValidHost) ?? true, let ask = onHostKeyChanged else {
+            return exitedWithoutHostKey(generation: generation, code: code)
+        }
+        DebugLog.log("known_hosts", "«\(title)»: la clave de \(host) ha cambiado (\(m.fingerprint ?? "sin huella"))")
+        pipe.say(L("\r\n\u{1b}[38;5;204m[NetDeck] La clave del equipo «\(host)» ha cambiado: no se ha conectado\u{1b}[0m\r\n"))
+        let route = self.route, configFile = AppSettings.sshConfigFile
+        Task { [weak self] in
+            // (antes de preguntar: que el aviso sea de esta conexión y su known_hosts, según «ssh -G»)
+            let context = await KnownHosts.contextInBackground(for: route, configFile: configFile)
+            guard let self, generation == self.pipe.current else { return }
+            let checked = context.map { KnownHosts.verify(m, against: $0) }
+                ?? .failure(KnownHosts.Refused(message: L("«ssh -G» no ha dicho qué known_hosts usa esta conexión")))
+            let target: (host: String, file: URL)
+            switch checked {
+            case .success(let t): target = t
+            case .failure(let why):
+                ErrorLog.warning("known_hosts", "«\(self.title)»: no se limpia la clave de \(host): \(why.message)")
+                self.pipe.say(L("\u{1b}[38;5;204m[NetDeck] No se toca known_hosts: \(why.message)\u{1b}[0m"))
+                self.sayClosed(generation, code)
+                return
+            }
+            var shown = m
+            shown.host = target.host
+            shown.file = target.file.path
+            let ok = await ask(self, shown)
+            guard generation == self.pipe.current else { return }       // (mientras preguntaba, se ha reconectado)
+            guard ok else {
+                DebugLog.log("known_hosts", "«\(self.title)»: clave de \(target.host) no aceptada")
+                self.pipe.say(L("\u{1b}[38;5;204m[NetDeck] known_hosts no se ha tocado\u{1b}[0m"))
+                self.sayClosed(generation, code)
+                return
+            }
+            if let err = await KnownHosts.removeInBackground(host: target.host, from: target.file) {
+                ErrorLog.error("known_hosts", "no se ha podido quitar la clave de \(target.host) de \(AppPaths.tilde(target.file.path)): \(err)")
+                self.pipe.say(L("\u{1b}[38;5;204m[NetDeck] No se ha podido quitar la clave vieja: \(err)\u{1b}[0m"))
+                self.sayClosed(generation, code)
+                return
+            }
+            guard generation == self.pipe.current else { return }
+            self.acceptedFingerprint = m.fingerprint
+            self.pipe.say(L("\u{1b}[38;5;51m[NetDeck] Clave vieja de «\(target.host)» quitada de \(AppPaths.tilde(target.file.path))\u{1b}[0m"))
+            self.restart()
+        }
+    }
+
+    private func exitedWithoutHostKey(generation: Int, code: Int32?) {
         if code == 255, !fellBack, !loggedIn, route.thenCommand == nil, !route.jumps.isEmpty {
             // (ssh sale justo después de escribir «stdio forwarding failed»: esa salida puede no haberse mirado aún;
             // un momento para que llegue y se decide con la pantalla)
@@ -510,12 +655,23 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     }
 
     func apply(theme t: Theme, font: NSFont) {
+        theme = t
         view.font = font
         view.nativeBackgroundColor = NSColor(t.background)
         view.nativeForegroundColor = NSColor(t.text)
         view.caretColor = NSColor(t.accent)
         view.selectedTextBackgroundColor = NSColor(t.selection)
         view.installColors(t.ansi.map { SwiftTerm.Color($0) })
+    }
+
+    /// Historial y teclado del perfil (el historial sólo si cambia: SwiftTerm lo rehace).
+    func apply(scrollback: Int, optionAsMeta: Bool, backspaceSendsCtrlH: Bool) {
+        if scrollback != appliedScrollback {
+            view.changeScrollback(scrollback)
+            appliedScrollback = scrollback
+        }
+        view.optionAsMetaKey = optionAsMeta
+        view.backspaceSendsControlH = backspaceSendsCtrlH
     }
 
     func highlight(rules: [HighlightRule], palette: [String: RGB], enabled: Bool) {
@@ -548,6 +704,11 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     private var checkScheduled = false
     private var lastCheck = ContinuousClock.now - .seconds(1)
 
+    func sendSerialBreak() {
+        guard route.transport == .serial, !exited else { return }
+        serialPort?.sendBreak()
+    }
+
     private func outputChanged() async {
         if !isVisible { activity = true }
         let line = cursorLine.trimmingCharacters(in: .whitespaces)
@@ -555,13 +716,35 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
             if !route.jumps.isEmpty, route.thenCommand == nil, !fellBack, !refusalSeen, ConnectionRoute.forwardingRefused(lines(from: max(0, cursorRow - 6))) {
                 refusalSeen = true                 // (se decide al terminar ssh: el texto solo lo podría poner el salto)
             }
-            if !line.hasPrefix(Askpass.marker), DevicePrompt.generic.matches(line) {
+            if checksHostKey, hostKeyMismatch?.host == nil, let m = HostKeyMismatch.detect(lines(from: launchRow)) {
+                hostKeyMismatch = m
+                // (sin «StrictHostKeyChecking» ssh seguiría, sin contraseñas: se corta y se pregunta al terminar)
+                if m.host != nil || m.failed || lines(from: launchRow).contains(where: { $0.contains("to avoid man-in-the-middle attacks") }) {
+                    if !exited { process?.terminate() }
+                }
+            }
+            if let fp = acceptedFingerprint, let shown = KnownHosts.newHostPrompt(lines(from: launchRow)) {
+                acceptedFingerprint = nil
+                if shown == fp {
+                    DebugLog.log("known_hosts", "«\(title)»: la clave nueva es la aceptada (\(fp)) → yes")
+                    sendLine("yes")
+                } else {
+                    DebugLog.log("known_hosts", "«\(title)»: la clave al reconectar (\(shown)) no es la aceptada (\(fp))")
+                    pipe.say(L("\r\n\u{1b}[38;5;204m[NetDeck] ¡Ojo! La huella no es la que aceptaste: contesta tú\u{1b}[0m\r\n"))
+                }
+            }
+            // (con «# @prompt», el suyo; una petición de contraseña/OTP nunca cuenta, la acepte o no la regex)
+            if !exited, PromptRule.isPrompt(line, custom: promptRule) {
                 loggedIn = true
                 state = .connected
-                let given = Askpass.takeGiven(session: id)
-                given.forEach(ledger.confirm)      // (la del askpass ha valido)
+                // (de cada equipo vale el último intento: una guardada que falló antes sigue fallida, la nueva que ha
+                // entrado se confirma, y si se entró escribiéndola a mano no se confirma ninguna guardada)
+                let (given, failed) = Askpass.attribute(Askpass.takeAttempts(session: id))
+                failed.forEach(ledger.markFailed)
+                given.forEach(ledger.confirm)
                 DebugLog.log("pestaña", "«\(title)» en su prompt «\(line)»"
-                             + (given.isEmpty ? "" : " · confirmadas: \(given.map(\.description).joined(separator: ", "))"))
+                             + (given.isEmpty ? "" : " · confirmadas: \(given.map(\.description).joined(separator: ", "))")
+                             + (failed.isEmpty ? "" : " · no valían: \(failed.map(\.description).joined(separator: ", "))"))
             }
         }
         if let d = PromptDevice.name(line, previous: device), d != device {
@@ -612,6 +795,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     func send(bytes: [UInt8]) {
         guard !exited else { return }
         process?.send(data: bytes[...])
+        serialPort?.write(bytes[...])
     }
 
     var revision: Int { pipe.counter.value }
@@ -650,6 +834,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         }
         if onInput?(self, Array(data)) == true { return }
         process?.send(data: data)
+        serialPort?.write(data)
     }
 
     func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {

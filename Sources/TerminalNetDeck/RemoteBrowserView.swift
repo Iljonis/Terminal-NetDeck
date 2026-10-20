@@ -101,12 +101,16 @@ struct RemoteConsoleBar: View {
     }
 }
 
-/// El explorador gráfico de una pestaña SFTP/FTP.
+/// El explorador gráfico de una pestaña SFTP/FTP (o, `compact`, el estrecho al lado del terminal ssh).
 struct RemoteBrowserView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
     let session: TerminalSession
     @Bindable var browser: RemoteBrowser
+    /// El panel lateral: menos columnas y botones; conecta el panel (no al aparecer) y tiene «Ocultar».
+    var compact = false
+    var onRetry: (() -> Void)?
+    var onClose: (() -> Void)?
     @Stored private var editingPath: String?
     @Stored private var showTransfers = true
     /// Hay un aviso de borrar abierto (un segundo clic no abre otro).
@@ -145,15 +149,23 @@ struct RemoteBrowserView: View {
         .background(SwiftUI.Color(t.layer))
         .overlay { if t.neon { Scanlines().opacity(0.5) } }
         .overlay { if let check = browser.md5 { MD5Panel(browser: browser, check: check) } }
-        .onAppear { browser.connect() }
+        .onAppear { if !compact { browser.connect() } }
     }
 
     // MARK: barra de herramientas
 
-    private var toolbar: some View {
+    @ViewBuilder private var toolbar: some View {
         let connected = browser.state == .connected
         let sel = browser.selectedEntries
-        return HStack(spacing: 6) {
+        if compact {
+            compactToolbar(connected: connected, sel: sel)
+        } else {
+            fullToolbar(connected: connected, sel: sel)
+        }
+    }
+
+    private func fullToolbar(connected: Bool, sel: [RemoteEntry]) -> some View {
+        HStack(spacing: 6) {
             RemoteModeSwitch(session: session)
             NeonLine(vertical: true, color: t.panel).frame(height: 20).padding(.horizontal, 2)
             IconButton(icon: "chevron.left") { browser.goBack() }.help(L("Atrás")).disabled(browser.back.isEmpty)
@@ -168,6 +180,7 @@ struct RemoteBrowserView: View {
             IconButton(icon: "square.and.arrow.down") { download(sel) }.help(L("Descargar al Mac")).disabled(sel.isEmpty)
             SendToMenu(browser: browser, entries: sel)
             IconButton(icon: "pencil") { if let e = sel.first { rename(e) } }.help(L("Renombrar")).disabled(sel.count != 1)
+            editButton(sel)
             IconButton(icon: "trash", tint: t.bad) { delete(sel) }.help(L("Borrar")).disabled(sel.isEmpty)
             Spacer(minLength: 8)
             SearchField(text: $browser.filter, prompt: L("Filtrar")).frame(maxWidth: 200)
@@ -176,6 +189,43 @@ struct RemoteBrowserView: View {
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
         .background(SwiftUI.Color(t.bar))
+    }
+
+    /// La del panel lateral: lo de cada día a la vista y el resto en «⋯».
+    private func compactToolbar(connected: Bool, sel: [RemoteEntry]) -> some View {
+        HStack(spacing: 3) {
+            IconButton(icon: "chevron.left") { browser.goBack() }.help(L("Atrás")).disabled(browser.back.isEmpty)
+            IconButton(icon: "arrow.up") { browser.goUp() }.help(L("Carpeta de arriba")).disabled(!connected || browser.path == "/")
+            IconButton(icon: "house.fill") { browser.open(browser.home) }.help(L("Tu carpeta de inicio")).disabled(!connected)
+            IconButton(icon: "arrow.clockwise") { connected ? browser.refresh() : (onRetry ?? browser.reconnect)() }
+                .help(connected ? L("Actualizar") : L("Reconectar"))
+            IconButton(icon: "square.and.arrow.up") { upload() }.help(L("Subir archivos o carpetas del Mac")).disabled(!connected)
+            IconButton(icon: "square.and.arrow.down") { download(sel) }.help(L("Descargar al Mac")).disabled(sel.isEmpty)
+            editButton(sel)
+            IconButton(icon: "trash", tint: t.bad) { delete(sel) }.help(L("Borrar")).disabled(sel.isEmpty)
+            IconMenu(icon: "ellipsis") {
+                Button { newFolder() } label: { Label(L("Nueva carpeta…"), systemImage: "folder.badge.plus") }.disabled(!connected)
+                Button { if let e = sel.first { rename(e) } } label: { Label(L("Renombrar…"), systemImage: "pencil") }.disabled(sel.count != 1)
+                Button { browser.showHidden.toggle() } label: {
+                    Label(browser.showHidden ? L("Esconder los ocultos") : L("Mostrar los ocultos"), systemImage: browser.showHidden ? "eye.slash" : "eye")
+                }
+                MenuDivider()
+                SendToItems(browser: browser, entries: sel)
+            }
+            .help(L("Más"))
+            Spacer(minLength: 2)
+            IconButton(icon: "sidebar.right") { onClose?() }.help(L("Ocultar el explorador (⇧⌘B)"))
+        }
+        .padding(.horizontal, 6).padding(.vertical, 6)
+        .background(SwiftUI.Color(t.bar))
+    }
+
+    /// «Editar»: un archivo de texto en tu editor; al guardarlo se sube (si el servidor no lo ha cambiado entretanto).
+    private func editButton(_ sel: [RemoteEntry]) -> some View {
+        let one = sel.count == 1 ? sel[0] : nil
+        return IconButton(icon: "square.and.pencil") { if let one { browser.edits?.edit(one) } }
+            .help(L("Editar en tu editor de texto: al guardar se sube al servidor"))
+            .disabled(!(one.map(RemoteEdits.canEdit) ?? false) || browser.state != .connected)
     }
 
     // MARK: ruta
@@ -223,10 +273,12 @@ struct RemoteBrowserView: View {
     private var header: some View {
         HStack(spacing: 0) {
             column(L("Nombre"), .name).frame(maxWidth: .infinity, alignment: .leading)
-            column(L("Tamaño"), .size, trailing: true).frame(width: 90, alignment: .trailing)
-            column(L("Permisos"), .permissions).frame(width: 104, alignment: .leading).padding(.leading, 14)
-            Text(L("Propietario").uppercased()).frame(width: 130, alignment: .leading)
-            column(L("Modificado"), .modified).frame(width: 136, alignment: .leading)
+            column(L("Tamaño"), .size, trailing: true).frame(width: compact ? 70 : 90, alignment: .trailing)
+            if !compact {
+                column(L("Permisos"), .permissions).frame(width: 104, alignment: .leading).padding(.leading, 14)
+                Text(L("Propietario").uppercased()).frame(width: 130, alignment: .leading)
+                column(L("Modificado"), .modified).frame(width: 136, alignment: .leading)
+            }
         }
         .font(t.ui(10, .bold)).tracking(t.tracking / 2)
         .foregroundStyle(SwiftUI.Color(t.accent2))
@@ -250,7 +302,7 @@ struct RemoteBrowserView: View {
         return ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.element.entry.path) { i, r in
-                    EntryRow(browser: browser, entry: r.entry, depth: r.depth, odd: i % 2 == 1,
+                    EntryRow(browser: browser, entry: r.entry, depth: r.depth, odd: i % 2 == 1, compact: compact,
                              open: { activate(r.entry) })
                         .themedContextMenu { rowMenu(r.entry) }
                 }
@@ -296,6 +348,8 @@ struct RemoteBrowserView: View {
         } label: { Label(L("Copiar la ruta"), systemImage: "doc.on.doc") }
         if !e.isDirectory {                          // (el del archivo del clic, aunque haya otros elegidos)
             Button { browser.computeMD5(e) } label: { Label(L("Calcular / ver MD5…"), systemImage: "number.square") }
+            Button { browser.edits?.edit(e) } label: { Label(L("Editar…"), systemImage: "square.and.pencil") }
+                .disabled(!RemoteEdits.canEdit(e))
         }
         MenuDivider()
         Button(role: .destructive) { delete(targets) } label: { Label(L("Borrar…"), systemImage: "trash") }
@@ -339,7 +393,7 @@ struct RemoteBrowserView: View {
                 }
                 .buttonStyle(.plain)
             }
-            Text(browser.label).foregroundStyle(SwiftUI.Color(t.dim))
+            if !compact { Text(browser.label).foregroundStyle(SwiftUI.Color(t.dim)) }
         }
         .font(t.ui(10.5, .medium))
         .padding(.horizontal, 10).frame(height: 24)
@@ -365,8 +419,10 @@ struct RemoteBrowserView: View {
             Text(why).font(t.mono(11.5)).foregroundStyle(SwiftUI.Color(t.dim)).multilineTextAlignment(.center)
                 .textSelection(.enabled).frame(maxWidth: 560)
             HStack {
-                NeonButton(title: L("Reintentar"), icon: "arrow.clockwise", active: true) { browser.reconnect() }
-                if session.route.transport == .sftp {
+                NeonButton(title: L("Reintentar"), icon: "arrow.clockwise", active: true) { (onRetry ?? browser.reconnect)() }
+                if compact {
+                    NeonButton(title: L("Ocultar"), icon: "sidebar.right") { onClose?() }
+                } else if session.route.transport == .sftp {
                     NeonButton(title: L("Abrir la consola"), icon: "terminal.fill", tint: t.accent2) { model.setConsole(true, in: session) }
                 }
             }
@@ -497,6 +553,7 @@ private struct EntryRow: View {
     let entry: RemoteEntry
     let depth: Int
     let odd: Bool
+    var compact = false
     let open: () -> Void
     @Stored private var hover = false
     /// Hay filas arrastradas encima de esta carpeta.
@@ -530,13 +587,15 @@ private struct EntryRow: View {
             .padding(.leading, CGFloat(depth) * 16)
             .frame(maxWidth: .infinity, alignment: .leading)
             Text(entry.isDirectory ? "—" : entry.size.map(RemoteBrowserView.bytes) ?? "?")
-                .frame(width: 90, alignment: .trailing)
-            Text(entry.permissionString).frame(width: 104, alignment: .leading).padding(.leading, 14)
-                .foregroundStyle(SwiftUI.Color(t.dim))
-            Text([entry.owner, entry.group].compactMap { $0 }.joined(separator: ":")).lineLimit(1)
-                .frame(width: 120, alignment: .leading).padding(.trailing, 10).foregroundStyle(SwiftUI.Color(t.dim))
-            Text(entry.modified.map { Self.date.string(from: $0) } ?? "").frame(width: 136, alignment: .leading)
-                .foregroundStyle(SwiftUI.Color(t.dim))
+                .frame(width: compact ? 70 : 90, alignment: .trailing)
+            if !compact {
+                Text(entry.permissionString).frame(width: 104, alignment: .leading).padding(.leading, 14)
+                    .foregroundStyle(SwiftUI.Color(t.dim))
+                Text([entry.owner, entry.group].compactMap { $0 }.joined(separator: ":")).lineLimit(1)
+                    .frame(width: 120, alignment: .leading).padding(.trailing, 10).foregroundStyle(SwiftUI.Color(t.dim))
+                Text(entry.modified.map { Self.date.string(from: $0) } ?? "").frame(width: 136, alignment: .leading)
+                    .foregroundStyle(SwiftUI.Color(t.dim))
+            }
         }
         .font(t.mono(11.5))
         .foregroundStyle(SwiftUI.Color(t.text))
@@ -674,8 +733,7 @@ private struct SendToItems: View {
     let entries: [RemoteEntry]
 
     var body: some View {
-        let others = model.tabs.compactMap { s in s.browser.map { (s, $0) } }
-            .filter { $0.1 !== browser && $0.1.state == .connected }
+        let others = model.allBrowsers.filter { $0.1 !== browser && $0.1.state == .connected }
         MenuHeader(title: L("Enviar a otro servidor"))
         if others.isEmpty {
             Text(L("Abre otra pestaña SFTP o FTP y conéctala")).font(.caption).foregroundStyle(.secondary)

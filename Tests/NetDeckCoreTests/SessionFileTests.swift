@@ -153,7 +153,7 @@ private let netdeckFile = """
         let r = SessionImporter.read(url, existing: [])
         #expect(r.sessions.map(\.name) == ["core-01"])
         #expect(r.skipped.count == 1)
-        #expect(SessionImporter.validName("Almería Core 1") == "Almeria-Core-1")
+        #expect(SessionImporter.validName("Cádiz Core 1") == "Cadiz-Core-1")
     }
 }
 

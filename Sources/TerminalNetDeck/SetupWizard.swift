@@ -106,12 +106,13 @@ final class SetupWizard {
         let fm = FileManager.default
         if needsCopy {
             do {
-                try fm.createDirectory(at: destination, withIntermediateDirectories: true)
                 if fm.fileExists(atPath: installedApp.path) {                                       // (versión anterior)
-                    DataBackup.standard.snapshot(reason: "instalar")                               // (sólo se cambia la app)
-                    try fm.removeItem(at: installedApp)
+                    // (sólo se cambia la app, pero antes la copia de tus datos: si no se puede hacer, no se instala)
+                    try DataBackup.standard.snapshotBeforeInstall(reason: "instalar")
                 }
-                try fm.copyItem(at: bundleURL, to: installedApp)
+                // (copia entera aparte y luego cambio de nombre: si falla, sigue la de antes)
+                let (app, bundle) = (installedApp, bundleURL)
+                try await Task.detached { try AppInstall.replace(app, with: bundle) }.value
                 log.append(L("✓ App instalada en \(AppPaths.tilde(installedApp.path))"))
             } catch {
                 log.append(L("✗ No se ha podido copiar la app: \(error.localizedDescription)"))

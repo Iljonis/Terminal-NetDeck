@@ -8,6 +8,12 @@ public enum AppPaths {
         return FileManager.default.homeDirectoryForCurrentUser
     }
 
+    /// Tu usuario del Mac para enseñarlo (usuario por defecto de una sesión, del explorador…). En una captura
+    /// (NETDECK_SNAPSHOT), «tu.usuario»: así no sale el tuyo en las imágenes que se publican.
+    public static var userName: String {
+        ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] != nil ? "tu.usuario" : NSUserName()
+    }
+
     /// ~/Library/Application Support/Terminal NetDeck
     /// Una ruta para enseñarla: la carpeta personal (la real y la de NETDECK_HOME) como «~».
     public static func tilde(_ path: String) -> String {

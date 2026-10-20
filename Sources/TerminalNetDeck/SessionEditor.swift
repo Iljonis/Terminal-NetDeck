@@ -22,10 +22,16 @@ struct SessionEditor: View {
     @Stored private var changing: CredentialRef?
     /// Puertos /dev/cu.* de este Mac (se buscan al abrir y con ↻).
     @Stored private var ports: [String] = []
+    /// Fuentes monoespaciadas instaladas (para el perfil; se buscan al abrir).
+    @Stored private var families: [String] = []
     /// Ya cargado (onAppear puede repetirse: no se vuelve a leer el archivo ni a crear otra sesión nueva).
     @Stored private var loaded = false
     /// Hay una acción en curso: los clics seguidos no la repiten.
     @Stored private var busy = false
+    /// Guardando (en segundo plano): no se cierra ni se vuelve a guardar hasta que acabe.
+    /// Mientras se guardan: ni cerrar, ni conectar, ni volver a guardar (`EditorSaveGate`).
+    @Stored private var gate = EditorSaveGate()
+    private var saving: Bool { gate.saving }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -59,6 +65,7 @@ struct SessionEditor: View {
             loaded = true
             load()
             ports = SerialLine.devices()
+            families = Fonts.monospacedFamilies()
         }
         .onDisappear {
             if model.settingsLeave?.owner == token { model.settingsLeave = nil }
@@ -239,7 +246,7 @@ struct SessionEditor: View {
                 }
                 if k.isNetwork {
                     LabeledContent(L("Equipo (nombre o IP)")) { TextField("", text: s.host, prompt: Text("192.0.2.1")).frame(maxWidth: 380) }
-                    LabeledContent(L("Usuario")) { TextField("", text: s.user, prompt: Text(NSUserName())).frame(maxWidth: 380) }
+                    LabeledContent(L("Usuario")) { TextField("", text: s.user, prompt: Text(AppPaths.userName)).frame(maxWidth: 380) }
                     LabeledContent(L("Puerto")) { TextField("", text: s.port, prompt: Text(EditableSession.defaultPort(k))).frame(maxWidth: 380) }
                 }
                 if k.isNetwork, k != .ftp {
@@ -283,6 +290,8 @@ struct SessionEditor: View {
                 }
             }
 
+            if file.sessions[i].kind != .sftp, file.sessions[i].kind != .ftp { profileSection(i) }
+
             Section {
                 TextEditor(text: Binding(get: { file.sessions[i].notes.joined(separator: "\n") },
                                          set: { file.sessions[i].notes = $0.components(separatedBy: .newlines)
@@ -321,8 +330,7 @@ struct SessionEditor: View {
             for x in SerialLine.speeds { o.append((x, "\(x)")) }
         }
         ThemedSegmented(L("Bits de datos"), selection: line.dataBits) { o in
-            o.append((8, "8"))
-            o.append((7, "7"))
+            for x in [8, 7, 6, 5] { o.append((x, "\(x)")) }
         }
         ThemedSegmented(L("Paridad"), selection: line.parity) { o in
             o.append((SerialLine.Parity.none, L("Ninguna")))
@@ -333,15 +341,64 @@ struct SessionEditor: View {
             o.append((1, "1"))
             o.append((2, "2"))
         }
-        note(L("Se abre con /usr/bin/screen (para salir: Ctrl-A y luego k). screen sólo aplica la velocidad y los bits de datos: la paridad y los bits de parada quedan como los deje el sistema."))
-        if !FileManager.default.fileExists(atPath: SerialLine.screen) {
-            Text(L("Este Mac no tiene /usr/bin/screen: la pestaña no podrá abrir el puerto.")).font(.caption).foregroundStyle(SwiftUI.Color(t.bad))
+        note(L("La app abre el puerto y le aplica velocidad, bits de datos, paridad y bits de parada (sin control de flujo); si el puerto no acepta algún valor, la pestaña lo dice y no se conecta. Para salir, cierra la pestaña."))
+    }
+
+    /// Perfil de la pestaña (`TerminalProfile`): cada campo, de serie, «Heredar» lo de Ajustes (y sigue sus cambios).
+    private func profileSection(_ i: Int) -> some View {
+        let p = $file.sessions[i].terminal
+        let cur = file.sessions[i].terminal
+        let th = model.themes.current
+        let inherit = { (v: String) in L("Heredar (\(v))") }
+        let globalFamily = model.settings.fontFamily.isEmpty ? (Fonts.firstInstalled(th.fonts) ?? L("monoespaciada del sistema"))
+                                                             : model.settings.fontFamily
+        let globalSize = model.settings.fontSize > 0 ? Int(model.settings.fontSize) : th.size - 1
+        let sizes = [0.0] + stride(from: 9.0, through: 24.0, by: 1.0) + (cur.fontSize > 0 && !(9...24).contains(cur.fontSize) ? [cur.fontSize] : [])
+        let lines = [0] + TerminalHistory.options + (cur.scrollback.map { TerminalHistory.options.contains($0) ? [] : [$0] } ?? [])
+        let problem = cur.prompt.isEmpty ? nil : PromptRule.problem(cur.prompt)
+        return Section {
+            ThemedPicker(L("Tema"), selection: p.theme) { o in
+                o.append(("", inherit(th.name)))
+                if !cur.theme.isEmpty, model.themes.theme(id: cur.theme) == nil { o.append((cur.theme, L("\(cur.theme) (no está)"))) }
+                for x in model.themes.all { o.append((x.theme.id, x.theme.name)) }
+            }
+            ThemedPicker(L("Fuente"), selection: p.fontFamily) { o in
+                o.append(("", inherit(globalFamily)))
+                if !cur.fontFamily.isEmpty, !families.contains(cur.fontFamily) { o.append((cur.fontFamily, L("\(cur.fontFamily) (no instalada)"))) }
+                for x in families { o.append((x, x)) }
+            }
+            ThemedPicker(L("Tamaño"), selection: p.fontSize) { o in
+                for x in sizes { o.append((x, x == 0 ? inherit(L("\(globalSize) pt")) : L("\(Int(x)) pt"))) }
+            }
+            ThemedPicker(L("Líneas guardadas"), selection: Binding(get: { cur.scrollback ?? 0 },
+                                                                  set: { file.sessions[i].terminal.scrollback = $0 == 0 ? nil : $0 })) { o in
+                for n in lines { o.append((n, n == 0 ? inherit(TerminalHistory.label(model.settings.scrollback)) : TerminalHistory.label(n))) }
+            }
+            ThemedPicker(L("Tecla ⌥"), selection: p.optionAsMeta) { o in
+                o.append((nil, inherit(L("escribe «@», «#», «|»…"))))
+                o.append((false, L("Escribe «@», «#», «|»… (teclado español)")))
+                o.append((true, L("Como Meta (Esc + tecla: emacs, readline)")))
+            }
+            ThemedPicker(L("Retroceso"), selection: p.backspaceSendsCtrlH) { o in
+                o.append((nil, inherit("DEL")))
+                o.append((false, L("Envía DEL (^?)")))
+                o.append((true, L("Envía ^H (equipos antiguos, consolas)")))
+            }
+            LabeledContent(L("Prompt (regex)")) {
+                TextField("", text: p.prompt, prompt: Text(L("Heredar (genérico)"))).frame(maxWidth: 380)
+                    .font(.system(.callout, design: .monospaced))
+            }
+            if let problem {
+                Text(L("Prompt no válido: \(problem)")).font(.caption).foregroundStyle(SwiftUI.Color(t.bad))
+            }
+        } header: { header(L("PERFIL")) } footer: {
+            Text(L("Lo que dejes en «Heredar» sigue a Ajustes. El prompt (p. ej. ^core-\\d+[#>]$) sustituye al genérico para saber que has entrado y para el pegado seguro; una línea que pide contraseña, passphrase u OTP nunca cuenta como prompt.")).font(.caption)
         }
     }
 
     private func passwordSection(_ i: Int) -> some View {
         let s = $file.sessions[i]
-        let user = file.sessions[i].user.isEmpty ? NSUserName() : file.sessions[i].user
+        let user = file.sessions[i].user.isEmpty ? AppPaths.userName : file.sessions[i].user
         let host = file.sessions[i].host.isEmpty ? file.sessions[i].name : file.sessions[i].host
         return Section {
                 ThemedPicker(L("Contraseña"), selection: s.credential) { o in
@@ -413,15 +470,15 @@ struct SessionEditor: View {
                 Button(L("Cerrar")) { DispatchQueue.main.async { close() } }.keyboardShortcut(.cancelAction)
             }
             NeonButton(title: L("Conectar"), icon: "bolt.horizontal", tint: t.accent2) { once(connect) }
-                .disabled(busy || index.map { !EditableSession.isValidName(file.sessions[$0].name) } ?? true)
+                .disabled(busy || saving || index.map { !EditableSession.isValidName(file.sessions[$0].name) } ?? true)
                 .help(L("Abre la sesión tal como está, sin guardar los cambios"))
             // (⌘S: en la hoja, guardar y conectar; en Ajustes, sólo guardar: se sigue editando)
             NeonButton(title: L("Guardar"), icon: "checkmark", active: dirty) { once { save(connect: false) } }
-                .disabled(busy || !problems.isEmpty || !dirty)
+                .disabled(busy || saving || !problems.isEmpty || !dirty)
                 .help(L("Guarda los cambios sin abrir ninguna pestaña"))
                 .keyboardShortcut(embedded ? KeyboardShortcut("s") : nil)
             NeonButton(title: L("Guardar y conectar"), icon: "bolt.horizontal.fill", tint: t.good) { once { save(connect: true) } }
-                .disabled(busy || !problems.isEmpty || index == nil)
+                .disabled(busy || saving || !problems.isEmpty || index == nil)
                 .keyboardShortcut(embedded ? nil : KeyboardShortcut("s"))
         }
         .padding(.horizontal, 16)
@@ -541,27 +598,43 @@ struct SessionEditor: View {
     }
 
     private func save(connect: Bool) {
-        if dirty {
-            if let err = model.saveSessions(file) {
+        let name = index.map { file.sessions[$0].name }         // (la de ahora: mientras se guarda puedes elegir otra)
+        if let why = gate.blocks(.save) { message = why; return }
+        guard dirty else { return open(connect ? name : nil) }
+        guard gate.begin() else { return }
+        let toSave = file
+        message = L("Guardando…")
+        Task {
+            let err = await model.saveSessions(toSave)
+            gate.end()                          // (antes de abrir: si no, la guarda de `finish` no dejaría cerrar)
+            if let err {
                 message = "✗ \(err)"
                 return
             }
-            saved = file
-            message = L("✓ Guardadas")
+            saved = toSave
+            // (lo que se haya cambiado mientras se guardaba sigue aquí, sin guardar: no se cierra la hoja)
+            message = dirty ? L("✓ Guardadas; los cambios de mientras se guardaba siguen sin guardar") : L("✓ Guardadas")
+            open(connect ? name : nil)
         }
-        guard connect, let i = index else { return }
-        guard let p = model.sessions.profile(named: file.sessions[i].name) else {
-            message = L("✗ No se encuentra «\(file.sessions[i].name)» en las sesiones guardadas")
+    }
+
+    /// «Guardar y conectar»: abre la sesión guardada `name`; la hoja se cierra sólo si no queda nada sin guardar.
+    private func open(_ name: String?) {
+        guard let name else { return }
+        if let why = gate.blocks(.connect) { message = why; return }
+        guard let p = model.sessions.profile(named: name) else {
+            message = L("✗ No se encuentra «\(name)» en las sesiones guardadas")
             return
         }
         model.open(p)
-        finish()
+        if dirty { message = L("✓ «\(name)» abierta: los cambios sin guardar siguen aquí") } else { finish() }
     }
 
     /// «Conectar»: la sesión tal como está, sin guardarla. Si no ha cambiado, como siempre (con su alias del
     /// ssh_config); si es nueva o ha cambiado, con equipo, usuario, puerto y saltos explícitos. Con cambios sin
     /// guardar el gestor sigue abierto para no perderlos.
     private func connect() {
+        if let why = gate.blocks(.connect) { message = why; return }
         guard let i = index else { return }
         let s = file.sessions[i]
         if saved.sessions.contains(where: { $0.id == s.id && $0 == s }), let p = model.sessions.profile(named: s.name) {
@@ -589,18 +662,23 @@ struct SessionEditor: View {
     }
 
     private func close() {
+        if let why = gate.blocks(.close) { message = why; return }
         guard dirty else { return dismiss() }
         Task { if await confirmLeave() { dismiss() } }
     }
 
     /// Antes de cerrar la hoja o de salir de la sección de Ajustes: con cambios, guardar, descartar o quedarse.
     private func confirmLeave() async -> Bool {
+        if let why = gate.blocks(.close) { message = why; return false }
         guard dirty else { return true }
         switch await ThemedAlert.run(L("Hay cambios sin guardar"), buttons: [L("Guardar"), L("Descartar"), L("Cancelar")]).button {
         case 0:
-            if let err = model.saveSessions(file) { message = "✗ \(err)"; return false }
-            saved = file
-            return true
+            let toSave = file
+            guard gate.begin() else { return false }
+            defer { gate.end() }
+            if let err = await model.saveSessions(toSave) { message = "✗ \(err)"; return false }
+            saved = toSave
+            return !dirty                       // (cambiado mientras se guardaba: no se cierra)
         case 1: return true
         default: return false
         }
@@ -608,6 +686,7 @@ struct SessionEditor: View {
 
     /// Tras abrir la pestaña: la hoja se cierra; dentro de Ajustes, se cierran los Ajustes para verla.
     private func finish() {
+        if let why = gate.blocks(.finish) { message = why; return }
         if embedded { model.showSettings = false } else { dismiss() }
     }
 
