@@ -10,6 +10,8 @@ import Foundation
 public final class MultiExecGroup {
     private struct Member { weak var io: (any TerminalIO)? }
 
+    /// El teclado no se mezcla con secuencias reservadas (macros/pegados). Se comprueba en CADA destino y byte.
+    public var canReceiveKeystrokes: (any TerminalIO) -> Bool = { _ in true }
     public var isActive = false
     private var members: [ObjectIdentifier: Member] = [:]
     /// Sacados un momento (p. ej. uno pidiendo contraseña: lo tecleado no debe ir a los demás).
@@ -53,6 +55,7 @@ public final class MultiExecGroup {
     public func broadcast(_ bytes: [UInt8], from origin: TerminalIO) -> Bool {
         let id = ObjectIdentifier(origin)
         guard isActive, members[id] != nil, !paused.contains(id) else { return false }
+        guard canReceiveKeystrokes(origin) else { return true }
         if typingSecret.contains(id) || awaitingAuth(origin) {
             if Self.endsInput(bytes) { typingSecret.remove(id) } else { typingSecret.insert(id) }
             lineTargets[id] = nil
@@ -62,10 +65,13 @@ public final class MultiExecGroup {
             // (primera tecla de la línea: fuera del prompt —una petición que no se conoce, un paginador, un sí/no—
             // se queda en su pestaña; en el prompt, va a los que estén ahora en el suyo, hasta el Intro)
             guard Self.atPrompt(origin) else { return false }
-            lineTargets[id] = Set(terminals.filter { accepts($0) && Self.atPrompt($0) }.map(ObjectIdentifier.init))
+            lineTargets[id] = Set(terminals.filter { accepts($0) && canReceiveKeystrokes($0) && Self.atPrompt($0) }.map(ObjectIdentifier.init))
         }
-        let targets = lineTargets[id] ?? []
-        for io in terminals where targets.contains(ObjectIdentifier(io)) && accepts(io) {
+        // Si un destino pierde bytes, no puede reincorporarse al sufijo de esta misma orden.
+        let eligible = Set(terminals.filter { accepts($0) && canReceiveKeystrokes($0) }.map(ObjectIdentifier.init))
+        let targets = (lineTargets[id] ?? []).intersection(eligible)
+        lineTargets[id] = targets
+        for io in terminals where targets.contains(ObjectIdentifier(io)) {
             io.send(bytes: bytes)
         }
         if Self.endsInput(bytes) { lineTargets[id] = nil }

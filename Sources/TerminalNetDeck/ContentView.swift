@@ -258,8 +258,7 @@ struct TopBar: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
     @Stored private var drag = RowDrag<TerminalSession.ID>()
-    /// Anchos medidos: la fila entera, los botones de los lados (fijos) y la «VISTA ×n».
-    @Stored private var rowWidth: CGFloat = 0
+    /// Anchos medidos: los botones de los lados (fijos) y la «VISTA ×n».
     @Stored private var leftWidth: CGFloat = 0
     @Stored private var rightWidth: CGFloat = 0
     @Stored private var splitWidth: CGFloat = 0
@@ -273,6 +272,15 @@ struct TopBar: View {
     private static let spacerMin: CGFloat = 12
 
     var body: some View {
+        GeometryReader { geometry in
+            row(width: geometry.size.width)
+        }
+        .frame(height: 38)
+    }
+
+    private func row(width: CGFloat) -> some View {
+        // El ancho viene del contenedor, no de la fila ya encogida (evita realimentar el mínimo de 96).
+        let rowWidth = width - (model.fullScreen ? 10 : 80) - 10
         // (lo que dejan los botones: la fila menos los dos grupos fijos, los huecos entre ellos y el Spacer mínimo)
         let room = max(Self.tabMin, rowWidth - leftWidth - rightWidth - 3 * Self.spacing - Self.spacerMin)
         let n = CGFloat(model.tabs.count)
@@ -280,7 +288,7 @@ struct TopBar: View {
         let each = n == 0 ? Self.tabMax
             : min(Self.tabMax, max(Self.tabMin, ((room - split - Self.tabGap * (n - 1)) / n).rounded(.down)))
         let content = split + n * each + max(0, n - 1) * Self.tabGap
-        HStack(spacing: Self.spacing) {
+        return HStack(spacing: Self.spacing) {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Self.tabGap) {
@@ -293,7 +301,7 @@ struct TopBar: View {
                             TabChip(session: s, width: each, dragSpace: drag.space) { drag.blocked[s.id] = $0 }
                                 .id(s.id)
                                 .reorderable(s.id, in: drag, order: { model.tabs.map(\.id) },
-                                             move: { model.moveTab($0, to: $1) }, end: {})
+                                             move: { model.moveTab($0, to: $1) }, end: {}, tap: { model.show(s) })
                         }
                     }
                     .padding(.vertical, 4)
@@ -306,6 +314,9 @@ struct TopBar: View {
             }
             .frame(width: min(content, room))
             .keepsWindowStill(model, "pestañas")
+            Spacer(minLength: Self.spacerMin)
+                .frame(maxWidth: .infinity)
+                .snapshotFrame("hueco")
             HStack(spacing: Self.spacing) {
                 NewButton()
                     .help(L("Conectar, terminal local, sesión nueva o una favorita"))
@@ -315,8 +326,7 @@ struct TopBar: View {
             .fixedSize()
             .layoutPriority(1)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { leftWidth = $0 }
-            Spacer(minLength: Self.spacerMin)
-                .snapshotFrame("hueco")
+            .snapshotFrame("crear")
             HStack(spacing: Self.spacing) {
                 IconButton(icon: "doc.on.clipboard.fill") { model.sheet = .paste }
                     .help(L("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)"))
@@ -367,8 +377,9 @@ struct TopBar: View {
             .fixedSize()
             .layoutPriority(1)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rightWidth = $0 }
+            .snapshotFrame("controles")
         }
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rowWidth = $0 }
+        .frame(width: max(0, rowWidth), alignment: .leading)
         .padding(.leading, model.fullScreen ? 10 : 80)
         .padding(.trailing, 10)
         .frame(height: 38)

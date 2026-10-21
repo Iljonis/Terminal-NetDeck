@@ -18,10 +18,15 @@ enum SnapshotDrags {
     private static var lines: [String] = []
     private static var failures = 0
     private static var moves = 0
+    private static var checks = 0
 
     static func run(_ model: AppModel, report path: String) async {
         try? await Task.sleep(for: .seconds(2))
-        guard let w = model.window else { return }
+        guard let w = model.window, !model.tabs.isEmpty else {
+            check(false, "sin ventana o pestañas: no se ejecutó la prueba")
+            finish(path)
+            return
+        }
         NSApp.activate()
         w.makeKeyAndOrderFront(nil)
         let watch = NotificationCenter.default.addObserver(forName: NSWindow.willMoveNotification, object: w, queue: .main) { _ in
@@ -55,6 +60,21 @@ enum SnapshotDrags {
             say("— otra pantalla: ventana \(w.frame) · escala \(w.backingScaleFactor)")
             await suite(model, w, label: "pantalla \(Int(w.backingScaleFactor))x")
         }
+        w.toggleFullScreen(nil)
+        for _ in 0..<50 {
+            if w.styleMask.contains(.fullScreen) { break }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        try? await Task.sleep(for: .seconds(1))
+        check(w.styleMask.contains(.fullScreen), "pantalla completa: activada")
+        await suite(model, w, label: "pantalla completa")
+        w.toggleFullScreen(nil)
+        for _ in 0..<50 {
+            if !w.styleMask.contains(.fullScreen) { break }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        try? await Task.sleep(for: .seconds(1))
+        check(!w.styleMask.contains(.fullScreen), "pantalla completa: vuelta a ventana")
         // (muchas pestañas: estrechas y con la tira desplazada hasta la última)
         let wide = model.tabs.count
         for i in 0..<24 { model.open(ConnectionRoute(title: "sw-\(i)", target: Endpoint(user: "tu.usuario", host: "192.0.2.\(100 + i)"))) }
@@ -62,14 +82,26 @@ enum SnapshotDrags {
         say("— \(model.tabs.count) pestañas (antes \(wide)): estrechas y con desplazamiento")
         await suite(model, w, label: "estrechas")
         NotificationCenter.default.removeObserver(watch)
-        say(failures == 0 ? "RESULTADO: todo como se espera" : "RESULTADO: \(failures) caso(s) distintos de lo esperado")
-        try? lines.joined(separator: "\n").appending("\n").write(toFile: path, atomically: true, encoding: .utf8)
+        check(checks >= 120, "cobertura: \(checks) comprobaciones (mínimo 120)")
+        finish(path)
+    }
+
+    private static func finish(_ path: String) {
+        say("RESULTADO: comprobaciones=\(checks) fallos=\(failures)")
+        do {
+            try lines.joined(separator: "\n").appending("\n").write(toFile: path, atomically: true, encoding: .utf8)
+        } catch {
+            // El proceso de QA debe fallar también si no puede entregar el informe.
+            fputs("No se puede guardar el informe de pestañas\n", stderr)
+            exit(1)
+        }
         NSApp.terminate(nil)
     }
 
     private static func say(_ s: String) { lines.append(s) }
 
     private static func check(_ ok: Bool, _ s: String) {
+        checks += 1
         if !ok { failures += 1 }
         say((ok ? "✓ " : "✗ ") + s)
     }
@@ -84,8 +116,12 @@ enum SnapshotDrags {
         let active = model.tabs[model.tabs.count - 2]
         model.show(active)
         try? await Task.sleep(for: .milliseconds(600))
+        let controls = frames["controles"], create = frames["crear"]
+        check(controls.map { abs($0.maxX - ((w.contentView?.bounds.width ?? 0) - 10)) <= 1 } == true,
+              "\(label) · controles anclados a la derecha")
         for (name, s) in [("activa", active), ("inactiva", model.tabs[model.tabs.count - 3])] {
-            guard let f = frames["tab:\(s.id)"] else { say("· \(label) \(name): sin marco"); continue }
+            guard let f = frames["tab:\(s.id)"] else { check(false, "\(label) \(name): sin marco"); continue }
+            say("· \(label) \(name): marco \(f) · barra \(model.stillZones["pestañas"] ?? .zero)")
             let mid = f.midY
             let points: [(String, CGPoint)] = [
                 ("borde izquierdo", CGPoint(x: f.minX + 1, y: mid)),
@@ -101,7 +137,7 @@ enum SnapshotDrags {
                 for dir in [-1, 1] {
                     // (hasta pasar el centro de la de al lado: el sitio cambia al pasar su mitad)
                     guard let i = model.tabs.firstIndex(where: { $0 === s }), model.tabs.indices.contains(i + dir),
-                          let n = frames["tab:\(model.tabs[i + dir].id)"] else { continue }
+                          let n = frames["tab:\(model.tabs[i + dir].id)"] else { check(false, "\(label): sin pestaña vecina o marco"); continue }
                     await reorder(model, w, s, from: p, dx: n.midX + CGFloat(dir) * 15 - p.x,
                                   what: "\(label) · \(name) · \(part) · \(dir < 0 ? "←" : "→")")
                 }
@@ -110,7 +146,7 @@ enum SnapshotDrags {
         // un clic (sin mover) en otra pestaña la elige, también en su borde; la ventana no se mueve
         for (part, dx) in [("texto", 40.0), ("borde derecho", -1.0)] {
             let other = model.tabs[model.tabs.count - 3]
-            guard let f = frames["tab:\(other.id)"] else { continue }
+            guard let f = frames["tab:\(other.id)"] else { check(false, "\(label): sin marco para el clic"); continue }
             await click(w, CGPoint(x: dx > 0 ? f.minX + dx : f.maxX + dx, y: f.midY))
             check(model.selection == other.id, "\(label) · clic en otra pestaña (\(part)): elegida=\(model.selection == other.id)")
             model.show(active)
@@ -132,7 +168,7 @@ enum SnapshotDrags {
             say("· \(label) · ✕ \(Int(x.width))×\(Int(x.height)) en \(x)")
             for (part, dx, dy) in [("centro", 0.0, 0.0), ("esquina arriba izq.", -10.5, -10.5), ("esquina abajo dcha.", 10.5, 10.5),
                                    ("izquierda", -11.0, 0.0), ("abajo", 0.0, 11.0)] {
-                guard let s = model.current, let xf = frames["x:\(s.id)"] else { say("· \(label): sin ✕ en la activa"); break }
+                guard let s = model.current, let xf = frames["x:\(s.id)"] else { check(false, "\(label): sin ✕ en la activa"); break }
                 let n = model.tabs.count
                 await click(w, CGPoint(x: xf.midX + dx, y: xf.midY + dy))
                 check(model.tabs.count == n - 1 && !model.tabs.contains { $0 === s },
@@ -140,8 +176,12 @@ enum SnapshotDrags {
                 try? await Task.sleep(for: .milliseconds(400))
             }
         } else {
-            say("· \(label): la activa no enseña la ✕")
+            check(false, "\(label): la activa no enseña la ✕")
         }
+        check(controls.map { before in frames["controles"].map { abs($0.minX - before.minX) <= 1 && abs($0.maxX - before.maxX) <= 1 } ?? false } == true,
+              "\(label) · herramientas fijas tras reordenar y cerrar pestañas")
+        check(create.map { before in frames["crear"].map { abs($0.minX - before.minX) <= 1 && abs($0.maxX - before.maxX) <= 1 } ?? false } == true,
+              "\(label) · botones de crear fijos tras reordenar y cerrar pestañas")
     }
 
     private static func reorder(_ model: AppModel, _ w: NSWindow, _ s: TerminalSession, from p: CGPoint, dx: CGFloat,
@@ -192,14 +232,9 @@ enum SnapshotDrags {
 
 extension View {
     /// (sólo con NETDECK_SNAPSHOT_DRAGS) apunta el marco de esta vista para `SnapshotDrags`.
-    @ViewBuilder func snapshotFrame(_ key: String) -> some View {
-        if SnapshotDrags.enabled {
-            background(GeometryReader { g in
-                let f = g.frame(in: .global)
-                SwiftUI.Color.clear.onChange(of: f, initial: true) { SnapshotDrags.frames[key] = f }
-            })
-        } else {
-            self
+    func snapshotFrame(_ key: String) -> some View {
+        onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+            if SnapshotDrags.enabled { SnapshotDrags.frames[key] = frame }
         }
     }
 }

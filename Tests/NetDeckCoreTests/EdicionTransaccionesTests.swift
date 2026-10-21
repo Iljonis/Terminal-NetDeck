@@ -123,8 +123,8 @@ import Testing
     }
 
     /// RNTO puede pisar una aparición posterior al lookup: sin capacidad declarada, ni siquiera se crea el temporal
-    /// de una edición condicional. La copia y la sobrescritura explícitas siguen disponibles.
-    @Test func FTPExigeCopiaOSobrescrituraExplicita() async throws {
+    /// de una edición condicional ni de una copia exclusiva. Sólo queda la sobrescritura explícita.
+    @Test func FTPExigeSobrescrituraExplicitaYRechazaCopiaSinGarantia() async throws {
         let inner = MemoryFileSystem(), path = "/d/core-01.cfg", work = try folder()
         defer { try? FileManager.default.removeItem(at: work) }
         let original = Data("base".utf8), edited = Data("nuevo".utf8)
@@ -140,8 +140,8 @@ import Testing
         let result = try await RemoteEdit.upload(inner, file)
         #expect(result == .conflict(.requiresOverwrite))
         #expect(inner.files == [path: original])
-        let (copy, _) = try await RemoteEdit.uploadCopy(inner, file)
-        #expect(copy != path && inner.files[path] == original && inner.files[copy] == edited)
+        await #expect(throws: RemoteError.self) { _ = try await RemoteEdit.uploadCopy(inner, file) }
+        #expect(inner.files == [path: original])                      // (FTP no promete exclusividad: ni temporal)
         guard case .uploaded = try await RemoteEdit.upload(inner, file, force: true) else { Issue.record("no se ha sobrescrito"); return }
         #expect(inner.files[path] == edited)
     }

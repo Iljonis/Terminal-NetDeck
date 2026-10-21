@@ -29,6 +29,21 @@ jobs:
         run: ./test.sh
       - name: .dmg
         run: NETDECK_REPO="$GITHUB_REPOSITORY" ./install.sh --dmg
+      - name: Interacción del paquete y demo
+        run: tools/verificar_paquete.sh build/qa
+      - name: SSH y SFTP reales en loopback
+        run: tools/test_ssh_local.sh
+      - name: Informes y capturas del paquete
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-paquete
+          # (repo público: sólo capturas e informes; los .log pueden llevar rutas del runner)
+          path: |
+            build/qa
+            !build/qa/*.log
+          if-no-files-found: error
+          retention-days: 7
       - name: Privacidad del binario
         run: tools/privacidad.sh --binario
       - name: Release

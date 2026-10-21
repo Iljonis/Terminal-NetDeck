@@ -70,7 +70,7 @@ final class SetupWizard {
 
     static func isInstalled(_ u: URL) -> Bool {
         let p = u.resolvingSymlinksInPath().path
-        return p.hasPrefix("/Applications/") || p.hasPrefix(userApplications.path + "/")
+        return p.hasPrefix("/Applications/") || p.hasPrefix(userApplications.resolvingSymlinksInPath().path + "/")
     }
 
     var isAppBundle: Bool { bundleURL.pathExtension == "app" }

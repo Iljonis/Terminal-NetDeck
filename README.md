@@ -9,10 +9,10 @@ y 51 temas. Nativo, rápido y en tu idioma.
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.9.2](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.2)** · macOS 15 o posterior ·
+Versión actual: **[v0.9.3](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.3)** · macOS 15 o posterior ·
 código abierto (MIT)
 
-[![Versión](https://img.shields.io/badge/versión-v0.9.2-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.2)
+[![Versión](https://img.shields.io/badge/versión-v0.9.3-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.3)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -42,7 +42,17 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - **Multipestaña** con vista dividida, MultiExec y pegado seguro; **51 temas** con contraste WCAG.
 - **Sesiones con saltos** sobre tu `ssh_config` y contraseñas sólo en el Llavero de macOS.
 
-### Novedades de 0.9.2
+### Novedades de 0.9.3
+
+- **Barra de pestañas completa:** el ancho se calcula desde la ventana para evitar que se reduzca a una sola pestaña. Los controles permanecen fijos arriba a la derecha.
+- **Ratón corregido en las pestañas:** selección y cierre por el recorrido normal de AppKit, con gestos que permiten
+  arrastrar desde todo el cuerpo de la pestaña y mantener la ventana quieta. La X conserva su área de 24 × 24.
+- **Contraseñas complejas del Llavero:** las que llevan ñ, €, º, acentos o «\\» se escribían mal (macOS las
+  devolvía en hexadecimal) y una cuenta AD quedaba bloqueada 15 min; ahora se escriben tal cual.
+- **Validación del paquete publicado:** la comprobación funcional usa la `.app` producida para distribuir, exige
+  cambios de selección, cierres y arrastres efectivos y falla si se omiten casos o falta el informe.
+- **Automatización y archivos:** MultiExec respeta las reservas de macros en cada destino; edición remota con
+  publicación de copias sin reemplazar otra y recuperación de guardados pendientes al reconectar.
 
 - **SFTP junto al terminal SSH:** mismo equipo, configuración `-F` y saltos; ancho recordado por sesión.
   Se conecta al llegar el terminal a su prompt. Una ruta con salto escrito a mano no ofrece este panel.
@@ -50,7 +60,8 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
   y avisa de conflictos; puedes conservar la edición como copia. Al cerrar la pestaña las copias locales abiertas
   se conservan en `~/Library/Application Support/Terminal NetDeck/edicion/` para que puedas recuperarlas.
   En SFTP la subida sólo sustituye el archivo si sigue como se bajó. En FTP el servidor no garantiza no pisar un
-  archivo que aparezca a la vez: cada guardado pide confirmar «Sobrescribir» o «Guardar como copia».
+  archivo que aparezca a la vez: se conserva la copia local y sólo se sube si confirmas «Sobrescribir».
+  «Guardar como copia» requiere un servidor con publicación exclusiva (SFTP).
 - **Espacios de trabajo:** Herramientas → Espacios de trabajo guarda orden, selección, panel SFTP y distribución
   de las pestañas, incluidos los tamaños relativos de los paneles. Puedes añadirlas a la ventana o sustituir las
   actuales con confirmación. Las sesiones se resuelven de nuevo por nombre; las borradas se avisan. No se guardan

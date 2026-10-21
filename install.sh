@@ -19,7 +19,7 @@ NOMBRE="Terminal NetDeck"
 PRODUCTO=TerminalNetDeck
 ANTIGUO=NetDeckProvisional          # (nombre del ejecutable hasta la v0.4)
 ID=io.netdeck.terminal
-VERSION=0.9.2
+VERSION=0.9.3
 # Repositorio de GitHub («usuario/repo») para las actualizaciones; NETDECK_REPO= (vacío) para no buscarlas.
 REPO="${NETDECK_REPO-Iljonis/Terminal-NetDeck}"
 [[ -z $REPO || $REPO =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "NETDECK_REPO no válido: «$REPO» (usuario/repo)"; exit 1; }
@@ -71,13 +71,13 @@ mkdir -p "$destino" build
 echo "${C}▚ NETDECK${N} // $NOMBRE $VERSION"
 echo "   compilando (release)…"
 # (si no compila se para: nunca se monta la app con el ejecutable de una compilación anterior)
-if ! swift build -c release --product "$PRODUCTO" > build/compilacion.log 2>&1; then
+if ! swift build --build-system native -c release --product "$PRODUCTO" > build/compilacion.log 2>&1; then
   grep -E "error" build/compilacion.log | head -20
   echo "${M}✗ No se ha compilado${N} (todo en build/compilacion.log): no se instala nada"
   exit 1
 fi
 grep -E "warning: .*Sources" build/compilacion.log || true
-BIN_DIR=$(swift build -c release --show-bin-path)
+BIN_DIR=$(swift build --build-system native -c release --show-bin-path)
 [ -x "$BIN_DIR/$PRODUCTO" ] || { echo "${M}✗ No se ha compilado${N}"; exit 1; }
 
 echo "   icono…"

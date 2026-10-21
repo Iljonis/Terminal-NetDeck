@@ -12,6 +12,7 @@ BIN="$(swift build --show-bin-path)/TerminalNetDeck"
 OUT=docs/capturas
 TEMA="${TEMA:-neo-tokyo}"
 mkdir -p "$OUT"
+fallos=0
 
 captura() {   # nombre idioma acción
   local nombre=$1 idioma=$2 accion=$3 casa png
@@ -19,6 +20,7 @@ captura() {   # nombre idioma acción
   casa=$(mktemp -d /tmp/netdeck-demo.XXXX)                      # (ruta corta: se ve en el explorador)
   cp -R tools/demo/. "$casa/"
   png="$casa/captura.png"
+  rm -f "$OUT/$nombre.png"
   # (el explorador: SFTP sin ssh ni red, con el sftp-server del Mac sobre una carpeta de ejemplo)
   mkdir -p "$casa/ficheros/backups" "$casa/ficheros/firmware"
   for e in core-01 core-02 pe-mad-01 sw-acceso-01; do printf 'hostname %s\n!\n' "$e" > "$casa/ficheros/$e.cfg"; done
@@ -37,6 +39,7 @@ captura() {   # nombre idioma acción
     echo "✓ $OUT/$nombre.png"
   else
     echo "✗ $nombre (sin captura)"
+    fallos=$((fallos + 1))
   fi
   rm -rf "$casa"
 }
@@ -49,6 +52,8 @@ captura ajustes-en     en settings:terminal
 captura asistente      es setup:0
 captura pestanas       es "pestañas:9"
 captura explorador     es explorador:vista
+
+[ "$fallos" = 0 ] || exit 1
 
 # (la barra de pestañas, sola: la terminal no sale en estas capturas)
 [ -z "${SOLO:-}" ] || [[ pestanas == *"$SOLO"* ]] || exit 0

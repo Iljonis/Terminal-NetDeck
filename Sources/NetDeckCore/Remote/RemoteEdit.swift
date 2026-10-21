@@ -34,7 +34,7 @@ public enum RemoteEdit {
         case changed
         /// Ya no está.
         case removed
-        /// El backend no garantiza renombrados sin sobrescritura: hay que elegir copia o sobrescritura explícita.
+        /// El backend no garantiza renombrados sin sobrescritura: hay que confirmar la sobrescritura o conservar lo local.
         case requiresOverwrite
     }
 
@@ -89,7 +89,7 @@ public enum RemoteEdit {
     }
 
     /// Sube con temporal y MD5 comprobado. Sin `force`, comprueba la versión antes del envío y en el archivo apartado
-    /// al reemplazar en backends con rename sin sobrescritura. FTP/RNTO exige guardar copia o confirmar `force`:
+    /// al reemplazar en backends con rename sin sobrescritura. FTP/RNTO exige confirmar `force`:
     /// comprobar el MD5 y luego renombrar no equivale a un reemplazo condicional atómico.
     public static func upload(_ fs: any RemoteFileSystem, _ file: RemoteEditFile, force: Bool = false) async throws -> UploadResult {
         let data = try readLocal(file)
@@ -114,12 +114,16 @@ public enum RemoteEdit {
         return .uploaded(f)
     }
 
-    /// «Guardar como copia»: la copia local va a un archivo nuevo junto al remoto («config.local-20261020-153000.txt»)
-    /// y el remoto no se toca. Devuelve la ruta de la copia y el archivo con lo local marcado como guardado.
+    /// Copia con UUID y publicación exclusiva: una aparición concurrente nunca se reemplaza, ni se aparta.
+    /// FTP/RNTO no lo garantiza: se rechaza antes de escribir y se conserva la copia local.
     public static func uploadCopy(_ fs: any RemoteFileSystem, _ file: RemoteEditFile, date: Date = Date()) async throws -> (path: String, file: RemoteEditFile) {
+        guard fs.renameDoesNotOverwrite else {
+            throw RemoteError(L("Este servidor no permite guardar una copia sin riesgo de sobrescribir otro archivo. Tu copia local se conserva."))
+        }
         let data = try readLocal(file)
-        let path = try await copyPath(for: file.remotePath, date: date) { try await fs.lookup($0) != nil }
-        try await send(data, to: fs, path)
+        let path = copyPath(for: file.remotePath, date: date)
+        let writer = try await AtomicRemoteWriter.open(fs, path, verify: true, createOnly: true)
+        try await Transfer.copy(from: DataReader(data), to: writer)
         var f = file
         f.syncedMD5 = TransferDigest.hexOf(data)
         return (path, f)
@@ -136,9 +140,8 @@ public enum RemoteEdit {
         return TransferDigest.hexOf(now) == file.remoteMD5 ? nil : .changed
     }
 
-    /// Un nombre libre junto a `path`: «nombre.local-AAAAMMDD-HHMMSS[.ext]» (y «-2», «-3»… si ya existe).
-    public static func copyPath(for path: String, date: Date = Date(),
-                                exists: (String) async throws -> Bool) async throws -> String {
+    /// Nombre propio de esta copia; la exclusividad la garantiza el rename al publicar, nunca un lookup.
+    public static func copyPath(for path: String, date: Date = Date(), id: UUID = UUID()) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyyMMdd-HHmmss"
@@ -146,11 +149,7 @@ public enum RemoteEdit {
         let ext = (name as NSString).pathExtension
         let base = ext.isEmpty || name.hasPrefix(".") && !name.dropFirst().contains(".") ? name : (name as NSString).deletingPathExtension
         let suffix = base == name ? "" : "." + ext
-        for i in 1...20 {
-            let candidate = RemotePath.join(dir, "\(base).local-\(f.string(from: date))\(i == 1 ? "" : "-\(i)")\(suffix)")
-            if try await !exists(candidate) { return candidate }
-        }
-        throw RemoteError(L("No hay un nombre libre para la copia de «\(name)»"))
+        return RemotePath.join(dir, "\(base).local-\(f.string(from: date))-\(id.uuidString.lowercased())\(suffix)")
     }
 
     /// Quita una descarga que no llegó al editor si está sincronizada. Una copia abierta se conserva siempre:
@@ -204,6 +203,29 @@ public enum RemoteEdit {
         let w = try await AtomicRemoteWriter.open(fs, path, verify: true, expected: expected)
         try await Transfer.copy(from: DataReader(data), to: w)
     }
+}
+
+/// Un guardado fallido sigue pendiente aunque no cambien fecha ni tamaño. Sólo se reintenta con conexión,
+/// esperando 2, 4, 8… hasta 60 s; una copia pendiente nunca se convierte en sobrescritura del original.
+public struct RemoteEditRetry: Sendable {
+    public enum Operation: Equatable, Sendable { case upload, copy }
+    public private(set) var operation: Operation?
+    private var deadline = ContinuousClock.now
+    private var delay = Duration.seconds(2)
+
+    public init() {}
+
+    public mutating func failed(_ operation: Operation, now: ContinuousClock.Instant = .now) {
+        self.operation = operation
+        deadline = now.advanced(by: delay)
+        delay = min(delay * 2, .seconds(60))
+    }
+
+    public func ready(connected: Bool, now: ContinuousClock.Instant = .now) -> Bool {
+        operation != nil && connected && now >= deadline
+    }
+
+    public mutating func reset() { self = Self() }
 }
 
 /// Lee unos datos ya en memoria, a trozos.

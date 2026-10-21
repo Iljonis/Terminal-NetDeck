@@ -12,8 +12,16 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 # (con pipefail, «swift build | grep error && exit 1» no salía nunca: el estado era el de swift build y se seguía con
 # el binario anterior)
+if [ -n "${NETDECK_QA_APP:-}" ]; then
+  NETDECK_QA_BIN="$NETDECK_QA_APP/Contents/MacOS/TerminalNetDeck"
+fi
+if [ -z "${NETDECK_QA_BIN:-}" ]; then
 if ! log=$(swift build --product TerminalNetDeck 2>&1); then echo "$log" | grep -E "error:" | head -20; echo "✗ no compila"; exit 1; fi
 BIN="$(swift build --show-bin-path)/TerminalNetDeck"
+else
+  BIN="$NETDECK_QA_BIN"
+fi
+[ -x "$BIN" ] || { echo "✗ binario de QA inexistente: $BIN"; exit 1; }
 VENTANA="$(mktemp -d "${TMPDIR:-/tmp}/netdeck-ventana.XXXX")/ventana"
 swiftc -O tools/ventana.swift -o "$VENTANA" 2>/dev/null || VENTANA=""
 OUT="${1:-$(mktemp -d "${TMPDIR:-/tmp}/netdeck-verificacion.XXXX")}"
@@ -25,17 +33,25 @@ caso() {   # nombre idioma tema acción [clic x,y] [subcarpeta del explorador] [
   [ -n "${SOLO:-}" ] && [[ "$nombre" != *"$SOLO"* ]] && return
   casa=$(mktemp -d /tmp/netdeck-demo.XXXX)                      # (ruta corta: se ve en el explorador)
   cp -R tools/demo/. "$casa/"
+  local bin="$BIN"
+  if [ -n "${NETDECK_QA_APP:-}" ]; then
+    mkdir -p "$casa/Applications"
+    cp -R "$NETDECK_QA_APP" "$casa/Applications/Terminal NetDeck.app"
+    bin="$casa/Applications/Terminal NetDeck.app/Contents/MacOS/TerminalNetDeck"
+  fi
   png="$casa/captura.png"
+  rm -f "$OUT/$nombre.png" "$OUT/$nombre-menu.png" "$OUT/$nombre-ventana.png"
   # (explorador: SFTP sin ssh ni red sobre una carpeta de ejemplo; con más archivos de los que caben, para el scroll)
   mkdir -p "$casa/ficheros/backups" "$casa/ficheros/firmware"
   for i in $(seq -w 1 30); do printf 'hostname sw-%s\n!\n' "$i" > "$casa/ficheros/sw-acceso-$i.cfg"; done
   printf 'backup\n' > "$casa/ficheros/backups/core-01-2026-10-14.cfg"
   dd if=/dev/zero of="$casa/ficheros/firmware/ios-xe-17.12.bin" bs=1024 count=512 2>/dev/null
   NETDECK_SFTP_SERVER=/usr/libexec/sftp-server NETDECK_SFTP_DIR="$casa/ficheros${sub:+/$sub}" \
-  NETDECK_HOME="$casa" NETDECK_SAMPLES=1 NETDECK_SNAPSHOT="$png" NETDECK_SNAPSHOT_ACTION="$accion" \
+  CFFIXED_USER_HOME="$casa" NETDECK_HOME="$casa" NETDECK_SAMPLES=1 NETDECK_SNAPSHOT="$png" NETDECK_SNAPSHOT_ACTION="$accion" \
   NETDECK_SNAPSHOT_CLICK="$clic" NETDECK_SNAPSHOT_BLOCK="${BLOQUE:-}" \
-    "$BIN" -idioma "$idioma" -themeID "$tema" -themeAuto NO -sshConfigPath "$casa/.ssh/config" -configured YES \
-           -asistenteVisto YES -sidebarVisible YES -buttonBar arriba >/dev/null 2>&1 &
+    "$bin" -idioma "$idioma" -themeID "$tema" -themeAuto NO -sshConfigPath "$casa/.ssh/config" -configured YES \
+           -asistenteVisto YES -sidebarVisible YES -buttonBar arriba -highlightEnabled YES -highlightSource app \
+           -highlightDisabled '()' -highlightThemeColors YES >"$OUT/$nombre-proceso.log" 2>&1 &
   local pid=$!
   for _ in $(seq 1 60); do [ -s "$png" ] && break; sleep 0.25; done
   sleep 0.3
@@ -104,9 +120,18 @@ PY
     cp "$png.espacios.txt" "$OUT/$nombre.espacios.txt" 2>/dev/null
     grep -q '^OK espacios:' "$png.espacios.txt" 2>/dev/null || { echo "✗ $nombre: falla el flujo de espacios"; ok=0; }
   fi
+  if [ "$ok" = 0 ]; then
+    local errores="$casa/Library/Application Support/Terminal NetDeck/logs/error.log"
+    [ ! -f "$errores" ] || cp "$errores" "$OUT/$nombre-error.log"
+  fi
   [ $ok = 1 ] && echo "✓ $nombre" || fallos=$((fallos + 1))
   rm -rf "$casa"
 }
+
+# Los clics y arrastres se prueban sobre EL MISMO ejecutable; el informe ausente o incompleto bloquea la demo.
+if [ -z "${SOLO:-}" ] || [[ pestanas-interaccion == *"$SOLO"* ]]; then
+  NETDECK_QA_BIN="$BIN" tools/verificar_pestanas.sh "$OUT" || fallos=$((fallos + 1))
+fi
 
 caso portada               es neo-tokyo     ""
 caso portada-en            en neo-tokyo     ""
@@ -137,7 +162,7 @@ caso menu-archivo          es neo-tokyo     explorador "${CLIC_ARCHIVO:-700,300}
 caso menu-fila-cortada     es neo-tokyo     explorador "${CLIC_CORTADA:-700,806}" ""       archivo
 caso menu-fondo-lista      es neo-tokyo     explorador "${CLIC_FONDO:-700,600}"   firmware fondo
 caso menu-pestana          es neo-tokyo     "pestañas:3" "${CLIC_PESTANA:-330,20}"
-caso menu-sesion           es neo-tokyo     "" "${CLIC_SESION:-90,200}"
+caso menu-sesion           es neo-tokyo     "" "${CLIC_SESION:-90,208}"
 
 echo "Capturas: $OUT"
 [ $fallos = 0 ] && echo "✓ demo: todo responde (mira las capturas)" || { echo "✗ demo: $fallos caso(s) con fallos"; exit 1; }

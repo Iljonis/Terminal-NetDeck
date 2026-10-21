@@ -196,4 +196,17 @@ final class Clock: @unchecked Sendable {
     @Test func comillasParaSecurityInteractivo() {
         #expect(KeychainStore.quoted(#"a"b\c d'e$f"#) == #""a\"b\\c d'e$f""#)
     }
+
+    /// Lo que devuelve «security find-generic-password -g»: entre comillas o, si lleva algo fuera del ASCII
+    /// imprimible (ñ, €, \…), en hexadecimal. Con «-w» esas salían en hexadecimal y se escribía el hexadecimal.
+    @Test func contraseñaComplejaDelLlavero() {
+        #expect(KeychainStore.decodePassword(#"password: "Ab$1!"q""#) == #"Ab$1!"q"#)
+        #expect(KeychainStore.decodePassword(#"password: "deadbeef""#) == "deadbeef")
+        #expect(KeychainStore.decodePassword(#"password: " lead trail ""#) == " lead trail ")
+        #expect(KeychainStore.decodePassword(#"password: 0x70C3A4737377E282AC7264  "p\303\244ssw\342\202\254rd""#) == "pässw€rd")
+        #expect(KeychainStore.decodePassword(#"password: 0x615C62  "a\134b""#) == #"a\b"#)
+        #expect(KeychainStore.decodePassword("password:") == "")
+        #expect(KeychainStore.decodePassword("algo raro") == nil)
+        #expect(KeychainStore.decodePassword("password: 0xZZ") == nil)
+    }
 }

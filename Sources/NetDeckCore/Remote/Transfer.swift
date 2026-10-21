@@ -324,6 +324,7 @@ public actor AtomicRemoteWriter: RemoteWriter {
     private let inner: any RemoteWriter
     private let verify: Bool
     private let expected: RemoteFileVersion?
+    private let createOnly: Bool
     private let replacementSeconds: Int
     private var running = TransferDigest()
     private var done = false
@@ -332,13 +333,14 @@ public actor AtomicRemoteWriter: RemoteWriter {
     public private(set) var digest: String?
 
     private init(fs: any RemoteFileSystem, path: String, part: String, inner: any RemoteWriter, verify: Bool,
-                 expected: RemoteFileVersion?, replacementSeconds: Int) {
+                 expected: RemoteFileVersion?, createOnly: Bool, replacementSeconds: Int) {
         self.fs = fs
         self.path = path
         self.part = part
         self.inner = inner
         self.verify = verify
         self.expected = expected
+        self.createOnly = createOnly
         self.replacementSeconds = replacementSeconds
     }
 
@@ -348,11 +350,13 @@ public actor AtomicRemoteWriter: RemoteWriter {
                         (hidden ? "." : "") + "\(RemotePath.name(path)).\(UUID().uuidString.prefix(8).lowercased()).part")
     }
 
+    /// `createOnly`: publica sólo si el destino sigue libre, sin apartarlo ni reemplazarlo (SFTP v3).
     /// Algunos servidores FTP no dejan crear archivos que empiezan por «.»: entonces el temporal va sin el punto.
     public static func open(_ fs: any RemoteFileSystem, _ path: String, verify: Bool,
-                            expected: RemoteFileVersion? = nil, replacementSeconds: Int = 10) async throws -> AtomicRemoteWriter {
-        guard expected == nil || fs.renameDoesNotOverwrite else { throw RemoteVersionConflict.unsupported }
-        _ = try await existingFile(fs, path)                // (una carpeta o un enlace: ni el temporal se escribe)
+                            expected: RemoteFileVersion? = nil, createOnly: Bool = false,
+                            replacementSeconds: Int = 10) async throws -> AtomicRemoteWriter {
+        guard (!createOnly && expected == nil) || fs.renameDoesNotOverwrite else { throw RemoteVersionConflict.unsupported }
+        if !createOnly { _ = try await existingFile(fs, path) }    // (crear no se autoriza con un lookup previo)
         var part = partPath(for: path)
         let inner: any RemoteWriter
         do { inner = try await fs.openWrite(part) } catch {
@@ -361,7 +365,7 @@ public actor AtomicRemoteWriter: RemoteWriter {
             inner = try await fs.openWrite(part)
         }
         return AtomicRemoteWriter(fs: fs, path: path, part: part, inner: inner, verify: verify,
-                                  expected: expected, replacementSeconds: replacementSeconds)
+                                  expected: expected, createOnly: createOnly, replacementSeconds: replacementSeconds)
     }
 
     public func write(_ data: Data) async throws {
@@ -417,7 +421,18 @@ public actor AtomicRemoteWriter: RemoteWriter {
     /// podría haberse aplicado: se conservan todas las rutas, sin otro rename ni borrado a ciegas.
     private func replace() async throws {
         let fs = fs, path = path, part = part, seconds = replacementSeconds
-        guard expected == nil || fs.renameDoesNotOverwrite else { throw RemoteVersionConflict.unsupported }
+        guard (!createOnly && expected == nil) || fs.renameDoesNotOverwrite else { throw RemoteVersionConflict.unsupported }
+        if createOnly {
+            try Task.checkCancellation()
+            do {
+                // (el propio rename rechaza la colisión: nunca se cae al reemplazo con .old)
+                try await RemoteOps.withTimeout(seconds) { try await fs.rename(part, to: path) }
+            } catch {
+                if Self.uncertain(error) { throw ReplaceStuckError(path: path, previous: path, new: part) }
+                throw error
+            }
+            return
+        }
         let old = String(Self.partPath(for: path).dropLast(5)) + ".old"
         let stuck = ReplaceStuckError(path: path, previous: old, new: part)
         let kind = try await RemoteOps.withTimeout(seconds) { try await Self.existingFile(fs, path) }

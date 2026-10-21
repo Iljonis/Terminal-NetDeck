@@ -2,9 +2,9 @@
 // cada valor interpolado (y %% por cada %). Lo comprueba IdiomaTests: toda clave del código tiene que estar aquí.
 enum Ingles {
     static let textos: [String: String] = [
+        "Este servidor no permite guardar una copia sin riesgo de sobrescribir otro archivo. Tu copia local se conserva.": "This server cannot save a copy without risking overwriting another file. Your local copy is preserved.",
         "⏳ La pestaña ya tiene una secuencia en marcha; pulsa Esc para cortarla": "⏳ This tab already has a sequence running; press Esc to stop it",
         "✗ El pegado seguro requiere una pestaña SSH/Telnet autenticada": "✗ Safe paste requires an authenticated SSH/Telnet tab",
-        "El servidor no garantiza renombrar sin sobrescribir. Elige Guardar como copia o confirma Sobrescribir para sustituir «%@».": "The server cannot guarantee renaming without overwriting. Choose Save as copy or confirm Overwrite to replace “%@”.",
         "⚠️ Confirmar guardado de «%@»": "⚠️ Confirm saving “%@”",
 
         "Hay dos túneles con el mismo identificador": "Two tunnels have the same identifier",
@@ -180,6 +180,7 @@ enum Ingles {
             "[y/N]",
         "la contraseña lleva un salto de línea":
             "the password contains a line break",
+        "no se entiende la contraseña que devuelve": "can't understand the password it returns",
         "Llavero: %@":
             "Keychain: %@",
         "Los saltos de «%@» forman un bucle":
@@ -1991,7 +1992,6 @@ enum Ingles {
         "Explorador SFTP al lado (⇧⌘B)": "SFTP browser alongside (⇧⌘B)",
         "«%@» no es un archivo normal: no se edita": "“%@” isn't a regular file: it can't be edited",
         "«%@» no es un archivo de texto: no se edita": "“%@” isn't a text file: it can't be edited",
-        "No hay un nombre libre para la copia de «%@»": "There's no free name for the copy of “%@”",
         "«%@» es demasiado grande para editarlo (máximo %@)": "“%@” is too large to edit (maximum %@)",
         "No se puede leer la copia local de «%@»": "Can't read the local copy of “%@”",
         "El explorador lateral sólo está en las pestañas ssh": "The side browser is only available in ssh tabs",

@@ -12,6 +12,7 @@ final class RemoteEdits {
         /// Fecha y tamaño de la copia local la última vez que se miró (para no calcular el MD5 cada segundo).
         var stamp: Stamp?
         var busy = false
+        var retry = RemoteEditRetry()
         /// Lo guardado que se decidió no subir (Cancelar ante un cambio remoto): no se vuelve a preguntar hasta otro guardado.
         var declined: String?
         /// El último fallo dicho (no se repite en cada vuelta).
@@ -101,19 +102,26 @@ final class RemoteEdits {
     private func poll() {
         guard !downloads.finished else { return }
         for (path, var it) in items where !it.busy {
-            let now = Self.stamp(it.file.local)
-            guard now != nil, now != it.stamp else { continue }
+            guard let now = Self.stamp(it.file.local), now != it.stamp || it.retry.operation != nil else { continue }
+            if it.retry.operation != nil, !it.retry.ready(connected: browser?.state == .connected) { continue }
             it.stamp = now
             items[path] = it
-            guard let md5 = try? RemoteEdit.localDigest(it.file), md5 != it.file.syncedMD5, md5 != it.declined else { continue }
-            save(path, force: false)
+            do {
+                let md5 = try RemoteEdit.localDigest(it.file)
+                guard md5 != it.file.syncedMD5, md5 != it.declined else { items[path]?.retry.reset(); continue }
+            } catch {
+                items[path]?.retry.failed(it.retry.operation ?? .upload)
+                fail(L("✗ No se ha podido subir «\(it.file.name)»: \(error.localizedDescription). Tu copia está en \(AppPaths.tilde(it.file.local.path))"), path)
+                continue
+            }
+            if it.retry.operation == .copy { saveCopy(path) } else { save(path, force: false) }
         }
     }
 
     private func save(_ path: String, force: Bool) {
         guard !downloads.finished, var it = items[path], !it.busy else { return }
         guard let browser, let fs = browser.fs, browser.state == .connected else {
-            it.stamp = nil                                  // (se vuelve a mirar cuando haya conexión)
+            it.retry.failed(.upload)                       // (pendiente hasta reconectar, con espera entre intentos)
             items[path] = it
             fail(L("✗ «\(it.file.name)» guardado en el Mac pero sin conexión: se subirá al reconectar el explorador"), path)
             return
@@ -131,6 +139,7 @@ final class RemoteEdits {
                 items[path]?.busy = false
                 switch r {
                 case .unchanged:
+                    items[path]?.retry.reset()
                     model?.status = ""
                 case .uploaded(let f):
                     done(path, f, L("✓ «\(name)» guardado en el servidor (MD5 comprobado)"))
@@ -140,6 +149,8 @@ final class RemoteEdits {
             } catch {
                 guard !downloads.finished || error is ReplaceStuckError else { return }
                 items[path]?.busy = false
+                // (un resultado incierto conserva sus rutas: no se vuelve a publicar automáticamente)
+                if error is ReplaceStuckError { items[path]?.retry.reset() } else { items[path]?.retry.failed(.upload) }
                 fail(L("✗ No se ha podido subir «\(name)»: \(error.localizedDescription). Tu copia está en \(AppPaths.tilde(file.local.path))"), path)
             }
         }
@@ -149,6 +160,7 @@ final class RemoteEdits {
         items[path]?.file = f
         items[path]?.problem = nil
         items[path]?.declined = nil
+        items[path]?.retry.reset()
         model?.status = note
         DebugLog.log("edición", "\(browser?.label ?? ""):\(path) subido (\(f.syncedMD5))")
         browser?.refresh()
@@ -159,49 +171,62 @@ final class RemoteEdits {
         guard !downloads.finished, let it = items[path] else { return }
         items[path]?.busy = true
         let name = it.file.name
+        let canCopy = browser?.fs?.renameDoesNotOverwrite == true
         let why: String
         switch c {
         case .removed: why = L("«\(name)» ya no está en el servidor.")
         case .changed: why = L("«\(name)» ha cambiado en el servidor desde que lo abriste (otro tamaño u otro MD5).")
         case .requiresOverwrite:
-            why = L("El servidor no garantiza renombrar sin sobrescribir. Elige Guardar como copia o confirma Sobrescribir para sustituir «\(name)».")
+            why = L("Este servidor no permite guardar una copia sin riesgo de sobrescribir otro archivo. Tu copia local se conserva.")
         }
         let title = c == .requiresOverwrite ? L("⚠️ Confirmar guardado de «\(name)»") : L("⚠️ «\(name)» ha cambiado en el servidor")
         let r = await ThemedAlert.run(title,
                                       message: why + "\n\n" + L("No se ha sobrescrito nada. Tu copia sigue en \(AppPaths.tilde(it.file.local.path))."),
-                                      buttons: [L("Sobrescribir"), L("Guardar como copia"), L("Cancelar")], destructive: 0)
+                                      buttons: canCopy ? [L("Sobrescribir"), L("Guardar como copia"), L("Cancelar")]
+                                                       : [L("Sobrescribir"), L("Cancelar")], destructive: 0)
         guard !downloads.finished, let it = items[path] else { return }
         items[path]?.busy = false
         switch r.button {
         case 0:
             save(path, force: true)
-        case 1:
-            guard let browser, let fs = browser.fs, browser.state == .connected else {
-                fail(L("✗ Sin conexión: no se ha guardado la copia de «\(name)»"), path)
-                return
-            }
-            items[path]?.busy = true
-            let file = it.file
-            let id = UUID()
-            uploads[id] = Task {
-                defer { items[path]?.busy = false; uploads[id] = nil }
-                do {
-                    let (copy, f) = try await RemoteEdit.uploadCopy(fs, file)
-                    guard !downloads.finished else { return }
-                    done(path, f, L("✓ Guardado como «\(RemotePath.name(copy))» junto al original (que no se ha tocado)"))
-                } catch {
-                    if downloads.finished {
-                        if error is ReplaceStuckError {
-                            fail(L("✗ No se ha podido subir «\(name)»: \(error.localizedDescription). Tu copia está en \(AppPaths.tilde(file.local.path))"), path)
-                        }
-                        return
-                    }
+        case 1 where canCopy:
+            saveCopy(path)
+        default:
+            items[path]?.retry.reset()
+            items[path]?.declined = try? RemoteEdit.localDigest(it.file)
+            model?.status = L("«\(name)» no se ha subido: el servidor y tu copia siguen como estaban")
+        }
+    }
+
+    /// También al reintentar una copia: se publica otra copia exclusiva, nunca sobre el original.
+    private func saveCopy(_ path: String) {
+        guard !downloads.finished, var it = items[path], !it.busy else { return }
+        let file = it.file, name = file.name
+        guard let browser, let fs = browser.fs, browser.state == .connected else {
+            it.retry.failed(.copy)
+            items[path] = it
+            fail(L("✗ Sin conexión: no se ha guardado la copia de «\(name)»"), path)
+            return
+        }
+        it.busy = true
+        items[path] = it
+        let id = UUID()
+        uploads[id] = Task {
+            defer { items[path]?.busy = false; uploads[id] = nil }
+            do {
+                let (copy, f) = try await RemoteEdit.uploadCopy(fs, file)
+                guard !downloads.finished else { return }
+                done(path, f, L("✓ Guardado como «\(RemotePath.name(copy))» junto al original (que no se ha tocado)"))
+            } catch {
+                guard !downloads.finished || error is ReplaceStuckError else { return }
+                if error is ReplaceStuckError {
+                    items[path]?.retry.reset()
+                    fail(L("✗ No se ha podido subir «\(name)»: \(error.localizedDescription). Tu copia está en \(AppPaths.tilde(file.local.path))"), path)
+                } else {
+                    items[path]?.retry.failed(.copy)
                     fail(L("✗ No se ha podido guardar la copia de «\(name)»: \(error.localizedDescription)"), path)
                 }
             }
-        default:
-            items[path]?.declined = try? RemoteEdit.localDigest(it.file)
-            model?.status = L("«\(name)» no se ha subido: el servidor y tu copia siguen como estaban")
         }
     }
 

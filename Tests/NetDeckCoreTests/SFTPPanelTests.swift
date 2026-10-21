@@ -199,8 +199,8 @@ import Testing
         #expect(RemotePath.parent(copy) == dir.path && RemotePath.name(copy).hasPrefix("acl.local-") && copy.hasSuffix(".txt"))
         #expect(try text(copy) == "permit 198.51.100.0/24\n")
         #expect(try text(path) == "deny any\n")
-        let (copy2, _) = try await RemoteEdit.uploadCopy(fs, f, date: date)         // (mismo segundo: «-2»)
-        #expect(copy2 != copy && copy2.hasSuffix("-2.txt"))
+        let (copy2, _) = try await RemoteEdit.uploadCopy(fs, f, date: date)         // (mismo segundo, otro UUID)
+        #expect(copy2 != copy && copy2.hasSuffix(".txt"))
         // (lo local está a salvo en el servidor: ya se puede limpiar)
         #expect(g.syncedMD5 == TransferDigest.hexOf(Data("permit 198.51.100.0/24\n".utf8)))
 

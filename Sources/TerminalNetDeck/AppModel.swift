@@ -85,8 +85,6 @@ final class AppModel {
     @ObservationIgnored private var focusWatch: NSKeyValueObservation?
     @ObservationIgnored private var appearanceWatch: NSKeyValueObservation?
     @ObservationIgnored private var stillWatch: Any?
-    /// La vista a la que se ha dado el clic en una zona de reordenar: le van también el arrastre y el soltar.
-    @ObservationIgnored private var stillTarget: NSView?
     @ObservationIgnored private var frameBeforeFill: NSRect?
     /// Pestañas abiertas la última vez (para reabrirlas).
     var lastOpen: [ConnectionRoute] = []
@@ -138,6 +136,10 @@ final class AppModel {
         // MultiExec: pide un secreto o aún no ha llegado a su primer prompt (lo tecleado iría al askpass como contraseña)
         multiExec.awaitingAuth = { io in
             SecretPrompt.asks(io.cursorLine) || (io as? TerminalSession).map { !$0.loggedIn && !$0.exited } == true
+        }
+        multiExec.canReceiveKeystrokes = { [weak self] io in
+            guard let self, let s = io as? TerminalSession else { return false }
+            return !self.automationReservation.contains(s.id)
         }
         transfers.verify = { settings.verifyTransfers }
         transfers.showCopied = { [weak self] fs, dir in self?.refreshBrowsers(showing: [dir], of: fs) }
@@ -1334,37 +1336,19 @@ final class AppModel {
         w.isMovableByWindowBackground = false
         // pulsar en una zona de reordenar (pestañas en la barra de título, botones): la ventana no se mueve hasta soltar
         if let m = stillWatch { NSEvent.removeMonitor(m) }
-        // (Ctrl+clic abre el menú y su ratón arriba no llega: ése y el clic derecho no bloquean nada)
-        // En la barra de título no basta con eso: la ventana se queda el arrastre (para moverla) aunque no se pueda mover,
-        // y a la pestaña sólo le llegaba el clic. Ahí el clic, el arrastre y el soltar van directos a la vista, sin pasar
-        // por la ventana; fuera de las zonas (los huecos libres de la barra) se sigue moviendo la ventana como siempre.
-        stillWatch = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .rightMouseDown]) { [weak self] event in
-            nonisolated(unsafe) let e = event                       // (cola principal)
-            let consumed = MainActor.assumeIsolated { () -> Bool in
-                guard let self, let w = self.window else { return false }
-                if let v = self.stillTarget {
-                    switch e.type {
-                    case .leftMouseDragged: v.mouseDragged(with: e); return true
-                    case .leftMouseUp: self.stillTarget = nil; w.isMovable = true; v.mouseUp(with: e); return true
-                    default: self.stillTarget = nil
-                    }
-                }
-                if e.type != .leftMouseDown || e.modifierFlags.contains(.control) {
-                    if e.type != .leftMouseDragged { w.isMovable = true }
-                    return false
-                }
-                guard e.window === w, let content = w.contentView else { return false }
-                let p = CGPoint(x: e.locationInWindow.x, y: content.bounds.height - e.locationInWindow.y)
-                let still = self.stillZones.values.contains { $0.contains(p) }
-                w.isMovable = !still
-                guard still, let v = content.hitTest(content.superview?.convert(e.locationInWindow, from: nil) ?? e.locationInWindow)
-                else { return false }
-                self.stillTarget = v
-                if !w.isKeyWindow { w.makeKeyAndOrderFront(nil) }      // (lo que haría la ventana con el clic)
-                v.mouseDown(with: e)
-                return true
+        // (sólo cambia si se puede mover la ventana: AppKit entrega SIEMPRE el evento por su recorrido normal.
+        // Llamar a NSHostingView.mouseDown a mano pierde gestos y botones con los SDK recientes.)
+        stillWatch = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp, .rightMouseDown]) { [weak self] event in
+            nonisolated(unsafe) let e = event
+            MainActor.assumeIsolated {
+                guard let self, let w = self.window else { return }
+                if e.type != .leftMouseDown || e.modifierFlags.contains(.control) { w.isMovable = true; return }
+                guard e.window === w else { return }
+                let h = w.contentView?.bounds.height ?? w.frame.height
+                let p = CGPoint(x: e.locationInWindow.x, y: h - e.locationInWindow.y)
+                w.isMovable = !self.stillZones.values.contains { $0.contains(p) }
             }
-            return consumed ? nil : event
+            return event
         }
         styleWindows()
         fullScreen = w.styleMask.contains(.fullScreen)

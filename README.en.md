@@ -9,10 +9,10 @@ and 51 themes. Native, fast and in your language.
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v0.9.2](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.2)** · macOS 15 or later ·
+Current version: **[v0.9.3](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.3)** · macOS 15 or later ·
 open source (MIT)
 
-[![Version](https://img.shields.io/badge/version-v0.9.2-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.2)
+[![Version](https://img.shields.io/badge/version-v0.9.3-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.3)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -42,13 +42,24 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - **Multi-tab** with split view, MultiExec and safe paste; **51 themes** with WCAG contrast.
 - **Sessions with jump hosts** on top of your `ssh_config`, passwords only in the macOS Keychain.
 
-### New in 0.9.2
+### New in 0.9.3
+
+- **Full tab bar:** width comes from the window, avoiding a collapsed strip that shows only one tab. Controls stay fixed at the top right.
+- **Fixed tab mouse handling:** selection and closing use normal AppKit event delivery, with gestures
+  for dragging across the tab body while keeping the window still. The close button keeps its 24 × 24 target.
+- **Complex Keychain passwords:** passwords with ñ, €, º, accents or “\\” were typed wrong (macOS returned them
+  in hex) and an AD account was locked for 15 min; they are now typed exactly as saved.
+- **Distribution package validation:** functional checks run against the `.app` built for distribution, require
+  actual selection changes, closes and reordering, and fail on skipped cases or missing reports.
+- **Automation and files:** MultiExec honours macro reservations at every destination; remote editing publishes
+  copies without replacing another and retries pending saves after reconnecting.
 
 - **SFTP beside SSH:** same host, configuration and jumps; panel width remembered per session.
 - **Remote editing:** text files up to 5 MB, remote version checks, conflict choices and separate copies.
   Open local copies are preserved after closing a tab under `~/Library/Application Support/Terminal NetDeck/edicion/`.
   Over SFTP the upload only replaces the file if it is still as downloaded. Over FTP the server can't guarantee it won't
-  overwrite a file that appears meanwhile: every save asks you to confirm "Overwrite" or "Save as copy".
+  overwrite a file that appears meanwhile: the local copy is preserved unless you confirm "Overwrite".
+  "Save as copy" requires exclusive publication support (SFTP).
 - **Workspaces:** save tab order, selection, SFTP panels and split proportions. Add tabs or replace the window after
   confirmation. Missing sessions are reported; loopback and manually typed jumps are excluded. MultiExec stays off;
   no macros or tunnels start automatically.

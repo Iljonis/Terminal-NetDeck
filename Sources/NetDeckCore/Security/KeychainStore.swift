@@ -11,10 +11,33 @@ public struct KeychainStore: CredentialStore {
     public init() {}
 
     public func password(for ref: CredentialRef) throws -> String? {
-        let r = try Self.security(["find-generic-password", "-s", ref.service.rawValue, "-a", ref.account, "-w"])
+        // «-g» y no «-w»: con «-w» una contraseña con ñ, €, º, \… sale en hexadecimal sin avisar (y se escribía ESO,
+        // que no vale: fallo y bloqueo de 15 min de la cuenta AD). «-g» la da entre comillas o como «0x…», sin dudas.
+        let r = try Self.security(["find-generic-password", "-s", ref.service.rawValue, "-a", ref.account, "-g"])
         if r.status == 44 { return nil }                          // (errSecItemNotFound)
         guard r.status == 0 else { throw KeychainError(message: r.error) }
-        return r.output.hasSuffix("\n") ? String(r.output.dropLast()) : r.output
+        guard let pw = Self.decodePassword(r.error) else { throw KeychainError(message: L("no se entiende la contraseña que devuelve")) }
+        return pw
+    }
+
+    /// La línea «password: …» de «security find-generic-password -g» (va por stderr): «"texto"» tal cual (dentro
+    /// no se escapa nada) o «0x70C3A4…  "p\303\244…"» en hexadecimal (UTF-8). nil si no se entiende.
+    static func decodePassword(_ stderr: String) -> String? {
+        guard let line = stderr.components(separatedBy: "\n").last(where: { $0.hasPrefix("password:") }) else { return nil }
+        let v = line.dropFirst("password:".count).drop { $0 == " " }
+        if v.isEmpty { return "" }
+        if v.hasPrefix("0x") {
+            let hex = Array(v.dropFirst(2).prefix { $0.isHexDigit }.utf8)
+            guard !hex.isEmpty, hex.count % 2 == 0 else { return nil }
+            var bytes: [UInt8] = []
+            for i in stride(from: 0, to: hex.count, by: 2) {
+                guard let b = UInt8(String(decoding: hex[i..<i + 2], as: UTF8.self), radix: 16) else { return nil }
+                bytes.append(b)
+            }
+            return String(bytes: bytes, encoding: .utf8)
+        }
+        guard v.count >= 2, v.hasPrefix("\""), v.hasSuffix("\"") else { return nil }
+        return String(v.dropFirst().dropLast())
     }
 
     public func contains(_ ref: CredentialRef) -> Bool {
