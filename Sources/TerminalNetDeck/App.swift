@@ -112,7 +112,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Desarrollo: NETDECK_SNAPSHOT=/ruta.png → la app guarda una imagen de su ventana (sin permisos de pantalla).
-    /// NETDECK_SNAPSHOT_CLICK=«x,y» (puntos desde arriba a la izquierda de la ventana) hace antes un clic derecho ahí,
+    /// NETDECK_SNAPSHOT_CLICK=«x,y» (puntos desde arriba a la izquierda de la ventana; una «y» negativa, desde abajo:
+    /// así vale en cualquier tamaño de pantalla, p. ej. la de GitHub Actions) hace antes un clic derecho ahí,
     /// por la cola de eventos como uno de verdad: el menú que abra sale en la imagen «-1.png». NETDECK_SNAPSHOT_WAIT:
     /// los segundos hasta la imagen (2,5; más para una sesión de verdad).
     static var snapshotWait: Double {
@@ -164,7 +165,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor private static func rightClick(x: Double, y: Double) {
         guard let w = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil }), let v = w.contentView else { return }
-        let p = NSPoint(x: x, y: v.bounds.height - y)
+        let p = NSPoint(x: x, y: y < 0 ? -y : v.bounds.height - y)
         for type in [NSEvent.EventType.rightMouseDown, .rightMouseUp] {
             guard let e = NSEvent.mouseEvent(with: type, location: p, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
                                              windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: 1,

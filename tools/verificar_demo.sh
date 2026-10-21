@@ -156,10 +156,11 @@ caso ajustes-temas         es neo-tokyo     settings:temas
 caso ajustes-resaltado     es neo-tokyo     settings:resaltado
 caso ajustes-botones       es neo-tokyo     settings:botones
 caso asistente             es neo-tokyo     setup:0
-# (menús de clic derecho: puntos de la ventana de 1512×860, desde arriba a la izquierda; «fila-cortada», la última,
-# que asoma a medias por abajo; «fondo-lista», la zona vacía de una carpeta con un solo archivo)
+# (menús de clic derecho: puntos de la ventana, desde arriba a la izquierda; «fila-cortada», la última, que asoma a
+# medias por abajo: con «y» negativa, desde abajo, porque la ventana mide 1512×860 aquí y 1024×674 en GitHub Actions;
+# «fondo-lista», la zona vacía de una carpeta con un solo archivo)
 caso menu-archivo          es neo-tokyo     explorador "${CLIC_ARCHIVO:-700,300}" ""       archivo
-caso menu-fila-cortada     es neo-tokyo     explorador "${CLIC_CORTADA:-700,806}" ""       archivo
+caso menu-fila-cortada     es neo-tokyo     explorador "${CLIC_CORTADA:-700,-54}" ""       archivo
 caso menu-fondo-lista      es neo-tokyo     explorador "${CLIC_FONDO:-700,600}"   firmware fondo
 caso menu-pestana          es neo-tokyo     "pestañas:3" "${CLIC_PESTANA:-330,20}"
 caso menu-sesion           es neo-tokyo     "" "${CLIC_SESION:-90,208}"
