@@ -9,10 +9,10 @@ and 51 themes. Native, fast and in your language.
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v0.9.3](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.3)** · macOS 15 or later ·
+Current version: **[v0.9.4](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.4)** · macOS 15 or later ·
 open source (MIT)
 
-[![Version](https://img.shields.io/badge/version-v0.9.3-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.3)
+[![Version](https://img.shields.io/badge/version-v0.9.4-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.4)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,18 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - **SFTP/FTP browser** with atomic copies, built-in MD5 verification and server-to-server transfers.
 - **Multi-tab** with split view, MultiExec and safe paste; **51 themes** with WCAG contrast.
 - **Sessions with jump hosts** on top of your `ssh_config`, passwords only in the macOS Keychain.
+
+### New in 0.9.4
+
+- **Multiple windows:** ⌘N opens another; tabs move between windows by dragging or from the context menu, without
+  dropping the connection. Each window comes back with its tabs and position when reopened.
+- **Rename a tab** (right click): the name stays while you remain on that device, including after reconnecting.
+- **Export and import buttons** in Settings → Buttons to share them; passwords never travel.
+- **More precise passwords:** saved sessions use their own password and each jump host's without waiting for other
+  tabs; on devices opened from a session, help only starts when you send an SSH/Telnet command, never from a
+  `show run`, a banner or a log.
+- **Tunnels and device lists** are sturdier when processes exit and with per-jump credentials.
+- **Full screen:** fixed the extra top gap and the tab bar covering session search and the terminal's first line.
 
 ### New in 0.9.3
 
@@ -147,6 +159,8 @@ cd Terminal-NetDeck
 ### 🔐 Passwords that never go to the wrong place
 
 - **Only in the macOS Keychain:** never in files, arguments or logs.
+- **Saved sessions open directly:** SSH/SFTP use their assigned password and each jump host’s own credential, without guessing or waiting for other tabs. Telnet starts manually.
+- **Devices opened from a session:** help is armed only by an SSH/Telnet command you send, then ends on login, cancellation or another command. `show run`, `show config`, banners and logs never activate it. Suggest mode offers compatible credentials in a small selector tied to that tab and login.
 - **Strict user rule:** a password is only typed automatically when it belongs to exactly the user being asked for.
 - **And the right device:** a server that prints a fake `admin@core-01's password:` doesn't get core-01's password;
   only that tab's destination and jump hosts count.
@@ -182,7 +196,9 @@ cd Terminal-NetDeck
 - **Safe paste:** line by line, waiting for the prompt; it stops on CLI errors, pagers, unconfirmed dangerous commands
   (`reload`, `delete`…) or a password prompt.
 - **Device lists:** the same command on many devices behind a jump host, trying the password one device at a time.
-- **Button bar** with categories, F1–F12 keys and placeholders like `{{vlan=100}}`.
+- **Button bar** with categories, F1–F12 keys and placeholders like `{{vlan=100}}`. Settings → Buttons **exports**
+  them to a `.txt` to hand to a colleague and **imports** theirs (merged with yours without duplicates, or replacing
+  them). Passwords never travel: only the name they're saved under in the Keychain.
 
 ### 🗂️ Tabs that adapt
 
@@ -190,6 +206,14 @@ cd Terminal-NetDeck
 - The title is just the **destination device** (`core-02`, not `core-02 ⟵ bastion`); the full path shows on hover.
   If you hop from a session to another device, the tab shows it.
 - The bar's buttons never get pushed out of the window, however many tabs you have.
+- Dragging a tab never moves the window, also when the window is set to “Fill”.
+- **Rename a tab** (right-click): your name stays while you're on that device (also after reconnecting) and the
+  device name comes back when another device's prompt shows up.
+- **Several windows:** ⌘N opens another one. Drag a tab out of its window to take it to another screen (a window opens
+  there with it) or onto another window's tab bar; or right-click → “Move to New Window” / “Move to Window”. The
+  connection carries on as it was, without reconnecting. On quit each window is saved with its tabs and position,
+  and they come back that way. Closing a window with open connections asks first; the last one quits the app as
+  always.
 
 ![Adaptive tabs](docs/capturas/pestanas.png)
 
@@ -296,6 +320,8 @@ Mac's light or dark mode**, and **every theme passes a WCAG contrast test** (tex
 |---|---|
 | ⌘K | Connect (a session or `user@host[:port]`, direct or through a jump host) |
 | ⌘T | New local terminal |
+| ⌘N | New window |
+| ⇧⌘W | Close the window (asks if it has connections and there are more windows) |
 | ⌥⌘K | Open the startup session |
 | ⇧⌘E | Session manager |
 | ⇧⌘L | Device lists |

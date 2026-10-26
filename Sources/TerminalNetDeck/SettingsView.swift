@@ -121,8 +121,8 @@ struct PasswordSettings: View {
         Form {
             Section {
                 Toggle(L("Escribir sola la contraseña al abrir una sesión"), isOn: $s.sessionAutoPassword)
-                Text(L("La de la sesión y la de sus saltos (-J), con el askpass de la app: no se teclea en el terminal. ")
-                     + L("Un solo intento: si falla, queda bloqueada 15 min en todas las pestañas y te la pide ahí mismo."))
+                Text(L("Al abrir SSH o SFTP, usa sólo la contraseña asignada a esa sesión y a cada salto. Si falta, te la pide; Telnet se inicia a mano. ")
+                     + L("No espera a otras pestañas. Un rechazo confirmado bloquea esa contraseña durante 15 min."))
                     .font(t.ui(11)).foregroundStyle(.secondary)
             } header: { Text(L("Sesiones")) }
 
@@ -132,8 +132,8 @@ struct PasswordSettings: View {
                     o.append((PasswordAutomation.Mode.suggest, L("Sugerirla (un clic)")))
                     o.append((PasswordAutomation.Mode.off, L("Nada")))
                 }
-                Text(L("Al hacer «ssh equipo» o «telnet» desde una sesión. Nunca la de otro usuario: con «ssh root@…» o ")
-                     + L("«Username: pepe», sólo una guardada de ese mismo usuario."))
+                Text(L("Sólo después de enviar «ssh equipo» o «telnet» desde una sesión. La salida del equipo y los banners no activan la detección. ")
+                     + L("El usuario debe coincidir exactamente; los códigos de un solo uso y los cambios de contraseña se contestan a mano."))
                     .font(t.ui(11)).foregroundStyle(.secondary)
             } header: { Text(L("Equipos")) }
 
@@ -144,7 +144,7 @@ struct PasswordSettings: View {
                 }
                 LabeledContent(L("Es del usuario")) { TextField("", text: $s.defaultCredentialUser, prompt: Text(L("Es del usuario"))).frame(maxWidth: 380) }
             } header: { Text(L("Por defecto")) } footer: {
-                Text(L("Sólo se escribe sola cuando piden exactamente ese usuario.")).font(t.ui(11))
+                Text(L("Sólo para equipos abiertos desde una sesión y cuando piden exactamente ese usuario. No se usa al abrir sesiones guardadas.")).font(t.ui(11))
             }
 
             Section {
@@ -169,6 +169,12 @@ struct PasswordSettings: View {
                                 model.keychainRevision += 1
                             }
                             .help(L("Ha fallado hace poco: ahora no se escribe sola (para no bloquear la cuenta AD)"))
+                        } else if case .probing = model.ledger.state(of: ref) {
+                            Button(L("Restablecer pendiente")) {
+                                model.ledger.reset(ref)
+                                model.keychainRevision += 1
+                            }
+                            .help(L("Úsalo sólo si el login pendiente ya terminó. No cambia la contraseña guardada."))
                         }
                         Button(role: .destructive) { delete(ref) } label: { Image(systemName: "trash") }
                             .buttonStyle(.borderless)

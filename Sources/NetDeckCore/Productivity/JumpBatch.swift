@@ -61,8 +61,9 @@ public enum DeviceStatus: Equatable, Sendable {
 }
 
 /// Abre la lista: pestañas escalonadas (que no lleguen todas al salto en el mismo instante), en cada una «ssh equipo»
-/// desde el salto y la contraseña sólo cuando la piden. Una sola pestaña prueba la contraseña a la vez; si falla, las
-/// demás no la escriben. Reintentos: sólo las fallidas que siguen en el prompt del salto, `maxRetries` veces.
+/// desde el salto y la contraseña sólo cuando la piden. Una sola pestaña prueba la contraseña a la vez (las demás
+/// esperan su turno, como mucho `passwordTimeout`); si falla, las demás no la escriben. Reintentos: sólo las fallidas
+/// que siguen en el prompt del salto, `maxRetries` veces.
 @MainActor
 public final class JumpBatchRunner {
     public struct Settings: Sendable {
@@ -154,7 +155,21 @@ public final class JumpBatchRunner {
     }
 
     private func login(_ target: Endpoint, io: any TerminalIO, jump: DevicePrompt, mark: Int) async throws -> DeviceStatus {
-        var sent: (ref: CredentialRef, row: Int)?
+        var sent: (ref: CredentialRef, row: Int, token: UUID)?
+        var reservation: (ref: CredentialRef, token: UUID)?
+        var secondFactor = false
+        // (Esc o el plazo de la interfaz no detienen el ssh del salto ni un TACACS lento. Una vez enviada, sólo un
+        // resultado conocido resuelve la reserva; si falta, la pestaña continúa vigilándola. Sin ese soporte se
+        // conserva hasta que la persona la restablezca)
+        defer {
+            if let s = sent {
+                if owns(s.ref, token: s.token) {
+                    (io as? any PendingAuthenticationIO)?.retainPendingAuthentication(s.ref, reservation: s.token)
+                }
+            } else if let r = reservation {
+                ledger.release(r.ref, reservation: r.token)
+            }
+        }
         let clock = ContinuousClock()
         var end = clock.now + settings.deviceTimeout
         while clock.now < end {
@@ -163,46 +178,71 @@ public final class JumpBatchRunner {
             let line = io.cursorLine.trimmed
             let moved = io.cursorRow > (sent?.row ?? mark)
             if let s = sent {
-                ledger.keepProbing(s.ref)
+                guard owns(s.ref, token: s.token) else { return .skipped(L("Conexión cancelada")) }
+                let output = io.lines(from: s.row)
+                if output.contains(where: { SecretPrompt.asks($0) && !PasswordPrompt.asksForPassword($0) }) {
+                    secondFactor = true                          // (un OTP rechazado no acusa a la contraseña anterior)
+                }
+                if !secondFactor, output.contains(where: Self.denied.matches) {
+                    ledger.markFailed(s.ref, reservation: s.token)
+                    return .denied(L("«\(s.ref)» denegada"))
+                }
                 if PasswordPrompt.asksForPassword(line), io.cursorRow != s.row {    // otra vez: no valía
-                    ledger.markFailed(s.ref)
+                    if secondFactor { return .failed(L("no se ha podido conectar desde el salto")) }
+                    ledger.markFailed(s.ref, reservation: s.token)
                     return .denied(L("«\(s.ref)» no ha valido: no se prueba en más equipos (15 min)"))
                 }
                 if jump.matches(line), moved {                                     // volvió al salto
-                    if io.lines(from: s.row).contains(where: Self.denied.matches) {
-                        ledger.markFailed(s.ref)
-                        return .denied(L("«\(s.ref)» denegada"))
-                    }
-                    ledger.release(s.ref)
+                    ledger.release(s.ref, reservation: s.token)
                     return .failed(L("no se ha podido conectar desde el salto"))
                 }
                 if DevicePrompt.generic.matches(line), moved {
-                    ledger.confirm(s.ref)
+                    ledger.confirm(s.ref, reservation: s.token)
                     return .connected
                 }
                 continue
             }
             if let request = PasswordPrompt.detect(cursorLine: line, above: io.linesAbove(3)) {
-                let cands = [list.credential].compactMap { $0 }.filter { store.contains($0.ref) }
+                // (la petición en pantalla: si cambia mientras se espera turno o se lee el Llavero, no se escribe)
+                let site = "\(io.cursorRow):\(line)"
+                func asked() -> Bool { "\(io.cursorRow):\(io.cursorLine.trimmed)" == site }
+                let cands = await store.availableInBackground([list.credential].compactMap { $0 })
+                try abort.check()
+                guard asked() else { continue }
                 switch policy.decide(request, commandUser: target.user, candidates: cands, isBlocked: ledger.isBlocked) {
                 case .manual(.recentlyFailed(let r)): return .skipped(L("«\(r)» falló hace poco: la escribes tú"))
                 case .manual(let why): return .skipped(L("contraseña a mano (\(Askpass.explain(why)))"))
                 case .inject(let ref):
-                    switch ledger.beginProbe(ref) {
+                    // (otro equipo de la lista u otra pestaña la está probando: se espera su resultado, sondeando y
+                    // sin quitarle nunca la reserva; con la misma contraseña, entran uno detrás de otro)
+                    var probe = ledger.reserveProbe(ref)
+                    let turn = clock.now + settings.passwordTimeout
+                    while probe.result == .wait, clock.now < turn, asked() {
+                        try await Task.sleep(for: settings.poll)
+                        try abort.check()
+                        if asked() { probe = ledger.reserveProbe(ref) }
+                    }
+                    switch probe.result {
                     case .blocked: return .skipped(L("«\(ref)» falló hace poco: la escribes tú"))
-                    case .wait:                                            // otra pestaña la está probando:
-                        end = max(end, clock.now + settings.poll * 4)       // (no se agota mientras espera su turno)
-                        continue
+                    case .wait:
+                        if !asked() { continue }                     // (ya no la piden: se mira qué ha pasado)
+                        return .skipped(Askpass.explain(.pendingAttempt(ref)))
                     case .go:
+                        guard let token = probe.token else { return .skipped(L("Conexión cancelada")) }
+                        reservation = (ref, token)
                         guard let pw = await store.passwordInBackground(for: ref) else {
-                            ledger.release(ref)
                             return .failed(L("no está en el Llavero"))
                         }
                         // Esc antes de escribirla: no se ha probado, que no se queden esperando las demás
-                        do { try abort.check() } catch { ledger.release(ref); throw error }
+                        try abort.check()
+                        try Task.checkCancellation()
+                        guard owns(ref, token: token), asked() else {
+                            return .skipped(L("Conexión cancelada"))
+                        }
                         let row = io.cursorRow                  // (antes de enviar: la respuesta puede ser inmediata)
+                        sent = (ref, row, token)
                         io.sendLine(pw)
-                        sent = (ref, row)
+                        (io as? any PendingAuthenticationIO)?.registerPendingAuthentication(ref, reservation: token)
                         set(target, .passwordSent)
                         end = clock.now + settings.passwordTimeout
                     }
@@ -212,11 +252,14 @@ public final class JumpBatchRunner {
             if jump.matches(line), moved { return .failed(L("no se ha podido conectar desde el salto")) }
             if DevicePrompt.generic.matches(line), moved { return .connected }           // clave pública
         }
-        if let s = sent {                      // ni sí ni no: no se prueba en más equipos (para no bloquear la cuenta)
-            ledger.markFailed(s.ref)
-            return .denied(L("sin respuesta a «\(s.ref)»"))
-        }
+        // (sin resultado no se acusa ni se libera: puede seguir autenticándose o esperando un OTP)
+        if let s = sent { return .skipped(Askpass.explain(.pendingAttempt(s.ref))) }
         return .failed(L("el equipo no ha contestado"))
+    }
+
+    private func owns(_ ref: CredentialRef, token: UUID) -> Bool {
+        if case .probing(_, _, let current) = ledger.state(of: ref) { return current == token }
+        return false
     }
 
     private func set(_ d: Endpoint, _ s: DeviceStatus) {

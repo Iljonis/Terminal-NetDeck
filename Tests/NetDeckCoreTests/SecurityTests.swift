@@ -184,10 +184,10 @@ final class Clock: @unchecked Sendable {
     @Test func idaYVuelta() {
         let r = CredentialRef.device("tu.usuario", "192.0.2.1")
         #expect(Askpass.decode(Askpass.encode(r)) == r)
-        let env = Askpass.environment(executable: "/x", configPath: nil, defaultCredential: .init(name: "AD", user: "tu.usuario"),
-                                      session: UUID())
+        let env = Askpass.environment(executable: "/x", configPath: nil, session: UUID())
         #expect(env["SSH_ASKPASS_REQUIRE"] == "force")
-        #expect(env["NETDECK_DEFAULT"] == "AD\ttu.usuario")
+        // (la predeterminada ya no va: nadie la leía y su nombre y usuario los veía todo lo que cuelga de ssh)
+        #expect(env["NETDECK_DEFAULT"] == nil)
     }
 }
 

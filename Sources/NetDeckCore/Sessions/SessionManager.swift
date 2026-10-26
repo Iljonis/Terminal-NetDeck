@@ -98,6 +98,7 @@ public final class SessionManager {
         let alias = p.transport == .ssh || p.transport == .sftp ? p.name : nil      // (sftp lee el mismo ssh_config)
         var r = ConnectionRoute(title: p.name, target: p.endpoint, jumps: jumps,
                                 transport: p.transport, alias: alias, sessionName: p.name)
+        r.authenticationProfile = p.name
         // (con un ProxyCommand suyo en el ssh_config no se comparte: se respeta el suyo)
         if alias != nil, !p.proxyJump.isEmpty, !p.hasProxyCommand { r.configJumps = p.proxyJump }
         return r
@@ -120,6 +121,7 @@ public final class SessionManager {
             if !r.jumps.isEmpty { r.jumpSpec = r.jumps.map(\.description) }
         }
         r.sessionName = nil
+        r.authenticationProfile = nil
         r.transientProfile = s.terminal
         return r
     }
@@ -159,7 +161,7 @@ public final class SessionManager {
             r.jumps = try resolve(p.proxyJump, seen: [p.name])
             r.jumpSpec = p.proxyJump.isEmpty ? nil : p.proxyJump
             r.target.host = p.endpoint.host
-            r.target.port = p.endpoint.port
+            r.target.port = e.port ?? p.endpoint.port
             return r
         }
         return ConnectionRoute(title: e.host, target: e)
@@ -206,7 +208,10 @@ public final class SessionManager {
             guard let p = profile(named: name) else { throw RouteError.badJump(s) }
             out += try resolve(p.proxyJump, seen: seen.union([name]))
             var end = p.endpoint
-            if let u = e?.user, profile(named: s) == nil { end.user = u }     // «admin@bastion»: el usuario escrito
+            if profile(named: s) == nil {
+                if let u = e?.user { end.user = u }     // («admin@bastion:2222»: lo escrito manda)
+                if let port = e?.port { end.port = port }
+            }
             // (un salto de otra sesión con equipo o usuario «-…» sería una opción de ssh: «ssh -t -oProxyCommand=…»)
             for v in [end.host, end.user ?? ""] where v.hasPrefix("-") { throw RouteError.badJump(s) }
             out.append(end)
@@ -215,6 +220,64 @@ public final class SessionManager {
     }
 
     // MARK: - contraseñas candidatas
+
+    /// El askpass inicial sólo conoce los extremos de ESTA conexión. Los alias de sus saltos se conservan: buscar
+    /// por HostName elegiría la clave de otra sesión al mismo equipo (otro puerto o usuario).
+    struct InitialCredentialScope {
+        var candidates: [CredentialCandidate]
+        var named: String?
+    }
+
+    func initialCredentialScope(account: Endpoint, route: ConnectionRoute?) -> InitialCredentialScope {
+        guard let route, let user = account.user else { return .init(candidates: [], named: nil) }
+        struct Scope: Hashable {
+            var endpoint: Endpoint
+            var profile: SessionProfile?
+            var names: Set<String> { Set([endpoint.host, profile?.name].compactMap { $0?.lowercased() }) }
+        }
+        func scope(_ endpoint: Endpoint, profile: SessionProfile?) -> Scope {
+            var endpoint = endpoint
+            if endpoint.user == nil { endpoint.user = profile?.effectiveUser ?? NSUserName() }
+            // (un usuario o puerto explícito de otro extremo no hereda su # @clave)
+            let own = profile.flatMap { p in
+                p.endpoint.host.caseInsensitiveCompare(endpoint.host) == .orderedSame
+                    && p.effectiveUser == endpoint.user && (p.port ?? 22) == (endpoint.port ?? 22) ? p : nil
+            }
+            return Scope(endpoint: endpoint, profile: own)
+        }
+        func jumps(_ specs: [String], seen: Set<String>) -> [Scope] {
+            var out: [Scope] = []
+            for spec in specs {
+                guard let endpoint = Endpoint(parsing: spec) else { continue }
+                guard let p = profile(named: spec) ?? profile(named: endpoint.host) else {
+                    out.append(scope(endpoint, profile: nil)); continue
+                }
+                guard !seen.contains(p.name) else { continue }
+                out += jumps(p.proxyJump, seen: seen.union([p.name]))
+                var target = p.endpoint
+                if profile(named: spec) == nil {
+                    if let u = endpoint.user { target.user = u }
+                    if let port = endpoint.port { target.port = port }
+                }
+                out.append(scope(target, profile: p))
+            }
+            return out
+        }
+        let selected = (route.authenticationProfile ?? route.alias ?? route.sessionName).flatMap(profile(named:))
+        let specs = route.jumpSpec ?? route.configJumps ?? selected?.proxyJump ?? []
+        var scopes = jumps(specs, seen: Set([selected?.name].compactMap { $0 }))
+        if specs.isEmpty { scopes += route.jumps.map { scope($0, profile: nil) } }
+        // (telnet: askpass sólo autentica el ssh al salto, nunca la consola telnet del destino)
+        if route.transport == .ssh || route.transport == .sftp { scopes.append(scope(route.target, profile: selected)) }
+        let matches = Set(scopes.filter { $0.names.contains(account.host.lowercased()) && $0.endpoint.user == user })
+        // (askpass no incluye el puerto: dos etapas con el mismo usuario/equipo son ambiguas)
+        guard matches.count == 1, let own = matches.first else { return .init(candidates: [], named: nil) }
+        let named = own.profile?.namedCredential
+        var candidates: [CredentialCandidate] = []
+        if let named { candidates.append(.init(ref: .named(named), owners: [user], origin: .sessionNamed)) }
+        candidates.append(.init(ref: .device(user, own.endpoint.host), owners: [user], origin: .device))
+        return .init(candidates: candidates, named: named)
+    }
 
     /// Usuarios dueños de una contraseña con nombre: los de las sesiones que la usan.
     public func owners(ofNamed name: String) -> Set<String> {
@@ -238,6 +301,7 @@ public final class SessionManager {
         add(route.target.host)
         route.alias.map(add)
         route.sessionName.map(add)
+        route.authenticationProfile.map(add)
         route.jumps.forEach { add($0.host) }
         if let t = route.thenCommand.flatMap(CommandLineUser.parse) { add(t.host) }
         return out
@@ -251,25 +315,63 @@ public final class SessionManager {
     /// escrito el propio ssh (askpass) o la app.
     public func credentialCandidates(for request: PasswordRequest, route: ConnectionRoute?,
                                      defaultCredential: DefaultCredential?, trustAccount: Bool = false,
-                                     typedHosts: Set<String> = []) -> [CredentialCandidate] {
+                                     typedHosts: Set<String> = [], typedTarget: Endpoint? = nil) -> [CredentialCandidate] {
+        if !trustAccount, let account = request.account, let at = account.lastIndex(of: "@"),
+           !expectedHosts(route: route, typed: typedHosts).contains(String(account[account.index(after: at)...]).lowercased()) {
+            return []                              // (tampoco la predeterminada sale hacia otro equipo)
+        }
         var out: [CredentialCandidate] = []
         func session(_ p: SessionProfile?, user: String, host: String, origin: CredentialCandidate.Origin) {
             if let n = p?.namedCredential { out.append(.init(ref: .named(n), owners: owners(ofNamed: n), origin: origin)) }
-            out.append(.init(ref: .device(user, host), owners: [user], origin: origin == .sessionNamed ? .device : origin))
+            out.append(.init(ref: .device(user, p?.endpoint.host ?? host), owners: [user], origin: origin == .sessionNamed ? .device : origin))
         }
         if let a = request.account, let at = a.lastIndex(of: "@"),
            trustAccount || expectedHosts(route: route, typed: typedHosts).contains(String(a[a.index(after: at)...]).lowercased()) {
             let host = String(a[a.index(after: at)...])
-            session(profiles.first { $0.endpoint.host == host } ?? profile(named: host),
-                    user: String(a[..<at]), host: host, origin: .sessionNamed)
+            let user = String(a[..<at])
+            func matches(_ p: SessionProfile) -> Bool {
+                guard p.effectiveUser == user, p.name.caseInsensitiveCompare(host) == .orderedSame
+                        || p.endpoint.host.caseInsensitiveCompare(host) == .orderedSame else { return false }
+                if let t = typedTarget {
+                    let selected = profile(named: t.host)
+                    if t.host.caseInsensitiveCompare(host) == .orderedSame
+                        || selected?.endpoint.host.caseInsensitiveCompare(host) == .orderedSame {
+                        return (p.port ?? 22) == (t.port ?? selected?.port ?? 22)
+                    }
+                }
+                if let route {
+                    let endpoints = ([route.target] + route.jumps).filter {
+                        $0.host.caseInsensitiveCompare(p.endpoint.host) == .orderedSame && ($0.user ?? p.effectiveUser) == user
+                    }
+                    if !endpoints.isEmpty { return endpoints.allSatisfy { ($0.port ?? 22) == (p.port ?? 22) } }
+                }
+                return true
+            }
+            // (la orden puede nombrar el alias aunque ssh pregunte por su HostName)
+            let named = typedHosts.compactMap(profile(named:)).filter(matches)
+            let exact = profile(named: host).flatMap { matches($0) ? $0 : nil }
+            let byHost = profiles.filter { $0.endpoint.host.caseInsensitiveCompare(host) == .orderedSame && matches($0) }
+            let selected = route.flatMap { ($0.authenticationProfile ?? $0.alias ?? $0.sessionName).flatMap(profile(named:)) }.flatMap {
+                matches($0) ? $0 : nil
+            }
+            session(selected ?? (named.count == 1 ? named.first : exact) ?? (byHost.count == 1 ? byHost.first : nil),
+                    user: user, host: host, origin: .sessionNamed)
         }
         if let route {
-            let p = route.sessionName.flatMap(profile(named:))
+            let p = (route.authenticationProfile ?? route.alias ?? route.sessionName).flatMap(profile(named:)).flatMap {
+                $0.endpoint.host.caseInsensitiveCompare(route.target.host) == .orderedSame
+                    && $0.effectiveUser == (route.target.user ?? $0.effectiveUser)
+                    && ($0.port ?? 22) == (route.target.port ?? 22) ? $0 : nil
+            }
             session(p, user: route.target.user ?? p?.effectiveUser ?? NSUserName(), host: route.target.host,
                     origin: .sessionNamed)
             if let j = route.jumps.last {
-                session(profiles.first { $0.endpoint.host == j.host }, user: j.user ?? NSUserName(), host: j.host,
-                        origin: .jumpSession)
+                let user = j.user ?? NSUserName()
+                let matching = profiles.filter {
+                    $0.endpoint.host.caseInsensitiveCompare(j.host) == .orderedSame && $0.effectiveUser == user
+                        && ($0.port ?? 22) == (j.port ?? 22)
+                }
+                session(matching.count == 1 ? matching.first : nil, user: user, host: j.host, origin: .jumpSession)
             }
         }
         if let d = defaultCredential {

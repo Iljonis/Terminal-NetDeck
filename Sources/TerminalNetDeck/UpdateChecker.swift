@@ -10,13 +10,13 @@ final class UpdateChecker {
     static let lastCheckKey = "ultimaComprobacionActualizaciones"
     static let interval: TimeInterval = 24 * 60 * 60
 
-    private weak var model: AppModel?
+    private weak var core: AppCore?
     private var timer: Timer?
     private let defaults = UserDefaults.standard
     private var checking = false
 
-    init(model: AppModel) {
-        self.model = model
+    init(core: AppCore) {
+        self.core = core
     }
 
     /// Empieza: consulta ya si toca y vuelve a mirar cada hora si ha pasado el día.
@@ -35,7 +35,7 @@ final class UpdateChecker {
     }
 
     private func checkIfDue() {
-        guard let model, model.settings.autoUpdateCheck, let repo = UpdateCheck.repo,
+        guard let core, core.settings.autoUpdateCheck, let repo = UpdateCheck.repo,
               Self.isDue(last: defaults.object(forKey: Self.lastCheckKey) as? Date) else { return }
         guard !checking else { return }
         checking = true
@@ -45,7 +45,7 @@ final class UpdateChecker {
                 let release = try await UpdateCheck.check(repo: repo)
                 // (sólo si ha contestado: sin red o con error se reintenta en la próxima vuelta del temporizador)
                 self?.defaults.set(Date(), forKey: Self.lastCheckKey)
-                self?.model?.availableUpdate = release
+                self?.core?.availableUpdate = release
                 DebugLog.log("actualizaciones", release.map { "hay una nueva: \($0.version)" } ?? "al día")
             } catch {
                 ErrorLog.warning("actualizaciones", "sin respuesta: \(error.localizedDescription)")

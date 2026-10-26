@@ -22,6 +22,8 @@ Repositorio público: https://github.com/Iljonis/Terminal-NetDeck
   `NETDECK_SNAPSHOT=/ruta.png [NETDECK_SNAPSHOT_ACTION=settings:general|settings:botones|tab:usuario@equipo|setup:0|sesion-nueva|explorador|explorador:vista|pestañas:N]`
   (el explorador, con `NETDECK_SFTP_SERVER=/usr/libexec/sftp-server NETDECK_SFTP_DIR=<carpeta>`: SFTP sin ssh ni red).
   NETDECK_HOME cambia la carpeta personal: nunca captures con tus datos reales (sesiones, recientes, pestañas).
+  Con NETDECK_SNAPSHOT, la terminal local arranca `/bin/sh` sin login y con un prompt de ejemplo (`TerminalSession.launch`):
+  una de login enseñaría tu usuario y el nombre del Mac; la demo de espacios falla si aparecen.
   Más: `NETDECK_SNAPSHOT_ACTION=terminal` (pestaña local con `tools/demo/salida.txt` resaltada; deja `.txt` y
   `.resaltado.txt`), `NETDECK_SNAPSHOT_CLICK=x,y` (clic derecho sintético; el menú sale en `-1.png`),
   `NETDECK_SNAPSHOT_WAIT=s`, `NETDECK_SNAPSHOT_MD5=1` / `NETDECK_SNAPSHOT_DOWNLOAD=carpeta` (explorador). En la imagen
@@ -47,6 +49,12 @@ Repositorio público: https://github.com/Iljonis/Terminal-NetDeck
   `~/.ssh/config` sólo recibe un `Include`. Nada de un `sesiones.json` aparte: así `ssh core-01` vale desde cualquier
   terminal. Datos propios como anotaciones: `# @grupo` (con `/` = carpetas), `# @clave`, `# @clave-grupo`, `# @desc`,
   `# @telnet`, `# @tipo sftp|ftp|serie|local`, `# @serie /dev/cu.x 9600 8N1`, `# @antiguo`.
+- **Ventanas**: `AppCore` (uno: ajustes, temas, sesiones, Llavero, botones, macros, túneles, espacios, resaltado y
+  `abiertas.json` por ventana con su marco) y un `AppModel` por ventana (pestañas, vista dividida, MultiExec, hojas,
+  avisos). Lo común se lee con las propiedades de siempre (`model.settings`…), que reenvían a `AppCore`; lo que afecta
+  a todas las pestañas va por `core.allTabs`. Una pestaña pasa de ventana sin cortar su conexión (`moveTab(_:to:)`;
+  `wire` la engancha a la nueva). Los menús actúan sobre `core.front` y se refrescan con `MenuRefresh` (SwiftUI no los
+  vuelve a evaluar por cambios `@Observable`); cada acción comprueba `modalOpen` al hacerse.
 - **Archivos del usuario** (ssh_config, botones.txt, listas): siempre con `SafeFile` (no se pisa lo que no se puede
   leer; `.anterior` y `.original`; escritura atómica 0600). Carpetas con `AppPaths.ensure` (0700).
 - **Contraseñas**: sólo en el Llavero (`KeychainStore` vía `/usr/bin/security`, el secreto por stdin, nunca en

@@ -16,6 +16,9 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     public var configJumps: [String]?
     /// Sesión de la que sale (para la contraseña con nombre).
     public var sessionName: String?
+    /// Perfil que autentica el primer SSH. Se conserva al escribir luego otra orden en el salto (`sessionName` puede
+    /// seguir siendo el destino para su apariencia); nunca se deduce del primer HostName coincidente.
+    public var authenticationProfile: String?
     /// Salto «a mano»: al salir el prompt del salto se escribe esta orden («ssh admin@core-01»).
     /// Así vale aunque el salto no deje reenviar puertos (-J da «administratively prohibited»).
     public var thenCommand: String?
@@ -34,7 +37,7 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     // (sin `configJumps`: es el ProxyJump del ssh_config del momento; una pestaña guardada lo recalcula al abrirse con
     // `SessionManager.refreshConfigJumps`, para no entrar por un salto que ya se cambió)
     private enum CodingKeys: String, CodingKey {
-        case title, target, jumps, transport, alias, jumpSpec, sessionName, thenCommand, thenUser, manualHop, localShell, serial
+        case title, target, jumps, transport, alias, jumpSpec, sessionName, authenticationProfile, thenCommand, thenUser, manualHop, localShell, serial
     }
 
     public init(title: String, target: Endpoint, jumps: [Endpoint] = [], transport: SessionProfile.Transport = .ssh,

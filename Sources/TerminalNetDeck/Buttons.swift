@@ -258,6 +258,11 @@ struct ButtonEditor: View {
                     Button(L("Empezar con los de ejemplo")) { file = ButtonFile.samples; selected = file.buttons.first?.id }
                         .help(L("Unos botones de muestra (show interfaces de Cisco, Juniper y Huawei, ping…) para editarlos a tu gusto"))
                 }
+                Button(L("Importar…")) { importFile() }
+                    .help(L("Añade los botones de un botones.txt (p. ej. el de un compañero); no se guardan hasta pulsar «Guardar»"))
+                Button(L("Exportar…")) { exportFile() }
+                    .help(L("Guarda estos botones en un .txt para pasárselos a otro (las contraseñas no van: sólo su nombre en el Llavero)"))
+                    .disabled(file.buttons.isEmpty)
                 Button(L("Recargar")) { load() }
                 Button(L("Guardar")) {
                     message = model.saveButtons(file).map { "✗ \($0)" } ?? L("✓ Guardados")
@@ -445,6 +450,60 @@ struct ButtonEditor: View {
         loaded = true
         selected = selected ?? file.buttons.first?.id
         message = FileManager.default.fileExists(atPath: ButtonFile.defaultURL.path) ? "" : L("Botones de ejemplo: «Guardar» para crear el archivo")
+    }
+
+    /// Un botones.txt de otro: se añaden a los tuyos (sin repetir) o los sustituyen. Queda en el editor hasta «Guardar».
+    private func importFile() {
+        let p = NSOpenPanel()
+        p.showsHiddenFiles = true                       // (el de NetDeck está en ~/.config/netdeck)
+        p.message = L("Elige el botones.txt que quieres importar")
+        guard p.runModal() == .OK, let u = p.url else { return }
+        let size = (try? u.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        guard size <= 1_000_000 else { message = L("✗ \(u.lastPathComponent) es demasiado grande para ser un botones.txt"); return }
+        let other: ButtonFile
+        do { other = try ButtonFile(contentsOf: u) } catch {
+            ErrorLog.error("botones", "importar \(u.lastPathComponent): \(error.localizedDescription)")
+            message = L("✗ No se ha podido leer \(u.lastPathComponent) (¿es un texto UTF-8?)")
+            return
+        }
+        guard !other.buttons.isEmpty else {
+            message = L("✗ \(u.lastPathComponent) no tiene botones (formato «Grupo :: modo :: Nombre :: comando»)")
+            return
+        }
+        let skipped = other.problems.isEmpty ? "" : L(" · \(String(other.problems.count)) líneas mal escritas se han saltado")
+        Task {
+            var replace = false
+            if !file.buttons.isEmpty {
+                let r = await ThemedAlert.run(L("Importar \(String(other.buttons.count)) botones de \(u.lastPathComponent)"),
+                                              message: L("«Añadir» los junta con los tuyos (los repetidos no se duplican); «Sustituir» deja sólo los importados."),
+                                              buttons: [L("Añadir"), L("Sustituir"), L("Cancelar")], destructive: 1)
+                guard r.button == 0 || r.button == 1 else { return }
+                replace = r.button == 1
+            }
+            if replace || file.buttons.isEmpty {
+                file.buttons = other.buttons
+                message = L("✓ \(String(other.buttons.count)) botones importados: «Guardar» para quedártelos") + skipped
+            } else {
+                let r = file.merge(other)
+                message = L("✓ \(String(r.added)) añadidos, \(String(r.repeated)) ya los tenías: «Guardar» para quedártelos") + skipped
+            }
+            selected = file.buttons.first?.id
+            DebugLog.log("botones", "importados de \(u.lastPathComponent) (\(replace ? "sustituir" : "añadir"))")
+        }
+    }
+
+    /// Lo que hay en el editor a un .txt con el mismo formato (para pasárselo a otro).
+    private func exportFile() {
+        let p = NSSavePanel()
+        p.nameFieldStringValue = "botones.txt"
+        guard p.runModal() == .OK, let u = p.url else { return }
+        do {
+            try file.save(to: u)                        // (SafeFile: copia .anterior si ya había uno y sólo para ti)
+            message = L("✓ \(String(file.buttons.count)) botones exportados a \(u.lastPathComponent)")
+        } catch {
+            ErrorLog.error("botones", "exportar \(u.lastPathComponent): \(error.localizedDescription)")
+            message = "✗ \(error.localizedDescription)"
+        }
     }
 
     private func add(in group: String? = nil) {

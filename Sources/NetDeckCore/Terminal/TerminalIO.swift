@@ -18,6 +18,16 @@ public protocol TerminalIO: AnyObject, Sendable {
     var promptRule: PromptRule? { get }
 }
 
+/// La pestaña conserva los intentos cuyo observador acaba antes que la autenticación, y los resuelve cuando llega
+/// al prompt o termina su proceso. Sólo se transfiere la referencia y su reserva, nunca la contraseña.
+@MainActor
+public protocol PendingAuthenticationIO: TerminalIO {
+    /// Registra el intento en la conexión que acaba de enviarlo (antes de cualquier espera o aviso).
+    func registerPendingAuthentication(_ ref: CredentialRef, reservation: UUID)
+    /// El observador termina sin resultado: la pestaña continúa vigilando el registro de esa conexión.
+    func retainPendingAuthentication(_ ref: CredentialRef, reservation: UUID)
+}
+
 public extension TerminalIO {
     var promptRule: PromptRule? { nil }
     func send(_ text: String) { send(bytes: Array(text.utf8)) }
@@ -57,5 +67,24 @@ enum Poll {
         }
         try abort.check()
         return check()
+    }
+}
+
+/// Tras SIGTERM, la espera a que termine el proceso de una pestaña (una autenticación enviada conserva su reserva hasta
+/// entonces): si a los `killAfter` sigue vivo, `kill` (SIGKILL, como los túneles), y como mucho `limit` en total, para
+/// que la espera no sea eterna (un proceso que no muere o un PID que ya no se puede comprobar).
+public enum ProcessExit {
+    @MainActor
+    public static func wait(alive: () -> Bool, kill: () -> Void, killAfter: Duration = .seconds(3), limit: Duration = .seconds(5),
+                            every: Duration = .milliseconds(100), clock: any PollClock = SystemPollClock()) async {
+        let start = clock.now()
+        var killed = false
+        while alive(), clock.now() - start < limit {
+            if !killed, clock.now() - start >= killAfter {
+                killed = true
+                kill()
+            }
+            do { try await clock.sleep(for: every) } catch { break }
+        }
     }
 }

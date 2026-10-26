@@ -48,8 +48,9 @@ extension AppModel {
                 let sid = UUID()
                 tunnelAskpass[t.id] = sid
                 env.merge(Askpass.environment(executable: Bundle.main.executablePath ?? CommandLine.arguments[0],
-                                              configPath: settings.sshConfigURL.path, defaultCredential: settings.defaultCredential,
-                                              session: sid, manual: !settings.sessionAutoPassword)) { $1 }
+                                              configPath: settings.sshConfigURL.path,
+                                              session: sid, manual: !settings.sessionAutoPassword,
+                                              profile: route.sessionName, route: route)) { $1 }
             }
             tunnelRunner.start(t, executable: "/usr/bin/ssh", arguments: args, environment: env)
             // (un rechazo síncrono repetido puede no emitir otro onChange)
@@ -70,10 +71,13 @@ extension AppModel {
         let name = tunnels.tunnel(id)?.name ?? "?"
         switch state {
         case .active:
-            if let sid = tunnelAskpass.removeValue(forKey: id) { Askpass.takeGiven(session: sid).forEach(ledger.confirm) }
+            if let sid = tunnelAskpass.removeValue(forKey: id) { Askpass.takeGiven(session: sid).forEach(ledger.confirmDirect) }
             status = L("Túnel «\(name)» activo")
         case .failed(let why):
-            if let sid = tunnelAskpass.removeValue(forKey: id) { _ = Askpass.takeGiven(session: sid) }
+            // (si ssh dice que no valía la que dio el askpass, bloqueada 15 min como en las pestañas)
+            if let sid = tunnelAskpass.removeValue(forKey: id) {
+                Askpass.settleAfterExit(session: sid, ledger: ledger) { tunnelRunner.authenticationRejection(for: id) }
+            }
             ErrorLog.warning("tuneles", "«\(name)»: \(why)")
             status = L("✗ Túnel «\(name)»: \(why)")
         case .stopped:
@@ -99,7 +103,7 @@ enum TunnelSignals {
             sigaction(sig, &action, nil)
             let src = DispatchSource.makeSignalSource(signal: sig, queue: .main)
             src.setEventHandler {
-                MainActor.assumeIsolated { AppModel.instance?.tunnelRunner.stopAll() }
+                MainActor.assumeIsolated { AppCore.shared.tunnelRunner.stopAll() }
                 signal(sig, SIG_DFL)
                 raise(sig)
             }

@@ -387,6 +387,93 @@ import Testing
         #expect(await until { if case .failed(let w) = m.state(a.id) { w.contains("Permission denied") } else { false } })
     }
 
+    /// El resumen para la interfaz pierde el equipo; el registro de contraseñas recibe el rechazo original.
+    @Test func rechazoDelDestinoNoBloqueaLaContrasenaDelSalto() async throws {
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let sid = UUID(), ref = CredentialRef.device("tu.usuario", "bastion"), ledger = CredentialLedger()
+        try SafeFile.write(Askpass.encodeGiven(ref, host: "bastion") + "\n", to: dir.appendingPathComponent(sid.uuidString))
+        let exe = try script("echo 'tu.usuario@core-01: Permission denied (publickey).' >&2\nexit 255")
+        let t = Tunnel(name: "web", session: "core-01", kind: .remote, targetHost: "127.0.0.1")
+        let m = runner()
+        defer { m.onChange = nil; m.stopAll(wait: 0) }
+        var settled = false, failed: [CredentialRef] = []
+        m.onChange = { id, state in
+            if case .failed = state {
+                failed = Askpass.settleAfterExit(session: sid, ledger: ledger, directory: dir) { m.authenticationRejection(for: id) }
+                settled = true
+            }
+        }
+        m.start(t, executable: exe, arguments: try arguments(t), environment: env)
+        #expect(await until { settled })
+        #expect(m.state(t.id) == .failed(TunnelFailure.reason(stderr: "Permission denied", status: nil)))
+        #expect(m.authenticationRejection(for: t.id)?.host == "core-01")
+        // (ni bloqueada ni confirmada: un rechazo que no nombra ningún equipo de los intentos no demuestra que alguno
+        // entrara —con HostKeyAlias o la IP del corte sería el rechazado—; sin marca se usa igual que confirmada)
+        #expect(failed.isEmpty && !ledger.isBlocked(ref) && ledger.state(of: ref) == nil)
+    }
+
+    @Test func rechazoPropioBloqueaSuContrasena() async throws {
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let sid = UUID(), ref = CredentialRef.named("AD"), ledger = CredentialLedger()
+        try SafeFile.write(Askpass.encodeGiven(ref, host: "core-01") + "\n", to: dir.appendingPathComponent(sid.uuidString))
+        let exe = try script("echo 'tu.usuario@core-01: Permission denied (publickey,password).' >&2\nexit 255")
+        let t = Tunnel(name: "web", session: "core-01", kind: .remote, targetHost: "127.0.0.1")
+        let m = runner()
+        defer { m.onChange = nil; m.stopAll(wait: 0) }
+        var failed: [CredentialRef] = []
+        m.onChange = { id, state in
+            if case .failed = state {
+                failed = Askpass.settleAfterExit(session: sid, ledger: ledger, directory: dir) { m.authenticationRejection(for: id) }
+            }
+        }
+        m.start(t, executable: exe, arguments: try arguments(t), environment: env)
+        #expect(await until { if case .failed = m.state(t.id) { true } else { false } })
+        #expect(failed == [ref] && ledger.isBlocked(ref))
+    }
+
+    @Test func unFalloDeRedNoBloqueaContrasenas() async throws {
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let sid = UUID(), ref = CredentialRef.named("AD"), ledger = CredentialLedger()
+        try SafeFile.write(Askpass.encodeGiven(ref, host: "core-01") + "\n", to: dir.appendingPathComponent(sid.uuidString))
+        let exe = try script("echo 'ssh: connect to host core-01 port 22: Connection refused' >&2\nexit 255")
+        let t = Tunnel(name: "web", session: "core-01", kind: .remote, targetHost: "127.0.0.1")
+        let m = runner()
+        defer { m.onChange = nil; m.stopAll(wait: 0) }
+        var settled = false
+        m.onChange = { id, state in
+            if case .failed = state {
+                #expect(Askpass.settleAfterExit(session: sid, ledger: ledger, directory: dir) { m.authenticationRejection(for: id) }.isEmpty)
+                settled = true
+            }
+        }
+        m.start(t, executable: exe, arguments: try arguments(t), environment: env)
+        #expect(await until { settled })
+        #expect(m.authenticationRejection(for: t.id) == nil && !ledger.isBlocked(ref))
+    }
+
+    @Test func elRechazoNoSobreviveAReinicioParadaOBorrado() async throws {
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let auth = try script("echo 'tu.usuario@core-01: Permission denied (publickey,password).' >&2\nexit 255")
+        let config = try script("exit 255", configuration: "echo 'ssh_config: Permission denied' >&2\nexit 255")
+        let t = Tunnel(name: "web", session: "core-01", kind: .remote, targetHost: "127.0.0.1")
+        let m = runner(), args = try arguments(t)
+        defer { m.onChange = nil; m.stopAll(wait: 0) }
+        for action in 0..<4 {
+            m.start(t, executable: auth, arguments: args, environment: env)
+            #expect(await until { m.authenticationRejection(for: t.id) != nil })
+            switch action {
+            case 0:
+                m.onChange = { id, state in if state == .starting { #expect(m.authenticationRejection(for: id) == nil) } }
+                m.start(t, executable: config, arguments: args, environment: env)
+                #expect(await until { if case .failed = m.state(t.id) { true } else { false } })
+            case 1: await m.stop(t.id)
+            case 2: await m.forget(t.id)
+            default: m.markFailed(t.id, "Permission denied")
+            }
+            #expect(m.authenticationRejection(for: t.id) == nil)
+        }
+    }
+
     @Test func siSshMuereQuedaEnErrorSinRelanzar() async throws {
         let exe = try script("""
             echo x >> '\(dir.path)/veces'

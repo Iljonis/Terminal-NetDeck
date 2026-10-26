@@ -359,7 +359,7 @@ struct MacroMenu: View {
                 }
             }
             MenuDivider()
-            Button(L("Macros…")) { model.sheet = .macros }
+            Button(L("Macros…")) { model.present(.macros) }
         }
     }
 }

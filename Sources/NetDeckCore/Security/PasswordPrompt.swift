@@ -32,6 +32,10 @@ public enum PasswordPrompt {
     static let changeOrConfirm = Pattern(#"\b(new|nueva|retype|re-enter|confirm|repeat|verify|old|current|actual|again)\b"#)
     static let account = Pattern(#"([^\s'()\[\]]+@[^\s'()\[\]]+?)(?:'s\s+password|\)\s*(?:enter\s+)?password)"#)
     static let typed = Pattern(#"^\s*(?:user\s*name|user|login(?:\s+as)?|usuario)\s*:\s*(\S+)\s*$"#)
+    static let loginLine = Pattern(#"^\s*(?:user\s*name|user|login(?:\s+as)?|usuario)\s*:(?:\s*\S+)?\s*$"#)
+
+    /// La respuesta al usuario de un login no es una orden nueva, aunque se termine con Intro.
+    public static func isLoginLine(_ line: String) -> Bool { loginLine.matches(line) }
 
     public static func asksForPassword(_ line: String) -> Bool {
         let l = line.trimmed
@@ -74,6 +78,68 @@ public enum SecretPrompt {
 /// Usuario y equipo de una orden «ssh …»/«telnet …» tecleada (al conectar o en la shell de un salto).
 public enum CommandLineUser {
     private static let sshOptionsWithArgument = Set("BbcDEeFIiJLlmOoPpQRSWw")
+
+    /// Para armar el login interno: una invocación interactiva completa, sin una orden remota después del destino.
+    /// Las variantes que no se pueden interpretar sin una shell (comillas, escapes…) se quedan manuales.
+    public static func interactiveTarget(_ command: String) -> Endpoint? {
+        guard !command.contains(where: { "'\"\\;|&$`<>".contains($0) }),
+              !command.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { return nil }
+        let words = command.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard let first = words.first, ["ssh", "telnet"].contains(first) else { return nil }
+        let ssh = first == "ssh"
+        let flags = Set(ssh ? "1246AaCKkMqstvXxYy" : "468acdEKLrx")
+        let arguments = Set(ssh ? "BbcDEeFIiJLlmPpRSo" : "l")
+        var user: String?, port: Int?, target: Endpoint?, options = true
+        var i = 1
+        while i < words.count {
+            let word = words[i]
+            if target == nil, options, word == "--" { options = false; i += 1; continue }
+            if target == nil, options, word.hasPrefix("-") {
+                let chars = Array(word.dropFirst())
+                guard !chars.isEmpty else { return nil }
+                var j = 0
+                while j < chars.count {
+                    let flag = chars[j]
+                    if arguments.contains(flag) {
+                        let value: String
+                        if j + 1 < chars.count { value = String(chars[(j + 1)...]) }
+                        else { i += 1; guard i < words.count else { return nil }; value = words[i] }
+                        guard !value.isEmpty else { return nil }
+                        switch flag {
+                        case "l": user = value
+                        case "p":
+                            guard let p = Int(value), (1...65535).contains(p) else { return nil }; port = p
+                        case "J":
+                            let jumps = value.split(separator: ",", omittingEmptySubsequences: false)
+                            guard !jumps.isEmpty, jumps.allSatisfy({ Endpoint(parsing: String($0))?.isShellSafe == true }) else { return nil }
+                        case "o":
+                            let (key, sep, option) = value.partition("=")
+                            guard !sep.isEmpty else { return nil }
+                            let k = key.lowercased(), v = option.lowercased()
+                            guard !["remotecommand", "localcommand", "proxycommand", "sessiontype"].contains(k),
+                                  !(k == "requesttty" && v == "no"), !(k == "batchmode" && v == "yes") else { return nil }
+                            if k == "user" { user = option }
+                            if k == "port" { guard let p = Int(option), (1...65535).contains(p) else { return nil }; port = p }
+                        default: break
+                        }
+                        break                                      // (lo demás era el valor de esta opción)
+                    }
+                    guard flags.contains(flag) else { return nil }   // (-N/-f/-T/-G/-W… no son este login)
+                    j += 1
+                }
+            } else if target == nil {
+                guard let endpoint = Endpoint(parsing: word), endpoint.isShellSafe else { return nil }
+                target = endpoint
+            } else if !ssh, port == nil, let p = Int(word), (1...65535).contains(p) {
+                port = p
+            } else { return nil }                                  // (payload remoto o argumentos sobrantes)
+            i += 1
+        }
+        guard var target else { return nil }
+        if let user { target.user = user }
+        if let port { target.port = port }
+        return target.isShellSafe ? target : nil
+    }
 
     /// «admin@bastion:~$ ssh -p 2222 -l root 192.0.2.1» → root@192.0.2.1:2222. «-l» gana a «usuario@» (como ssh).
     public static func parse(_ commandLine: String) -> Endpoint? { scan(commandLine).target }

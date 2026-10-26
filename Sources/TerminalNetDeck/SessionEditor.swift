@@ -402,7 +402,7 @@ struct SessionEditor: View {
         let host = file.sessions[i].host.isEmpty ? file.sessions[i].name : file.sessions[i].host
         return Section {
                 ThemedPicker(L("Contraseña"), selection: s.credential) { o in
-                    o.append(("", L("Automática (la de \(user)@\(host) o la por defecto)")))
+                    o.append(("", L("Automática (la de \(user)@\(host))")))
                     o.append(("-", L("La propia del equipo (-)")))
                     if !file.sessions[i].credential.isEmpty, file.sessions[i].credential != "-",
                        !namedCredentials.contains(file.sessions[i].credential) { o.append((file.sessions[i].credential, L("\(file.sessions[i].credential) (no está en el Llavero)"))) }
@@ -437,7 +437,7 @@ struct SessionEditor: View {
         HStack {
             Text(se.credential == "-" ? L("Usa: la propia del equipo (la escribes tú)")
                  : named.map { $0.fromGroup ? L("Usa: 🔑 \($0.name) (la del grupo)") : L("Usa: 🔑 \($0.name)") }
-                 ?? (hasDevice ? L("Usa: la de \(user)@\(host)") : L("Usa: la por defecto o ninguna (a mano)")))
+                 ?? (hasDevice ? L("Usa: la de \(user)@\(host)") : L("Usa: ninguna (a mano)")))
                 .font(.caption).foregroundStyle(.secondary)
             if let ref, !model.store.contains(ref) {
                 Text(L("(no está en el Llavero)")).font(.caption).foregroundStyle(.orange)

@@ -237,6 +237,27 @@ public struct ButtonFile: Sendable {
         return c.id
     }
 
+    /// Importar los botones de otro (un botones.txt que te pasan): se añaden al final de su categoría los que no
+    /// tienes ya (mismo grupo, modo, nombre y orden); si su tecla rápida ya es de otro, entra sin ella.
+    /// Devuelve cuántos se han añadido y cuántos ya estaban.
+    @discardableResult
+    public mutating func merge(_ other: ButtonFile) -> (added: Int, repeated: Int) {
+        var added = 0, repeated = 0
+        var keys = Set(buttons.compactMap(\.hotkey))
+        for b in other.buttons {
+            if buttons.contains(where: { $0.group == b.group && $0.mode == b.mode && $0.name == b.name && $0.command == b.command }) {
+                repeated += 1
+                continue
+            }
+            let k = b.hotkey.flatMap { keys.insert($0).inserted ? $0 : nil }
+            let c = CommandButton(group: b.group, mode: b.mode, name: b.name, command: b.command, hotkey: k)
+            let at = (buttons.lastIndex { $0.group == c.group }).map { $0 + 1 } ?? buttons.count
+            buttons.insert(c, at: at)
+            added += 1
+        }
+        return (added, repeated)
+    }
+
     /// Un nombre de grupo que se puede escribir en el archivo (ni vacío, ni « :: », ni «#» delante, ni saltos).
     public static func validGroup(_ g: String) -> Bool {
         !g.isEmpty && !g.contains("::") && !g.hasPrefix("#") && !g.contains(where: \.isNewline)

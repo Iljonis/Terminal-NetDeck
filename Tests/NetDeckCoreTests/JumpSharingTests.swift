@@ -154,20 +154,19 @@ private let config = """
         let tab1 = CredentialLedger(storage: storage), tab2 = CredentialLedger(storage: storage)
         let ad = CredentialRef.named("AD"), core = CredentialRef.device("tu.usuario", "192.0.2.11")
         let session = UUID().uuidString
-        #expect(tab1.beginProbe(ad) == .go)
-        #expect(tab2.beginProbe(ad) == .wait)                       // la otra pestaña espera
+        #expect(tab1.state(of: ad) == nil)                         // (el login inicial ya no reserva)
         try SafeFile.write(Askpass.encodeGiven(ad, host: "192.0.2.1") + "\n", to: dir.appendingPathComponent(session))
 
         // ssh vuelve a preguntar por el salto: no valía; nada se confirma (se marca fallo como siempre)
         #expect(Askpass.confirmEarlier(session: session, host: "192.0.2.1", ledger: tab1, directory: dir).isEmpty)
-        #expect(tab2.beginProbe(ad) == .wait)
+        #expect(tab2.state(of: ad) == nil)
         // otra pestaña: lo suyo no cuenta
         #expect(Askpass.confirmEarlier(session: UUID().uuidString, host: "192.0.2.11", ledger: tab1, directory: dir).isEmpty)
 
         // pregunta ya por el destino: la del salto ha entrado
         #expect(Askpass.confirmEarlier(session: session, host: "192.0.2.11", ledger: tab1, directory: dir) == [ad])
         #expect(tab2.state(of: ad).map { if case .confirmed = $0 { true } else { false } } == true)
-        #expect(tab2.beginProbe(ad) == .go)                        // la que esperaba sigue ya
+        #expect(tab2.beginProbe(ad) == .go)
 
         // la del destino queda para cuando salga su prompt
         let url = dir.appendingPathComponent(session)

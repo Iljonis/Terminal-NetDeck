@@ -1,8 +1,8 @@
 import Foundation
 
-/// La contraseña de un terminal cuando la pide: decide con `CredentialPolicy`, espera un instante (Esc la cancela),
-/// comprueba que la petición sigue ahí y la escribe. Si la vuelven a pedir, ha fallado: queda bloqueada en todas las
-/// pestañas (`CredentialLedger`) y se elige a mano.
+/// La contraseña de un equipo abierto DESDE una sesión: sólo una orden enviada por la persona arma la detección.
+/// Decide con `CredentialPolicy`, espera un instante (Esc la cancela) y comprueba otra vez antes de escribir. El
+/// login inicial de la sesión no pasa por aquí. Un rechazo bloquea la contraseña en todas las pestañas.
 @MainActor
 public final class PasswordAutomation {
     public enum Mode: String, Sendable, CaseIterable {
@@ -20,10 +20,27 @@ public final class PasswordAutomation {
         case cancelled
     }
 
-    public var mode: Mode
-    /// Hasta que la pestaña llega a su primer prompt, la contraseña es la de la SESIÓN (su propio login, p. ej. telnet
-    /// o ssh sin askpass): con este modo. Después, las de los equipos con `mode`. nil = `mode` también para la sesión.
-    public var sessionMode: Mode?
+    /// Una propuesta sólo vale para esta orden, petición y pantalla. La interfaz conserva el id; nunca convierte un
+    /// aviso antiguo en una elección global del menú de contraseñas.
+    public struct Offer: Equatable, Sendable, Identifiable {
+        public let id: UUID
+        public let refs: [CredentialRef]
+        public let target: Endpoint
+        fileprivate let generation: UInt64
+        fileprivate let site: String
+        fileprivate let revision: Int
+        fileprivate let request: PasswordRequest
+        fileprivate let user: String?
+        fileprivate let jumpUsers: Set<String>
+        fileprivate let hosts: Set<String>
+    }
+
+    public private(set) var offer: Offer? {
+        didSet { if oldValue != offer { onOfferChange?(offer) } }
+    }
+    public var onOfferChange: ((Offer?) -> Void)?
+
+    public var mode: Mode { didSet { if mode == .off { cancelCommand() } } }
     public private(set) var loggedIn = false
     public var settle: Duration = .milliseconds(150)
     /// Usuario de la última orden «ssh/telnet …» tecleada aquí (lo pone la vista al pulsar Intro).
@@ -32,6 +49,8 @@ public final class PasswordAutomation {
     public var commandJumpUsers: Set<String> = []
     /// Los equipos (destino y saltos) de esa orden: un prompt «usuario@equipo» de otro equipo no cuenta.
     public var commandHosts: Set<String> = []
+    /// Destino de la orden realmente enviada (para las candidatas de un «Password:» sin cuenta en pantalla).
+    public private(set) var commandTarget: Endpoint?
     /// Tras el salto «a mano» (el salto no dejó reenviar -J): lo que se teclea pasa por la shell del salto, que vería
     /// la contraseña del destino; las de los equipos sólo se sugieren (un clic), nunca se escriben solas.
     public var onlySuggestDevices = false
@@ -42,8 +61,15 @@ public final class PasswordAutomation {
     private let policy: CredentialPolicy
     private let ledger: CredentialLedger
     private var handledSite: String?
-    private var pending: (ref: CredentialRef, row: Int)?
-    private var busy = false
+    /// La enviada que espera respuesta, con la cuenta de su petición («tu.usuario@bastion»; nil si no la decía).
+    private var pending: (ref: CredentialRef, row: Int, reservation: UUID?, account: String?)?
+    private var unresolved: [CredentialRef: UUID] = [:]
+    private var external: [CredentialRef: UUID] = [:]
+    private var generation: UInt64 = 0
+    private var operation: UUID?
+    private var reservation: (ref: CredentialRef, generation: UInt64, token: UUID)?
+    private var commandRow: Int?
+    private var lastObservedRow: Int?
 
     public init(mode: Mode = .suggest, store: CredentialStore, policy: CredentialPolicy = .init(),
                 ledger: CredentialLedger, candidates: @escaping (PasswordRequest) -> [CredentialCandidate] = { _ in [] }) {
@@ -54,74 +80,282 @@ public final class PasswordAutomation {
         self.candidates = candidates
     }
 
+    /// La vista recoge lo realmente enviado con su recolector de líneas; nunca con lo que el remoto dibuja en el
+    /// cursor. Una orden distinta termina el contexto anterior; «echo ssh …» o «show … ssh …» no lo abren.
+    public func beginCommand(_ command: String, after row: Int? = nil) {
+        cancelCommand()
+        let words = command.split(whereSeparator: \.isWhitespace)
+        guard let first = words.first, ["ssh", "telnet"].contains(String(first)),
+              !command.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
+              !command.contains(where: { ";|&$`<>".contains($0) }),
+              !words.dropFirst().contains(where: { ["ssh", "telnet"].contains((String($0) as NSString).lastPathComponent) }),
+              let target = CommandLineUser.interactiveTarget(command) else { return }
+        commandTarget = target
+        commandRow = row ?? lastObservedRow
+        commandUser = target.user
+        commandHosts = CommandLineUser.hosts(command)
+        commandJumpUsers = CommandLineUser.jumpUsers(command)
+    }
+
+    /// Esc, cierre, reconexión u otra orden: una lectura del Llavero que siga en marcha ya no puede enviar nada.
+    public func cancelCommand() {
+        generation &+= 1
+        if offer == nil { onOfferChange?(nil) } else { offer = nil }
+        if let r = reservation { ledger.release(r.ref, reservation: r.token); reservation = nil }
+        // (Esc cancela el seguimiento, pero una contraseña ya enviada puede seguir autenticándose en TACACS)
+        if let p = pending, let token = p.reservation { unresolved[p.ref] = token }
+        pending = nil
+        operation = nil
+        handledSite = nil
+        commandTarget = nil
+        commandRow = nil
+        commandUser = nil
+        commandJumpUsers = []
+        commandHosts = []
+    }
+
+    public func reset() { cancelCommand(); loggedIn = false; lastObservedRow = nil }
+
+    /// La vista conserva esta limpieza hasta comprobar que ha terminado el proceso de la conexión anterior.
+    public func connectionCleanup() -> (@Sendable () -> Void)? {
+        cancelCommand()
+        guard !unresolved.isEmpty || !external.isEmpty else { return nil }
+        let leases = unresolved.merging(external) { _, current in current }, ledger = ledger
+        unresolved.removeAll()
+        external.removeAll()
+        return { for (ref, token) in leases { ledger.release(ref, reservation: token) } }
+    }
+
+    public func connectionEnded() { connectionCleanup()?() }
+
+    /// El registro ocurre al enviar, antes de cualquier await: así el cierre se lleva también las reservas de listas.
+    public func registerPendingAuthentication(_ ref: CredentialRef, reservation token: UUID) {
+        guard owns(ref, token: token) else { return }
+        cancelCommand()
+        external[ref] = token
+    }
+
+    /// Una lista deja de esperar; una entrega antigua tras reconectar no vuelve a registrar la conexión anterior.
+    public func retainPendingAuthentication(_ ref: CredentialRef, reservation token: UUID, ended: Bool = false) {
+        guard external[ref] == token else { return }
+        external[ref] = nil
+        guard owns(ref, token: token) else { return }
+        if ended { ledger.release(ref, reservation: token); return }
+        cancelCommand()
+        unresolved[ref] = token
+    }
+
+    private func releaseReservation(_ g: UInt64) {
+        guard let r = reservation, r.generation == g else { return }
+        ledger.release(r.ref, reservation: r.token)
+        reservation = nil
+    }
+
+    private func site(_ io: TerminalIO) -> String { "\(io.cursorRow):\(io.cursorLine.trimmed)" }
+
+    private func owns(_ ref: CredentialRef, token: UUID) -> Bool {
+        if case .probing(_, _, let currentToken) = ledger.state(of: ref) { return currentToken == token }
+        return false
+    }
+
+    private func request(_ io: TerminalIO) -> PasswordRequest? {
+        let above = commandRow.map { Array(io.lines(from: max($0 + 1, io.cursorRow - 3)).dropLast()) } ?? io.linesAbove(3)
+        return PasswordPrompt.detect(cursorLine: io.cursorLine, above: above)
+    }
+
+    private func compatible(_ request: PasswordRequest, from available: [CredentialCandidate]) -> [CredentialRef] {
+        var seen = Set<CredentialRef>()
+        return available.compactMap { candidate in
+            guard case .inject(let ref) = policy.decide(request, commandUser: commandUser, jumpUsers: commandJumpUsers,
+                                                        candidates: [candidate], isBlocked: ledger.isBlocked),
+                  seen.insert(ref).inserted else { return nil }
+            return ref
+        }
+    }
+
+    private func current(_ proposal: Offer, io: TerminalIO) -> Bool {
+        generation == proposal.generation && commandTarget == proposal.target && commandUser == proposal.user
+            && commandJumpUsers == proposal.jumpUsers && commandHosts == proposal.hosts && mode != .off
+            && site(io) == proposal.site && io.revision == proposal.revision && request(io) == proposal.request
+    }
+
     /// Mirar la pantalla (tras cada salida del equipo). nil = nada que hacer.
     public func observe(_ io: TerminalIO, gate: AutomationGate) async -> Event? {
         let line = io.cursorLine
+        let observedGeneration = generation
+        defer { if generation == observedGeneration { lastObservedRow = io.cursorRow } }
+        if !unresolved.isEmpty, PromptRule.endsNestedLogin(line, custom: io.promptRule) {
+            for (ref, token) in unresolved { ledger.release(ref, reservation: token) }
+            unresolved.removeAll()                         // (ha vuelto a una shell; el login cancelado ya terminó)
+        }
+        if let proposal = offer, !current(proposal, io: io) {
+            offer = nil
+            handledSite = nil
+        }
+        if let p = pending, let token = p.reservation, !owns(p.ref, token: token) {
+            cancelCommand()
+            return .cancelled
+        }
+        // (un segundo factor manual no prueba que la contraseña fallara, tampoco si el rechazo llegó en este bloque)
+        if let p = pending, io.lines(from: p.row).contains(where: {
+            let l = $0.trimmed
+            return SecretPrompt.asks(l) && !PasswordPrompt.asksForPassword(l) && !l.hasPrefix(Askpass.marker)
+                && !l.hasPrefix("Are you sure you want to continue connecting")
+        }) {
+            cancelCommand()                           // (libera sólo su reserva; el OTP sigue manual)
+            return .cancelled
+        }
         // (el rechazo puede haber quedado encima de una fila vacía o de un prompt, en el mismo bloque de salida)
         if let p = pending, io.lines(from: p.row).contains(where: PromptRule.authenticationFailed) {
             pending = nil
-            ledger.markFailed(p.ref)
-            // (la petición que sale con el rechazo es la misma: ya está atendida, sin un segundo aviso)
-            if PasswordPrompt.asksForPassword(line) { handledSite = "\(io.cursorRow):\(line.trimmed)" }
+            if let token = p.reservation { ledger.markFailed(p.ref, reservation: token) } else { ledger.markFailed(p.ref) }
+            cancelCommand()
             return .failed(p.ref)
         }
         if !loggedIn, PromptRule.isPrompt(line, custom: io.promptRule) { loggedIn = true }
-        var mode = loggedIn ? self.mode : (sessionMode ?? self.mode)
+        var mode = self.mode
         if onlySuggestDevices, mode == .autoType { mode = .suggest }
-        guard mode != .off, !busy else { return nil }
-        guard let request = PasswordPrompt.detect(cursorLine: line, above: io.linesAbove(3)) else {
-            if let p = pending, PromptRule.isPrompt(line, custom: io.promptRule) {     // ha entrado
-                ledger.confirm(p.ref)
-                pending = nil
-                return .confirmed(p.ref)
+        guard operation == nil else { return nil }
+        guard let request = request(io) else {
+            // (con «# @prompt», el de la sesión; el login anidado lo termina también el prompt genérico del otro equipo)
+            let atShell = PromptRule.isPrompt(line, custom: io.promptRule)
+                || (pending != nil && PromptRule.endsNestedLogin(line, custom: io.promptRule))
+            if atShell {
+                let confirmed = pending?.ref
+                if let p = pending {
+                    if let token = p.reservation { ledger.confirm(p.ref, reservation: token) } else { ledger.confirmDirect(p.ref) }
+                    pending = nil
+                }
+                cancelCommand()
+                return confirmed.map(Event.confirmed)
             }
             return nil
         }
         let site = "\(io.cursorRow):\(line.trimmed)"
         guard site != handledSite else { return nil }
-        handledSite = site
-        if let p = pending {                                   // otra vez «Password:» = no valía
+        if let p = pending {
             pending = nil
-            ledger.markFailed(p.ref)
-            return .failed(p.ref)
+            if let asked = p.account?.lowercased(), let now = request.account?.lowercased(), asked != now {
+                // (con -J, tras la del salto ssh pide la del destino: la del salto ha entrado y ésta es otra petición)
+                if let token = p.reservation { ledger.confirm(p.ref, reservation: token) } else { ledger.confirmDirect(p.ref) }
+            } else {                                           // otra vez «Password:» = no valía
+                if let token = p.reservation { ledger.markFailed(p.ref, reservation: token) } else { ledger.markFailed(p.ref) }
+                cancelCommand()
+                return .failed(p.ref)
+            }
         }
-        let cands = candidates(request).filter { store.contains($0.ref) }
+        // (sin una orden propia no se buscan candidatas ni se consulta el almacén, aunque parezca una contraseña)
+        guard mode != .off, commandTarget != nil else { return nil }
+        handledSite = site
+        let listed = candidates(request), lookupGeneration = generation, lookup = UUID(), lookupRevision = io.revision
+        let lookupSwitch = gate.begin()
+        operation = lookup
+        defer { gate.end(lookupSwitch); if operation == lookup { operation = nil } }
+        // (también comprobar si existe una entrada puede esperar al servicio del Llavero: fuera de la interfaz)
+        let cands = await Self.available(listed, in: store)
+        guard generation == lookupGeneration, commandTarget != nil, self.mode != .off,
+              !Task.isCancelled, !lookupSwitch.isTripped, self.site(io) == site, io.revision == lookupRevision,
+              self.request(io) == request else {
+            let cancelled = lookupSwitch.isTripped || Task.isCancelled || generation != lookupGeneration
+            if cancelled, generation == lookupGeneration { cancelCommand() }
+            return cancelled ? .cancelled : nil
+        }
+        if mode == .suggest, let target = commandTarget {
+            let refs = compatible(request, from: cands)
+            if let first = refs.first {
+                offer = Offer(id: UUID(), refs: refs, target: target, generation: generation, site: site,
+                              revision: io.revision, request: request, user: commandUser, jumpUsers: commandJumpUsers, hosts: commandHosts)
+                return .suggested(first)
+            }
+        }
         let decision = policy.decide(request, commandUser: commandUser, jumpUsers: commandJumpUsers, candidates: cands,
                                      isBlocked: ledger.isBlocked)
         guard case .inject(let ref) = decision else {
             if case .manual(let why) = decision { return .manual(why) }
             return nil
         }
-        guard mode == .autoType else { return .suggested(ref) }
-        guard ledger.beginProbe(ref) == .go else { return .manual(.recentlyFailed(ref)) }
+        guard mode == .autoType else { return nil }
+        let probe = ledger.reserveProbe(ref)
+        guard probe.result == .go, let token = probe.token else {
+            return .manual(probe.result == .wait ? .pendingAttempt(ref) : .recentlyFailed(ref))
+        }
 
-        busy = true
+        let g = generation, op = UUID(), revision = io.revision
+        reservation = (ref, g, token)
+        operation = op
         let sw = gate.begin()
+        defer {
+            releaseReservation(g)
+            gate.end(sw)
+            if operation == op { operation = nil }
+        }
         try? await Task.sleep(for: settle)
+        guard generation == g, commandTarget != nil, self.mode == .autoType, !onlySuggestDevices,
+              !sw.isTripped, !Task.isCancelled, owns(ref, token: token) else {
+            if generation == g { cancelCommand() }
+            return .cancelled
+        }
         // (el Llavero, fuera del hilo principal: si tarda, la ventana no se congela)
         let secret = await Self.secret(ref, in: store)
         let event: Event?
         // (justo antes de escribir: ni Esc, ni otra pantalla)
-        if !sw.isTripped, "\(io.cursorRow):\(io.cursorLine.trimmed)" == site, let pw = secret {
-            pending = (ref, io.cursorRow)
+        if generation == g, commandTarget != nil, self.mode == .autoType, !onlySuggestDevices, !sw.isTripped, !Task.isCancelled,
+           owns(ref, token: token), io.revision == revision, self.request(io) == request,
+           !ledger.isBlocked(ref), "\(io.cursorRow):\(io.cursorLine.trimmed)" == site, let pw = secret {
+            reservation = nil                                // (ya enviada: la reserva se resuelve con su respuesta)
+            pending = (ref, io.cursorRow, token, request.account)
             io.sendLine(pw)
             event = .typed(ref)
         } else {
-            ledger.release(ref)
-            event = sw.isTripped ? .cancelled : nil
+            let cancelled = sw.isTripped || Task.isCancelled || generation != g || self.mode != .autoType || onlySuggestDevices || !owns(ref, token: token)
+            if cancelled, generation == g { cancelCommand() }
+            event = cancelled ? .cancelled : nil
         }
-        gate.end(sw)
-        busy = false
         return event
     }
 
     /// (aparte: con el cierre dentro de observe, el compilador de Swift 6.3 se cae en ClosureLifetimeFixup)
     nonisolated private static func secret(_ ref: CredentialRef, in store: CredentialStore) async -> String? {
-        await Task.detached { try? store.password(for: ref) }.value
+        await store.passwordInBackground(for: ref)
+    }
+
+    nonisolated private static func available(_ candidates: [CredentialCandidate], in store: CredentialStore) async -> [CredentialCandidate] {
+        await Task.detached { candidates.filter { store.contains($0.ref) } }.value
     }
 
     /// `busy`: ya se está escribiendo una (dos clics seguidos no la mandan dos veces).
-    public enum ManualResult: Equatable, Sendable { case typed, blocked, notAsked, missing, busy }
+    public enum ManualResult: Equatable, Sendable { case typed, blocked, notAsked, missing, busy, pending }
+
+    /// El selector del login interno: una ref ofrecida para su id y su pantalla, con usuario estricto. Mantiene la
+    /// propuesta durante la lectura para que un doble clic sea `busy`; cancelarla invalida también el await pendiente.
+    public func choose(_ ref: CredentialRef, offer token: UUID, into io: TerminalIO) async -> ManualResult {
+        guard operation == nil else { return .busy }
+        guard let proposal = offer, proposal.id == token, proposal.refs.contains(ref) else { return .notAsked }
+        guard current(proposal, io: io) else { offer = nil; return .notAsked }
+        if ledger.isBlocked(ref) { return .blocked }
+        guard compatible(proposal.request, from: candidates(proposal.request)).contains(ref) else { return .notAsked }
+        let probe = ledger.reserveProbe(ref)
+        guard probe.result == .go, let reservationToken = probe.token else { return probe.result == .wait ? .pending : .blocked }
+        let g = generation, op = UUID()
+        reservation = (ref, g, reservationToken)
+        operation = op
+        defer {
+            releaseReservation(g)
+            if operation == op { operation = nil }
+            if offer?.id == token { offer = nil }
+        }
+        guard let pw = await Self.secret(ref, in: store) else { return .missing }
+        guard !Task.isCancelled, offer?.id == token, current(proposal, io: io) else { return .notAsked }
+        if ledger.isBlocked(ref) { return .blocked }
+        guard owns(ref, token: reservationToken) else { return .notAsked }
+        guard compatible(proposal.request, from: candidates(proposal.request)).contains(ref) else { return .notAsked }
+        reservation = nil
+        pending = (ref, io.cursorRow, reservationToken, proposal.request.account)
+        handledSite = proposal.site
+        offer = nil
+        io.sendLine(pw)
+        return .typed
+    }
 
     /// Elección manual (menú 🔑): sin la regla de usuario (la eliges tú), pero nunca una bloqueada sin `force`.
     /// El Llavero se lee fuera del hilo principal; justo antes de escribirla se comprueba que la siguen pidiendo.
@@ -129,15 +363,19 @@ public final class PasswordAutomation {
         if !force, ledger.isBlocked(ref) { return .blocked }
         guard PasswordPrompt.asksForPassword(io.cursorLine) else { return .notAsked }
         let site = "\(io.cursorRow):\(io.cursorLine.trimmed)"
-        guard !busy, site != handledSite || pending == nil else { return .busy }
-        busy = true
-        defer { busy = false }
+        guard operation == nil, site != handledSite || pending == nil else { return .busy }
+        offer = nil
+        let g = generation, op = UUID()
+        operation = op
+        defer { if operation == op { operation = nil } }
         guard let pw = await store.passwordInBackground(for: ref) else { return .missing }
+        guard generation == g, !Task.isCancelled else { return .notAsked }
         // (mientras se leía, otra pestaña puede haberla marcado como fallida, o la pantalla haber cambiado)
         if !force, ledger.isBlocked(ref) { return .blocked }
         guard "\(io.cursorRow):\(io.cursorLine.trimmed)" == site else { return .notAsked }
+        if let p = pending, let token = p.reservation { ledger.release(p.ref, reservation: token) }
         if force { ledger.reset(ref) }
-        pending = (ref, io.cursorRow)
+        pending = (ref, io.cursorRow, nil, PasswordPrompt.detect(cursorLine: io.cursorLine, above: [])?.account)
         io.sendLine(pw)
         handledSite = site
         return .typed
@@ -147,10 +385,13 @@ public final class PasswordAutomation {
     /// prompt que no se reconoce). Intro sólo con `pressReturn`. Nunca una bloqueada sin `force` (y no la desbloquea).
     public func typeAnyway(_ ref: CredentialRef, into io: TerminalIO, pressReturn: Bool, force: Bool = false) async -> ManualResult {
         if !force, ledger.isBlocked(ref) { return .blocked }
-        guard !busy else { return .busy }
-        busy = true
-        defer { busy = false }
+        guard operation == nil else { return .busy }
+        offer = nil
+        let g = generation, op = UUID()
+        operation = op
+        defer { if operation == op { operation = nil } }
         guard let pw = await store.passwordInBackground(for: ref) else { return .missing }
+        guard generation == g, !Task.isCancelled else { return .notAsked }
         if !force, ledger.isBlocked(ref) { return .blocked }
         if pressReturn { io.sendLine(pw) } else { io.send(pw) }
         return .typed

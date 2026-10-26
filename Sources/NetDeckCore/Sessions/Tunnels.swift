@@ -646,6 +646,7 @@ public final class TunnelManager {
         init(_ process: TunnelProcess) { self.process = process }
     }
     @ObservationIgnored private var running: [Tunnel.ID: Running] = [:]
+    @ObservationIgnored private var authenticationRejections: [Tunnel.ID: Askpass.Rejection] = [:]
     /// Tras SIGTERM, cuánto esperar antes de SIGKILL.
     @ObservationIgnored public var killAfter: Double = 3
     @ObservationIgnored public var pollInterval: Double = 0.2
@@ -660,6 +661,10 @@ public final class TunnelManager {
     public func state(_ id: Tunnel.ID) -> TunnelState { states[id] ?? .stopped }
     public var activeCount: Int { states.values.filter(\.isRunning).count }
 
+    /// El rechazo del ssh de esta ejecución (con su equipo), antes de resumir el error para la interfaz. Un fallo de
+    /// configuración, puerto o red no se atribuye a ninguna contraseña.
+    public func authenticationRejection(for id: Tunnel.ID) -> Askpass.Rejection? { authenticationRejections[id] }
+
     private func set(_ id: Tunnel.ID, _ s: TunnelState) {
         guard states[id] != s else { return }
         states[id] = s
@@ -671,6 +676,7 @@ public final class TunnelManager {
     public func start(_ tunnel: Tunnel, executable: String, arguments: [String], environment: [String: String]) {
         let id = tunnel.id
         guard !state(id).isRunning, running[id] == nil else { return }
+        authenticationRejections[id] = nil
         if let p = tunnel.problem { set(id, .failed(p)); return }
         if tunnel.kind != .remote, let p = PortCheck.problem(address: tunnel.listen, port: tunnel.listenPort) {
             set(id, .failed(p)); return
@@ -715,9 +721,10 @@ public final class TunnelManager {
         }
     }
 
-    private func finish(_ id: Tunnel.ID, _ run: Running, _ state: TunnelState) {
+    private func finish(_ id: Tunnel.ID, _ run: Running, _ state: TunnelState, rejection: Askpass.Rejection? = nil) {
         guard running[id] === run, run.process.exited else { return }
         running[id] = nil
+        authenticationRejections[id] = rejection              // (ya disponible cuando onChange recibe el error)
         set(id, state)
     }
 
@@ -739,9 +746,11 @@ public final class TunnelManager {
             var authed: Date?
             while self?.running[id] === run {
                 if proc.exited {
-                    let why = TunnelFailure.reason(stderr: proc.errorOutput, status: proc.exitStatus)
+                    let stderr = proc.errorOutput
+                    let why = TunnelFailure.reason(stderr: stderr, status: proc.exitStatus)
+                    let rejection = run.stopping ? nil : Askpass.rejection(in: stderr.components(separatedBy: .newlines))
                     DebugLog.log("tuneles", "«\(tunnel.name)» termina: \(run.stopping ? "parado" : why)")
-                    self?.finish(id, run, run.stopping ? .stopped : .failed(why))
+                    self?.finish(id, run, run.stopping ? .stopped : .failed(why), rejection: rejection)
                     return
                 }
                 if !run.stopping, self?.state(id) == .starting {
@@ -762,12 +771,14 @@ public final class TunnelManager {
     /// No se ha podido ni lanzar (la sesión ya no está, no es ssh…): queda en error con el motivo.
     public func markFailed(_ id: Tunnel.ID, _ why: String) {
         guard !state(id).isRunning else { return }
+        authenticationRejections[id] = nil
         set(id, .failed(why))
     }
 
     /// Para: SIGTERM y, si no sale en `killAfter` s, SIGKILL. Queda «detenido» cuando se ha recogido el proceso.
     public func stop(_ id: Tunnel.ID) async {
         guard let run = running[id] else {
+            authenticationRejections[id] = nil
             if case .failed = state(id) { set(id, .stopped) }
             return
         }
@@ -778,6 +789,7 @@ public final class TunnelManager {
 
     /// Al salir: incluye los preflight, mata los grupos completos y recoge los procesos antes de olvidarlos.
     public func stopAll(wait: Double = 1.5) {
+        authenticationRejections.removeAll()
         let all = running
         guard !all.isEmpty else { return }
         for run in all.values { run.stopping = true; run.process.signal(SIGTERM) }
@@ -793,6 +805,6 @@ public final class TunnelManager {
     /// El túnel ya no existe (borrado): se para si estaba en marcha y se olvida su estado.
     public func forget(_ id: Tunnel.ID) async {
         await stop(id)
-        if running[id] == nil { states[id] = nil }
+        if running[id] == nil { states[id] = nil; authenticationRejections[id] = nil }
     }
 }

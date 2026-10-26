@@ -44,7 +44,14 @@ extension CredentialStore {
     /// Fuera del hilo principal: `security` puede tardar (o esperar a que se desbloquee el Llavero) y la ventana no se
     /// debe congelar. Un error del Llavero cuenta como «no está» (igual que `try?`).
     public func passwordInBackground(for ref: CredentialRef) async -> String? {
-        await Task.detached { try? self.password(for: ref) }.value
+        // (una vacía cuenta como «no está»: escribirla sería un fallo más en la cuenta)
+        await Task.detached { (try? self.password(for: ref)).flatMap { $0.isEmpty ? nil : $0 } }.value
+    }
+
+    /// Las candidatas que están en el Llavero (sin leer su secreto), también fuera del hilo principal: comprobar si
+    /// existe puede esperar igual al servicio del Llavero.
+    public func availableInBackground(_ candidates: [CredentialCandidate]) async -> [CredentialCandidate] {
+        await Task.detached { candidates.filter { self.contains($0.ref) } }.value
     }
 
     public func saveInBackground(_ password: String, for ref: CredentialRef) async throws {

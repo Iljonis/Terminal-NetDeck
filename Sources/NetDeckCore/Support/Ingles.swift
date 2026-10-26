@@ -136,18 +136,14 @@ enum Ingles {
             "manual password (%@)",
         "no está en el Llavero":
             "not in the Keychain",
-        "sin respuesta a «%@»":
-            "no answer to “%@”",
         "el equipo no ha contestado":
             "the device didn't respond",
         "%@%@ la contraseña guardada «%@» no ha funcionado en %@: ":
             "%@%@ the saved password “%@” didn't work on %@: ",
         "no se probará sola en 15 min%@\n":
             "it won't be tried automatically for 15 min%@\n",
-        "%@%@ otra pestaña está probando «%@»: espero a ver si vale…%@\n":
-            "%@%@ another tab is trying “%@”: waiting to see if it works…%@\n",
-        "%@%@ «%@» falló hace poco: no la escribo (cuenta AD)%@\n":
-            "%@%@ “%@” failed recently: not typing it (AD account)%@\n",
+        "%@%@ «%@» no ha funcionado en %@, pero se ha guardado otra vez después: no se bloquea%@\n":
+            "%@%@ “%@” didn't work on %@, but it was saved again afterwards: it isn't blocked%@\n",
         "piden una contraseña nueva o repetida: escríbela tú":
             "a new or repeated password is requested: type it yourself",
         "ninguna guardada es de «%@»: escríbela tú":
@@ -525,8 +521,6 @@ enum Ingles {
             "Split screen · right-click: back to separate tabs",
         "Escribir «%@»":
             "Type “%@”",
-        "Piden contraseña: «%@» es de ese usuario":
-            "Password requested: “%@” belongs to that user",
         "Piden contraseña: %@ · o elígela en 🔑":
             "Password requested: %@ · or pick it in 🔑",
         "«%@» no ha valido: bloqueada 15 min en todas las pestañas (cuenta AD)":
@@ -609,8 +603,8 @@ enum Ingles {
             "Legacy device (old ssh algorithms)",
         "CONEXIÓN":
             "CONNECTION",
-        "Automática (la de %@@%@ o la por defecto)":
-            "Automatic (the one for %@@%@ or the default)",
+        "Automática (la de %@@%@)":
+            "Automatic (the one for %@@%@)",
         "La propia del equipo (-)":
             "The device's own (-)",
         "%@ (no está en el Llavero)":
@@ -685,10 +679,10 @@ enum Ingles {
             "Settings",
         "Escribir sola la contraseña al abrir una sesión":
             "Type the password automatically when opening a session",
-        "La de la sesión y la de sus saltos (-J), con el askpass de la app: no se teclea en el terminal. ":
-            "The session's and its jump hosts' (-J), via the app's askpass: it's not typed in the terminal. ",
-        "Un solo intento: si falla, queda bloqueada 15 min en todas las pestañas y te la pide ahí mismo.":
-            "One attempt only: if it fails, it's locked for 15 min in all tabs and you're asked right there.",
+        "Al abrir SSH o SFTP, usa sólo la contraseña asignada a esa sesión y a cada salto. Si falta, te la pide; Telnet se inicia a mano. ":
+            "When opening SSH or SFTP, only the password assigned to that session and each jump host is used. If missing, you are asked; Telnet starts manually. ",
+        "No espera a otras pestañas. Un rechazo confirmado bloquea esa contraseña durante 15 min.":
+            "No waiting for other tabs. A confirmed rejection locks that password for 15 min.",
         "Sesiones":
             "Sessions",
         "Cuando un equipo pide contraseña":
@@ -699,10 +693,10 @@ enum Ingles {
             "Suggest it (one click)",
         "Nada":
             "Nothing",
-        "Al hacer «ssh equipo» o «telnet» desde una sesión. Nunca la de otro usuario: con «ssh root@…» o ":
-            "When running “ssh device” or “telnet” from a session. Never another user's: with “ssh root@…” or ",
-        "«Username: pepe», sólo una guardada de ese mismo usuario.":
-            "“Username: pepe”, only one saved for that same user.",
+        "Sólo después de enviar «ssh equipo» o «telnet» desde una sesión. La salida del equipo y los banners no activan la detección. ":
+            "Only after sending “ssh device” or “telnet” from a session. Device output and banners do not activate detection. ",
+        "El usuario debe coincidir exactamente; los códigos de un solo uso y los cambios de contraseña se contestan a mano.":
+            "The user must match exactly; one-time codes and password changes are answered manually.",
         "Equipos":
             "Devices",
         "Contraseña por defecto":
@@ -711,8 +705,8 @@ enum Ingles {
             "Belongs to user",
         "Por defecto":
             "Default",
-        "Sólo se escribe sola cuando piden exactamente ese usuario.":
-            "Only typed automatically when exactly that user is requested.",
+        "Sólo para equipos abiertos desde una sesión y cuando piden exactamente ese usuario. No se usa al abrir sesiones guardadas.":
+            "Only for devices opened from a session and when exactly that user is requested. Not used when opening saved sessions.",
         "con nombre":
             "named",
         "usuario@equipo":
@@ -931,10 +925,6 @@ enum Ingles {
             "Homebrew missing",
         "Contraseña de las sesiones automática":
             "Automatic session password",
-        "Al abrir una sesión (y sus saltos) entra sola, con el askpass de la app. Un solo intento: si falla, ":
-            "When opening a session (and its jump hosts) it logs in by itself, via the app's askpass. One attempt only: if it fails, ",
-        "queda bloqueada 15 min y te la pide en la pestaña.":
-            "it's locked for 15 min and you're asked in the tab.",
         "EQUIPOS (ssh / telnet desde una sesión)":
             "DEVICES (ssh / telnet from a session)",
         "Sugerirla":
@@ -1189,8 +1179,8 @@ enum Ingles {
             "Uses: 🔑 %@",
         "Usa: la de %@@%@":
             "Uses: the one for %@@%@",
-        "Usa: la por defecto o ninguna (a mano)":
-            "Uses: the default one or none (manual)",
+        "Usa: ninguna (a mano)":
+            "Uses: none (manual)",
         "(no está en el Llavero)":
             "(not in the Keychain)",
         "Cambiar contraseña…":
@@ -1815,8 +1805,6 @@ enum Ingles {
             "The list “%@” has unsaved changes",
         "✗ Ponle un nombre a la lista":
             "✗ Give the list a name",
-        "%@%@ otra pestaña sigue probando «%@»: no espero más, escríbela tú%@\n":
-            "%@%@ another tab is still trying “%@”: not waiting any longer, type it yourself%@\n",
         "Reutilizar la conexión al salto":
             "Reuse the jump host connection",
         "Las pestañas que pasan por el mismo salto usan una sola conexión a él (abierta 2 min tras cerrar la última): no se vuelven a autenticar en el bastión.":
@@ -2153,5 +2141,54 @@ enum Ingles {
         "Los espacios ocuparían más de 5 MB: quita alguno o algunas pestañas (no se ha guardado)": "The workspaces would take more than 5 MB: remove some of them or some tabs (nothing was saved)",
         "Aún no hay espacios: abre las pestañas que quieras, ponle un nombre y pulsa «Guardar disposición actual».": "No workspaces yet: open the tabs you want, give it a name and press “Save current layout”.",
         "No se ha podido copiar %@ antes de cambiar la app: no se cambia nada": "Couldn't back up %@ before replacing the app: nothing was changed",
+        "Importar…": "Import…",
+        "Exportar…": "Export…",
+        "Añade los botones de un botones.txt (p. ej. el de un compañero); no se guardan hasta pulsar «Guardar»": "Adds the buttons from a botones.txt (e.g. a colleague’s); nothing is saved until you press “Save”",
+        "Guarda estos botones en un .txt para pasárselos a otro (las contraseñas no van: sólo su nombre en el Llavero)": "Saves these buttons to a .txt to share them (passwords aren’t included: only their Keychain name)",
+        "Elige el botones.txt que quieres importar": "Choose the botones.txt you want to import",
+        "✗ %@ es demasiado grande para ser un botones.txt": "✗ %@ is too large to be a botones.txt",
+        "✗ No se ha podido leer %@ (¿es un texto UTF-8?)": "✗ Couldn’t read %@ (is it UTF-8 text?)",
+        "✗ %@ no tiene botones (formato «Grupo :: modo :: Nombre :: comando»)": "✗ %@ has no buttons (format “Group :: mode :: Name :: command”)",
+        " · %@ líneas mal escritas se han saltado": " · %@ malformed lines were skipped",
+        "Importar %@ botones de %@": "Import %@ buttons from %@",
+        "«Añadir» los junta con los tuyos (los repetidos no se duplican); «Sustituir» deja sólo los importados.": "“Add” merges them with yours (duplicates are skipped); “Replace” keeps only the imported ones.",
+        "Añadir": "Add",
+        "✓ %@ botones importados: «Guardar» para quedártelos": "✓ %@ buttons imported: “Save” to keep them",
+        "✓ %@ añadidos, %@ ya los tenías: «Guardar» para quedártelos": "✓ %@ added, %@ you already had: “Save” to keep them",
+        "✓ %@ botones exportados a %@": "✓ %@ buttons exported to %@",
+        "Renombrar la pestaña…": "Rename Tab…",
+        "Nombre de la pestaña (se queda hasta que entres en otro equipo)": "Tab name (it stays until you log into another device)",
+        "Volver al nombre del equipo": "Back to the device name",
+        "Reabrir las %@ de la última vez, en %@ ventanas: ": "Reopen the %@ from last time, in %@ windows: ",
+        "✗ Para la grabación de la macro antes de mover la pestaña": "✗ Stop recording the macro before moving the tab",
+        "⏳ Hay una secuencia en marcha: Esc para cortarla antes de mover la pestaña": "⏳ A sequence is running: press Esc to stop it before moving the tab",
+        "¿Cerrar esta ventana y sus %@ pestañas?": "Close this window and its %@ tabs?",
+        "Se cortan sus conexiones; las de las otras ventanas siguen abiertas.": "Its connections are closed; those in the other windows stay open.",
+        "Cerrar la ventana": "Close Window",
+        "Nueva ventana": "New Window",
+        "Cerrar ventana": "Close Window",
+        "Mover la pestaña a una ventana nueva": "Move Tab to New Window",
+        "Mover a una ventana nueva": "Move to New Window",
+        "Mover a la ventana": "Move to Window",
+        "portada": "start page",
+        "Ventana %@: %@ (%@)": "Window %@: %@ (%@)",
+        "✗ Esto ya se está editando aquí: guárdalo o ciérralo antes de abrirlo en otra ventana": "✗ This is already being edited here: save or close it before opening it in another window",
+        "✗ Cierra antes lo que tienes abierto en esta ventana para mover la pestaña": "✗ Close what's open in this window before moving the tab",
+        "✗ La otra ventana tiene algo abierto (pegado, Ajustes…): ciérralo antes de llevarle la pestaña": "✗ The other window has something open (paste, Settings…): close it before moving the tab there",
+        "«%@» queda fuera de MultiExec en esta ventana: inclúyela con clic derecho si quieres": "“%@” stays out of MultiExec in this window: right-click to include it if you want",
+        "¿Cerrar la ventana y salir de Terminal NetDeck?": "Close the window and quit Terminal NetDeck?",
+        "Se cortan sus %@ conexiones; al volver a abrir la app podrás reabrir sus pestañas.": "Its %@ connections are closed; when you open the app again you can reopen its tabs.",
+        "la contraseña está vacía": "the password is empty",
+        "%@%@ está vacía: escríbela o pulsa Esc para cancelar%@\n%@ %@'s password: ":
+            "%@%@ it's empty: type it or press Esc to cancel%@\n%@ %@'s password: ",
+        "\r\n\u{1b}[38;5;204m[NetDeck] La contraseña guardada «%@» no ha valido: no se probará sola en 15 min\u{1b}[0m":
+            "\r\n\u{1b}[38;5;204m[NetDeck] The saved password “%@” didn’t work: it won’t be tried automatically for 15 min\u{1b}[0m",
+        "Contraseña para %@": "Password for %@",
+        "🔑 Otra autenticación con «%@» sigue pendiente; escríbela a mano o, si ya terminó, restablécela en Ajustes → Contraseñas → «Restablecer pendiente»":
+            "🔑 Another authentication using “%@” is still pending; type it manually or, if it has ended, reset it in Settings → Passwords → “Reset pending attempt”",
+        "otra autenticación con «%@» sigue pendiente; escríbela a mano o, si ya terminó, restablécela en Ajustes → Contraseñas → «Restablecer pendiente»":
+            "another authentication using “%@” is still pending; type it manually or, if it has ended, reset it in Settings → Passwords → “Reset pending attempt”",
+        "Restablecer pendiente": "Reset pending attempt",
+        "Úsalo sólo si el login pendiente ya terminó. No cambia la contraseña guardada.": "Only use this when the pending login has ended. It does not change the saved password.",
 ]
 }

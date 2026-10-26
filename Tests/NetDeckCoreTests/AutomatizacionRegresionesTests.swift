@@ -369,6 +369,7 @@ final class RelojVirtual: PollClock, @unchecked Sendable {
             [CredentialCandidate(ref: .named("AD"), owners: ["tu.usuario"], origin: .sessionNamed)]
         }
         a.settle = .milliseconds(1)
+        a.beginCommand("ssh tu.usuario@192.0.2.1")
         return a
     }
 
@@ -390,6 +391,8 @@ final class RelojVirtual: PollClock, @unchecked Sendable {
         #expect(ledger.isBlocked(.named("AD")))
         #expect(!a.loggedIn)
         io.recibir(["tu.usuario@192.0.2.1's password:"])
+        #expect(await a.observe(io, gate: gate) == nil)             // (el rechazo terminó aquel contexto)
+        a.beginCommand("ssh tu.usuario@192.0.2.1")
         #expect(await a.observe(io, gate: gate) == .manual(.recentlyFailed(.named("AD"))))
         await io.terminar()
         #expect(io.enviados == ["secreto-demo\r"])

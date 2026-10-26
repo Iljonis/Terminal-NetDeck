@@ -8,47 +8,96 @@ typealias Stored<Value> = SwiftUI.State<Value>
 
 struct TerminalNetDeckApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @Stored private var model = AppModel()
+    private let core = AppCore.shared
+
+    init() {
+        NSWindow.allowsAutomaticWindowTabbing = false   // (las pestañas son las de la app, no las de macOS)
+        AppCore.shared.prepareLaunch()
+    }
 
     var body: some Scene {
-        Window("Terminal NetDeck", id: "main") {
-            ContentView()
-                .id(model.settings.language)                 // (otro idioma: se rehace la interfaz)
-                .environment(model)
-                .environment(\.theme, model.uiTheme)
-                .preferredColorScheme(model.themes.current.isLight ? .light : .dark)
-                .frame(minWidth: 960, minHeight: 600)
+        // (cada ventana, con su token: la del arranque y las de «Nueva ventana» o al sacar una pestaña a otra pantalla)
+        WindowGroup("Terminal NetDeck", id: "main", for: UUID.self) { $token in
+            WindowRoot(token: token)
+        } defaultValue: {
+            UUID()
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1400, height: 860)
-        .commands { NetDeckCommands(model: model) }
-
+        .restorationBehavior(.disabled)                 // (las ventanas y sus pestañas las reabre la app: abiertas.json)
+        .commands { NetDeckCommands(core: core, menus: core.menus) }
     }
 }
 
+/// Una ventana: su `AppModel` (uno por ventana, en `AppCore`), el tema y su título (el de la pestaña elegida: es el
+/// que sale en el menú Ventana y en Mission Control).
+struct WindowRoot: View {
+    let token: UUID
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        let model = AppCore.shared.model(for: token)
+        ContentView()
+            .id(model.settings.language)                 // (otro idioma: se rehace la interfaz)
+            .environment(model)
+            .environment(\.theme, model.uiTheme)
+            .preferredColorScheme(model.themes.current.isLight ? .light : .dark)
+            .frame(minWidth: 960, minHeight: 600)
+            .navigationTitle(model.current?.tabTitle ?? "Terminal NetDeck")
+            // (en ventana, las pestañas comparten la barra de título; en pantalla completa, macOS gestiona el
+            // espacio de su barra y la de la app queda en el mismo flujo que el buscador y el terminal)
+            .ignoresSafeArea(.container, edges: model.fullScreen ? [] : .top)
+            // (siempre, también con el asistente: una ventana sin enganchar no contaría al cerrar las demás)
+            .background(WindowReader { model.attach($0) })
+            .onAppear { AppCore.shared.openWindowAction = openWindow }
+    }
+}
+
+/// Los menús, siempre sobre la ventana de delante (`AppCore.front`). SwiftUI no los vuelve a mirar cuando cambia algo
+/// `@Observable`: `menus` (un ObservableObject que `AppCore` avisa) los refresca al cambiar de ventana, abrir una hoja…
+/// Y cada acción comprueba al hacerse que esa ventana no tenga una hoja, Ajustes o el asistente abiertos (`modalOpen`).
 struct NetDeckCommands: Commands {
-    let model: AppModel
+    let core: AppCore
+    @ObservedObject var menus: MenuRefresh
+
+    /// En la ventana de delante, si no tiene una hoja, Ajustes o el asistente abiertos.
+    private func onFront(_ f: (AppModel) -> Void) {
+        guard let m = core.front, !m.modalOpen else { return }
+        f(m)
+    }
 
     var body: some Commands {
-        let _ = model.settings.language                     // (los menús, también en el idioma nuevo)
+        let _ = menus.tick
+        let _ = core.settings.language                      // (los menús, también en el idioma nuevo)
+        let model = core.front
+        let modal = model?.modalOpen ?? false
         CommandGroup(replacing: .newItem) {
-            Button(L("Nueva terminal local")) { model.openLocal() }.keyboardShortcut("t").disabled(model.modalOpen)
-            Button(L("Conectar / Salto…")) { model.sheet = .connect }.keyboardShortcut("k").disabled(model.modalOpen)
-            Button(L("Abrir la sesión de inicio")) { model.openStartupSession() }.keyboardShortcut("k", modifiers: [.command, .option])
-                .disabled(model.startupProfile == nil || model.modalOpen)
-            Button(L("Sesiones…")) { model.editSessions() }.keyboardShortcut("e", modifiers: [.command, .shift]).disabled(model.modalOpen)
+            Button(L("Nueva ventana")) { core.openWindow() }.keyboardShortcut("n")
+            Button(L("Nueva terminal local")) { onFront { $0.openLocal() } }.keyboardShortcut("t").disabled(modal)
+            Button(L("Conectar / Salto…")) { onFront { $0.sheet = .connect } }.keyboardShortcut("k").disabled(modal)
+            Button(L("Abrir la sesión de inicio")) { onFront { $0.openStartupSession() } }.keyboardShortcut("k", modifiers: [.command, .option])
+                .disabled(model?.startupProfile == nil || modal)
+            Button(L("Sesiones…")) { onFront { $0.editSessions() } }.keyboardShortcut("e", modifiers: [.command, .shift]).disabled(modal)
             Divider()
-            Button(L("Cerrar pestaña")) { model.closeCurrent() }.keyboardShortcut("w").disabled(model.modalOpen)
+            Button(L("Cerrar pestaña")) { onFront { $0.closeCurrent() } }.keyboardShortcut("w").disabled(modal)
+            Button(L("Cerrar ventana")) { onFront { $0.askToCloseWindow() } }.keyboardShortcut("w", modifiers: [.command, .shift])
+                .disabled(modal)
         }
+        // (sin «Cerrar» ni «Cerrar todas» de macOS: cerraban sin preguntar y, con varias ventanas, se perdían pestañas)
+        CommandGroup(replacing: .saveItem) {}
         CommandGroup(replacing: .appSettings) {
-            Button(L("Ajustes…")) { model.openSettings() }.keyboardShortcut(",").disabled(model.sheet != nil)
-            Button(L("Asistente de instalación…")) { model.showSetup = true }
-            Button(L("Buscar actualizaciones…")) { model.checkForUpdates() }
-            Button(L("Actualizar desde el código…")) { model.updateFromSource() }
+            Button(L("Ajustes…")) {
+                guard let m = core.front, m.sheet == nil else { return }
+                m.openSettings()
+            }
+            .keyboardShortcut(",").disabled(model?.sheet != nil)
+            Button(L("Asistente de instalación…")) { core.front?.showSetup = true }
+            Button(L("Buscar actualizaciones…")) { core.front?.checkForUpdates() }
+            Button(L("Actualizar desde el código…")) { core.front?.updateFromSource() }
                 .disabled(AppModel.sourceFolder == nil)
         }
         CommandGroup(after: .textEditing) {
-            Button(L("Buscar en la salida…")) { model.current?.view.showFind() }.keyboardShortcut("f").disabled(model.modalOpen)
+            Button(L("Buscar en la salida…")) { onFront { $0.current?.view.showFind() } }.keyboardShortcut("f").disabled(modal)
         }
         CommandGroup(replacing: .help) {
             Button(L("Abrir el registro de depuración")) {
@@ -67,37 +116,44 @@ struct NetDeckCommands: Commands {
         // (contraseñas, dividir y ajustes van en la barra de la ventana; aquí solo lo que tiene atajo. Con una hoja,
         // Ajustes o el asistente abiertos se apagan los que cambian de hoja o tocan las pestañas: `modalOpen`)
         CommandMenu(L("Terminal")) {
-            Toggle(L("MultiExec"), isOn: Binding(get: { model.multiExecOn }, set: { model.multiExecOn = $0 }))
-                .keyboardShortcut("m", modifiers: [.command, .shift]).disabled(model.modalOpen)
-            Toggle(L("Resaltado"), isOn: Binding(get: { model.settings.highlightEnabled },
-                                              set: { model.settings.highlightEnabled = $0; model.applyHighlight() }))
+            Toggle(L("MultiExec"), isOn: Binding(get: { core.front?.multiExecOn ?? false },
+                                                set: { on in onFront { $0.multiExecOn = on } }))
+                .keyboardShortcut("m", modifiers: [.command, .shift]).disabled(modal)
+            Toggle(L("Resaltado"), isOn: Binding(get: { core.settings.highlightEnabled },
+                                              set: { core.settings.highlightEnabled = $0; core.front?.applyHighlight() }))
                 .keyboardShortcut("h", modifiers: [.command, .shift])
             Divider()
-            Button(L("Reconectar")) { model.current.map(model.reconnect) }.keyboardShortcut("r").disabled(model.modalOpen)
-            Button(L("Enviar BREAK (consola serie)")) { model.current?.sendSerialBreak() }
-                .disabled(model.modalOpen || model.current?.route.transport != .serial || model.current?.exited != false)
-            Button(L("Clonar pestaña")) { model.current.map(model.duplicate) }.keyboardShortcut("d").disabled(model.modalOpen)
-            Button(L("Mostrar/ocultar el explorador SFTP")) { model.current.map(model.toggleSidePanel) }
+            Button(L("Reconectar")) { onFront { m in m.current.map(m.reconnect) } }.keyboardShortcut("r").disabled(modal)
+            Button(L("Enviar BREAK (consola serie)")) {
+                onFront { m in if m.current?.route.transport == .serial { m.current?.sendSerialBreak() } }
+            }
+            .disabled(modal || model?.current?.route.transport != .serial || model?.current?.exited != false)
+            Button(L("Clonar pestaña")) { onFront { m in m.current.map(m.duplicate) } }.keyboardShortcut("d").disabled(modal)
+            Button(L("Mover la pestaña a una ventana nueva")) {
+                onFront { m in if m.tabs.count > 1, let s = m.current { m.moveTabToNewWindow(s) } }
+            }
+            .disabled(modal || (model?.tabs.count ?? 0) < 2)
+            Button(L("Mostrar/ocultar el explorador SFTP")) { onFront { m in m.current.map(m.toggleSidePanel) } }
                 .keyboardShortcut("b", modifiers: [.command, .shift])
-                .disabled(model.modalOpen || !(model.current.map { SFTPPanel.offers($0.route) } ?? false))
+                .disabled(modal || !(model?.current.map { SFTPPanel.offers($0.route) } ?? false))
             Divider()
-            Button(L("Pestaña siguiente")) { model.selectNext(1) }.keyboardShortcut("]", modifiers: [.command, .shift]).disabled(model.modalOpen)
-            Button(L("Pestaña anterior")) { model.selectNext(-1) }.keyboardShortcut("[", modifiers: [.command, .shift]).disabled(model.modalOpen)
-            Button(L("Mostrar/ocultar sesiones")) { model.settings.sidebarVisible.toggle() }
+            Button(L("Pestaña siguiente")) { onFront { $0.selectNext(1) } }.keyboardShortcut("]", modifiers: [.command, .shift]).disabled(modal)
+            Button(L("Pestaña anterior")) { onFront { $0.selectNext(-1) } }.keyboardShortcut("[", modifiers: [.command, .shift]).disabled(modal)
+            Button(L("Mostrar/ocultar sesiones")) { core.settings.sidebarVisible.toggle() }
                 .keyboardShortcut("s", modifiers: [.command, .control])
             Divider()
-            Button(L("Cancelar lo automático (Esc)")) { model.abortAll() }.keyboardShortcut(".")
-            Button(L("Recargar ssh_config")) { model.reloadSessions() }.keyboardShortcut("r", modifiers: [.command, .shift]).disabled(model.modalOpen)
+            Button(L("Cancelar lo automático (Esc)")) { core.abortEverywhere() }.keyboardShortcut(".")
+            Button(L("Recargar ssh_config")) { onFront { $0.reloadSessions() } }.keyboardShortcut("r", modifiers: [.command, .shift]).disabled(modal)
         }
         CommandMenu(L("Herramientas")) {
-            Button(L("Listas de equipos…")) { model.sheet = .list }.keyboardShortcut("l", modifiers: [.command, .shift]).disabled(model.modalOpen)
-            Button(L("Pegado seguro…")) { model.sheet = .paste }.keyboardShortcut("v", modifiers: [.command, .shift]).disabled(model.modalOpen)
-            Button(L("Macros…")) { model.sheet = .macros }.disabled(model.modalOpen)
-            Button(L("Túneles SSH…")) { model.sheet = .tunnels }.disabled(model.modalOpen)
-            Button(L("Espacios de trabajo…")) { model.sheet = .workspaces }.disabled(model.modalOpen)
-            Button(model.recording == nil ? L("Grabar macro") : L("Parar la grabación")) { model.toggleRecording() }
-                .disabled(model.modalOpen || (model.recording == nil && model.current == nil))
-            Button(L("Buscar en todos los registros…")) { model.sheet = .logs }.keyboardShortcut("f", modifiers: [.command, .shift]).disabled(model.modalOpen)
+            Button(L("Listas de equipos…")) { onFront { $0.present(.list) } }.keyboardShortcut("l", modifiers: [.command, .shift]).disabled(modal)
+            Button(L("Pegado seguro…")) { onFront { $0.sheet = .paste } }.keyboardShortcut("v", modifiers: [.command, .shift]).disabled(modal)
+            Button(L("Macros…")) { onFront { $0.present(.macros) } }.disabled(modal)
+            Button(L("Túneles SSH…")) { onFront { $0.present(.tunnels) } }.disabled(modal)
+            Button(L("Espacios de trabajo…")) { onFront { $0.sheet = .workspaces } }.disabled(modal)
+            Button(model?.recording == nil ? L("Grabar macro") : L("Parar la grabación")) { onFront { $0.toggleRecording() } }
+                .disabled(modal || (model?.recording == nil && model?.current == nil))
+            Button(L("Buscar en todos los registros…")) { onFront { $0.sheet = .logs } }.keyboardShortcut("f", modifiers: [.command, .shift]).disabled(modal)
         }
     }
 }
@@ -149,7 +205,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Los exploradores de las pestañas, conectados y con su carpeta listada (aunque esté vacía).
     @MainActor private static var contentReady: Bool {
-        (AppModel.instance?.allBrowsers ?? []).map(\.1).allSatisfy { $0.state == .connected && !$0.path.isEmpty }
+        AppCore.shared.allBrowsers.map(\.1).allSatisfy { $0.state == .connected && !$0.path.isEmpty }
     }
 
     @MainActor private static var visibleWindows: [NSWindow] { NSApp.windows.filter { $0.isVisible && $0.contentView != nil } }
@@ -176,11 +232,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
+    /// Antes de que se cierre ninguna ventana: se guardan las pestañas de todas (cada una en la suya) y las que se
+    /// cierran al salir ya no cortan nada por su cuenta.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        MainActor.assumeIsolated { AppCore.shared.willTerminate() }
+        return .terminateNow
+    }
+
+    /// El Dock: «Nueva ventana» (macOS añade debajo la lista de las abiertas).
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let menu = NSMenu()
+        menu.addItem(withTitle: L("Nueva ventana"), action: #selector(newWindowFromDock(_:)), keyEquivalent: "").target = self
+        return menu
+    }
+
+    @objc private func newWindowFromDock(_ sender: Any?) {
+        MainActor.assumeIsolated { AppCore.shared.openWindow() }
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         MainActor.assumeIsolated {
-            AppModel.instance?.saveOpenTabs()
-            AppModel.instance?.allBrowsers.forEach { $0.1.edits?.finish() }     // (las copias de edición sin nada pendiente)
-            AppModel.instance?.tunnelRunner.stopAll()                           // (ningún ssh de túnel sigue tras salir)
+            AppCore.shared.willTerminate()
+            AppCore.shared.allBrowsers.forEach { $0.1.edits?.finish() }         // (las copias de edición sin nada pendiente)
+            AppCore.shared.tunnelRunner.stopAll()                               // (ningún ssh de túnel sigue tras salir)
         }
         DebugLog.log("app", "sale")
         DebugLog.flush()

@@ -30,11 +30,11 @@ final class RemoteEdits {
     private var timer: Timer?
     private let folder: URL
     private weak var browser: RemoteBrowser?
-    private weak var model: AppModel?
+    /// El de la ventana en la que está ahora su pestaña (puede pasar a otra).
+    private var model: AppModel? { browser?.model }
 
     init(browser: RemoteBrowser) {
         self.browser = browser
-        model = browser.model
         folder = RemoteEdit.workspace.appendingPathComponent(browser.id.uuidString.prefix(8).lowercased(), isDirectory: true)
     }
 

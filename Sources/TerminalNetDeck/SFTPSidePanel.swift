@@ -29,6 +29,12 @@ final class SFTPSidePanel {
 
     var layout: SFTPPanelLayout { SFTPPanelLayout(visible: visible, width: width) }
 
+    /// Su pestaña ha pasado a otra ventana: el explorador, con ella (la conexión sigue).
+    func retarget(_ m: AppModel) {
+        model = m
+        browser?.retarget(m)
+    }
+
     /// El explorador de la ruta del terminal de ahora (si la pestaña ha cambiado de ruta, uno nuevo).
     func prepare(for s: TerminalSession) {
         guard let model else { return }

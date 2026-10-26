@@ -62,8 +62,10 @@ struct SplitPane: View {
         let edge = multi ? t.warning : (selected ? t.accent : t.panel)
         VStack(spacing: 0) {
             header(selected: selected, excluded: excluded, multi: multi)
-            if let e = model.notices[session.id] { PasswordNotice(session: session, event: e) }
             SessionContent(session: session, focused: selected, inset: 6)
+                .overlay(alignment: .topTrailing) {
+                    if let e = model.notices[session.id] { PasswordNotice(session: session, event: e).padding(10) }
+                }
         }
         .background(SwiftUI.Color(t.layer))
         .overlay(Rectangle().strokeBorder(SwiftUI.Color(edge).opacity(selected || multi ? 0.9 : 0.5), lineWidth: selected ? 2 : 1))

@@ -88,6 +88,13 @@ public struct PromptRule: Hashable, Sendable {
         return DevicePrompt.generic.matches(l)
     }
 
+    /// Fin de un login anidado (desde la sesión a otro equipo): el prompt de la sesión o también el genérico. El
+    /// «# @prompt» propio es el del equipo de la sesión; «core-01#», el del equipo al que se ha saltado, no lo cumple
+    /// y, sin éste, su contraseña quedaba pendiente mientras trabajabas allí.
+    public static func endsNestedLogin(_ line: String, custom: PromptRule?) -> Bool {
+        isPrompt(line, custom: custom) || (custom != nil && isPrompt(line, custom: nil))
+    }
+
     public static func == (a: Self, b: Self) -> Bool { a.source == b.source }
     public func hash(into h: inout Hasher) { h.combine(source) }
 }

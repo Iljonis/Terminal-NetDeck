@@ -40,14 +40,13 @@ final class RemoteBrowser {
     var md5: MD5Check?
     @ObservationIgnored weak var model: AppModel?
     @ObservationIgnored private var connectTask: Task<Void, Never>?
+    @ObservationIgnored private var connectionGeneration: UInt64 = 0
     @ObservationIgnored private var refreshing = false
     @ObservationIgnored private var refreshAgain = false
     /// El aviso que queda abajo cuando acabe el refresco (leer la carpeta lo borraría).
     @ObservationIgnored private var noteAfterRefresh: String?
     /// Hay un «mover» en marcha (soltar otra vez no lanza otro a la vez).
     @ObservationIgnored private(set) var moving = false
-    /// La contraseña FTP que se está probando (y si vino del Llavero).
-    @ObservationIgnored private var probing: CredentialRef?
     /// «Editar»: lo bajado para editar y su subida al guardarlo.
     @ObservationIgnored private(set) var edits: RemoteEdits?
 
@@ -56,6 +55,9 @@ final class RemoteBrowser {
         self.model = model
         edits = RemoteEdits(browser: self)
     }
+
+    /// Su pestaña ha pasado a otra ventana: los avisos y el Llavero, de ésa (la conexión sigue).
+    func retarget(_ m: AppModel) { model = m }
 
     var isFTP: Bool { route.transport == .ftp }
     var user: String { route.target.user ?? model?.sessions.profile(named: route.sessionName ?? "")?.effectiveUser ?? AppPaths.userName }
@@ -74,13 +76,12 @@ final class RemoteBrowser {
     }
 
     func disconnect() {
+        connectionGeneration &+= 1
         closeMD5()                                   // (sin lecturas del MD5 colgadas de una conexión que se cierra)
         connectTask?.cancel()
         connectTask = nil
         if let fs { Task { await fs.close() } }
         fs = nil
-        if let p = probing { model?.ledger.release(p) }
-        probing = nil
         state = .idle
     }
 
@@ -99,6 +100,8 @@ final class RemoteBrowser {
 
     private func connectSFTP() {
         guard let model else { return }
+        connectionGeneration &+= 1
+        let generation = connectionGeneration
         state = .connecting
         message = nil
         let r = route
@@ -112,27 +115,38 @@ final class RemoteBrowser {
         var env = TerminalEnvironment.prepare(ProcessInfo.processInfo.environment, forSSH: true,
                                               sendLocale: UserDefaults.standard.bool(forKey: AppSettings.sendLocaleKey))
         env[Askpass.flag] = nil
+        // (una por conexión: lo que deje el askpass de una que se cancela no se atribuye a la siguiente)
+        let sid = UUID()
         env.merge(Askpass.environment(executable: Bundle.main.executablePath ?? CommandLine.arguments[0],
-                                      configPath: model.settings.sshConfigURL.path,
-                                      defaultCredential: model.settings.defaultCredential, session: id,
-                                      manual: !model.settings.sessionAutoPassword)) { $1 }
-        let label = label, sid = id, ledger = model.ledger
+                                      configPath: model.settings.sshConfigURL.path, session: sid,
+                                      manual: !model.settings.sessionAutoPassword, profile: r.sessionName, route: r)) { $1 }
+        let label = label, ledger = model.ledger
         DebugLog.log("explorador", "«\(r.title)» conecta: \(cmd.0) \(cmd.1.joined(separator: " "))")
         connectTask = Task {
             do {
                 let fs = try await SFTPFileSystem.connect(label: label, executable: cmd.0, arguments: cmd.1, environment: env)
-                Askpass.takeGiven(session: sid).forEach(ledger.confirm)       // (la del askpass ha valido)
-                try await self.connected(fs)
+                guard !Task.isCancelled, self.connectionGeneration == generation else {
+                    _ = Askpass.takeGiven(session: sid)
+                    await fs.close()
+                    return
+                }
+                Askpass.takeGiven(session: sid).forEach(ledger.confirmDirect) // (sin quitar la reserva de otro contexto)
+                try await self.connected(fs, generation: generation)
             } catch {
-                _ = Askpass.takeGiven(session: sid)
-                self.fail(error)
+                // (sin entrar: si ssh dice que no valía la que dio el askpass, bloqueada 15 min como en las pestañas)
+                Askpass.settleAfterExit(session: sid, ledger: ledger) {
+                    Askpass.rejection(in: [String(describing: error), error.localizedDescription])
+                }
+                self.fail(error, generation: generation)
             }
         }
     }
 
-    /// FTP: la contraseña del Llavero si la regla de usuario lo permite (y no ha fallado hace poco); si no, se pide.
+    /// FTP: su contraseña guardada, sin reservarla ni esperar a otras pestañas; un rechazo real mantiene el bloqueo.
     func connectFTP(password typed: String?, save: CredentialRef?) {
-        guard let model else { return }
+        guard let model, state != .connecting, state != .connected else { return }
+        connectionGeneration &+= 1
+        let generation = connectionGeneration
         state = .connecting
         message = nil
         let r = route, user = user, label = label
@@ -151,38 +165,42 @@ final class RemoteBrowser {
                 let found: (CredentialRef, String)? = await Task.detached {
                     let have = candidates.filter { store.contains($0.ref) }
                     guard case .inject(let c) = policy.decide(request, commandUser: nil, candidates: have, isBlocked: ledger.isBlocked),
-                          ledger.beginProbe(c) == .go else { return nil }
-                    guard let pw = try? store.password(for: c) else { ledger.release(c); return nil }
+                          let pw = try? store.password(for: c), !pw.isEmpty else { return nil }
                     return (c, pw)
                 }.value
                 if let found { (ref, password) = (found.0, found.1) }
             }
-            guard !Task.isCancelled else { if let ref { ledger.release(ref) }; return }     // («Cancelar» mientras se leía)
+            guard !Task.isCancelled, self.connectionGeneration == generation else { return }    // («Cancelar» mientras se leía)
             guard let password else { self.state = .needsPassword(nil); return }
-            self.probing = ref
+            if let ref, ledger.isBlocked(ref) {                // (otro rechazo pudo llegar mientras se leía el Llavero)
+                self.state = .needsPassword(L("«\(ref.account)» no ha valido: bloqueada 15 min en todas las pestañas"))
+                return
+            }
+            // (un rechazo, aunque llegue tarde, es de la que se dio ahora: si la guardas otra vez después, no la bloquea)
+            let attempted = Date()
             do {
                 // (si más tarde una transferencia recibe 530, la contraseña ha cambiado: bloqueada como en las pestañas)
                 let used = ref
-                let rejected: @Sendable () -> Void = { if let used { ledger.markFailed(used) } }
+                let rejected: @Sendable () -> Void = { if let used { ledger.markFailed(used, attemptedAt: attempted) } }
                 let fs = try await FTPFileSystem.connect(label: label, host: r.target.host, port: r.target.port,
                                                          user: user, password: password, rejected: rejected)
-                if let ref { ledger.confirm(ref) }
-                self.probing = nil
+                guard !Task.isCancelled, self.connectionGeneration == generation else { await fs.close(); return }
+                if let ref { ledger.confirmDirect(ref) }
                 if let save {
                     let saved: String? = await Task.detached {
-                        do { try store.save(password, for: save); ledger.reset(save); ledger.confirm(save); return nil } catch {
+                        do { try store.save(password, for: save); ledger.reset(save); ledger.confirmDirect(save); return nil } catch {
                             return error.localizedDescription
                         }
                     }.value
+                    guard !Task.isCancelled, self.connectionGeneration == generation else { await fs.close(); return }
                     model.keychainRevision += 1
                     if let saved { model.status = "✗ \(saved)" } else { model.status = L("🔑 «\(save.account)» guardada en el Llavero") }
                 }
-                try await self.connected(fs)
+                try await self.connected(fs, generation: generation)
             } catch is FTPLoginError {
-                self.probing = nil
                 // (el servidor ya ha dicho 530: aunque se haya cancelado, esa contraseña no vale y queda bloqueada)
-                if let ref { ledger.markFailed(ref) }
-                guard !Task.isCancelled else { return }         // (cancelada: sin aviso)
+                if let ref { ledger.markFailed(ref, attemptedAt: attempted) }
+                guard !Task.isCancelled, self.connectionGeneration == generation else { return }    // (cancelada: sin aviso)
                 if let ref {
                     self.state = .needsPassword(L("«\(ref.account)» no ha valido: bloqueada 15 min en todas las pestañas"))
                     model.status = L("🔑 «\(ref.account)» no ha valido: bloqueada 15 min en todas las pestañas")
@@ -190,9 +208,7 @@ final class RemoteBrowser {
                     self.state = .needsPassword(L("Usuario o contraseña no válidos"))
                 }
             } catch {
-                if let ref { ledger.release(ref) }
-                self.probing = nil
-                self.fail(error)
+                self.fail(error, generation: generation)
             }
         }
     }
@@ -203,10 +219,12 @@ final class RemoteBrowser {
         return .device(user, route.target.host)
     }
 
-    private func connected(_ fs: any RemoteFileSystem) async throws {
-        guard !Task.isCancelled else { await fs.close(); return }
+    private func connected(_ fs: any RemoteFileSystem, generation: UInt64) async throws {
+        guard !Task.isCancelled, connectionGeneration == generation else { await fs.close(); return }
+        let remoteHome = (try? await fs.home()) ?? "/"
+        guard !Task.isCancelled, connectionGeneration == generation else { await fs.close(); return }
         self.fs = fs
-        home = (try? await fs.home()) ?? "/"
+        home = remoteHome
         if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] != nil,
            let d = ProcessInfo.processInfo.environment["NETDECK_SFTP_DIR"] { home = d }    // (capturas)
         state = .connected
@@ -214,8 +232,8 @@ final class RemoteBrowser {
         await go(home, record: false)
     }
 
-    private func fail(_ e: Error) {
-        guard !Task.isCancelled else { return }
+    private func fail(_ e: Error, generation: UInt64) {
+        guard !Task.isCancelled, connectionGeneration == generation else { return }
         let text = e.localizedDescription
         state = .failed(text)
         ErrorLog.error("explorador", "«\(route.title)»: \(text)")
@@ -234,8 +252,10 @@ final class RemoteBrowser {
 
     func go(_ p: String, record: Bool = true) async {
         guard let fs else { return }
+        let generation = connectionGeneration
         do {
             let list = try await fs.list(p)
+            guard !Task.isCancelled, connectionGeneration == generation, self.fs === fs else { return }
             if record, !path.isEmpty, path != p { back.append(path); forward = [] }
             path = p
             entries = Self.forSnapshot(list)
@@ -244,6 +264,7 @@ final class RemoteBrowser {
             children = [:]
             message = nil
         } catch {
+            guard !Task.isCancelled, connectionGeneration == generation, self.fs === fs else { return }
             message = "✗ \(error.localizedDescription)"
             if isConnectionLost(error) { state = .failed(error.localizedDescription) }
         }

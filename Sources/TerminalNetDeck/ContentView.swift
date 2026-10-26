@@ -10,7 +10,6 @@ struct ContentView: View {
     var body: some View {
         if model.showSetup {
             SetupView()
-                .ignoresSafeArea(.container, edges: .top)
         } else {
             main
         }
@@ -19,15 +18,14 @@ struct ContentView: View {
     private var main: some View {
         @Bindable var model = model
         return VStack(spacing: 0) {
-            if model.fullScreen, model.titlebarReveal > 0 {
-                // (pantalla completa con la barra de título de macOS bajada: que no tape los botones)
-                SwiftUI.Color(t.bar).frame(height: model.titlebarReveal)
+            VStack(spacing: 0) {
+                TopBar()
+                if model.settings.buttonBar == "arriba" { ButtonBarView() }
             }
-            TopBar()
-            if model.settings.buttonBar == "arriba" { ButtonBarView() }
+            .snapshotFrame("barra-superior")
             HStack(spacing: 0) {
                 if model.settings.sidebarVisible {
-                    Sidebar().frame(width: 268)
+                    Sidebar().frame(width: 268).snapshotFrame("sesiones")
                     NeonLine(vertical: true, color: t.panel)
                 }
                 VStack(spacing: 0) {
@@ -41,8 +39,6 @@ struct ContentView: View {
         }
         .background(SwiftUI.Color(t.background))
         .background { if t.isTranslucent { BehindWindowBlur(material: t.blurMaterial) } }
-        .background(WindowReader { model.attach($0) })
-        .ignoresSafeArea(.container, edges: .top)
         .tint(SwiftUI.Color(t.accent))
         .themedControls()
         .overlay(alignment: .bottomTrailing) {
@@ -78,7 +74,33 @@ extension ContentView {
     private func snapshotAction() {
         // (sólo en una captura: si no, lo que abren se guardaría en tus pestañas)
         let env = ProcessInfo.processInfo.environment
-        guard env["NETDECK_SNAPSHOT"] != nil, let a = env["NETDECK_SNAPSHOT_ACTION"] else { return }
+        // (sólo en la primera ventana: las que se abren durante la prueba no repiten la acción)
+        guard env["NETDECK_SNAPSHOT"] != nil, model.isLaunchWindow, let a = env["NETDECK_SNAPSHOT_ACTION"] else { return }
+        if a == "password-selector", env["NETDECK_SAMPLES"] == "1" {
+            // (demostración sin procesos, red ni Llavero: el mismo contexto y selector que usa un login real)
+            let ref = CredentialRef.named("AD"), ledger = CredentialLedger()
+            let passwords = PasswordAutomation(mode: .suggest, store: MemoryCredentialStore([ref: "ejemplo"]), ledger: ledger) { _ in
+                [.init(ref: ref, owners: ["tu.usuario"], origin: .defaultCredential)]
+            }
+            let s = TerminalSession(route: .init(title: "bastion", target: .init(user: "tu.usuario", host: "192.0.2.10")),
+                                    passwords: passwords, ledger: ledger)
+            model.tabs.append(s)
+            model.selection = s.id
+            model.applyProfile(to: s)
+            passwords.onOfferChange = { [weak model, weak s] offer in
+                guard let s else { return }
+                model?.passwordOffers[s.id] = offer
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(400))
+                s.view.feed(byteArray: Array("bastion# ssh tu.usuario@192.0.2.11\r\n".utf8)[...])
+                _ = s.pipe.counter.bump(); s.pipe.counter.delivered()
+                passwords.beginCommand("ssh tu.usuario@192.0.2.11", after: s.cursorRow)
+                s.view.feed(byteArray: Array("tu.usuario@192.0.2.11's password: ".utf8)[...])
+                _ = s.pipe.counter.bump(); s.pipe.counter.delivered()
+                if let event = await passwords.observe(s, gate: s.gate) { model.notices[s.id] = event }
+            }
+        }
         if a.hasPrefix("tab:") { model.quickConnect(String(a.dropFirst(4))) }
         if a.hasPrefix("tab:") || a == "terminal" {
             // (y el texto de la pestaña, para comprobar que la salida llega al terminal)
@@ -220,6 +242,12 @@ extension ContentView {
                         if model.selection != model.tabs.first?.id { errors.append("selección") }
                         if model.split?.fractions["root"] != [0.3, 0.7] || !model.showSplit { errors.append("disposición") }
                         if model.multiExecOn { errors.append("MultiExec") }
+                        // (las capturas no enseñan este Mac: ni tu usuario ni su nombre en el prompt de la local)
+                        for _ in 0..<30 where model.tabs.contains(where: { $0.revision == 0 }) { try? await Task.sleep(for: .milliseconds(100)) }
+                        let text = model.tabs.flatMap { $0.lines(from: 0) }.joined(separator: "\n").lowercased()
+                        let mine = [NSUserName(), Host.current().localizedName ?? "", ProcessInfo.processInfo.hostName]
+                            .map { $0.lowercased().components(separatedBy: ".").first ?? "" }.filter { $0.count >= 3 }
+                        if mine.contains(where: text.contains) { errors.append("privacidad: el prompt enseña este Mac") }
                     } catch { errors.append(error.localizedDescription) }
                     try? (errors.isEmpty ? "OK espacios: guardar, cerrar, cargar y restaurar" : "ERROR " + errors.joined(separator: ", "))
                         .write(toFile: path + ".espacios.txt", atomically: true, encoding: .utf8)
@@ -298,10 +326,12 @@ struct TopBar: View {
                         }
                         // arrastrar una pestaña la cambia de sitio (sólo el orden: la terminal y su proceso siguen igual)
                         ForEach(model.tabs) { s in
+                            // (y soltada fuera de la ventana: a otra ventana de la app o a una nueva en esa pantalla)
                             TabChip(session: s, width: each, dragSpace: drag.space) { drag.blocked[s.id] = $0 }
                                 .id(s.id)
                                 .reorderable(s.id, in: drag, order: { model.tabs.map(\.id) },
-                                             move: { model.moveTab($0, to: $1) }, end: {}, tap: { model.show(s) })
+                                             move: { model.moveTab($0, to: $1) }, end: {}, tap: { model.show(s) },
+                                             tearOff: TearOff(title: s.tabTitle, theme: t) { model.dropTab(s, at: $0, grab: $1) })
                         }
                     }
                     .padding(.vertical, 4)
@@ -333,7 +363,7 @@ struct TopBar: View {
                 MacroMenu()
                     .help(L("Macros: grabar, reproducir (en la pestaña o en MultiExec) y editar"))
                 IconButton(icon: "point.3.connected.trianglepath.dotted", active: model.tunnelRunner.activeCount > 0,
-                           badge: model.tunnelRunner.activeCount > 0 ? "\(model.tunnelRunner.activeCount)" : nil) { model.sheet = .tunnels }
+                           badge: model.tunnelRunner.activeCount > 0 ? "\(model.tunnelRunner.activeCount)" : nil) { model.present(.tunnels) }
                     .help(L("Túneles SSH: locales, remotos y SOCKS; iniciar, parar y su estado"))
                 IconMenu(icon: "rectangle.split.3x1.fill", active: model.split != nil) {
                     ForEach(Split.Layout.allCases) { l in Button(l.title) { model.makeSplit(l) } }
@@ -363,7 +393,7 @@ struct TopBar: View {
                 IconButton(icon: "square.stack.3d.forward.dottedline.fill", tint: t.warning, active: model.multiExecOn,
                            badge: model.multiExecOn ? "\(model.multiExecTargets.count)" : nil) { model.multiExecOn.toggle() }
                     .help(L("MultiExec: lo que escribes va a la vez a los paneles (⇧⌘M). Clic derecho en un panel → excluirlo"))
-                IconButton(icon: "stop.circle.fill", tint: t.bad) { model.abortAll() }
+                IconButton(icon: "stop.circle.fill", tint: t.bad) { model.core.abortEverywhere() }
                     .help(L("Corta cualquier secuencia automática (Esc o Ctrl+C en el terminal, ⌘.)"))
                 IconButton(icon: "sidebar.right", active: model.current?.sidePanel?.visible == true) { model.current.map(model.toggleSidePanel) }
                     .help(L("Explorador SFTP al lado del terminal ssh: mismo equipo, usuario y saltos (⇧⌘B)"))
@@ -433,7 +463,7 @@ struct NewMenu: View {
             item(L("Nueva sesión serie…"), icon: "cable.connector.horizontal") {
                 model.editSessions(.new(group: nil, kind: .serial))
             }
-            item(L("Listas de equipos…"), icon: "list.bullet.rectangle", key: "⇧⌘L") { model.sheet = .list }
+            item(L("Listas de equipos…"), icon: "list.bullet.rectangle", key: "⇧⌘L") { model.present(.list) }
             if !favs.isEmpty || start != nil {
                 divider
                 heading(L("Favoritas"))
@@ -666,6 +696,7 @@ struct TabChip: View {
         .shadow(color: SwiftUI.Color(t.tab).opacity(selected ? 0.6 : 0), radius: t.glow(8))
         .contentShape(Rectangle())
         .snapshotFrame("tab:\(session.id)")
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { model.tabFrames[session.id] = $0 }
         .onTapGesture { model.show(session) }
         .onHover { hover = $0 }
         .help(session.pathDescription)
@@ -699,6 +730,31 @@ struct SessionTabMenu: View {
     var body: some View {
         Button(L("Reconectar")) { model.reconnect(session) }
         Button(L("Clonar (otra pestaña igual)")) { model.duplicate(session) }
+        Button(L("Renombrar la pestaña…")) {
+            Task {
+                guard let n = await SessionEditor.ask(L("Nombre de la pestaña (se queda hasta que entres en otro equipo)"),
+                                                      value: session.tabTitle) else { return }
+                session.rename(n)
+            }
+        }
+        if session.customTitle != nil {
+            Button(L("Volver al nombre del equipo")) { session.rename(nil) }
+        }
+        MenuDivider()
+        // (a otra ventana sin cortar la conexión: también arrastrándola fuera de ésta)
+        if model.tabs.count > 1 {
+            Button(L("Mover a una ventana nueva")) { model.moveTabToNewWindow(session) }
+        }
+        let others = model.core.attachedWindows.enumerated().filter { $0.element !== model }
+        if !others.isEmpty {
+            ThemedSubmenu(title: L("Mover a la ventana")) {
+                ForEach(others, id: \.offset) { i, w in
+                    Button(L("Ventana \(String(i + 1)): \(w.current?.tabTitle ?? L("portada")) (\(String(w.tabs.count)))")) {
+                        model.moveTab(session, to: w)
+                    }
+                }
+            }
+        }
         MenuDivider()
         if model.split?.panes.contains(session.id) == true {
             Button(L("Quitar de la vista dividida")) { model.removeFromSplit(session) }
@@ -804,7 +860,6 @@ struct MainArea: View {
             SplitArea(split: sp)
         } else if let s = model.current {
             VStack(spacing: 0) {
-                if let e = model.notices[s.id] { PasswordNotice(session: s, event: e) }
                 SessionContent(session: s, focused: true, inset: 8, sidePanel: true)
                     .id(s.id)
                     .overlay(alignment: .topLeading) {
@@ -816,6 +871,9 @@ struct MainArea: View {
                             RecBadge(session: s).padding(.top, 8).padding(.trailing, 18)
                         }
                     }
+            }
+            .overlay(alignment: .topTrailing) {
+                if let e = model.notices[s.id] { PasswordNotice(session: s, event: e).padding(12) }
             }
             .background(SwiftUI.Color(t.layer))
         } else {
@@ -877,7 +935,7 @@ extension TerminalSession {
     }
 }
 
-/// Aviso encima del terminal: la regla de usuario no deja escribirla sola, o la sugerida (un clic).
+/// Selector ligado al login de esta pestaña; se superpone sin redimensionar el terminal ni su PTY.
 struct PasswordNotice: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
@@ -885,24 +943,39 @@ struct PasswordNotice: View {
     let event: PasswordAutomation.Event
 
     var body: some View {
-        HStack(spacing: 10) {
-            Rectangle().fill(SwiftUI.Color(t.warning)).frame(width: 3)
-            Image(systemName: "key.fill").foregroundStyle(SwiftUI.Color(t.warning))
-            Text(text).font(t.ui(12)).foregroundStyle(SwiftUI.Color(t.text)).lineLimit(2)
-            Spacer()
-            if case .suggested(let ref) = event {
-                NeonButton(title: L("Escribir «\(ref.account)»"), icon: "return", tint: t.good) { model.typePassword(ref, in: session) }
+        if case .suggested = event {
+            if let offer = model.passwordOffers[session.id] {
+                panel {
+                    Text(L("Contraseña para \(offer.target.host)")).font(t.ui(12, .bold))
+                    ForEach(offer.refs, id: \.self) { ref in
+                        NeonButton(title: L("Escribir «\(ref.account)»"), icon: "key.fill", tint: t.good) {
+                            model.choosePassword(ref, offer: offer, in: session)
+                        }
+                    }
+                }
             }
-            IconButton(icon: "xmark") { model.notices[session.id] = nil }
+        } else {
+            panel { Text(text).font(t.ui(12)).foregroundStyle(SwiftUI.Color(t.text)).fixedSize(horizontal: false, vertical: true) }
         }
-        .padding(.trailing, 10)
-        .frame(height: 40)
-        .background(SwiftUI.Color(t.warning).opacity(0.12))
+    }
+
+    private func panel<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "key.fill").foregroundStyle(SwiftUI.Color(t.warning))
+            VStack(alignment: .leading, spacing: 10, content: content).frame(maxWidth: .infinity, alignment: .leading)
+            IconButton(icon: "xmark") { model.dismissPasswordNotice(in: session) }
+                .help(L("Cerrar"))
+        }
+        .padding(12)
+        .frame(maxWidth: 360)
+        .background(SwiftUI.Color(t.panel), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(SwiftUI.Color(t.warning).opacity(0.5)))
+        .shadow(color: .black.opacity(0.25), radius: 10, y: 3)
     }
 
     private var text: String {
         switch event {
-        case .suggested(let r): L("Piden contraseña: «\(r.account)» es de ese usuario")
+        case .suggested: ""
         case .manual(let why): L("Piden contraseña: \(Askpass.explain(why)) · o elígela en 🔑")
         case .failed(let r): L("«\(r.account)» no ha valido: bloqueada 15 min en todas las pestañas (cuenta AD)")
         default: ""
@@ -946,14 +1019,26 @@ struct TerminalHost: NSViewRepresentable {
 struct WindowReader: NSViewRepresentable {
     let found: (NSWindow) -> Void
 
-    func makeNSView(context: Context) -> NSView {
-        let v = NSView()
-        DispatchQueue.main.async { if let w = v.window { found(w) } }
+    func makeNSView(context: Context) -> Probe {
+        let v = Probe()
+        v.found = found
         return v
     }
 
-    func updateNSView(_ v: NSView, context: Context) {
+    func updateNSView(_ v: Probe, context: Context) {
+        v.found = found
         if let w = v.window { DispatchQueue.main.async { found(w) } }
+    }
+
+    /// Avisa en cuanto entra en su ventana (una ventana nueva y vacía puede no volver a actualizarse después).
+    final class Probe: NSView {
+        var found: ((NSWindow) -> Void)?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard let w = window else { return }
+            DispatchQueue.main.async { [weak self] in self?.found?(w) }
+        }
     }
 }
 

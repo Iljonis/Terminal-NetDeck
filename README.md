@@ -9,10 +9,10 @@ y 51 temas. Nativo, rápido y en tu idioma.
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.9.3](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.3)** · macOS 15 o posterior ·
+Versión actual: **[v0.9.4](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.4)** · macOS 15 o posterior ·
 código abierto (MIT)
 
-[![Versión](https://img.shields.io/badge/versión-v0.9.3-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.3)
+[![Versión](https://img.shields.io/badge/versión-v0.9.4-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.4)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,19 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - **Explorador SFTP/FTP** con copias atómicas, verificación MD5 integrada y envío de servidor a servidor.
 - **Multipestaña** con vista dividida, MultiExec y pegado seguro; **51 temas** con contraste WCAG.
 - **Sesiones con saltos** sobre tu `ssh_config` y contraseñas sólo en el Llavero de macOS.
+
+### Novedades de 0.9.4
+
+- **Varias ventanas:** ⌘N abre otra; las pestañas pasan de una ventana a otra arrastrándolas o con clic derecho, sin
+  cortar la conexión. Cada ventana vuelve al reabrir con sus pestañas y su sitio.
+- **Renombrar la pestaña** (clic derecho): el nombre se mantiene mientras sigas en ese equipo, también al reconectar.
+- **Exportar e importar botones** en Ajustes → Botones, para compartirlos; las contraseñas no viajan.
+- **Contraseñas más precisas:** las sesiones guardadas usan su contraseña y la de cada salto sin esperar a otras
+  pestañas; en equipos abiertos desde una sesión la ayuda sólo se activa al enviar una orden SSH/Telnet, nunca por
+  un `show run`, un banner o un registro.
+- **Túneles y listas de equipos** más robustos ante procesos que terminan y credenciales de cada salto.
+- **Pantalla completa:** corregido el hueco superior y la barra de pestañas que tapaba el buscador y la primera
+  línea del terminal.
 
 ### Novedades de 0.9.3
 
@@ -152,6 +165,8 @@ cd Terminal-NetDeck
 ### 🔐 Contraseñas que no se equivocan de sitio
 
 - **Sólo en el Llavero** de macOS: nunca en archivos, argumentos ni registros.
+- **Las sesiones guardadas abren directamente:** SSH/SFTP usan su contraseña asignada y la propia de cada salto, sin adivinar ni esperar a otras pestañas. Telnet se inicia a mano.
+- **Equipos abiertos desde una sesión:** la ayuda sólo se activa al enviar una orden SSH/Telnet y termina al entrar, cancelar o enviar otra orden. Un `show run`, `show config`, banner o registro no la activa. El modo sugerir ofrece las credenciales compatibles en un selector pequeño ligado a esa pestaña y ese login.
 - **Regla de usuario estricta:** una contraseña sólo se escribe sola si es exactamente del usuario que la pide.
 - **Y del equipo correcto:** un servidor que escriba en pantalla un `admin@core-01's password:` falso no se lleva la
   contraseña de core-01; sólo cuentan el destino y los saltos de esa pestaña.
@@ -189,7 +204,9 @@ cd Terminal-NetDeck
 - **Pegado seguro:** línea a línea esperando al prompt; se para ante errores de la CLI, paginadores, órdenes
   peligrosas sin confirmar (`reload`, `delete`…) o una petición de contraseña.
 - **Listas de equipos:** la misma orden en muchos equipos detrás de un salto, probando la contraseña de uno en uno.
-- **Barra de botones** con categorías, teclas F1–F12 y huecos como `{{vlan=100}}`.
+- **Barra de botones** con categorías, teclas F1–F12 y huecos como `{{vlan=100}}`. En Ajustes → Botones se
+  **exportan** a un `.txt` para pasárselos a un compañero y se **importan** los suyos (añadiéndolos a los tuyos sin
+  repetir, o sustituyéndolos). Las contraseñas no viajan: sólo el nombre con el que están en el Llavero.
 
 ### 🗂️ Pestañas que se adaptan
 
@@ -197,6 +214,14 @@ cd Terminal-NetDeck
 - El título es sólo el **equipo de destino** (`core-02`, no `core-02 ⟵ bastion`); el camino entero sale al pasar el
   ratón. Si desde una sesión saltas a otro equipo, la pestaña lo refleja.
 - Los botones de la barra nunca se salen de la ventana, tengas las pestañas que tengas.
+- Arrastrar una pestaña nunca mueve la ventana, tampoco con la ventana en «Rellenar».
+- **Renombrar la pestaña** (clic derecho): el nombre que pones se queda mientras sigas en ese equipo (también al
+  reconectar) y vuelve el del equipo cuando sale el prompt de otro.
+- **Varias ventanas:** ⌘N abre otra. Arrastra una pestaña fuera de su ventana para llevarla a otra pantalla (se abre
+  ahí una ventana con ella) o a la barra de otra ventana; o clic derecho → «Mover a una ventana nueva» / «Mover a la
+  ventana». La conexión sigue tal cual, sin reconectar. Al salir se guarda cada ventana con sus pestañas y su sitio,
+  y al reabrir vuelven así. Cerrar una ventana con conexiones abiertas pregunta antes; la última cierra la app como
+  siempre.
 
 ![Pestañas adaptativas](docs/capturas/pestanas.png)
 
@@ -304,6 +329,8 @@ serie, **NetDeck Cyberpunk**.
 |---|---|
 | ⌘K | Conectar (sesión o `usuario@equipo[:puerto]`, directo o por un salto) |
 | ⌘T | Nueva terminal local |
+| ⌘N | Nueva ventana |
+| ⇧⌘W | Cerrar la ventana (pregunta si tiene conexiones y hay más ventanas) |
 | ⌥⌘K | Abrir la sesión de inicio |
 | ⇧⌘E | Gestor de sesiones |
 | ⇧⌘L | Listas de equipos |

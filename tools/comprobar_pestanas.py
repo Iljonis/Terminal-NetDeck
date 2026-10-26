@@ -15,7 +15,10 @@ def comprobar(texto):
                 and all(any(nombre in linea for linea in casos)
                         for nombre in ("clic en otra pestaña", "clic en la ✕", "ventana movible=",
                                        "estrechas", "pantalla completa", "controles anclados a la derecha",
-                                       "herramientas fijas", "botones de crear fijos")))
+                                       "herramientas fijas", "botones de crear fijos", "rellenar",
+                                       "ventana nueva", "mover a otra ventana", "arrastre a otra ventana",
+                                       "arrastre fuera", "cerrar ventana", "menús de ventana",
+                                       "reabrir en sus ventanas")))
 
 
 if __name__ == "__main__":
@@ -26,4 +29,4 @@ if __name__ == "__main__":
     if not comprobar(texto):
         print("✗ pestañas: informe incompleto o interacción fallida")
         sys.exit(1)
-    print("✓ pestañas: clic, cierre y arrastre en ventana, pantalla completa y pestañas estrechas")
+    print("✓ pestañas: clic, cierre y arrastre en ventana, rellenar, pantalla completa, pestañas estrechas y varias ventanas")

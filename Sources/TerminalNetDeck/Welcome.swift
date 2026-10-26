@@ -28,7 +28,9 @@ struct Welcome: View {
                     .padding(.top, 40)
                     quickConnect
                     if !model.lastOpen.isEmpty {
-                        NeonButton(title: L("Reabrir las \(model.lastOpen.count) de la última vez: ")
+                        NeonButton(title: (model.lastOpenWindows > 1
+                                           ? L("Reabrir las \(model.lastOpen.count) de la última vez, en \(model.lastOpenWindows) ventanas: ")
+                                           : L("Reabrir las \(model.lastOpen.count) de la última vez: "))
                                    + model.lastOpen.prefix(4).map(\.title).joined(separator: ", ")
                                    + (model.lastOpen.count > 4 ? "…" : ""),
                                    icon: "arrow.counterclockwise", tint: t.good) { model.reopenLast() }

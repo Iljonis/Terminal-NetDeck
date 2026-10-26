@@ -347,22 +347,23 @@ enum ThemedAlert {
         var text: String
     }
 
+    /// `over`: la ventana sobre la que sale (si no, la de delante).
     @discardableResult
     static func run(_ title: String, message: String = "", buttons: [String], destructive: Int? = nil,
-                    field: (placeholder: String, value: String, secure: Bool)? = nil) async -> Result {
-        await MainTurn.next { present(title, message: message, buttons: buttons, destructive: destructive, field: field) }
+                    field: (placeholder: String, value: String, secure: Bool)? = nil, over: NSWindow? = nil) async -> Result {
+        await MainTurn.next { present(title, message: message, buttons: buttons, destructive: destructive, field: field, over: over) }
     }
 
     /// Sí/no: true si se pulsa el primero.
     static func confirm(_ title: String, message: String = "", ok: String, cancel: String = L("Cancelar"),
-                        destructive: Bool = false) async -> Bool {
-        await run(title, message: message, buttons: [ok, cancel], destructive: destructive ? 0 : nil).button == 0
+                        destructive: Bool = false, over: NSWindow? = nil) async -> Bool {
+        await run(title, message: message, buttons: [ok, cancel], destructive: destructive ? 0 : nil, over: over).button == 0
     }
 
     /// El aviso de verdad, al momento (sólo desde `run`, ya fuera de cualquier acción).
     private static func present(_ title: String, message: String, buttons: [String], destructive: Int?,
-                                field: (placeholder: String, value: String, secure: Bool)?) -> Result {
-        let theme = AppModel.instance?.uiTheme ?? .builtIn
+                                field: (placeholder: String, value: String, secure: Bool)?, over: NSWindow?) -> Result {
+        let theme = AppCore.shared.uiTheme
         let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 420, height: 160),
                             styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
         panel.titlebarAppearsTransparent = true
@@ -380,7 +381,7 @@ enum ThemedAlert {
         let host = NSHostingView(rootView: view)
         panel.contentView = host
         panel.setContentSize(host.fittingSize)
-        if let parent = AppModel.instance?.window ?? NSApp.keyWindow {
+        if let parent = over ?? AppCore.shared.front?.window ?? NSApp.keyWindow {
             let f = parent.frame
             panel.setFrameOrigin(NSPoint(x: f.midX - panel.frame.width / 2, y: f.midY - panel.frame.height / 2 + f.height / 6))
         } else {

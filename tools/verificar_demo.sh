@@ -151,6 +151,9 @@ caso espacios              es neo-tokyo     espacios:verificar
 caso espacios-en           en neo-tokyo     espacios:verificar
 caso sesion-nueva          es neo-tokyo     sesion-nueva
 caso ajustes-general       en neo-tokyo     settings:general
+caso ajustes-contrasenas   es neo-tokyo     settings:contraseñas
+caso password-selector     es neo-tokyo     password-selector
+caso password-selector-en  en papel         password-selector
 caso ajustes-terminal      es neo-tokyo     settings:terminal
 caso ajustes-temas         es neo-tokyo     settings:temas
 caso ajustes-resaltado     es neo-tokyo     settings:resaltado

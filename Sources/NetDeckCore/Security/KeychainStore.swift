@@ -49,6 +49,8 @@ public struct KeychainStore: CredentialStore {
     public func save(_ password: String, for ref: CredentialRef) throws {
         let label = ref.service == .device ? "NetDeck ssh \(ref.account)" : "NetDeck \(ref.account)"
         guard !password.contains(where: \.isNewline) else { throw KeychainError(message: L("la contraseña lleva un salto de línea")) }
+        // (vacía, nunca: sustituiría la buena y cada intento con ella sería un fallo más en la cuenta)
+        guard !password.isEmpty else { throw KeychainError(message: L("la contraseña está vacía")) }
         // Por la entrada estándar («security -i»), no en los argumentos: ahí la vería cualquiera con «ps».
         let cmd = ["add-generic-password", "-U", "-s", ref.service.rawValue, "-a", ref.account, "-l", label, "-w", password]
             .map(Self.quoted).joined(separator: " ")

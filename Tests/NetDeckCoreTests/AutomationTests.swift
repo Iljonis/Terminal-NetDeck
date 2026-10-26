@@ -34,10 +34,19 @@ import Testing
 @Suite @MainActor struct PasswordAutomationTests {
     func make(_ io: FakeTerminal, _ store: MemoryCredentialStore, _ ledger: CredentialLedger,
               default d: DefaultCredential? = nil) -> PasswordAutomation {
-        // (la pestaña va a 192.0.2.1: un «usuario@equipo» de otro equipo en pantalla no cuenta)
-        let route = ConnectionRoute(title: "t", target: Endpoint(host: "192.0.2.1"))
-        let a = PasswordAutomation(mode: .autoType, store: store, ledger: ledger) { req in
-            SessionManager().credentialCandidates(for: req, route: route, defaultCredential: d)
+        let a = PasswordAutomation(mode: .autoType, store: store, ledger: ledger)
+        a.candidates = { [weak a] req in
+            guard let a else { return [] }
+            let manager = SessionManager()
+            var request = req
+            if let account = request.account, let at = account.lastIndex(of: "@"),
+               !manager.expectedHosts(route: nil, typed: a.commandHosts).contains(String(account[account.index(after: at)...]).lowercased()) {
+                return []
+            }
+            if request.account == nil, let user = request.user ?? a.commandUser, let target = a.commandTarget {
+                request.account = "\(user)@\(target.host)"          // (sólo para buscar; la política recibe el prompt original)
+            }
+            return manager.credentialCandidates(for: request, route: nil, defaultCredential: d, typedHosts: a.commandHosts)
         }
         a.settle = .milliseconds(1)
         return a
@@ -47,6 +56,7 @@ import Testing
         let io = FakeTerminal(["$ ssh root@192.0.2.1", "root@192.0.2.1's password:"])
         let a = make(io, MemoryCredentialStore([.named("AD"): "x"]), CredentialLedger(),
                      default: .init(name: "AD", user: "tu.usuario"))
+        a.beginCommand("ssh root@192.0.2.1")
         #expect(await a.observe(io, gate: AutomationGate()) == .manual(.userMismatch(requested: "root")))
         #expect(io.sent.isEmpty)
     }
@@ -55,9 +65,9 @@ import Testing
         let io = FakeTerminal(["$ ssh root@192.0.2.1", "(tu.usuario@192.0.2.1) Password:"])
         let a = make(io, MemoryCredentialStore([.named("AD"): "x"]), CredentialLedger(),
                      default: .init(name: "AD", user: "tu.usuario"))
-        a.commandUser = "root"
+        a.beginCommand("ssh root@192.0.2.1")
         #expect(await a.observe(io, gate: AutomationGate()) == .manual(.conflictingUsers(command: "root", prompt: "tu.usuario")))
-        a.commandJumpUsers = ["tu.usuario"]
+        a.beginCommand("ssh -J tu.usuario@bastion root@192.0.2.1")
         io.screen += ["(tu.usuario@bastion) Password:"]
         #expect(await a.observe(io, gate: AutomationGate()) == .typed(.named("AD")))
     }
@@ -82,6 +92,7 @@ import Testing
         let io = FakeTerminal(["$ telnet 192.0.2.9", "Password:"])
         let a = make(io, MemoryCredentialStore([.named("AD"): "x"]), CredentialLedger(),
                      default: .init(name: "AD", user: "tu.usuario"))
+        a.beginCommand("telnet 192.0.2.9")
         #expect(await a.observe(io, gate: AutomationGate()) == .manual(.unknownUser))
         #expect(io.sent.isEmpty)
     }
@@ -90,6 +101,7 @@ import Testing
         let io = FakeTerminal(["admin@192.0.2.1's password:"]) { _ in ["Permission denied, please try again.", "admin@192.0.2.1's password:"] }
         let ledger = CredentialLedger()
         let a = make(io, MemoryCredentialStore([.device("admin", "192.0.2.1"): "pw"]), ledger)
+        a.beginCommand("ssh admin@192.0.2.1")
         let gate = AutomationGate()
         #expect(await a.observe(io, gate: gate) == .typed(.device("admin", "192.0.2.1")))
         #expect(io.sent == ["pw\r"])
@@ -99,16 +111,41 @@ import Testing
         #expect(io.sent.count == 1)
     }
 
-    /// La de la sesión (su login) va aparte de la de los equipos.
-    @Test func sesionAutomaticaEquiposSugeridos() async {
+    /// «ssh -J tu.usuario@bastion admin@core-01» tecleado con contraseña en los dos: tras la del salto, ssh pide la del
+    /// destino. Antes se tomaba por una repregunta y la del salto, que valía, quedaba bloqueada 15 min.
+    @Test func laDelDestinoTrasLaDelSaltoNoEsUnRechazo() async {
+        let jump = CredentialRef.device("tu.usuario", "bastion"), dest = CredentialRef.device("admin", "core-01")
+        let io = FakeTerminal(["tu.usuario@bastion's password:"]) { $0 == "del-salto" ? ["admin@core-01's password:"] : ["core-01#"] }
+        let ledger = CredentialLedger(), gate = AutomationGate()
+        let a = make(io, MemoryCredentialStore([jump: "del-salto", dest: "del-destino"]), ledger)
+        a.beginCommand("ssh -J tu.usuario@bastion admin@core-01")
+        #expect(await a.observe(io, gate: gate) == .typed(jump))
+        #expect(await a.observe(io, gate: gate) == .typed(dest))          // (otra petición, en la misma orden)
+        #expect(!ledger.isBlocked(jump))
+        if case .confirmed = ledger.state(of: jump) {} else { Issue.record("la del salto no se confirmó con su reserva") }
+        #expect(await a.observe(io, gate: gate) == .confirmed(dest))
+        #expect(io.sent == ["del-salto\r", "del-destino\r"])
+        // (la misma cuenta otra vez sí es un rechazo de la del salto)
+        let again = FakeTerminal(["tu.usuario@bastion's password:"]) { _ in ["tu.usuario@bastion's password:"] }
+        let other = CredentialLedger(), b = make(again, MemoryCredentialStore([jump: "del-salto"]), other)
+        b.beginCommand("ssh -J tu.usuario@bastion admin@core-01")
+        #expect(await b.observe(again, gate: gate) == .typed(jump))
+        #expect(await b.observe(again, gate: gate) == .failed(jump))
+        #expect(other.isBlocked(jump) && again.sent == ["del-salto\r"])
+    }
+
+    /// El login de la sesión nunca arma la detección; la orden enviada hacia otro equipo sí.
+    @Test func sesionInicialSinAutomatismoEquiposSugeridos() async {
         let io = FakeTerminal(["Username: tu.usuario", "Password:"]) { _ in ["core-01#"] }
         let a = make(io, MemoryCredentialStore([.named("AD"): "pw"]), CredentialLedger(),
                      default: .init(name: "AD", user: "tu.usuario"))
         a.mode = .suggest
-        a.sessionMode = .autoType
-        #expect(await a.observe(io, gate: AutomationGate()) == .typed(.named("AD")))   // login de la sesión: sola
-        #expect(await a.observe(io, gate: AutomationGate()) == .confirmed(.named("AD")))
+        #expect(await a.observe(io, gate: AutomationGate()) == nil)
+        #expect(io.sent.isEmpty)
+        io.screen += ["core-01#"]
+        #expect(await a.observe(io, gate: AutomationGate()) == nil)
         #expect(a.loggedIn)
+        a.beginCommand("telnet 192.0.2.9")
         io.screen += ["core-01#telnet 192.0.2.9", "Username: tu.usuario", "Password:"]
         #expect(await a.observe(io, gate: AutomationGate()) == .suggested(.named("AD"))) // equipo: sugerida
     }
@@ -117,16 +154,13 @@ import Testing
     @Test func promptFalsoDeOtroEquipoNoRecibeSuContraseña() async {
         let io = FakeTerminal(["admin@198.51.100.66's password:"])
         let a = make(io, MemoryCredentialStore([.device("admin", "198.51.100.66"): "secreta"]), CredentialLedger())
+        a.beginCommand("ssh admin@192.0.2.1")
         #expect(await a.observe(io, gate: AutomationGate()) == .manual(.noCredential))
         #expect(io.sent.isEmpty)
         // (si la orden tecleada en la pestaña es «ssh admin@198.51.100.66», ese equipo sí es el de verdad)
-        a.commandHosts = ["198.51.100.66"]
-        let b = PasswordAutomation(mode: .autoType, store: MemoryCredentialStore([.device("admin", "198.51.100.66"): "secreta"]),
-                                   ledger: CredentialLedger()) { [weak a] req in
-            SessionManager().credentialCandidates(for: req, route: nil, defaultCredential: nil, typedHosts: a?.commandHosts ?? [])
-        }
-        b.settle = .milliseconds(1)
         let io2 = FakeTerminal(["admin@198.51.100.66's password:"])
+        let b = make(io2, MemoryCredentialStore([.device("admin", "198.51.100.66"): "secreta"]), CredentialLedger())
+        b.beginCommand("ssh admin@198.51.100.66")
         #expect(await b.observe(io2, gate: AutomationGate()) == .typed(.device("admin", "198.51.100.66")))
     }
 
@@ -136,6 +170,7 @@ import Testing
         let a = make(io, MemoryCredentialStore([.device("admin", "192.0.2.1"): "pw"]), CredentialLedger())
         a.onlySuggestDevices = true
         _ = await a.observe(FakeTerminal(["bastion$"]), gate: AutomationGate())       // (ya en el prompt del salto)
+        a.beginCommand("ssh admin@192.0.2.1")
         #expect(await a.observe(io, gate: AutomationGate()) == .suggested(.device("admin", "192.0.2.1")))
         #expect(io.sent.isEmpty)
     }
@@ -143,6 +178,7 @@ import Testing
     @Test func escDuranteLaEsperaCancela() async {
         let io = FakeTerminal(["admin@192.0.2.1's password:"])
         let a = make(io, MemoryCredentialStore([.device("admin", "192.0.2.1"): "pw"]), CredentialLedger())
+        a.beginCommand("ssh admin@192.0.2.1")
         a.settle = .milliseconds(300)
         let gate = AutomationGate()
         let t = Task { await a.observe(io, gate: gate) }

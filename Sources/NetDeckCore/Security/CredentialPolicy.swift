@@ -26,6 +26,8 @@ public enum ManualReason: Equatable, Sendable {
     case conflictingUsers(command: String, prompt: String)
     /// Falló hace poco en otra pestaña: otra vez bloquearía la cuenta AD.
     case recentlyFailed(CredentialRef)
+    /// Hay otro intento interno pendiente; no es un fallo ni autoriza a repetirlo automáticamente.
+    case pendingAttempt(CredentialRef)
     /// «Password:» a secas: no se sabe qué usuario la pide (ni la orden ni el prompt lo dicen).
     case unknownUser
     /// No hay ninguna guardada que valga.

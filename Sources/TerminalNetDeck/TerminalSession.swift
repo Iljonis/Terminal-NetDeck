@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import NetDeckCore
 import Observation
 import SwiftTerm
@@ -270,7 +271,7 @@ final class BlockOverlay: NSView {
 
 /// Una pestaña: proceso (ssh/telnet o la shell local) + vista + resaltado + automatización de contraseña. Es el `TerminalIO` del núcleo.
 @MainActor @Observable
-final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
+final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalViewDelegate {
     enum State: Equatable { case connecting, connected, exited(Int32?) }
 
     @ObservationIgnored let id = UUID()
@@ -287,8 +288,19 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     /// Equipo en el que estás de verdad (sale del prompt): «core-01».
     var device: String?
 
-    /// Lo que se ve en la pestaña: sólo el equipo de destino (o en el que se está ahora, si se ha saltado a otro).
-    var tabTitle: String { route.tabTitle(device: device, home: homeDevice) }
+    /// Lo que se ve en la pestaña: el nombre que le has puesto o, si no, sólo el equipo de destino (o en el que se
+    /// está ahora, si se ha saltado a otro).
+    var tabTitle: String { customTitle ?? deviceTitle }
+    private var deviceTitle: String { route.tabTitle(device: device, home: homeDevice) }
+    /// El nombre puesto a mano («Renombrar la pestaña…»): se queda mientras sigas en el mismo equipo; un prompt de
+    /// otro equipo lo quita (`TabRename`).
+    var customTitle: String? { renamed.name }
+    private var renamed = TabRename()
+
+    func rename(_ name: String?) {
+        renamed.set(name, on: device)
+        DebugLog.log("pestaña", "«\(title)» renombrada: \(customTitle.map { "«\($0)»" } ?? "nombre del equipo")")
+    }
     /// El hostname del propio destino (el primer prompt en él; con salto a mano, el primero tras escribir el ssh).
     @ObservationIgnored private var homeDevice: String?
     /// Ya se ha escrito el ssh en el salto (lo siguiente que se ve es el destino).
@@ -298,7 +310,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     var pathDescription: String {
         var out = title
         if let cmd = route.thenCommand { out += L(" · en el salto: \(cmd)") }
-        if tabTitle != route.tabTitle(device: nil) { out += L(" · ahora en \(tabTitle)") }
+        if deviceTitle != route.tabTitle(device: nil) { out += L(" · ahora en \(deviceTitle)") }
         return out
     }
     var exited: Bool { if case .exited = state { true } else { false } }
@@ -307,7 +319,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     @ObservationIgnored private var logger: SessionLogger?
     /// Se ve ahora (pestaña elegida o panel de la vista).
     @ObservationIgnored var isVisible = false
-    /// Ha llegado a su primer prompt (la contraseña de la sesión, si la dio el askpass, ha valido).
+    /// Ha llegado a su primer prompt (estado visual; no confirma ninguna contraseña por sí mismo).
     @ObservationIgnored private(set) var loggedIn = false
     /// El perfil de su sesión (`TerminalProfile`; lo aplica `AppModel.applyProfile`) y lo que ha quedado de él:
     /// el tema (también para los colores del resaltado) y el prompt propio («# @prompt …»; nil = el genérico).
@@ -342,6 +354,9 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     /// La consola ya ha arrancado (en SFTP espera a que se pida; así no se conecta dos veces).
     @ObservationIgnored private(set) var started = false
     @ObservationIgnored var deferredEnvironment: [String: String] = [:]
+    /// El askpass con los Ajustes de ahora (contraseña automática, credencial por defecto, ssh_config), en cada
+    /// conexión: al reconectar, tras aceptar una clave nueva o al entrar por el salto a mano, no el de cuando se abrió.
+    @ObservationIgnored var askpassEnvironment: (@MainActor () -> [String: String])?
 
     @ObservationIgnored let pipe = OutputPipe()
     @ObservationIgnored private var process: LocalProcess?
@@ -396,14 +411,26 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     }
 
     private func launch() {
+        cancelPasswordContext()
+        passwords.reset()
         if let problem = route.launchProblem() { return fail(problem) }  // (el adaptador serie, su trama o el programa)
         if route.transport == .serial { return openSerial() }
-        let (exe, args) = route.command(sharing: AppSettings.jumpSharing, configFile: AppSettings.sshConfigFile)
+        var (exe, args) = route.command(sharing: AppSettings.jumpSharing, configFile: AppSettings.sshConfigFile)
         // (sftp es ssh por debajo: tampoco le llega el idioma del Mac)
         var env = TerminalEnvironment.prepare(ProcessInfo.processInfo.environment, forSSH: exe == "/usr/bin/ssh" || exe == "/usr/bin/sftp",
                                               sendLocale: UserDefaults.standard.bool(forKey: AppSettings.sendLocaleKey))
         env[Askpass.flag] = nil
+        if let fresh = askpassEnvironment { environment = fresh() }
         env.merge(environment) { $1 }
+        // (capturas de desarrollo: la terminal local, sin el prompt de este Mac. Una shell de login lee /etc/profile, que
+        // pone tu usuario y el nombre del equipo; NETDECK_HOME no cambia el HOME de lo que se lanza. Sin login, sin
+        // perfiles, con un prompt de ejemplo y la carpeta de ejemplo)
+        if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] != nil, route.isLocal {
+            (exe, args) = ("/bin/sh", [])
+            env["HOME"] = AppPaths.home.path
+            env["PS1"] = "tu.usuario@mac:~$ "
+            for k in ["ENV", "BASH_ENV", "PROMPT_COMMAND", "ZDOTDIR"] { env[k] = nil }
+        }
         let d = view.terminalDimensions
         pipe.setSize(cols: d.cols, rows: d.rows)
         let gen = pipe.next()
@@ -504,6 +531,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         gate.abortAll()
         guard started else { return startIfNeeded() }
         hopTask?.cancel()
+        retireAuthentication()
         if !exited { process?.terminate() }
         serialPort?.close()
         pipe.say(L("\r\n\u{1b}[38;5;51m[NetDeck] Reconectando…\u{1b}[0m\r\n"))
@@ -512,6 +540,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     }
 
     func terminate() {
+        retireAuthentication()
         gate.abortAll()
         hopTask?.cancel()
         browser?.shutdown()
@@ -519,6 +548,25 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         process?.terminate()
         serialPort?.close()
         stopLog()
+    }
+
+    /// No basta con solicitar SIGTERM: una autenticación enviada mantiene su reserva hasta que el proceso muera. Si a
+    /// los 3 s sigue vivo, SIGKILL (como los túneles) y, como mucho 2 s después, se suelta igual: la espera no es eterna.
+    private func retireAuthentication() {
+        commandInput = MacroRecorder(allowScreenFallback: false)
+        guard let cleanup = passwords.connectionCleanup() else { return }
+        let p = process, pid = p?.shellPid ?? 0, title = title
+        guard let p, pid > 0 else { cleanup(); return }
+        Task { [weak p] in                                   // (sin la pestaña: al soltarla, SwiftTerm hace lo suyo)
+            // (vivo mientras SwiftTerm no lo recoja, que deja su shellPid a 0; si ya no está el proceso, por el PID. La
+            // señal, sólo a su hijo sin recoger: nunca a un PID reciclado; sin el proceso, ya lo mata SwiftTerm al soltarlo)
+            await ProcessExit.wait(alive: { p.map { $0.shellPid == pid } ?? (kill(pid, 0) == 0 || errno == EPERM) }, kill: {
+                guard p?.shellPid == pid else { return }
+                DebugLog.log("pestaña", "«\(title)»: el proceso \(pid) no termina con SIGTERM → SIGKILL")
+                kill(pid, SIGKILL)
+            })
+            cleanup()
+        }
     }
 
     /// Salto «a mano»: al salir el prompt del salto, «ssh equipo». Esc lo corta.
@@ -535,8 +583,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
                 if self.exited { DebugLog.log("salto", "«\(self.title)»: el salto se ha cerrado antes de su prompt"); return }
                 let line = self.cursorLine.trimmingCharacters(in: .whitespaces)
                 if !line.hasPrefix(Askpass.marker), DevicePrompt.generic.matches(line) {
-                    self.passwords.commandUser = self.route.thenUser
-                    self.passwords.commandJumpUsers = []
+                    self.passwords.beginCommand(cmd, after: self.cursorRow)
                     DebugLog.log("salto", "«\(self.title)»: prompt del salto «\(line)» → «\(cmd)»")
                     self.hopSent = true
                     self.sendLine(cmd)
@@ -554,6 +601,8 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     private func processExited(generation: Int, code: Int32?) {
         guard generation == pipe.current else { return }      // (un proceso anterior a reconectar)
         hopTask?.cancel()
+        commandInput = MacroRecorder(allowScreenFallback: false)
+        passwords.connectionEnded()
         state = .exited(code)
         gate.abortAll()
         if checksHostKey, !loggedIn, code != 0 {
@@ -650,6 +699,23 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
     private func sayClosed(_ generation: Int, _ code: Int32?) {
         // (sin las últimas líneas de la pantalla: podrían llevar algo tecleado con eco)
         DebugLog.log("pestaña", "«\(title)» #\(generation) termina (código \(code.map(String.init) ?? "?"))")
+        // (ssh usa 255 para errores de conexión/autenticación: sólo un rechazo con host atribuible permite acusar
+        // una credencial reciente. Un banner que parezca prompt no demuestra que el login haya terminado, así que no
+        // confirma nada; pero tras llegar al prompt un corte —«Connection reset by …» en los primeros 150 s— no es un
+        // rechazo de la contraseña que acaba de entrar: no se la culpa)
+        if code == 255, !loggedIn {
+            // (sólo lo último de la pantalla, y sólo si hay intentos recientes: un «Permission denied» de una orden o
+            // un corte horas después, en un equipo cuyo prompt no se reconoce, no es de la contraseña)
+            let blocked = Askpass.settleAfterExit(session: id, ledger: ledger) {
+                Askpass.rejection(in: self.lines(from: max(self.launchRow, self.cursorRow - 12))
+                    .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.suffix(6))
+            }
+            for r in blocked {
+                pipe.say(L("\r\n\u{1b}[38;5;204m[NetDeck] La contraseña guardada «\(r.account)» no ha valido: no se probará sola en 15 min\u{1b}[0m"))
+            }
+        } else {
+            _ = Askpass.takeAttempts(session: id)
+        }
         pipe.say(L("\r\n\u{1b}[38;5;204m[NetDeck] Sesión cerrada\(code.map { L(" (código \($0))") } ?? "")\u{1b}[0m")
                  + L(" · \u{1b}[1mIntro\u{1b}[0m reconectar · \u{1b}[1mEsc\u{1b}[0m cerrar la pestaña\r\n"))
     }
@@ -678,13 +744,23 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         pipe.configure(rules: rules, palette: palette, enabled: enabled)
     }
 
-    /// Intro del usuario: si era «ssh …»/«telnet …», su usuario cuenta para la regla de la contraseña.
-    func noteCommand() {
-        if let e = CommandLineUser.parse(cursorLine) {
-            passwords.commandUser = e.user
-            passwords.commandJumpUsers = CommandLineUser.jumpUsers(cursorLine)
-            passwords.commandHosts = CommandLineUser.hosts(cursorLine)
-        }
+    /// Sólo las órdenes que salen hacia una shell remota arman la detección de equipos; un banner no la arma.
+    @ObservationIgnored private var commandInput = MacroRecorder(allowScreenFallback: false)
+
+    func cancelPasswordContext() {
+        commandInput = MacroRecorder(allowScreenFallback: false)
+        passwords.cancelCommand()
+    }
+
+    private func trackCommandInput(_ bytes: [UInt8]) {
+        guard loggedIn, route.transport == .ssh || route.transport == .telnet else { return }
+        let skipped = commandInput.skipped
+        commandInput.feed(bytes, from: self)
+        let commands = commandInput.takeLines()
+        for command in commands { passwords.beginCommand(command, after: cursorRow) }
+        // (con un prompt desconocido tampoco se conserva el login anterior al enviar otra orden)
+        if commands.isEmpty, commandInput.skipped > skipped, !SecretPrompt.asks(cursorLine),
+           !PasswordPrompt.isLoginLine(cursorLine) { passwords.cancelCommand() }
     }
 
     /// Mirar la pantalla como mucho cada 60 ms: con mucha salida (show tech, tail -f) no se recorre el búfer entero en
@@ -737,20 +813,17 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
             if !exited, PromptRule.isPrompt(line, custom: promptRule) {
                 loggedIn = true
                 state = .connected
-                // (de cada equipo vale el último intento: una guardada que falló antes sigue fallida, la nueva que ha
-                // entrado se confirma, y si se entró escribiéndola a mano no se confirma ninguna guardada)
-                let (given, failed) = Askpass.attribute(Askpass.takeAttempts(session: id))
-                failed.forEach(ledger.markFailed)
-                given.forEach(ledger.confirm)
-                DebugLog.log("pestaña", "«\(title)» en su prompt «\(line)»"
-                             + (given.isEmpty ? "" : " · confirmadas: \(given.map(\.description).joined(separator: ", "))")
-                             + (failed.isEmpty ? "" : " · no valían: \(failed.map(\.description).joined(separator: ", "))"))
+                // (el prompt sólo cambia el estado visual: las credenciales iniciales pertenecen a OpenSSH,
+                // no al detector de equipos. Sus rechazos se resuelven por cuenta al terminar o al repreguntar)
             }
         }
         if let d = PromptDevice.name(line, previous: device), d != device {
             if homeDevice == nil, loggedIn, route.thenCommand == nil || hopSent { homeDevice = d }
             device = d
             if route.thenCommand != nil || d != route.target.host { DebugLog.log("pestaña", "«\(title)» → equipo «\(d)»") }
+            if let c = customTitle, renamed.deviceChanged(to: d) {
+                DebugLog.log("pestaña", "«\(title)»: prompt de otro equipo («\(d)»), deja el nombre «\(c)»")
+            }
         }
         if let e = await passwords.observe(self, gate: gate) {
             DebugLog.log("contraseña", "«\(title)»: \(e)")
@@ -765,7 +838,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
         guard refusalSeen, !fellBack, !loggedIn, route.thenCommand == nil, !route.jumps.isEmpty else { return false }
         fellBack = true
         let given = Askpass.takeGiven(session: id)
-        given.forEach(ledger.confirm)               // (el salto sí ha entrado: el fallo es al abrir el canal)
+        given.forEach(ledger.confirmDirect)         // (el salto sí ha entrado: el fallo es al abrir el canal)
         guard let r = onForwardingRefused?(self) else {
             DebugLog.log("salto", "«\(title)»: -J rechazado y no hay forma de escribirlo en el salto")
             return false
@@ -792,8 +865,19 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
 
     // MARK: - TerminalIO (directo al proceso: ni MultiExec ni Esc)
 
+    func registerPendingAuthentication(_ ref: CredentialRef, reservation token: UUID) {
+        if exited { ledger.release(ref, reservation: token) }
+        else { passwords.registerPendingAuthentication(ref, reservation: token) }
+    }
+
+    func retainPendingAuthentication(_ ref: CredentialRef, reservation token: UUID) {
+        passwords.retainPendingAuthentication(ref, reservation: token,
+                                               ended: exited || PromptRule.endsNestedLogin(cursorLine, custom: promptRule))
+    }
+
     func send(bytes: [UInt8]) {
         guard !exited else { return }
+        trackCommandInput(bytes)
         process?.send(data: bytes[...])
         serialPort?.write(bytes[...])
     }
@@ -833,6 +917,7 @@ final class TerminalSession: Identifiable, TerminalIO, TerminalViewDelegate {
             return
         }
         if onInput?(self, Array(data)) == true { return }
+        trackCommandInput(Array(data))
         process?.send(data: data)
         serialPort?.write(data)
     }

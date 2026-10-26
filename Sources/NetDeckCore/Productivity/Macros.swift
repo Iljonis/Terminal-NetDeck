@@ -283,6 +283,8 @@ public final class MacroRecorder {
     public private(set) var skipped = 0
     /// ¿Se está autenticando? (la app añade «aún no ha llegado a su primer prompt», como MultiExec)
     public var awaitingAuth: (any TerminalIO) -> Bool = { SecretPrompt.asks($0.cursorLine) }
+    /// Las macros pueden recuperar una línea editada con flechas/Tab; para autenticación sólo valen bytes propios.
+    private let allowScreenFallback: Bool
 
     private var buffer: [UInt8] = []
     /// Sólo caracteres y borrar: el búfer es exactamente lo enviado. Con flechas, Tab… se lee de la pantalla.
@@ -300,7 +302,7 @@ public final class MacroRecorder {
     private enum Escape { case none, started, csi([UInt8]), ss3 }
     private var escape = Escape.none
 
-    public init() {}
+    public init(allowScreenFallback: Bool = true) { self.allowScreenFallback = allowScreenFallback }
 
     public func feed(_ bytes: [UInt8], from io: TerminalIO) {
         for b in bytes {
@@ -350,6 +352,12 @@ public final class MacroRecorder {
         if let row = lastEnterRow, io.cursorRow == row { masked = true }
     }
 
+    /// Consume las órdenes recogidas sin perder el estado del teclado ni la protección tras Intro.
+    public func takeLines() -> [String] {
+        defer { lines.removeAll(keepingCapacity: true) }
+        return lines
+    }
+
     /// Los pasos grabados: cada línea seguida de «esperar prompt».
     public var steps: [MacroStep] { Macro.recorded(lines) }
 
@@ -362,7 +370,7 @@ public final class MacroRecorder {
         var line: String?
         if clean {
             line = String(decoding: buffer, as: UTF8.self)
-        } else if let s = start, !s.trimmed.isEmpty, io.cursorLine.hasPrefix(s) {
+        } else if allowScreenFallback, let s = start, !s.trimmed.isEmpty, io.cursorLine.hasPrefix(s) {
             line = String(io.cursorLine.dropFirst(s.count))
         }
         guard let l = line?.trimmed, !l.isEmpty, !SessionFile.hasControl(l), l.count <= MacroStep.maxLine else {

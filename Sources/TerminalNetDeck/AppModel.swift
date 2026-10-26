@@ -2,7 +2,9 @@ import AppKit
 import NetDeckCore
 import Observation
 
-/// Estado de la app: ajustes, temas, sesiones, pestañas, Llavero, MultiExec y lo automático en curso.
+/// Estado de una ventana: sus pestañas, la vista dividida, MultiExec, las hojas y avisos, y lo automático en curso.
+/// Lo común a todas (ajustes, temas, sesiones, Llavero, botones, macros, túneles…) está en `AppCore` y se lee con las
+/// mismas propiedades de siempre (`settings`, `buttons`…), que lo reenvían.
 @MainActor @Observable
 final class AppModel {
     enum Sheet: String, Identifiable {
@@ -18,16 +20,26 @@ final class AppModel {
         case importing
     }
 
-    let settings = AppSettings()
-    let themes: ThemeStore
-    let sessions = SessionManager()
-    let store: CredentialStore = KeychainStore()
-    let ledger = CredentialLedger.shared()
-    let policy = CredentialPolicy()
-    /// Copias de los exploradores SFTP/FTP (también de servidor a servidor).
-    let transfers = TransferCenter()
+    /// Lo común a todas las ventanas.
+    let core: AppCore
+    /// Esta ventana para SwiftUI (`WindowGroup`) y para pasarle pestañas desde otra (lo pone `AppCore.model(for:)`).
+    @ObservationIgnored var token: UUID
+    /// La primera ventana (la que carga lo de todas; también la única en la que actúan las capturas de desarrollo).
+    @ObservationIgnored private(set) var isLaunchWindow = false
+
+    var settings: AppSettings { core.settings }
+    var themes: ThemeStore { core.themes }
+    var sessions: SessionManager { core.sessions }
+    var store: CredentialStore { core.store }
+    var ledger: CredentialLedger { core.ledger }
+    var policy: CredentialPolicy { core.policy }
+    /// Copias de los exploradores SFTP/FTP (también de servidor a servidor y de una ventana a otra).
+    var transfers: TransferCenter { core.transfers }
     /// Visible y ancho del explorador lateral de cada sesión (panel-sftp.json).
-    @ObservationIgnored private var panelStore = SFTPPanelStore()
+    private var panelStore: SFTPPanelStore {
+        get { core.panelStore }
+        set { core.panelStore = newValue }
+    }
     @ObservationIgnored let multiExec = MultiExecGroup()
     /// Lo que afecta a varias pestañas (pegado a todas, listas): Esc en cualquiera lo corta.
     @ObservationIgnored let sharedGate = AutomationGate()
@@ -35,6 +47,8 @@ final class AppModel {
     var tabs: [TerminalSession] = []
     /// Zonas de la ventana (en coordenadas de SwiftUI) donde arrastrar reordena y no mueve la ventana (`keepsWindowStill`).
     @ObservationIgnored var stillZones: [String: CGRect] = [:]
+    /// Las zonas de `stillZones` en las que está ahora el puntero.
+    @ObservationIgnored private var stillHover: Set<String> = []
     var selection: TerminalSession.ID? {
         didSet { updateVisibility() }
     }
@@ -77,17 +91,18 @@ final class AppModel {
     var excluded: Set<TerminalSession.ID> = [] {
         didSet { syncMultiExec() }
     }
-    /// Ventana: pantalla completa. Ahí macOS esconde su barra de título (y la de menús) y la baja al acercar el ratón:
-    /// sólo mientras está bajada tapa la de arriba y se deja su hueco (`titlebarReveal`); escondida, nada.
+    /// Ventana: pantalla completa. El sistema gestiona el espacio de la barra de título al mostrarla y ocultarla.
     var fullScreen = false
-    var titlebarReveal: CGFloat = 0
     @ObservationIgnored weak var window: NSWindow?
     @ObservationIgnored private var focusWatch: NSKeyValueObservation?
-    @ObservationIgnored private var appearanceWatch: NSKeyValueObservation?
     @ObservationIgnored private var stillWatch: Any?
+    @ObservationIgnored private var windowWatches: [NSObjectProtocol] = []
+    @ObservationIgnored private var closeGuard: WindowCloseGuard?
     @ObservationIgnored private var frameBeforeFill: NSRect?
-    /// Pestañas abiertas la última vez (para reabrirlas).
-    var lastOpen: [ConnectionRoute] = []
+    /// Pestañas abiertas la última vez, de todas las ventanas (para reabrirlas).
+    var lastOpen: [ConnectionRoute] { core.lastOpen.tabs }
+    /// En cuántas ventanas estaban.
+    var lastOpenWindows: Int { core.lastOpen.windows.count }
     var editorFocus: EditorFocus?
     /// Ajustes dentro de la ventana (en pantalla completa no se van a otro escritorio) y con el tema.
     var showSettings = false
@@ -99,40 +114,57 @@ final class AppModel {
     /// cerrar (`true`: se puede salir). `owner`: la vista que lo puso (sólo ella lo quita).
     @ObservationIgnored var settingsLeave: (owner: UUID, check: @MainActor () async -> Bool)?
     /// ★ favoritas y ↻ recientes: los mismos archivos que NetDeck (~/.config/netdeck/favoritas, recientes).
-    var favorites: [String] = []
-    var recents: [String] = []
+    var favorites: [String] {
+        get { core.favorites }
+        set { core.favorites = newValue }
+    }
+    var recents: [String] {
+        get { core.recents }
+        set { core.recents = newValue }
+    }
     /// Botones de la barra (botones.txt de NetDeck, o el de la app).
-    var buttons = ButtonFile()
-    @ObservationIgnored private var buttonsMoved = false
+    var buttons: ButtonFile {
+        get { core.buttons }
+        set { core.buttons = newValue }
+    }
+    private var buttonsMoved: Bool {
+        get { core.buttonsMoved }
+        set { core.buttonsMoved = newValue }
+    }
     /// Botón con huecos esperando a que los rellenes.
     var pendingButton: CommandButton?
     /// Sugerencia o elección manual pendiente en cada pestaña.
     var notices: [TerminalSession.ID: PasswordAutomation.Event] = [:]
+    var passwordOffers: [TerminalSession.ID: PasswordAutomation.Offer] = [:]
     /// Para refrescar lo que depende del Llavero.
-    var keychainRevision = 0
+    var keychainRevision: Int {
+        get { core.keychainRevision }
+        set { core.keychainRevision = newValue }
+    }
     /// El asistente de instalación ocupa la ventana: al abrirla desde fuera de Aplicaciones (DMG…), la primera vez que
-    /// se abre (también si se arrastró a Aplicaciones desde el DMG) o desde el menú.
-    var showSetup = SetupWizard.needsInstall || SetupWizard.firstLaunch
-        || ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_ACTION"]?.hasPrefix("setup:") == true
+    /// se abre (también si se arrastró a Aplicaciones desde el DMG) o desde el menú. Sólo en la primera ventana.
+    var showSetup = false
     /// Las reglas de resaltado leídas (todas, también las apagadas) y de dónde.
-    private(set) var highlightConfig = HighlightConfig()
-    private(set) var highlightFile: URL?
+    private(set) var highlightConfig: HighlightConfig {
+        get { core.highlightConfig }
+        set { core.highlightConfig = newValue }
+    }
+    private(set) var highlightFile: URL? {
+        get { core.highlightFile }
+        set { core.highlightFile = newValue }
+    }
 
-    /// (para el delegado de la app: guardar las pestañas al salir)
-    nonisolated(unsafe) static weak var instance: AppModel?
     /// Versión nueva encontrada en segundo plano (aviso discreto en la barra de estado).
-    var availableUpdate: UpdateCheck.Release?
-    @ObservationIgnored private lazy var updates = UpdateChecker(model: self)
+    var availableUpdate: UpdateCheck.Release? {
+        get { core.availableUpdate }
+        set { core.availableUpdate = newValue }
+    }
 
-    init() {
-        themes = ThemeStore(selected: settings.themeID)
-        DebugLog.enabled = settings.debugLog
-        DebugLog.log("app", "arranca \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")"
-                     + " (\(Bundle.main.bundlePath)) · ssh_config \(settings.sshConfigURL.path)")
-        if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil { protectUserData() }
-        reloadSessions()
-        reloadHighlight()
-        let settings = settings
+    /// La ventana `token`. La primera que se crea carga lo de todas (sesiones, resaltado, botones, macros, túneles…),
+    /// abre la sesión de inicio y, con `--reabrir`, las pestañas de la última vez.
+    init(core: AppCore, token: UUID) {
+        self.core = core
+        self.token = token
         // MultiExec: pide un secreto o aún no ha llegado a su primer prompt (lo tecleado iría al askpass como contraseña)
         multiExec.awaitingAuth = { io in
             SecretPrompt.asks(io.cursorLine) || (io as? TerminalSession).map { !$0.loggedIn && !$0.exited } == true
@@ -141,20 +173,25 @@ final class AppModel {
             guard let self, let s = io as? TerminalSession else { return false }
             return !self.automationReservation.contains(s.id)
         }
-        transfers.verify = { settings.verifyTransfers }
-        transfers.showCopied = { [weak self] fs, dir in self?.refreshBrowsers(showing: [dir], of: fs) }
-        lastOpen = Self.readOpenTabs()
-        Self.instance = self
+        guard !core.started else { return }
+        core.started = true
+        isLaunchWindow = true
+        showSetup = SetupWizard.needsInstall || SetupWizard.firstLaunch
+            || ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_ACTION"]?.hasPrefix("setup:") == true
+        if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil { protectUserData() }
+        reloadSessions()
+        reloadHighlight()
+        core.lastOpen = AppCore.readOpenTabs()
+        Askpass.purgeStale()                        // (lo que dejaron pestañas de otros días: cuentas y equipos)
         loadFavorites()
         reloadButtons()
         reloadMacros()                              // (sólo las lee: ninguna se ejecuta al arrancar)
         reloadTunnels()                             // (ídem: ningún túnel arranca solo)
         reloadWorkspaces()
-        tunnelRunner.onChange = { [weak self] id, state in self?.tunnelChanged(id, state) }
         if CommandLine.arguments.contains("--reabrir") { DispatchQueue.main.async { self.reopenLast() } }
         if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil {
             DispatchQueue.main.async { self.openStartupTabs() }                   // (después de reabrir, si toca)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.updates.start() }   // (sin estorbar al arrancar)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { core.updates.start() }   // (sin estorbar al arrancar)
             // (desarrollo: NETDECK_PRUEBA_ACTUALIZAR=1 con NETDECK_HOME instala la última release sin preguntar)
             if ProcessInfo.processInfo.environment["NETDECK_PRUEBA_ACTUALIZAR"] == "1",
                ProcessInfo.processInfo.environment["NETDECK_HOME"] != nil, let repo = UpdateCheck.repo {
@@ -164,15 +201,7 @@ final class AppModel {
     }
 
     /// El tema para la interfaz, con la letra elegida en Ajustes → Fuentes (si no, la del tema).
-    var uiTheme: Theme {
-        var t = themes.current
-        switch settings.uiFontFamily {
-        case "": break
-        case "system": t.fonts = []
-        default: t.fonts = [settings.uiFontFamily]
-        }
-        return t
-    }
+    var uiTheme: Theme { core.uiTheme }
 
     /// El archivo de reglas que toca: el personalizado, el de NetDeck (~/.config/netdeck/chromaterm.yml) o el de la app.
     func highlightURL(_ source: AppSettings.HighlightSource) -> URL? {
@@ -201,9 +230,9 @@ final class AppModel {
         applyHighlight()
     }
 
-    /// Reglas activas y colores (los del tema, o la paleta del archivo) a todas las pestañas.
+    /// Reglas activas y colores (los del tema, o la paleta del archivo) a todas las pestañas (de todas las ventanas).
     func applyHighlight() {
-        tabs.forEach(applyHighlight)
+        core.allTabs.forEach(applyHighlight)
     }
 
     private func applyHighlight(to s: TerminalSession) {
@@ -325,7 +354,7 @@ final class AppModel {
         }
         // Instalación limpia: sin ssh_config no hay sesiones (los ejemplos, sólo para capturas: NETDECK_SAMPLES=1).
         if sessions.profiles.isEmpty, ProcessInfo.processInfo.environment["NETDECK_SAMPLES"] != nil { sessions.loadSamples() }
-        tabs.forEach(refreshProfile)                // (el perfil recién guardado, también a las abiertas)
+        core.allTabs.forEach(refreshProfile)        // (el perfil recién guardado, también a las abiertas de cada ventana)
     }
 
     // MARK: - ajustes en vivo
@@ -338,7 +367,7 @@ final class AppModel {
 
     /// El historial (scrollback) de Ajustes → Terminal, a todas las pestañas abiertas.
     func applyScrollback() {
-        tabs.forEach(applyProfile)                // (las que heredan; las de «# @scrollback» se quedan con el suyo)
+        core.allTabs.forEach(applyProfile)        // (las que heredan; las de «# @scrollback» se quedan con el suyo)
     }
 
     /// Tema automático: el claro o el oscuro según el Mac (se llama al cambiar la apariencia).
@@ -349,30 +378,20 @@ final class AppModel {
         if themes.current.id != id, themes.theme(id: id) != nil { selectTheme(id) }
     }
 
-    /// Tema, fuente y colores del resaltado a todas las pestañas abiertas.
+    /// Tema, fuente y colores del resaltado a todas las pestañas abiertas (de todas las ventanas).
     func applyAppearance() {
-        tabs.forEach(applyProfile)
+        core.allTabs.forEach(applyProfile)
         styleWindows()
         applyHighlight()
     }
 
-    /// La ventana (y menús, avisos, hojas) con el tema: claro/oscuro, su color y, en los de cristal, transparente.
-    func styleWindows() {
-        let th = themes.current
-        NSApp.appearance = NSAppearance(named: th.isLight ? .aqua : .darkAqua)
-        for w in NSApp.windows {
-            if w === window || w.className.contains("FullScreen") || w.className.contains("Titlebar") {
-                w.isOpaque = !th.isTranslucent
-                w.backgroundColor = w === window ? (th.isTranslucent ? .clear : NSColor(th.background)) : NSColor(th.bar.opaque)
-            }
-        }
-        window?.titlebarAppearsTransparent = true
-    }
+    /// Las ventanas (y menús, avisos, hojas) con el tema: claro/oscuro, su color y, en los de cristal, transparentes.
+    func styleWindows() { core.styleWindows() }
 
     func applyPasswordModes() {
-        for t in tabs where t.route.usesPasswords {
+        for t in core.allTabs where t.route.usesPasswords {
+            if t.passwords.mode != settings.devicePasswordMode { t.cancelPasswordContext() }
             t.passwords.mode = settings.devicePasswordMode
-            t.passwords.sessionMode = settings.sessionAutoPassword ? .autoType : nil
         }
     }
 
@@ -417,13 +436,41 @@ final class AppModel {
     // MARK: - gestor de sesiones (el ssh_config de NetDeck)
 
     func openSettings(_ tab: String? = nil) {
+        guard !sharedEditorBusy() else { return }
         if let tab { settingsTab = tab }
         showSettings = true
     }
 
     func editSessions(_ focus: EditorFocus? = nil) {
+        guard !sharedEditorBusy() else { return }
         editorFocus = focus
         sheet = .sessions
+    }
+
+    /// Una hoja. Las que editan datos de todas las ventanas (sesiones, listas, macros, túneles), sólo si no están ya
+    /// abiertas en otra (`sharedEditorBusy`).
+    func present(_ s: Sheet) {
+        if Self.sharedSheets.contains(s), sharedEditorBusy() { return }
+        sheet = s
+    }
+
+    /// Las hojas que editan datos de todas las ventanas sobre una copia que se guarda entera (ssh_config, listas.json,
+    /// macros.json, tuneles.json).
+    private static let sharedSheets: Set<Sheet> = [.sessions, .list, .macros, .tunnels]
+
+    /// Ajustes (con sus Sesiones, Listas, Botones, Resaltado…) o una de esas hojas: abiertos en dos ventanas, el último
+    /// en guardar pisaría lo del otro. Sólo en una a la vez.
+    var editsSharedData: Bool { showSettings || sheet.map(Self.sharedSheets.contains) == true }
+
+    /// Otra ventana los tiene abiertos (y no se cambia nada debajo de ellos: borrar una sesión, ordenar botones…).
+    var sharedEditorElsewhere: AppModel? { core.attachedWindows.first { $0 !== self && $0.editsSharedData } }
+
+    /// Si otra ventana ya los tiene abiertos: la trae delante, lo dice allí y devuelve true (aquí no se abre nada).
+    private func sharedEditorBusy() -> Bool {
+        guard let other = sharedEditorElsewhere else { return false }
+        other.window?.makeKeyAndOrderFront(nil)
+        other.status = L("✗ Esto ya se está editando aquí: guárdalo o ciérralo antes de abrirlo en otra ventana")
+        return true
     }
 
     /// Más que estas de golpe se preguntan antes de abrirlas.
@@ -474,7 +521,11 @@ final class AppModel {
         status = L("Sesiones guardadas (\(file.sessions.count))")
         return nil
     }
-    @ObservationIgnored private var savingSessions = false
+    /// (una sola vez a la vez, aunque se guarde desde dos ventanas)
+    private var savingSessions: Bool {
+        get { core.savingSessions }
+        set { core.savingSessions = newValue }
+    }
 
     var sessionFile: SessionFile { (try? SessionFile(contentsOf: SessionFile.defaultURL)) ?? SessionFile() }
 
@@ -572,7 +623,7 @@ final class AppModel {
 
     /// La sesión de inicio (si no la ha abierto ya «reabrir») y, si no hay ninguna pestaña, la terminal local.
     private func openStartupTabs() {
-        if let p = startupProfile, !tabs.contains(where: { $0.route.sessionName == p.name }) {
+        if let p = startupProfile, !core.isOpenAnywhere(p.name) {
             DebugLog.log("app", "sesión de inicio «\(p.name)»")
             open(p)
         }
@@ -617,15 +668,14 @@ final class AppModel {
         }
     }
 
-    /// Refresca (una vez cada uno) los exploradores de ese servidor que enseñan alguna de esas carpetas.
+    /// Refresca (una vez cada uno) los exploradores de ese servidor que enseñan alguna de esas carpetas, en cualquier ventana.
     func refreshBrowsers(showing dirs: Set<String>, of fs: any RemoteFileSystem, except: RemoteBrowser? = nil) {
-        for (_, b) in allBrowsers where b !== except && dirs.contains(where: { b.shows($0, of: fs) }) { b.refresh() }
+        core.refreshBrowsers(showing: dirs, of: fs, except: except)
     }
 
-    /// Todos los exploradores: los de las pestañas SFTP/FTP y los laterales de las ssh.
-    var allBrowsers: [(TerminalSession, RemoteBrowser)] {
-        tabs.compactMap { s in (s.browser ?? s.sidePanel?.browser).map { (s, $0) } }
-    }
+    /// Todos los exploradores: los de las pestañas SFTP/FTP y los laterales de las ssh, de todas las ventanas («Enviar a…»
+    /// llega también a los de otra ventana).
+    var allBrowsers: [(TerminalSession, RemoteBrowser)] { core.allBrowsers }
 
     // MARK: - explorador lateral
 
@@ -654,7 +704,7 @@ final class AppModel {
 
     /// Borrar una sesión desde la lista (pregunta antes; queda copia en ssh_config.anterior).
     func deleteSession(_ name: String) {
-        guard !askingDelete else { return }                         // (dos clics seguidos: un solo aviso)
+        guard !askingDelete, !sharedEditorBusy() else { return }    // (dos clics seguidos: un solo aviso)
         askingDelete = true
         Task {
             defer { askingDelete = false }
@@ -676,7 +726,7 @@ final class AppModel {
         let ok = await ThemedAlert.confirm(
             L("«\(s.title)»: el salto no deja reenviar (-J)"),
             message: L("Para llegar, la app entraría en «\(jump)» y escribiría allí «\(cmd)». Lo que escribas después (también la contraseña del destino) pasará por la shell de ese salto: hazlo sólo si confías en él. La contraseña del destino no se escribirá sola."),
-            ok: L("Entrar por el salto"))
+            ok: L("Entrar por el salto"), over: s.view.window)
         return ok && tabs.contains(where: { $0.id == s.id })
     }
 
@@ -692,7 +742,7 @@ final class AppModel {
             message += "\n" + L("Clave antigua en \(place)")
         }
         let r = await ThemedAlert.run(L("⚠️ La clave del equipo «\(host)» ha cambiado"), message: message,
-                                      buttons: [L("Cancelar"), L("Aceptar y Actualizar Clave")], destructive: 1)
+                                      buttons: [L("Cancelar"), L("Aceptar y Actualizar Clave")], destructive: 1, over: s.view.window)
         return r.button == 1 && tabs.contains(where: { $0.id == s.id })
     }
 
@@ -704,12 +754,62 @@ final class AppModel {
         let route = sessions.refreshConfigJumps(route)          // (una pestaña guardada: el salto del ssh_config de ahora)
         // (la local y la consola serie no son un equipo por red: ni askpass ni contraseñas automáticas)
         let pw = PasswordAutomation(mode: route.usesPasswords ? settings.devicePasswordMode : .off, store: store, policy: policy, ledger: ledger)
-        pw.sessionMode = settings.sessionAutoPassword && route.usesPasswords ? .autoType : nil
         pw.onlySuggestDevices = route.manualHop == true
         let s = TerminalSession(route: route, passwords: pw, ledger: ledger)
-        pw.candidates = { [weak self, weak pw] req in
-            self?.sessions.credentialCandidates(for: req, route: route, defaultCredential: self?.settings.defaultCredential,
-                                                typedHosts: pw?.commandHosts ?? []) ?? []
+        // (sesiones y ajustes son de todas las ventanas: sigue valiendo si la pestaña pasa a otra)
+        pw.candidates = { [weak core = self.core, weak pw] req in
+            guard let core, let pw, let target = pw.commandTarget else { return [] }
+            // («Password:» escueto: el equipo sólo se sabe por la orden enviada, el usuario por ella o por el login)
+            var request = req
+            if request.account == nil, let user = request.user ?? pw.commandUser {
+                request.account = "\(user)@\(target.host)"
+            }
+            if let account = request.account, let at = account.lastIndex(of: "@"),
+               !core.sessions.expectedHosts(route: nil, typed: pw.commandHosts).contains(String(account[account.index(after: at)...]).lowercased()) {
+                return []
+            }
+            return core.sessions.credentialCandidates(for: request, route: nil, defaultCredential: core.settings.defaultCredential,
+                                                       typedHosts: pw.commandHosts, typedTarget: target)
+        }
+        wire(s)
+        refreshProfile(s)
+        if route.transport == .sftp || route.transport == .ftp { s.browser = RemoteBrowser(route: route, model: self) }
+        // (el explorador lateral recordado como visible: se ve, y conecta cuando entre el terminal)
+        let panelKey = SFTPPanel.key(for: route)
+        if SFTPPanel.offers(route), panelStore.layout(for: panelKey).visible {
+            let p = SFTPSidePanel(key: panelKey, layout: panelStore.layout(for: panelKey), model: self)
+            s.sidePanel = p
+            p.show(in: s)
+        }
+        tabs.append(s)
+        selection = s.id
+        syncMultiExec()
+        saveOpenTabs()
+        let askpass = askpassEnvironment(for: s)
+        if settings.logEnabled { s.startLog(in: settings.logURL) }
+        if s.browser != nil {
+            s.deferredEnvironment = askpass           // (la consola sftp, cuando se pida; el explorador conecta solo)
+            s.browser?.connect()
+        } else {
+            s.start(extraEnvironment: askpass)
+        }
+        status = route.usesPasswords ? L("Conectando a \(route.title)…") : ""
+        return s
+    }
+
+    /// Lo que la pestaña le pide a su ventana (avisos, teclado, reconectar, cerrar y las preguntas): a ésta. Se vuelve a
+    /// hacer al pasarla de una ventana a otra.
+    private func wire(_ s: TerminalSession) {
+        passwordOffers[s.id] = s.passwords.offer
+        s.passwords.onOfferChange = { [weak self, weak s] offer in
+            guard let self, let s else { return }
+            self.passwordOffers[s.id] = offer
+            if offer == nil, let notice = self.notices[s.id] {
+                switch notice {
+                case .suggested, .manual: self.notices[s.id] = nil
+                default: break
+                }
+            }
         }
         s.onEvent = { [weak self] s, e in self?.handle(e, in: s) }
         s.onInput = { [weak self] s, bytes in self?.userInput(bytes, in: s) ?? false }
@@ -725,33 +825,12 @@ final class AppModel {
                 return nil
             }
         }
-        refreshProfile(s)
-        if route.transport == .sftp || route.transport == .ftp { s.browser = RemoteBrowser(route: route, model: self) }
-        // (el explorador lateral recordado como visible: se ve, y conecta cuando entre el terminal)
-        let panelKey = SFTPPanel.key(for: route)
-        if SFTPPanel.offers(route), panelStore.layout(for: panelKey).visible {
-            let p = SFTPSidePanel(key: panelKey, layout: panelStore.layout(for: panelKey), model: self)
-            s.sidePanel = p
-            p.show(in: s)
+        s.askpassEnvironment = { [weak self, weak s] in
+            guard let self, let s else { return [:] }
+            return self.askpassEnvironment(for: s)
         }
-        tabs.append(s)
-        selection = s.id
-        syncMultiExec()
-        saveOpenTabs()
-        let askpass = settings.sessionAutoPassword && route.usesPasswords
-            ? Askpass.environment(executable: Bundle.main.executablePath ?? CommandLine.arguments[0],
-                                  configPath: settings.sshConfigURL.path,
-                                  defaultCredential: settings.defaultCredential, session: s.id)
-            : [:]
-        if settings.logEnabled { s.startLog(in: settings.logURL) }
-        if s.browser != nil {
-            s.deferredEnvironment = askpass           // (la consola sftp, cuando se pida; el explorador conecta solo)
-            s.browser?.connect()
-        } else {
-            s.start(extraEnvironment: askpass)
-        }
-        status = route.usesPasswords ? L("Conectando a \(route.title)…") : ""
-        return s
+        s.browser?.retarget(self)
+        s.sidePanel?.retarget(self)
     }
 
     func close(_ s: TerminalSession) {
@@ -759,12 +838,20 @@ final class AppModel {
         s.gate.abortAll()
         s.terminate()
         _ = Askpass.takeGiven(session: s.id)             // (lo que dejó el askpass si se cierra antes de entrar)
-        multiExec.leave(s)
         if recording == s.id { stopRecording() }
         notices[s.id] = nil
+        detach(s)
+        saveOpenTabs()
+    }
+
+    /// Quita `s` de esta ventana (de la fila, de la vista dividida y de MultiExec) sin tocar su conexión: al cerrarla y
+    /// al pasarla a otra ventana.
+    private func detach(_ s: TerminalSession) {
+        multiExec.leave(s)
         excluded.remove(s.id)
         let i = tabs.firstIndex { $0 === s } ?? 0
         tabs.removeAll { $0 === s }
+        tabFrames[s.id] = nil
         if var sp = split, sp.panes.contains(s.id) {
             sp.panes.removeAll { $0 == s.id }
             split = sp.panes.isEmpty ? nil : sp
@@ -775,7 +862,103 @@ final class AppModel {
                 ?? (tabs.indices.contains(i) ? tabs[i].id : tabs.last?.id)
         }
         syncMultiExec()
+    }
+
+    // MARK: - pasar una pestaña a otra ventana (sin cortar la conexión)
+
+    /// Por qué no se puede sacar `s` de esta ventana ahora (nil: se puede). Grabando una macro en ella o con una
+    /// secuencia en marcha (pegado, macro, lista), no: lo que se le está escribiendo es de esta ventana.
+    func moveBlocker(_ s: TerminalSession) -> String? {
+        // (una hoja abierta —pegado, rellenar un botón, macros— escribe en la pestaña elegida: no se le cambia debajo)
+        if modalOpen { return L("✗ Cierra antes lo que tienes abierto en esta ventana para mover la pestaña") }
+        if recording == s.id { return L("✗ Para la grabación de la macro antes de mover la pestaña") }
+        if automationReservation.contains(s.id) || s.gate.isBusy || sharedGate.isBusy {
+            return L("⏳ Hay una secuencia en marcha: Esc para cortarla antes de mover la pestaña")
+        }
+        return nil
+    }
+
+    /// Pasa `s` a la ventana de `target` (con su terminal, su conexión, su explorador y su aviso de contraseña), en
+    /// `index` (nil: al final). Si ésta se queda sin pestañas, se cierra. false si ahora no se puede (y lo dice).
+    @discardableResult
+    func moveTab(_ s: TerminalSession, to target: AppModel, at index: Int? = nil) -> Bool {
+        guard target !== self, tabs.contains(where: { $0 === s }) else { return false }
+        if let why = moveBlocker(s) { status = why; return false }
+        // (allí, una hoja abierta escribiría en la pestaña que llega, que pasaría a ser la elegida)
+        guard !target.modalOpen else {
+            status = L("✗ La otra ventana tiene algo abierto (pegado, Ajustes…): ciérralo antes de llevarle la pestaña")
+            return false
+        }
+        let notice = notices.removeValue(forKey: s.id)
+        passwordOffers[s.id] = nil
+        let confirmed = anywayConfirmed.remove(s.id) != nil
+        let wasExcluded = excluded.contains(s.id)
+        detach(s)
+        target.adopt(s, notice: notice, anywayConfirmed: confirmed, excluded: wasExcluded, at: index)
+        DebugLog.log("ventana", "«\(s.title)» pasa a otra ventana (\(tabs.count) quedan aquí, \(target.tabs.count) allí)")
+        if tabs.isEmpty, core.attachedWindows.count > 1 { window?.close() }      // (vacía: sobra, como en Safari)
         saveOpenTabs()
+        return true
+    }
+
+    /// Recibe una pestaña de otra ventana: la engancha a ésta, la deja elegida y trae la ventana delante. Si venía
+    /// fuera de MultiExec sigue fuera; y si aquí está encendido, entra fuera (lo que escribas no le llega sin decidirlo).
+    private func adopt(_ s: TerminalSession, notice: PasswordAutomation.Event?, anywayConfirmed confirmed: Bool,
+                       excluded wasExcluded: Bool, at index: Int?) {
+        wire(s)
+        if let i = index, i <= tabs.count { tabs.insert(s, at: i) } else { tabs.append(s) }
+        if let notice { notices[s.id] = notice }
+        if confirmed { anywayConfirmed.insert(s.id) }
+        if wasExcluded || multiExecOn { excluded.insert(s.id) }
+        show(s)
+        syncMultiExec()
+        if multiExecOn, s.route.acceptsMultiExec {
+            status = L("«\(s.title)» queda fuera de MultiExec en esta ventana: inclúyela con clic derecho si quieres")
+        }
+        window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// «Mover a una ventana nueva»: una ventana con ella, en `frame` (nil: donde la ponga macOS). La conexión sigue.
+    func moveTabToNewWindow(_ s: TerminalSession, frame: CGRect? = nil) {
+        guard tabs.contains(where: { $0 === s }) else { return }
+        if let why = moveBlocker(s) { status = why; return }
+        core.openWindow(moving: (self, s.id), frame: frame)
+    }
+
+    /// Una pestaña arrastrada y soltada fuera de esta ventana, en `point` (pantalla): a la ventana de la app que haya
+    /// ahí (en su barra, en el sitio en que cae) o a una nueva con su barra bajo el puntero (`grab`: dónde se cogió,
+    /// desde arriba a la izquierda de esta ventana). Con una sola pestaña, se mueve la ventana entera. false: no ha
+    /// salido de esta ventana (es reordenar) o no se puede.
+    @discardableResult
+    func dropTab(_ s: TerminalSession, at point: CGPoint, grab: CGPoint) -> Bool {
+        guard let w = window, !w.frame.contains(point) else { return false }
+        let other = core.window(at: point)
+        DebugLog.log("ventana", "«\(s.title)» soltada en \(point): \(other == nil ? "fuera de las ventanas" : other === self ? "esta" : "otra ventana")")
+        if let other {
+            guard other !== self else { return false }
+            return moveTab(s, to: other, at: other.tabIndex(at: point))
+        }
+        let frame = WindowPlacement.frame(droppingAt: point, size: w.frame.size, grab: grab,
+                                          screens: NSScreen.screens.map(\.visibleFrame))
+        if tabs.count == 1 {
+            guard !fullScreen else { return false }
+            w.setFrame(frame, display: true, animate: true)
+            return true
+        }
+        moveTabToNewWindow(s, frame: frame)
+        return true
+    }
+
+    /// Marcos de las pestañas en la ventana (de arriba a la izquierda, como `.global`): dónde cae una que llega de otra.
+    @ObservationIgnored var tabFrames: [TerminalSession.ID: CGRect] = [:]
+
+    /// En qué sitio de la barra de pestañas cae `point` (pantalla); nil si no cae en la barra (entonces, al final).
+    func tabIndex(at point: CGPoint) -> Int? {
+        guard let w = window, let content = w.contentView else { return nil }
+        let p = w.convertPoint(fromScreen: point)
+        let q = CGPoint(x: p.x, y: content.bounds.height - p.y)
+        guard stillZones["pestañas"]?.insetBy(dx: -8, dy: -8).contains(q) == true else { return nil }
+        return tabs.firstIndex { (tabFrames[$0.id]?.midX ?? .infinity) > q.x } ?? tabs.count
     }
 
     /// Arrastrar en la barra: `id` ocupa el sitio de `target` (como en Safari: si venía de la izquierda queda detrás,
@@ -800,10 +983,22 @@ final class AppModel {
         if let b = s.browser, !s.showConsole { b.reconnect() } else { s.restart() }
     }
 
+    /// El askpass de la pestaña (la contraseña de la sesión, sola) con los Ajustes de ahora: en cada conexión
+    /// (`TerminalSession.askpassEnvironment`). Sin contraseña automática, o sin contraseñas (local, serie), nada.
+    private func askpassEnvironment(for s: TerminalSession) -> [String: String] {
+        guard settings.sessionAutoPassword, s.route.usesPasswords else { return [:] }
+        return Askpass.environment(executable: Bundle.main.executablePath ?? CommandLine.arguments[0],
+                                   configPath: settings.sshConfigURL.path,
+                                   session: s.id, profile: s.route.sessionName, route: s.route)
+    }
+
     /// Otra pestaña con la misma sesión (clonar).
     func duplicate(_ s: TerminalSession) { open(s.route) }
 
-    func closeCurrent() { current.map(close) }
+    /// ⌘W: la pestaña elegida; en una ventana que ya no tiene ninguna (y no es la única), la ventana.
+    func closeCurrent() {
+        if let s = current { close(s) } else if tabs.isEmpty, core.attachedWindows.count > 1 { askToCloseWindow() }
+    }
 
     func selectNext(_ step: Int) {
         let ids = showSplit ? (split?.panes ?? []) : tabs.map(\.id)
@@ -872,9 +1067,31 @@ final class AppModel {
             case .blocked: status = L("🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes")
             case .notAsked: status = L("🔑 Ahí no piden contraseña ahora")
             case .missing: status = L("🔑 «\(ref)» no está en el Llavero")
-            case .busy: break
+            case .busy, .pending: break
             }
         }
+    }
+
+    func choosePassword(_ ref: CredentialRef, offer: PasswordAutomation.Offer, in s: TerminalSession) {
+        Task {
+            guard tabs.contains(where: { $0 === s }), !s.exited else { return }
+            // (ocupada mientras se lee el Llavero: no se pasa a otra ventana a medias y el aviso sale en la suya)
+            let sw = s.gate.begin()
+            defer { s.gate.end(sw) }
+            switch await s.passwords.choose(ref, offer: offer.id, into: s) {
+            case .typed: notices[s.id] = nil
+            case .blocked: status = L("🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes")
+            case .pending:
+                status = L("🔑 Otra autenticación con «\(ref.account)» sigue pendiente; escríbela a mano o, si ya terminó, restablécela en Ajustes → Contraseñas → «Restablecer pendiente»")
+            case .missing: status = L("🔑 «\(ref)» no está en el Llavero")
+            case .notAsked, .busy: break
+            }
+        }
+    }
+
+    func dismissPasswordNotice(in s: TerminalSession) {
+        s.cancelPasswordContext()
+        notices[s.id] = nil
     }
 
     /// Pestañas en las que ya se ha confirmado «escribir sin esperar a que la pida» (se pregunta una vez por pestaña).
@@ -898,7 +1115,7 @@ final class AppModel {
             switch await s.passwords.typeAnyway(ref, into: s, pressReturn: pressReturn, force: force) {
             case .typed: notices[s.id] = nil; status = L("🔑 «\(ref)» escrita en \(s.title)")
             case .blocked: status = L("🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes")
-            case .notAsked, .busy: break
+            case .notAsked, .busy, .pending: break
             case .missing: status = L("🔑 «\(ref)» no está en el Llavero")
             }
         }
@@ -920,7 +1137,10 @@ final class AppModel {
         keychainCache = (rev, list)
         return list
     }
-    @ObservationIgnored private var keychainCache: (rev: Int, list: [CredentialRef])?
+    private var keychainCache: (rev: Int, list: [CredentialRef])? {
+        get { core.keychainCache }
+        set { core.keychainCache = newValue }
+    }
 
     // MARK: - pegado seguro y listas
 
@@ -981,7 +1201,7 @@ final class AppModel {
 
     func abortAll() {
         sharedGate.abortAll()
-        tabs.forEach { $0.gate.abortAll() }
+        tabs.forEach { $0.gate.abortAll(); $0.cancelPasswordContext() }
     }
 
     private func describe(_ r: PasteReport) -> String {
@@ -1001,6 +1221,10 @@ final class AppModel {
 
     /// Lo que teclea (o pega) el usuario en una pestaña. true = ya atendido.
     private func userInput(_ bytes: [UInt8], in s: TerminalSession) -> Bool {
+        if AbortKey.isAbort(bytes) { s.cancelPasswordContext() }
+        if s.passwords.offer != nil, SecretPrompt.asks(s.cursorLine) { s.cancelPasswordContext() }
+        // (si el usuario empieza a contestar durante la lectura automática, ésta ya no puede mezclar su secreto)
+        if s.gate.isBusy, SecretPrompt.asks(s.cursorLine) { s.cancelPasswordContext() }
         if AbortKey.isAbort(bytes), s.gate.isBusy || sharedGate.isBusy {
             s.gate.abortAll()
             sharedGate.abortAll()
@@ -1019,7 +1243,6 @@ final class AppModel {
             return true
         }
         if recording == s.id { recorder?.feed(bytes, from: s) }      // (sólo lo tecleado; nunca lo que escribe la app)
-        if bytes.contains(13) { s.noteCommand() }                     // Intro
         guard multiExecOn else { return false }
         let sent = multiExec.broadcast(bytes, from: s)
         if sent, bytes.contains(13) {
@@ -1030,24 +1253,51 @@ final class AppModel {
 
     // MARK: - túneles
 
-    /// Los túneles guardados (tuneles.json) y sus procesos ssh (`Tunnels.swift`).
-    var tunnels = TunnelLibrary()
-    var tunnelsError: String?
-    var tunnelWarnings: [String] = []
-    let tunnelRunner = TunnelManager()
+    /// Los túneles guardados (tuneles.json) y sus procesos ssh (`Tunnels.swift`): de la app, no de una ventana.
+    var tunnels: TunnelLibrary {
+        get { core.tunnels }
+        set { core.tunnels = newValue }
+    }
+    var tunnelsError: String? {
+        get { core.tunnelsError }
+        set { core.tunnelsError = newValue }
+    }
+    var tunnelWarnings: [String] {
+        get { core.tunnelWarnings }
+        set { core.tunnelWarnings = newValue }
+    }
+    var tunnelRunner: TunnelManager { core.tunnelRunner }
     /// La «sesión» del askpass de cada túnel en marcha (para confirmar la contraseña que ha valido).
-    @ObservationIgnored var tunnelAskpass: [Tunnel.ID: UUID] = [:]
+    var tunnelAskpass: [Tunnel.ID: UUID] {
+        get { core.tunnelAskpass }
+        set { core.tunnelAskpass = newValue }
+    }
 
-    var workspaces = WorkspaceLibrary()
-    var workspacesError: String?
+    var workspaces: WorkspaceLibrary {
+        get { core.workspaces }
+        set { core.workspaces = newValue }
+    }
+    var workspacesError: String? {
+        get { core.workspacesError }
+        set { core.workspacesError = newValue }
+    }
 
     // MARK: - macros
 
     /// Las macros guardadas (macros.json). Cargarlas no ejecuta nada: sólo `runMacro`, desde un clic del usuario.
-    var macros = MacroLibrary()
+    var macros: MacroLibrary {
+        get { core.macros }
+        set { core.macros = newValue }
+    }
     /// macros.json no se ha podido usar (ilegible, roto o de otra versión): no se toca; al guardar se aparta.
-    var macrosError: String?
-    var macroWarnings: [String] = []
+    var macrosError: String? {
+        get { core.macrosError }
+        set { core.macrosError = newValue }
+    }
+    var macroWarnings: [String] {
+        get { core.macroWarnings }
+        set { core.macroWarnings = newValue }
+    }
     /// Pestaña en la que se graba.
     var recording: TerminalSession.ID?
     @ObservationIgnored private var recorder: MacroRecorder?
@@ -1109,7 +1359,7 @@ final class AppModel {
         }
         macroDraft = Macro(name: macros.uniqueName(L("macro")), steps: r.steps)
         status = L("■ Grabadas \(r.lines.count) órdenes") + (r.skipped > 0 ? L(" · \(r.skipped) sin grabar (secretos)") : "")
-        if !modalOpen { sheet = .macros }
+        if !modalOpen { present(.macros) }
     }
 
     /// Reproduce una macro en la pestaña activa o en las de MultiExec que aceptan lo repartido. Sólo desde un clic.
@@ -1196,7 +1446,8 @@ final class AppModel {
     /// Arrastrar en la barra de botones: cambia el orden (y la categoría si cae en otra) en memoria; al soltar,
     /// `saveButtonOrder`. Con líneas mal escritas no: al guardar se perderían.
     func moveButton(_ id: CommandButton.ID, onto target: CommandButton.ID) {
-        guard buttons.problems.isEmpty, buttons.moveButton(id, onto: target) else { return }
+        // (con Ajustes abiertos en otra ventana, su editor de botones guardaría encima su copia de antes)
+        guard buttons.problems.isEmpty, sharedEditorElsewhere == nil, buttons.moveButton(id, onto: target) else { return }
         buttonsMoved = true
     }
 
@@ -1212,6 +1463,7 @@ final class AppModel {
 
     /// Clic derecho en un botón de la barra → «Mover a la categoría».
     func moveButton(_ id: CommandButton.ID, toGroup g: String) {
+        guard !sharedEditorBusy() else { return }
         if buttons.problems.isEmpty, buttons.moveButton(id, toGroup: g) { buttonsMoved = true }
         saveButtonOrder()
     }
@@ -1255,6 +1507,7 @@ final class AppModel {
             Task {
                 let sw = s.gate.begin()
                 defer { s.gate.end(sw) }
+                s.cancelPasswordContext()
                 s.passwords.commandUser = parts[0]
                 s.passwords.commandJumpUsers = []
                 let r = await InputScript.login(user: parts[0], credential: .named(parts[1])).run(on: s, store: store, abort: sw)
@@ -1331,9 +1584,12 @@ final class AppModel {
     // MARK: - ventana
 
     func attach(_ w: NSWindow) {
-        guard window !== w else { return }
+        closeGuard?.install(on: w)                  // (por si macOS rehace los botones de la barra de título)
+        // (uno de paso, de una ventana que se está cerrando: nada de vigilantes que nadie quitaría)
+        guard window !== w, core.windows.contains(where: { $0 === self }) else { return }
         window = w
         w.isMovableByWindowBackground = false
+        w.tabbingMode = .disallowed                 // (las pestañas son las de la app, no las de macOS)
         // pulsar en una zona de reordenar (pestañas en la barra de título, botones): la ventana no se mueve hasta soltar
         if let m = stillWatch { NSEvent.removeMonitor(m) }
         // (sólo cambia si se puede mover la ventana: AppKit entrega SIEMPRE el evento por su recorrido normal.
@@ -1342,7 +1598,9 @@ final class AppModel {
             nonisolated(unsafe) let e = event
             MainActor.assumeIsolated {
                 guard let self, let w = self.window else { return }
-                if e.type != .leftMouseDown || e.modifierFlags.contains(.control) { w.isMovable = true; return }
+                // (al soltar, sigue quieta si el puntero está aún sobre las pestañas: el siguiente arrastre de verdad
+                // lo decide el WindowServer antes que este monitor)
+                if e.type != .leftMouseDown || e.modifierFlags.contains(.control) { w.isMovable = self.stillHover.isEmpty; return }
                 guard e.window === w else { return }
                 let h = w.contentView?.bounds.height ?? w.frame.height
                 let p = CGPoint(x: e.locationInWindow.x, y: h - e.locationInWindow.y)
@@ -1350,13 +1608,9 @@ final class AppModel {
             }
             return event
         }
-        styleWindows()
         fullScreen = w.styleMask.contains(.fullScreen)
-        // clic en un panel de la vista dividida → es la pestaña activa
-        appearanceWatch = NSApp.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
-            DispatchQueue.main.async { self?.followAppearance() }
-        }
         followAppearance()
+        // clic en un panel de la vista dividida → es la pestaña activa
         focusWatch = w.observe(\.firstResponder, options: [.new]) { [weak self] w, _ in
             MainActor.assumeIsolated {
                 guard let self, let v = w.firstResponder as? NetDeckTerminalView,
@@ -1365,32 +1619,75 @@ final class AppModel {
             }
         }
         let nc = NotificationCenter.default
-        nc.addObserver(forName: NSWindow.willEnterFullScreenNotification, object: w, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.fullScreen = true
-                self.titlebarReveal = 0
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self.styleWindows() }
-                DebugLog.log("ventana", "pantalla completa")
-            }
-        }
-        nc.addObserver(forName: NSWindow.willExitFullScreenNotification, object: w, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.fullScreen = false; self?.titlebarReveal = 0 }
-        }
-        // (la barra de título en pantalla completa es otra ventana que baja y sube: lo que tapa de la nuestra)
-        nc.addObserver(forName: NSWindow.didMoveNotification, object: nil, queue: .main) { [weak self] n in
-            nonisolated(unsafe) let moved = n.object as? NSWindow     // (cola principal)
-            MainActor.assumeIsolated {
-                guard let self, self.fullScreen, let bar = moved, bar !== w,
-                      bar.className.contains("FullScreen") || bar.className.contains("Titlebar") else { return }
-                let covered = max(0, w.frame.maxY - bar.frame.minY)
-                let reveal = covered < 4 || covered > 160 ? 0 : covered
-                guard abs(reveal - self.titlebarReveal) >= 1 else { return }
-                self.titlebarReveal = reveal
-                DebugLog.log("ventana", "barra de título de pantalla completa (\(bar.className)): tapa \(Int(covered)) → hueco \(Int(reveal))")
-            }
-        }
+        windowWatches.forEach(nc.removeObserver)
+        windowWatches = [
+            // (la de delante recibe los menús y los atajos)
+            nc.addObserver(forName: NSWindow.didBecomeMainNotification, object: w, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { if let self { self.core.becameMain(self) } }
+            },
+            nc.addObserver(forName: NSWindow.willCloseNotification, object: w, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { if let self { self.core.closing(self) } }
+            },
+            nc.addObserver(forName: NSWindow.willEnterFullScreenNotification, object: w, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.fullScreen = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self.styleWindows() }
+                    DebugLog.log("ventana", "pantalla completa")
+                }
+            },
+            nc.addObserver(forName: NSWindow.willExitFullScreenNotification, object: w, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.fullScreen = false }
+            },
+        ]
+        closeGuard = WindowCloseGuard(model: self, window: w)
         DebugLog.log("ventana", "marco \(w.frame) · contenido \(w.contentLayoutRect) · pantalla \(w.screen?.visibleFrame ?? .zero)")
+        core.attached(self)                         // (y lo que esperaba esta ventana: pestañas, una movida, su sitio)
+    }
+
+    /// Se ha cerrado esta ventana (no la última): se cortan sus pestañas y se quitan sus vigilantes.
+    func windowClosed() {
+        DebugLog.log("ventana", "cerrada con \(tabs.count) pestañas")
+        abortAll()
+        for s in tabs { close(s) }
+        if let m = stillWatch { NSEvent.removeMonitor(m) }
+        stillWatch = nil
+        windowWatches.forEach(NotificationCenter.default.removeObserver)
+        windowWatches = []
+        focusWatch = nil
+        closeGuard = nil
+        window = nil
+    }
+
+    /// Cerrar esta ventana (botón rojo o «Cerrar ventana»). Con Ajustes con cambios sin guardar, lo de siempre (se
+    /// pregunta); con conexiones abiertas, se pregunta antes de cortarlas. La última cierra la app (y sus pestañas se
+    /// guardan para reabrirlas).
+    func askToCloseWindow() {
+        guard let w = window, !askingClose, sheet == nil else { return }
+        askingClose = true
+        Task {
+            defer { askingClose = false }
+            if showSettings, let leave = settingsLeave, !(await leave.check()) { return }
+            let live = tabs.filter { !$0.exited }.count
+            if live > 0 {
+                let last = core.attachedWindows.count <= 1
+                guard await ThemedAlert.confirm(
+                    last ? L("¿Cerrar la ventana y salir de Terminal NetDeck?") : L("¿Cerrar esta ventana y sus \(live) pestañas?"),
+                    message: last ? L("Se cortan sus \(live) conexiones; al volver a abrir la app podrás reabrir sus pestañas.")
+                                  : L("Se cortan sus conexiones; las de las otras ventanas siguen abiertas."),
+                    ok: L("Cerrar la ventana"), destructive: true, over: w) else { return }
+            }
+            w.close()
+        }
+    }
+    @ObservationIgnored private var askingClose = false
+
+    /// El puntero entra o sale de una zona de reordenar (`keepsWindowStill`): la ventana deja de ser movible ya antes
+    /// del clic. Con un botón pulsado no se toca (un arrastre de la ventana que pasa por encima sigue siendo suyo).
+    func pointerInStillZone(_ key: String, _ inside: Bool) {
+        if inside { stillHover.insert(key) } else { stillHover.remove(key) }
+        guard let w = window, NSEvent.pressedMouseButtons == 0 else { return }
+        w.isMovable = stillHover.isEmpty
     }
 
     /// Doble clic en la barra de arriba: como en la barra de título (llenar la pantalla / volver, o minimizar).
@@ -1413,39 +1710,11 @@ final class AppModel {
 
     // MARK: - reabrir las de la última vez (y tras actualizar)
 
-    private static var openTabsFile: URL { AppPaths.support.appendingPathComponent("abiertas.json") }
+    /// Se guarda al abrir, cerrar y mover pestañas: las de todas las ventanas, cada una con la suya (`AppCore`).
+    func saveOpenTabs() { core.saveOpenTabs() }
 
-    /// Se guarda al abrir y cerrar pestañas (así una actualización o un cierre brusco no las pierde).
-    func saveOpenTabs() {
-        // (las capturas de desarrollo no tocan tus pestañas; y nunca las de este mismo Mac)
-        guard ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil else { return }
-        let routes = tabs.map(\.route).filter { !$0.isLoopback }
-        guard !routes.isEmpty else {
-            if lastOpen.isEmpty { try? FileManager.default.removeItem(at: Self.openTabsFile) }
-            return
-        }
-        AppPaths.ensure(AppPaths.support)
-        do {
-            try JSONEncoder().encode(routes).write(to: Self.openTabsFile, options: .atomic)
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Self.openTabsFile.path)
-        } catch {
-            ErrorLog.error("pestañas", "no se han podido guardar las pestañas abiertas: \(error.localizedDescription)")
-        }
-    }
-
-    private static func readOpenTabs() -> [ConnectionRoute] {
-        let all = (try? Data(contentsOf: openTabsFile)).flatMap { try? JSONDecoder().decode([ConnectionRoute].self, from: $0) } ?? []
-        let kept = all.filter { !$0.isLoopback }
-        if kept.count != all.count { DebugLog.log("app", "no reabro \(all.count - kept.count) a este mismo Mac (127.x/localhost)") }
-        return kept
-    }
-
-    func reopenLast() {
-        let routes = lastOpen
-        lastOpen = []
-        DebugLog.log("app", "reabro \(routes.count): \(routes.map(\.title))")
-        for r in routes { open(r) }
-    }
+    /// Las de la última vez: las de la primera ventana, aquí; las de las demás, en ventanas nuevas donde estaban.
+    func reopenLast() { core.reopenLast(into: self) }
 
     // MARK: - actualizar (de momento, desde el código: ./actualizar.sh)
 
@@ -1502,7 +1771,11 @@ final class AppModel {
             }
         }
     }
-    @ObservationIgnored private var offeringUpdate = false
+    /// (un solo aviso de versión nueva aunque haya varias ventanas)
+    private var offeringUpdate: Bool {
+        get { core.offeringUpdate }
+        set { core.offeringUpdate = newValue }
+    }
     @ObservationIgnored private var askingDelete = false
 
     /// Compila, sustituye la app instalada y la vuelve a abrir con las mismas pestañas.

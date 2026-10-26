@@ -77,7 +77,7 @@ struct Sidebar: View {
                     .help(L("Gestionar sesiones y grupos"))
                 IconButton(icon: "square.and.arrow.down") { model.editSessions(.importing) }
                     .help(L("Importar de SecureCRT, MobaXterm, PuTTY, CSV…"))
-                IconButton(icon: "list.bullet.rectangle") { model.sheet = .list }
+                IconButton(icon: "list.bullet.rectangle") { model.present(.list) }
                     .help(L("Listas de equipos: la misma orden en muchos equipos por un salto (⇧⌘L)"))
                 Text(model.sessions.source.map { AppPaths.tilde($0.path) }
                      ?? (model.sessions.profiles.isEmpty ? L("sin sesiones todavía") : L("sesiones de ejemplo")))

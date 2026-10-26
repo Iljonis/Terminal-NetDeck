@@ -136,6 +136,17 @@ import Testing
         #expect(!r4)
     }
 
+    @Test func importarDeOtro() {
+        var mio = ButtonFile(text: "A :: run :: a1 [F1] :: show version\nB :: run :: b1 :: ping 192.0.2.1\n")
+        let suyo = ButtonFile(text: "A :: run :: a1 [F1] :: show version\nA :: type :: a2 [F1] :: show int\nC :: run :: c1 [F2] :: show clock\n")
+        let r = mio.merge(suyo)
+        #expect(r.added == 2 && r.repeated == 1)
+        #expect(mio.buttons.map(\.name) == ["a1", "a2", "b1", "c1"])   // cada uno al final de su categoría
+        #expect(mio.buttons[1].hotkey == nil)                           // la F1 ya era mía
+        #expect(mio.buttons[3].hotkey == "F2")
+        #expect(mio.merge(suyo).added == 0)                             // importarlo dos veces no duplica
+    }
+
     @Test func teclasDeFuncion() {
         func k(_ s: String) -> String? { FunctionKey.name(Array(s.utf8)) }
         #expect(k("\u{1b}OP") == "F1")
