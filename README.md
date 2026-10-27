@@ -55,8 +55,6 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
   crear una credencial desde el editor de sesiones. La predeterminada muestra su usuario exacto y las entradas ausentes.
 - **Catálogo del Llavero con búsqueda y recarga**, sin consultas en el hilo de la interfaz ni sobrescrituras silenciosas al añadir.
 
-### Novedades de 0.9.4
-
 - **Varias ventanas:** ⌘N abre otra; las pestañas pasan de una ventana a otra arrastrándolas o con clic derecho, sin
   cortar la conexión. Cada ventana vuelve al reabrir con sus pestañas y su sitio.
 - **Renombrar la pestaña** (clic derecho): el nombre se mantiene mientras sigas en ese equipo, también al reconectar.

@@ -341,9 +341,16 @@ enum SnapshotDrags {
         }
 
         // soltarla fuera de las ventanas: una nueva con ella, en ese sitio (y en la otra pantalla, si hay)
+        // (en pantallas pequeñas la otra queda arriba y tapa el hueco: se baja hasta la altura de ésta)
+        if bw.frame.maxY > w.frame.maxY {
+            bw.setFrameOrigin(NSPoint(x: bw.frame.minX, y: bw.frame.minY - (bw.frame.maxY - w.frame.maxY)))
+            try? await Task.sleep(for: .milliseconds(400))
+        }
         var spots = [CGPoint(x: screen.midX, y: screen.maxY - 30), CGPoint(x: screen.maxX - 40, y: screen.maxY - 30)]
         spots.insert(contentsOf: NSScreen.screens.filter { $0 != w.screen }.map { CGPoint(x: $0.visibleFrame.midX, y: $0.visibleFrame.midY) }, at: 0)
-        for spot in spots.filter({ core.window(at: $0) == nil }).prefix(2) {
+        let free = spots.filter { core.window(at: $0) == nil }
+        if free.isEmpty { check(false, "arrastre fuera: ningún sitio libre fuera de las ventanas (\(w.frame) · \(bw.frame))") }
+        for spot in free.prefix(2) {
             guard model.tabs.count > 1, let s = model.current ?? model.tabs.last else { break }
             model.show(s)
             try? await Task.sleep(for: .milliseconds(500))

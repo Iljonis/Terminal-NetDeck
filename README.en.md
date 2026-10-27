@@ -55,8 +55,6 @@ that into one macOS app, built around one idea: **it should never play a trick o
   a credential from the session editor. The default shows its exact user and missing entries.
 - **Searchable Keychain catalog with reload**, without main-thread lookups or silent overwrites when adding entries.
 
-### New in 0.9.4
-
 - **Multiple windows:** ⌘N opens another; tabs move between windows by dragging or from the context menu, without
   dropping the connection. Each window comes back with its tabs and position when reopened.
 - **Rename a tab** (right click): the name stays while you remain on that device, including after reconnecting.
