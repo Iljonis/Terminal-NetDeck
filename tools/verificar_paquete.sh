@@ -32,8 +32,8 @@ print('✓ SDK del paquete: '+', '.join(sdks))
 PY
 shasum -a 256 dist/Terminal-NetDeck.dmg > "$OUT/paquete-sha256.txt"
 # (en esta versión el autor pide la demo sólo en GitHub; las comprobaciones del paquete se hacen siempre)
-if [ "$esperada" = 0.9.6 ] && [ "${GITHUB_ACTIONS:-}" != true ]; then
-  echo '· Demo gráfica local omitida en 0.9.6; se ejecuta en GitHub Actions'
+if [ "$esperada" = 0.9.7 ] && [ "${GITHUB_ACTIONS:-}" != true ]; then
+  echo '· Demo gráfica local omitida en 0.9.7; se ejecuta en GitHub Actions'
 else
   NETDECK_QA_APP="$APP" tools/verificar_demo.sh "$OUT"
 fi

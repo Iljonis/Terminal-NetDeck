@@ -9,10 +9,10 @@ and 51 themes. Native, fast and in your language.
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v0.9.6](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.6)** · macOS 15 or later ·
+Current version: **[v0.9.7](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.7)** · macOS 15 or later ·
 open source (MIT)
 
-[![Version](https://img.shields.io/badge/version-v0.9.6-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.6)
+[![Version](https://img.shields.io/badge/version-v0.9.7-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.7)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,15 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - **SFTP/FTP browser** with atomic copies, built-in MD5 verification and server-to-server transfers.
 - **Multi-tab** with split view, MultiExec and safe paste; **51 themes** with WCAG contrast.
 - **Sessions with jump hosts** on top of your `ssh_config`, passwords only in the macOS Keychain.
+
+### New in 0.9.7
+
+- **Password buttons always work:** password and login buttons and the 🔑 menu also type when the session asks for
+  its password while connecting. Login only types it when the prompt is for its own user.
+- **Command buttons explain themselves:** at a password prompt they type nothing and say why.
+- **Split view:** the keyboard stays on the pane you click, so autopass and buttons (F5… too) act on that pane.
+- **15-minute block only for the default password** auto-typed after ssh/telnet from a session. Saved sessions and
+  what you type with buttons or 🔑 no longer block; if a saved one fails, you are asked for it.
 
 ### New in 0.9.6
 

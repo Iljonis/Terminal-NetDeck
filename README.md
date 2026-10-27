@@ -9,10 +9,10 @@ y 51 temas. Nativo, rápido y en tu idioma.
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.9.6](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.6)** · macOS 15 o posterior ·
+Versión actual: **[v0.9.7](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.7)** · macOS 15 o posterior ·
 código abierto (MIT)
 
-[![Versión](https://img.shields.io/badge/versión-v0.9.6-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.6)
+[![Versión](https://img.shields.io/badge/versión-v0.9.7-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.7)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,16 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - **Explorador SFTP/FTP** con copias atómicas, verificación MD5 integrada y envío de servidor a servidor.
 - **Multipestaña** con vista dividida, MultiExec y pegado seguro; **51 temas** con contraste WCAG.
 - **Sesiones con saltos** sobre tu `ssh_config` y contraseñas sólo en el Llavero de macOS.
+
+### Novedades de 0.9.7
+
+- **Botones de contraseña siempre:** los botones de contraseña y de login y el menú 🔑 escriben también cuando la
+  sesión pide la contraseña al conectar. El login sólo la escribe si la piden para su mismo usuario.
+- **Botones de orden con aviso:** ante una petición de contraseña no escriben nada y dicen por qué.
+- **Vista dividida:** el teclado se queda en el panel donde haces clic, así que el autopass y los botones (también
+  F5…) actúan en ese panel.
+- **Bloqueo de 15 min sólo para la contraseña por defecto** escrita sola al hacer ssh/telnet desde una sesión. Las
+  sesiones guardadas y lo que escribes tú con botones o con 🔑 ya no bloquean; si la guardada falla, se te pide a ti.
 
 ### Novedades de 0.9.6
 
