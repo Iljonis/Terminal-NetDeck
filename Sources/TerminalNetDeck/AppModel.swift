@@ -135,6 +135,16 @@ final class AppModel {
     var pendingButton: CommandButton?
     /// Sugerencia o elección manual pendiente en cada pestaña.
     var notices: [TerminalSession.ID: PasswordAutomation.Event] = [:]
+    /// «Guardar la que has escrito»: la hoja de credencial nueva ya con ella puesta.
+    var typedSave: TypedSave?
+    struct TypedSave: Identifiable {
+        let id = UUID()
+        let name: String
+        let secret: String
+        let session: String?
+    }
+    /// Pestañas a las que ya se ha preguntado (una vez por pestaña: los saltos no vuelven a preguntar).
+    @ObservationIgnored private var typedOffered: Set<TerminalSession.ID> = []
     var passwordOffers: [TerminalSession.ID: PasswordAutomation.Offer] = [:]
     /// Para refrescar lo que depende del Llavero.
     var keychainRevision: Int {
@@ -814,6 +824,8 @@ final class AppModel {
             }
         }
         s.onEvent = { [weak self] s, e in self?.handle(e, in: s) }
+        s.onTypedPassword = { [weak self] s, c in self?.offerToSave(c, from: s) }
+        s.offerTypedPassword = { [weak self] in self?.settings.offerSaveTyped ?? false }
         s.onInput = { [weak self] s, bytes in self?.userInput(bytes, in: s) ?? false }
         s.onReconnect = { [weak self] s in self?.reconnect(s) }
         s.onCloseRequest = { [weak self] s in self?.close(s) }
@@ -1091,6 +1103,36 @@ final class AppModel {
         }
     }
 
+    /// Has escrito tú la contraseña y ha entrado: «¿guardarla?». Nunca en una captura ni con otra hoja abierta.
+    func offerToSave(_ c: TypedPassword.Candidate, from s: TerminalSession) {
+        guard settings.offerSaveTyped, ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil, sheet == nil, typedSave == nil, typedOffered.insert(s.id).inserted else { return }
+        Task {
+            guard await ThemedAlert.confirm(L("¿Guardar en el Llavero la contraseña que has escrito?"),
+                                            message: L("La de «\(c.account ?? s.title)». La próxima vez se escribe sola. Puedes desactivar esta pregunta en Ajustes → Contraseñas."),
+                                            ok: L("Guardar…"), cancel: L("Ahora no")) else { return }
+            // (a la sesión sólo si es su propio login: no la de un equipo al que has saltado desde ella)
+            let t = s.route.target, own = c.account.map { a in
+                a.lowercased().hasSuffix("@\(t.host.lowercased())") && (t.user.map { a.hasPrefix("\($0)@") } ?? true)
+            } ?? false
+            typedSave = TypedSave(name: c.user ?? s.title, secret: c.secret, session: own ? s.route.sessionName : nil)
+        }
+    }
+
+    /// Guardada: si su sesión no tenía contraseña (ni la del grupo), se le asigna. Si el ssh_config no se puede leer,
+    /// no se toca.
+    func assignSaved(_ name: String, to session: String?) async -> String? {
+        guard let session, let file = try? SessionFile(contentsOf: SessionFile.defaultURL),
+              let i = file.sessions.firstIndex(where: { $0.name == session }),
+              file.sessions[i].credential.isEmpty, file.namedCredential(of: file.sessions[i]) == nil else { return nil }
+        // (si ya entra con la suya de usuario@equipo, no se cambia)
+        let se = file.sessions[i]
+        guard !hasCredential(.device(se.user.isEmpty ? AppPaths.userName : se.user, se.host.isEmpty ? se.name : se.host)) else { return nil }
+        var f = file
+        f.sessions[i].credential = name
+        if let err = await saveSessions(f) { return "✗ \(err)" }
+        return L("asignada a la sesión «\(session)»")
+    }
+
     func dismissPasswordNotice(in s: TerminalSession) {
         s.cancelPasswordContext()
         notices[s.id] = nil
@@ -1164,6 +1206,8 @@ final class AppModel {
             self?.status = "\(list.name) · \(d.host): \(st.texto)"
         }
         await runner.run()
+        // (sólo las que se quedaron en el salto sin probar contraseña; nunca una denegada)
+        for _ in 0..<runner.settings.maxRetries where !sw.isTripped { await runner.retryFailed() }
         let ok = runner.status.values.filter { $0 == .connected }.count
         status = L("\(list.name): \(ok)/\(list.devices.count) dentro")
         // juntas en una vista; las que se han quedado en el salto, fuera de MultiExec (nada se ejecuta en el salto)
@@ -1487,13 +1531,27 @@ final class AppModel {
             }
         case .pass:
             guard let s = current else { return }
+            // (lo que no es una del Llavero no se enseña ni se registra: puede ser la contraseña escrita a la vista)
+            guard knownCredential(cmd) else { return missingButtonCredential(b) }
             typePassword(.named(cmd), in: s)
+        case .clave:
+            guard let s = current else { return }
+            Task {
+                switch await s.passwords.typeLiteral(cmd, button: b.name, into: s) {
+                case .typed: notices[s.id] = nil
+                case .notAsked: status = L("🔑 Ahí no piden contraseña ahora")
+                case .missing: status = L("🔑 Botón «\(b.name)»: no tiene contraseña; escríbela en Ajustes → Botones")
+                case .busy: status = L("🔑 Ya se está escribiendo una contraseña en «\(s.title)»; espera a que conteste")
+                case .pending: break
+                }
+            }
         case .login:
             guard let s = current else { return }
             guard let parts = CommandButton.loginParts(cmd), !parts.user.isEmpty, !parts.credential.isEmpty else {
                 status = L("✗ Botón «\(b.name)»: el login es «usuario / nombre-de-la-contraseña»")
                 return
             }
+            guard knownCredential(parts.credential) else { return missingButtonCredential(b) }
             // (ya piden la contraseña: sólo si es de su usuario, y con bloqueos y seguimiento como la del menú 🔑)
             if PasswordPrompt.acceptsManual(s.cursorLine) {
                 if let other = PasswordPrompt.otherUser(than: parts.user, cursorLine: s.cursorLine, above: s.linesAbove(3)) {
@@ -1515,6 +1573,15 @@ final class AppModel {
         }
         if b.mode != .session { status = "▶ \(b.name)" + (targets.count > 1 ? " ×\(targets.count)" : "") }
         current?.view.window?.makeFirstResponder(current?.view)
+    }
+
+    /// Con el Llavero aún sin listar se intenta igual (y si falta, lo dice `typePassword`).
+    private func knownCredential(_ name: String) -> Bool {
+        core.keychainLoading || core.keychainError != nil || hasCredential(.named(name))
+    }
+
+    private func missingButtonCredential(_ b: CommandButton) {
+        status = L("🔑 Botón «\(b.name)»: su contraseña no está en el Llavero; edítalo en Ajustes → Botones")
     }
 
     // MARK: - pantalla dividida y MultiExec

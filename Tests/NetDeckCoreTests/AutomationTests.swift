@@ -105,6 +105,20 @@ import Testing
         #expect(!ledger.isBlocked(.named("AD")))
     }
 
+    /// Botón con la contraseña escrita en él: sólo donde la piden, sin Llavero ni bloqueo.
+    @Test func botonConLaContraseñaEscrita() async {
+        let io = FakeTerminal(["core-01#"]) { _ in ["tu.usuario@core-01's password: "] }
+        let ledger = CredentialLedger()
+        let a = make(io, MemoryCredentialStore(), ledger)
+        #expect(await a.typeLiteral("escrita", button: "VM", into: io) == .notAsked)
+        #expect(io.sent.isEmpty)
+        io.screen.append("tu.usuario@core-01's password: ")
+        #expect(await a.typeLiteral("", button: "VM", into: io) == .missing)
+        #expect(await a.typeLiteral("escrita", button: "VM", into: io) == .typed)
+        #expect(io.sent == ["escrita\r"])
+        #expect(!ledger.isBlocked(.named("VM")))
+    }
+
     /// Con -J, tras la del salto el askpass pregunta por el destino: la del salto ha entrado, no se bloquea.
     @Test func botonEnElAskpassDelSalto() async {
         let io = FakeTerminal(["[NetDeck] tu.usuario@bastion's password:"]) { _ in ["[NetDeck] tu.usuario@192.0.2.11's password:"] }
@@ -427,6 +441,57 @@ import Testing
         #expect(tabs.first?.sent.first == "ssh tu.usuario@192.0.2.5\r")
     }
 
+    /// Se queda en el salto sin llegar a pedir contraseña → se reintenta una vez; una denegada, nunca.
+    @Test func reintentaSoloLasQueVuelvenAlSalto() async {
+        let store = MemoryCredentialStore([.named("AD"): "buena"])
+        var intentos = 0
+        let list = JumpList(name: "prueba", jump: "bastion", user: "tu.usuario", devices: [Endpoint(host: "192.0.2.5")],
+                            credential: .init(ref: .named("AD"), owners: ["tu.usuario"], origin: .sessionNamed))
+        var s = JumpBatchRunner.Settings()
+        s.spacing = .milliseconds(10)
+        s.poll = .milliseconds(5)
+        s.jumpTimeout = .seconds(2)
+        s.deviceTimeout = .seconds(2)
+        s.passwordTimeout = .seconds(2)
+        let io = FakeTerminal(["tu.usuario@bastion:~$ "]) { cmd in
+            guard cmd.hasPrefix("ssh ") else { return ["core-01#"] }
+            intentos += 1
+            return intentos == 1 ? ["ssh: connect to host 192.0.2.5 port 22: Connection timed out", "tu.usuario@bastion:~$ "]
+                                 : ["tu.usuario@192.0.2.5's password:"]
+        }
+        let runner = JumpBatchRunner(list: list, settings: s, store: store, ledger: CredentialLedger(),
+                                     abort: AbortSwitch()) { _ in io }
+        await runner.run()
+        #expect(runner.status[list.devices[0]]?.isRetryable == true)
+        await runner.retryFailed()
+        #expect(runner.status[list.devices[0]] == .connected)
+        await runner.retryFailed()                                         // (ya dentro: no se vuelve a intentar)
+        #expect(intentos == 2)
+    }
+
+    /// Con la contraseña ya enviada, volver al salto NO se reintenta: sería un segundo intento contra la cuenta AD.
+    @Test func noReintentaSiYaSeEnvioLaContrasena() async {
+        let store = MemoryCredentialStore([.named("AD"): "buena"])
+        let list = JumpList(name: "prueba", jump: "bastion", user: "tu.usuario", devices: [Endpoint(host: "192.0.2.5")],
+                            credential: .init(ref: .named("AD"), owners: ["tu.usuario"], origin: .sessionNamed))
+        var s = JumpBatchRunner.Settings()
+        s.spacing = .milliseconds(10)
+        s.poll = .milliseconds(5)
+        s.jumpTimeout = .seconds(2)
+        s.deviceTimeout = .seconds(2)
+        s.passwordTimeout = .seconds(2)
+        let io = FakeTerminal(["tu.usuario@bastion:~$ "]) { cmd in
+            cmd.hasPrefix("ssh ") ? ["tu.usuario@192.0.2.5's password:"] : ["Connection reset", "tu.usuario@bastion:~$ "]
+        }
+        let runner = JumpBatchRunner(list: list, settings: s, store: store, ledger: CredentialLedger(),
+                                     abort: AbortSwitch()) { _ in io }
+        await runner.run()
+        #expect(runner.status[list.devices[0]]?.isRetryable == true)
+        await runner.retryFailed()
+        #expect(io.sent.filter { $0 == "buena\r" }.count == 1)
+        #expect(io.sent.filter { $0.hasPrefix("ssh ") }.count == 1)
+    }
+
     @Test func nombresPeligrososNoSeEscribenEnElSalto() async {
         let list = JumpList(name: "x", jump: "bastion", devices: [Endpoint(host: "192.0.2.5$(id)")])
         let io = FakeTerminal(["tu.usuario@bastion:~$ "])
@@ -434,5 +499,60 @@ import Testing
                                      abort: AbortSwitch()) { _ in io }
         await runner.run()
         #expect(io.sent.isEmpty)
+    }
+}
+
+/// «¿Guardar la que has escrito?»: sólo si entra; nunca si la rechazan o la vuelven a pedir.
+@Suite struct TypedPasswordTests {
+    static func keys(_ s: String) -> [UInt8] { Array(s.utf8) }
+
+    @Test func laOfreceSoloSiEntra() {
+        var t = TypedPassword()
+        let prompt = "tu.usuario@192.0.2.11's password: "
+        t.feed(Self.keys("añ"), cursorLine: prompt, row: 3, above: [])
+        t.feed([127], cursorLine: prompt, row: 3, above: [])           // (borra la ñ entera, dos bytes)
+        t.feed(Self.keys("bc€\r"), cursorLine: prompt, row: 3, above: [])
+        #expect(t.resolve(lines: { _ in [] }, cursorLine: prompt, row: 3) == nil)    // (aún en la misma fila)
+        let c = t.resolve(lines: { _ in ["Last login: hoy", "core-01#"] }, cursorLine: "core-01#", row: 5)
+        #expect(c?.secret == "abc€")
+        #expect(c?.account == "tu.usuario@192.0.2.11" && c?.user == "tu.usuario")
+        #expect(t.candidate == nil)
+    }
+
+    @Test func noSiLaRechazanOLaVuelvenAPedir() {
+        var t = TypedPassword()
+        let prompt = "Password: "
+        t.feed(Self.keys("mala\r"), cursorLine: prompt, row: 1, above: [])
+        #expect(t.resolve(lines: { _ in ["Permission denied, please try again.", prompt] }, cursorLine: prompt, row: 3) == nil)
+        #expect(t.candidate == nil)
+        t.feed(Self.keys("mala\r"), cursorLine: prompt, row: 3, above: [])
+        // (se corta y vuelve a la shell local: «Connection closed» no es entrar)
+        #expect(t.resolve(lines: { _ in ["Connection closed by 192.0.2.11", "tu.usuario@mac ~ %"] },
+                          cursorLine: "tu.usuario@mac ~ %", row: 5) == nil)
+    }
+
+    /// Ni sudo/enable (sin cuenta en el prompt), ni un «% Bad secrets», ni pasado su tiempo.
+    @Test func niSudoNiRechazosNiViejas() {
+        var t = TypedPassword()
+        t.feed(Self.keys("x\r"), cursorLine: "[sudo] password for tu.usuario: ", row: 1, above: [])
+        #expect(t.candidate == nil)
+        let prompt = "tu.usuario@192.0.2.11's password: "
+        t.feed(Self.keys("mala\r"), cursorLine: prompt, row: 1, above: [])
+        #expect(t.resolve(lines: { _ in ["% Bad secrets", "core-01>"] }, cursorLine: "core-01>", row: 3) == nil)
+        let antes = Date()
+        t.feed(Self.keys("buena\r"), cursorLine: prompt, row: 4, above: [], now: antes)
+        #expect(t.resolve(lines: { _ in ["core-01#"] }, cursorLine: "core-01#", row: 5,
+                          now: antes.addingTimeInterval(TypedPassword.lifetime + 1)) == nil)
+        #expect(t.candidate == nil)
+    }
+
+    @Test func soloEnUnPromptDeContrasena() {
+        var t = TypedPassword()
+        t.feed(Self.keys("show run\r"), cursorLine: "core-01#", row: 1, above: [])
+        #expect(t.candidate == nil)
+        t.feed(Self.keys("abc"), cursorLine: "Password: ", row: 2, above: [])
+        t.feed([3], cursorLine: "Password: ", row: 2, above: [])         // Ctrl-C
+        t.feed(Self.keys("\r"), cursorLine: "Password: ", row: 2, above: [])
+        #expect(t.candidate == nil)
     }
 }

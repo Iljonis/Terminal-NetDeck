@@ -9,10 +9,10 @@ y 51 temas. Nativo, rápido y en tu idioma.
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.9.7](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.7)** · macOS 15 o posterior ·
+Versión actual: **[v0.9.8](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.8)** · macOS 15 o posterior ·
 código abierto (MIT)
 
-[![Versión](https://img.shields.io/badge/versión-v0.9.7-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.7)
+[![Versión](https://img.shields.io/badge/versión-v0.9.8-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.8)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -20,7 +20,7 @@ código abierto (MIT)
 
 **Español** · [English](README.en.md)
 
-![Terminal NetDeck](docs/capturas/portada.png)
+![Terminal NetDeck: terminal SSH para macOS con sesiones agrupadas, saltos y conexión rápida](docs/capturas/portada.png)
 
 </div>
 
@@ -41,6 +41,17 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - **Explorador SFTP/FTP** con copias atómicas, verificación MD5 integrada y envío de servidor a servidor.
 - **Multipestaña** con vista dividida, MultiExec y pegado seguro; **51 temas** con contraste WCAG.
 - **Sesiones con saltos** sobre tu `ssh_config` y contraseñas sólo en el Llavero de macOS.
+
+### Novedades de 0.9.8
+
+- **Contraseñas como en SecureCRT:** una sola lista de contraseñas con nombre, que eliges por su nombre en sesiones,
+  grupos, botones y listas, con **Nueva…** al lado de cada selector. Ajustes → Contraseñas dice dónde se usa cada una.
+- **¿La guardo?** Si escribes tú una contraseña y entras, la app te ofrece guardarla en el Llavero y asignarla a esa
+  sesión. Si no valía, no pregunta.
+- **Botones con la contraseña escrita:** un botón de contraseña puede llevarla dentro, sin Llavero. Sólo se escribe
+  cuando piden «Password:», nunca se ve en pantalla ni en los registros y no sale al exportar.
+- **Listas de equipos:** los que se quedan en el salto sin llegar a pedir contraseña se reintentan una vez.
+- Menos dependencias: la app usa sólo el `ssh` de macOS.
 
 ### Novedades de 0.9.7
 
@@ -146,7 +157,7 @@ formato `ssh_config` y las contraseñas, sólo en el Llavero de macOS. Actualiza
 tus sesiones, `~/.ssh/config`, botones y listas en `~/Library/Application Support/Terminal NetDeck/copias/`, y si al
 arrancar faltara el archivo de sesiones o su `Include`, la app los recupera sola.
 
-![Asistente de bienvenida](docs/capturas/asistente.png)
+![Asistente de bienvenida de Terminal NetDeck: ssh_config, contraseñas en el Llavero y tema](docs/capturas/asistente.png)
 
 ### Mantenerla al día
 
@@ -185,7 +196,7 @@ cd Terminal-NetDeck
 
 ### 🔐 Contraseñas que no se equivocan de sitio
 
-- **Sólo en el Llavero** de macOS: nunca en archivos, argumentos ni registros.
+- **Sólo en el Llavero** de macOS: nunca en archivos, argumentos ni registros (salvo la que tú escribas en un botón).
 - **Las sesiones guardadas abren directamente:** SSH/SFTP usan su contraseña asignada y la propia de cada salto, sin adivinar ni esperar a otras pestañas. Telnet se inicia a mano.
 - **Equipos abiertos desde una sesión:** la ayuda sólo se activa al enviar una orden SSH/Telnet y termina al entrar, cancelar o enviar otra orden. Un `show run`, `show config`, banner o registro no la activa. El modo sugerir ofrece las credenciales compatibles en un selector pequeño ligado a esa pestaña y ese login.
 - **Regla de usuario estricta:** una contraseña sólo se escribe sola si es exactamente del usuario que la pide.
@@ -197,15 +208,14 @@ cd Terminal-NetDeck
 - **El Llavero nunca congela la app:** se consulta en segundo plano y con un tope de 10 segundos.
 - Menú 🔑 para escribir cualquiera a mano, también en prompts raros que la app no reconoce.
 
-En **Ajustes → Contraseñas**, pulsa **Añadir…** y elige **Con nombre** (por ejemplo, «Red principal») o **Usuario y
-equipo**. **Editar…** permite cambiar su nombre o cuenta y, si quieres, sustituir la contraseña; deja los dos campos
-de contraseña vacíos para conservarla. Un nombre existente no se sobrescribe al añadir otro. **Recargar** recoge los
-cambios hechos desde Acceso a Llaveros.
+En **Ajustes → Contraseñas** tienes tu lista: cada una con su nombre (por ejemplo, «Red principal»), dónde se usa,
+**Cambiar…** (nombre o contraseña; deja los campos vacíos para conservarla) y la papelera. **Nueva…** añade otra; un
+nombre existente no se sobrescribe. Las antiguas de usuario y equipo siguen funcionando, plegadas al final.
 
-En **Sesiones → Credencial de la sesión**, elige el nombre guardado, **Heredar del grupo** o **Propia del equipo
-(ignorar grupo)**. La indicación **Usa:** muestra la asignación efectiva. **Nueva credencial con nombre…** la crea en
-el Llavero y la selecciona en el borrador; pulsa **Guardar** para conservar la asignación. Cada salto usa la de su
-propia sesión.
+En **Sesiones → Contraseña**, elige una por su nombre, la del grupo o **Nueva…** para crearla ahí mismo; **Para todo
+el grupo** la asigna a todas las del grupo. La indicación **Usa:** muestra la que se usará; pulsa **Guardar** para
+conservar la asignación. Cada salto usa la de su propia sesión. Si escribes tú la contraseña y entras, la app te
+ofrece guardarla (se puede desactivar en Ajustes → Contraseñas).
 
 La **Credencial predeterminada** se elige en Contraseñas junto con su **Usuario exacto**: actúa como alternativa para
 los equipos abiertos desde una sesión. Dejarla en **Ninguna (preguntar)** o vaciar el usuario la desactiva. El login
@@ -237,7 +247,7 @@ siguen únicamente en el Llavero de macOS.
 - **Cancelación con esperas acotadas:** un reemplazo incierto conserva sus temporales y la copia anterior para
   recuperarlos.
 
-![Explorador SFTP en vista dividida](docs/capturas/explorador.png)
+![Explorador SFTP de Terminal NetDeck junto a la terminal, con permisos, tamaños y copias entre servidores](docs/capturas/explorador.png)
 
 ### ⚡ Trabajar en muchos equipos a la vez
 
@@ -264,7 +274,7 @@ siguen únicamente en el Llavero de macOS.
   y al reabrir vuelven así. Cerrar una ventana con conexiones abiertas pregunta antes; la última cierra la app como
   siempre.
 
-![Pestañas adaptativas](docs/capturas/pestanas.png)
+![Barra de pestañas adaptativas con sesiones SSH a routers y switches](docs/capturas/pestanas.png)
 
 ### 🧰 Y además
 
@@ -284,7 +294,7 @@ siguen únicamente en el Llavero de macOS.
 - **Sin avisos de locale** en servidores Linux: ssh no manda el idioma del Mac salvo que lo actives.
 - **Español de España e inglés**, se cambia al momento en Ajustes → General → Idioma.
 
-![Resaltado de la salida](docs/capturas/resaltado.png)
+![Resaltado de la salida de Cisco, Juniper y Huawei: interfaces, IPs y estados BGP en color](docs/capturas/resaltado.png)
 
 ## 🎨 51 temas para cada turno
 
@@ -293,7 +303,7 @@ fuente, pueden **seguir al modo claro u oscuro del Mac**, y **todos pasan una pr
 ≥ 4,5:1). ¿Quieres el tuyo? Copia un archivo `.tema` de `Temas/`, cambia los colores e impórtalo. Además está el de
 serie, **NetDeck Cyberpunk**.
 
-![Galería de temas](docs/capturas/temas.png)
+![Galería de 51 temas de terminal con vista previa en vivo](docs/capturas/temas.png)
 
 <details>
 <summary><b>Ver el catálogo completo</b></summary>
@@ -358,11 +368,11 @@ serie, **NetDeck Cyberpunk**.
 
 | | |
 |---|---|
-| ![Inicio](docs/capturas/portada.png) **Inicio:** tus sesiones a un clic y conexión rápida | ![Explorador](docs/capturas/explorador.png) **Explorador SFTP** en vista dividida |
-| ![Temas](docs/capturas/temas.png) **Galería de temas** con vista previa | ![Resaltado](docs/capturas/resaltado.png) **Reglas de resaltado** editables |
-| ![Ajustes](docs/capturas/ajustes-en.png) **Ajustes → Terminal:** historial y selección rectangular (aquí, en inglés) | ![Asistente](docs/capturas/asistente.png) **Asistente** de la primera vez |
+| ![Inicio de Terminal NetDeck con las sesiones SSH a un clic](docs/capturas/portada.png) **Inicio:** tus sesiones a un clic y conexión rápida | ![Explorador SFTP y FTP en vista dividida](docs/capturas/explorador.png) **Explorador SFTP** en vista dividida |
+| ![Selector de temas de terminal](docs/capturas/temas.png) **Galería de temas** con vista previa | ![Reglas de resaltado editables para salida de red](docs/capturas/resaltado.png) **Reglas de resaltado** editables |
+| ![Ajustes de la terminal: historial y selección rectangular](docs/capturas/ajustes-en.png) **Ajustes → Terminal:** historial y selección rectangular (aquí, en inglés) | ![Asistente de primera configuración](docs/capturas/asistente.png) **Asistente** de la primera vez |
 
-![Barra de pestañas adaptativas](docs/capturas/pestanas.png)
+![Barra de pestañas adaptativas de Terminal NetDeck](docs/capturas/pestanas.png)
 
 ## Atajos
 

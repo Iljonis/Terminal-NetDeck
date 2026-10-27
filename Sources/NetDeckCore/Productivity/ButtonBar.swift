@@ -9,6 +9,8 @@ public struct CommandButton: Hashable, Sendable, Identifiable {
         case type
         /// La contraseña del Llavero con ese nombre + Intro (sólo donde piden «Password:»).
         case pass
+        /// La contraseña escrita en el propio botón (en botones.txt, sin Llavero) + Intro, sólo donde piden «Password:».
+        case clave
         /// «usuario / nombre-contraseña»: usuario, Intro y la contraseña cuando la pidan.
         case login
         /// Abre una pestaña con esa sesión del ssh_config.
@@ -18,11 +20,14 @@ public struct CommandButton: Hashable, Sendable, Identifiable {
             switch self {
             case .run: L("Ejecutar")
             case .type: L("Escribir")
-            case .pass: L("Contraseña")
+            case .pass, .clave: L("Contraseña")
             case .login: "Login"
             case .session: L("Sesión")
             }
         }
+
+        /// Las dos de contraseña: en el editor son un solo modo con dos orígenes.
+        public var isPassword: Bool { self == .pass || self == .clave }
     }
 
     public let id = UUID()
@@ -123,7 +128,7 @@ public struct ButtonFile: Sendable {
             var name = parts[2].trimmingCharacters(in: .whitespaces)
             var command = parts[3...].joined(separator: " :: ")
             guard let mode = CommandButton.Mode(rawValue: modeText) else {
-                problems.append(L("línea \(n + 1): modo «\(modeText)» (usa run, type, pass, login o sesion)"))
+                problems.append(L("línea \(n + 1): modo «\(modeText)» (usa run, type, pass, clave, login o sesion)"))
                 continue
             }
             command = mode == .type ? String(command.drop { $0 == " " }) : command.trimmingCharacters(in: .whitespaces)
@@ -272,6 +277,13 @@ public struct ButtonFile: Sendable {
     }
 
     /// Como lo escribe el editor de NetDeck: columnas alineadas, un hueco entre grupos.
+    /// Para pasárselos a otro: sin las contraseñas escritas en los botones (se quedan vacías).
+    public var withoutSecrets: ButtonFile {
+        var f = self
+        for i in f.buttons.indices where f.buttons[i].mode == .clave { f.buttons[i].command = "" }
+        return f
+    }
+
     public func render() -> String {
         let gw = min(14, buttons.map(\.group.count).max() ?? 0)
         let nw = min(22, buttons.map { $0.name.count + ($0.hotkey.map { $0.count + 3 } ?? 0) }.max() ?? 0)
@@ -288,7 +300,7 @@ public struct ButtonFile: Sendable {
     }
 
     public func save(to url: URL = ButtonFile.defaultURL) throws {
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        _ = AppPaths.ensure(url.deletingLastPathComponent())    // (0700: puede llevar contraseñas escritas en botones)
         try SafeFile.backup(url)                         // (si no se puede leer o copiar, no se toca)
         try SafeFile.write(render(), to: url)
     }

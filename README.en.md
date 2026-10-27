@@ -9,10 +9,10 @@ and 51 themes. Native, fast and in your language.
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v0.9.7](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.7)** · macOS 15 or later ·
+Current version: **[v0.9.8](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.8)** · macOS 15 or later ·
 open source (MIT)
 
-[![Version](https://img.shields.io/badge/version-v0.9.7-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.7)
+[![Version](https://img.shields.io/badge/version-v0.9.8-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.8)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -20,7 +20,7 @@ open source (MIT)
 
 [Español](README.md) · **English**
 
-![Terminal NetDeck](docs/capturas/portada-en.png)
+![Terminal NetDeck: macOS SSH terminal with grouped sessions, jump hosts and quick connect](docs/capturas/portada-en.png)
 
 </div>
 
@@ -41,6 +41,17 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - **SFTP/FTP browser** with atomic copies, built-in MD5 verification and server-to-server transfers.
 - **Multi-tab** with split view, MultiExec and safe paste; **51 themes** with WCAG contrast.
 - **Sessions with jump hosts** on top of your `ssh_config`, passwords only in the macOS Keychain.
+
+### New in 0.9.8
+
+- **Passwords like SecureCRT:** one list of named passwords that you pick by name in sessions, groups, buttons and
+  lists, with **New…** next to every selector. Settings → Passwords shows where each one is used.
+- **Save it?** If you type a password yourself and get in, the app offers to save it in the Keychain and assign it to
+  that session. If it didn't work, it doesn't ask.
+- **Buttons with the password written in:** a password button can hold it, without the Keychain. It is only typed
+  when “Password:” is asked, never shown on screen or in logs, and left out when exporting.
+- **Device lists:** devices left at the jump host before any password prompt are retried once.
+- Fewer dependencies: the app only uses macOS's own `ssh`.
 
 ### New in 0.9.7
 
@@ -139,7 +150,7 @@ format and passwords only in the macOS Keychain. Updating only replaces the app:
 buttons and lists are first backed up to `~/Library/Application Support/Terminal NetDeck/copias/`, and if the sessions
 file or its `Include` were ever missing at launch, the app restores them on its own.
 
-![Setup assistant](docs/capturas/asistente.png)
+![Terminal NetDeck setup assistant: ssh_config, Keychain passwords and theme](docs/capturas/asistente.png)
 
 ### Keeping it up to date
 
@@ -178,7 +189,7 @@ cd Terminal-NetDeck
 
 ### 🔐 Passwords that never go to the wrong place
 
-- **Only in the macOS Keychain:** never in files, arguments or logs.
+- **Only in the macOS Keychain:** never in files, arguments or logs (except one you write into a button).
 - **Saved sessions open directly:** SSH/SFTP use their assigned password and each jump host’s own credential, without guessing or waiting for other tabs. Telnet starts manually.
 - **Devices opened from a session:** help is armed only by an SSH/Telnet command you send, then ends on login, cancellation or another command. `show run`, `show config`, banners and logs never activate it. Suggest mode offers compatible credentials in a small selector tied to that tab and login.
 - **Strict user rule:** a password is only typed automatically when it belongs to exactly the user being asked for.
@@ -190,13 +201,14 @@ cd Terminal-NetDeck
 - **The Keychain never freezes the app:** it's read in the background, with a 10-second limit.
 - 🔑 menu to type any of them by hand, even at odd prompts the app doesn't recognise.
 
-In **Settings → Passwords**, click **Add…** and choose **Named** (for example, “Main network”) or **User and device**.
-**Edit…** lets you change the name or account and optionally replace its password; leave both password fields empty
-to keep it. Adding an entry cannot overwrite an existing name. **Reload** picks up changes made in Keychain Access.
+**Settings → Passwords** is your list: each entry with its name (for example, “Main network”), where it is used,
+**Change…** (name or password; leave the fields empty to keep it) and the bin. **New…** adds another; an existing
+name is never overwritten. Older per-user-and-device entries still work, folded at the end.
 
-In **Sessions → Session credential**, choose a stored name, **Inherit from group**, or **Device credential (ignore
-group)**. **Uses:** shows the effective assignment. **New named credential…** creates it in Keychain and selects it
-in the draft; click **Save** to keep the assignment. Each jump host uses its own session's credential.
+In **Sessions → Password**, pick one by name, the group's, or **New…** to create it right there; **For the whole
+group** assigns it to every session in the group. **Uses:** shows the one that will be used; click **Save** to keep
+the assignment. Each jump host uses its own session's credential. If you type the password yourself and get in, the
+app offers to save it (you can turn this off in Settings → Passwords).
 
 Select the **Default credential** in Passwords together with its **Exact user**: it is a fallback for devices opened
 from a session. Choosing **None (ask)** or clearing the user disables it. A saved session's initial login uses its
@@ -225,7 +237,7 @@ name, the app keeps that entry and tells you. External files are not rewritten; 
 - **Server to server** ("Send to…"), SFTP ↔ SFTP or SFTP ↔ FTP, in memory and without touching the Mac's disk.
 - **Cancel is instant**, and a server that stops answering is cut off after 30 seconds instead of hanging the window.
 
-![SFTP browser in split view](docs/capturas/explorador.png)
+![Terminal NetDeck SFTP browser next to the terminal, with permissions, sizes and server-to-server copies](docs/capturas/explorador.png)
 
 ### ⚡ Working on many devices at once
 
@@ -252,7 +264,7 @@ name, the app keeps that entry and tells you. External files are not rewritten; 
   and they come back that way. Closing a window with open connections asks first; the last one quits the app as
   always.
 
-![Adaptive tabs](docs/capturas/pestanas.png)
+![Adaptive tab bar with SSH sessions to routers and switches](docs/capturas/pestanas.png)
 
 ### 🧰 And also
 
@@ -272,7 +284,7 @@ name, the app keeps that entry and tells you. External files are not rewritten; 
 - **No locale warnings** on Linux servers: ssh doesn't send the Mac's language unless you turn it on.
 - **Spanish (Spain) and English**, switched instantly in Settings → General → Language.
 
-![Output highlighting](docs/capturas/resaltado.png)
+![Cisco, Juniper and Huawei output highlighting: interfaces, IPs and BGP states in colour](docs/capturas/resaltado.png)
 
 ## 🎨 51 themes for every shift
 
@@ -280,7 +292,7 @@ From a 3 a.m. NOC shift to a presentation on a projector. Each one has its ANSI 
 Mac's light or dark mode**, and **every theme passes a WCAG contrast test** (text ≥ 4.5:1). Want your own? Copy a
 `.tema` file from `Temas/`, change the colours and import it. There's also the built-in one, **NetDeck Cyberpunk**.
 
-![Theme gallery](docs/capturas/temas.png)
+![Gallery of 51 terminal themes with live preview](docs/capturas/temas.png)
 
 <details>
 <summary><b>See the full catalogue</b></summary>
@@ -345,11 +357,11 @@ Mac's light or dark mode**, and **every theme passes a WCAG contrast test** (tex
 
 | | |
 |---|---|
-| ![Home](docs/capturas/portada-en.png) **Home:** your sessions one click away, plus quick connect | ![Browser](docs/capturas/explorador.png) **SFTP browser** in split view |
-| ![Themes](docs/capturas/temas.png) **Theme gallery** with live preview | ![Highlighting](docs/capturas/resaltado.png) **Editable highlighting rules** |
-| ![Settings](docs/capturas/ajustes-en.png) **Settings → Terminal:** scrollback and rectangular selection | ![Assistant](docs/capturas/asistente.png) **First-run assistant** |
+| ![Terminal NetDeck home with one-click SSH sessions](docs/capturas/portada-en.png) **Home:** your sessions one click away, plus quick connect | ![SFTP and FTP browser in split view](docs/capturas/explorador.png) **SFTP browser** in split view |
+| ![Terminal theme picker](docs/capturas/temas.png) **Theme gallery** with live preview | ![Editable highlighting rules for network output](docs/capturas/resaltado.png) **Editable highlighting rules** |
+| ![Terminal settings: scrollback and rectangular selection](docs/capturas/ajustes-en.png) **Settings → Terminal:** scrollback and rectangular selection | ![First-run setup assistant](docs/capturas/asistente.png) **First-run assistant** |
 
-![Adaptive tab bar](docs/capturas/pestanas.png)
+![Terminal NetDeck adaptive tab bar](docs/capturas/pestanas.png)
 
 ## Shortcuts
 

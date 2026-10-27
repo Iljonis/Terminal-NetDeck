@@ -9,6 +9,8 @@ final class AppSettings {
 
     /// La contraseña de la SESIÓN (su propio login y sus saltos) entra sola al abrirla (askpass).
     var sessionAutoPassword: Bool { didSet { d.set(sessionAutoPassword, forKey: "sessionAutoPassword") } }
+    /// Si escribes tú una contraseña y entra, ofrecer guardarla en el Llavero (como SecureCRT).
+    var offerSaveTyped: Bool { didSet { d.set(offerSaveTyped, forKey: "offerSaveTyped") } }
     /// Las de los EQUIPOS a los que saltas desde una sesión («ssh equipo»): escribir sola, sugerir o nada.
     var devicePasswordMode: PasswordAutomation.Mode { didSet { d.set(devicePasswordMode.rawValue, forKey: "devicePasswordMode") } }
     var defaultCredentialName: String { didSet { d.set(defaultCredentialName, forKey: "defaultCredentialName") } }
@@ -129,6 +131,7 @@ final class AppSettings {
         language = Idioma.actual
         if d.object(forKey: "configured") == nil { Self.importNetDeck(into: d) }
         sessionAutoPassword = d.object(forKey: "sessionAutoPassword") as? Bool ?? true
+        offerSaveTyped = d.object(forKey: "offerSaveTyped") as? Bool ?? true
         devicePasswordMode = PasswordAutomation.Mode(rawValue: d.string(forKey: "devicePasswordMode") ?? "") ?? .suggest
         defaultCredentialName = d.string(forKey: "defaultCredentialName") ?? ""
         defaultCredentialUser = d.string(forKey: "defaultCredentialUser") ?? AppPaths.userName

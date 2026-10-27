@@ -103,6 +103,7 @@ struct ListSheet: View {
     @Stored private var jump = ""
     @Stored private var user = ""
     @Stored private var credential = ""
+    @Stored private var creatingCredential = false
     @Stored private var devices = ""
     @Stored private var message = ""
     /// Lo que había al elegir o guardar la lista: si lo de ahora no es igual, hay cambios sin guardar.
@@ -115,6 +116,9 @@ struct ListSheet: View {
 
     var body: some View {
         Group { if embedded { manager } else { sheet } }
+            .sheet(isPresented: $creatingCredential) {
+                CredentialEditorSheet(ref: nil, namedOnly: true) { ref, result in credential = ref.account; message = result }
+            }
             .onAppear {
                 if embedded { model.settingsLeave = (token, { await confirmLeave() }) }
                 guard !loaded else { return }
@@ -264,12 +268,16 @@ struct ListSheet: View {
                 for x in model.sessions.profiles { o.append((x.name, x.name)) }
             }
             LabeledContent(L("Usuario en los equipos")) { TextField("", text: $user, prompt: Text("tu.usuario")).frame(maxWidth: 380) }
-            ThemedPicker(L("Contraseña"), selection: $credential) { o in
-                o.append(("", L("(a mano)")))
-                if !credential.isEmpty, !model.keychainAccounts.contains(where: { $0.account == credential }) {
-                    o.append((credential, L("\(credential) (no está en el Llavero)")))
+            HStack {
+                ThemedPicker(L("Contraseña"), selection: $credential) { o in
+                    o.append(("", L("(a mano)")))
+                    if !credential.isEmpty, !model.keychainAccounts.contains(where: { $0.account == credential }) {
+                        o.append((credential, L("\(credential) (no está en el Llavero)")))
+                    }
+                    for r in model.keychainAccounts { o.append((r.account, r.account)) }
                 }
-                for r in model.keychainAccounts { o.append((r.account, r.account)) }
+                Button(L("Nueva…")) { creatingCredential = true }
+                    .help(L("Guardar una contraseña nueva en el Llavero y usarla en esta lista"))
             }
             TextEditor(text: $devices).themedEditor()
                 .font(.system(.body, design: .monospaced))

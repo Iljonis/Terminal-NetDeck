@@ -45,7 +45,7 @@ import Testing
                                 encoding: .utf8)
         var faltan: [String] = []
         var total = 0
-        for carpeta in ["Sources/TerminalNetDeck", "Sources/NetDeckCore", "Sources/NetDeckSSH"] {
+        for carpeta in ["Sources/TerminalNetDeck", "Sources/NetDeckCore"] {
             let dir = Self.raiz.appendingPathComponent(carpeta)
             let archivos = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil)?
                 .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" && $0.lastPathComponent != "Ingles.swift" } ?? []

@@ -16,6 +16,20 @@ import Testing
         sin formato
         """
 
+    /// «clave»: la contraseña va en el propio botón; se lee y se guarda tal cual, pero nunca se exporta.
+    @Test func claveEscritaEnElBoton() {
+        let f = ButtonFile(text: "Accesos :: clave :: VM BB :: s3cr€t :: x\nAccesos :: pass :: AD :: AD ES\n")
+        #expect(f.problems.isEmpty)
+        #expect(f.buttons.map(\.mode) == [.clave, .pass])
+        #expect(f.buttons[0].command == "s3cr€t :: x")
+        #expect(f.buttons.allSatisfy { $0.mode.isPassword })
+        #expect(ButtonFile(text: f.render()).buttons == f.buttons)
+        let out = f.withoutSecrets
+        #expect(out.buttons[0].command.isEmpty && out.buttons[1].command == "AD ES")
+        #expect(!out.render().contains("s3cr"))
+        #expect(ButtonFile(text: out.render()).buttons.map(\.mode) == [.clave, .pass])
+    }
+
     @Test func leeComoNetDeck() {
         let f = ButtonFile(text: Self.text)
         #expect(f.header == ["# mis botones", "#  Formato: Grupo :: modo :: Nombre :: comando"])

@@ -95,13 +95,15 @@ struct CommandChip: View {
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
-        .help("\(button.mode.title): \(button.mode == .pass ? L("contraseña «\(button.command)»") : button.command)"
+        .help("\(button.mode.title): \(helpText)"
               + (model.multiExecOn ? L(" · en todas (MultiExec)") : ""))
         .themedContextMenu {
             Button(L("Editar…")) { model.openSettings("botones") }
-            Button(L("Copiar la orden")) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(button.command, forType: .string)
+            if !button.mode.isPassword, button.mode != .login {
+                Button(L("Copiar la orden")) {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(button.command, forType: .string)
+                }
             }
             let others = model.buttons.groups.filter { $0 != button.group }
             if !others.isEmpty {
@@ -112,11 +114,25 @@ struct CommandChip: View {
         }
     }
 
+    /// Lo que se enseña al pasar el ratón: de una contraseña, sólo su nombre si está en el Llavero (lo demás podría ser
+    /// la contraseña escrita a la vista).
+    private var helpText: String {
+        func named(_ n: String) -> String { model.hasCredential(.named(n)) ? L("contraseña «\(n)»") : "••••" }
+        switch button.mode {
+        case .clave: return L("escrita en el botón")
+        case .pass: return named(button.command)
+        case .login:
+            guard let p = CommandButton.loginParts(button.command) else { return "••••" }
+            return "\(p.user) / \(named(p.credential))"
+        default: return button.command
+        }
+    }
+
     private func color(_ m: CommandButton.Mode) -> RGB {
         switch m {
         case .run: t.accent2
         case .type: t.accent
-        case .pass: t.bad
+        case .pass, .clave: t.bad
         case .login: t.special
         case .session: t.good
         }
@@ -222,6 +238,15 @@ struct ButtonEditor: View {
     @Stored private var selected: UUID?
     @Stored private var message = ""
     @Stored private var loaded = false
+    @Stored private var newCredential: NewCredential?
+
+    /// Hoja «Nueva contraseña» desde un botón: al guardarla, el botón se queda con su nombre.
+    private struct NewCredential: Identifiable {
+        let id = UUID()
+        let name: String
+        let password: String
+        let apply: (String) -> Void
+    }
 
     static let keys = [""] + (1...12).flatMap { n in ["", "S-", "M-", "C-"].map { "\($0)F\(n)" } }
 
@@ -273,6 +298,12 @@ struct ButtonEditor: View {
             .padding(12)
         }
         .onAppear { if !loaded { load() } }
+        .sheet(item: $newCredential) { n in
+            CredentialEditorSheet(ref: nil, namedOnly: true, name: n.name, password: n.password) { ref, result in
+                n.apply(ref.account)
+                message = result + " · " + L("pulsa «Guardar» para quitarla de botones.txt (sus copias .anterior y .original la conservan)")
+            }
+        }
     }
 
     private var list: some View {
@@ -356,8 +387,14 @@ struct ButtonEditor: View {
                 for x in file.groups { o.append((x, x)) }
             }
             LabeledContent(L("Nombre")) { TextField("", text: b.name, prompt: Text(L("Nombre"))).frame(maxWidth: 380) }
-            ThemedSegmented(L("Modo"), selection: b.mode) { o in
-                for x in CommandButton.Mode.allCases { o.append((x, x.title)) }
+            // (las dos de contraseña son un solo modo: el origen se elige abajo; lo escrito en el botón no pasa a la vista)
+            ThemedSegmented(L("Modo"), selection: Binding(get: { file.buttons[i].mode == .clave ? .pass : file.buttons[i].mode },
+                                                       set: { m in
+                                                           guard !(m == .pass && file.buttons[i].mode.isPassword) else { return }
+                                                           if file.buttons[i].mode == .clave { file.buttons[i].command = "" }
+                                                           file.buttons[i].mode = m
+                                                       })) { o in
+                for x in CommandButton.Mode.allCases where x != .clave { o.append((x, x.title)) }
             }
             commandField(i)
             ThemedPicker(L("Tecla rápida"), selection: Binding(get: { file.buttons[i].hotkey ?? "" },
@@ -382,13 +419,44 @@ struct ButtonEditor: View {
     @ViewBuilder private func commandField(_ i: Int) -> some View {
         let b = $file.buttons[i]
         switch file.buttons[i].mode {
-        case .pass:
-            credentialPicker(L("Contraseña del Llavero"), selection: b.command)
+        case .pass, .clave:
+            let id = file.buttons[i].id
+            ThemedSegmented(L("Origen"), selection: Binding(get: { file.buttons[i].mode }, set: { m in
+                guard m != file.buttons[i].mode else { return }
+                file.buttons[i].command = ""
+                file.buttons[i].mode = m
+            })) { o in
+                o.append((CommandButton.Mode.pass, L("Del Llavero")))
+                o.append((CommandButton.Mode.clave, L("Escrita en el botón")))
+            }
+            if file.buttons[i].mode == .pass {
+                credentialPicker(L("Contraseña del Llavero"), selection: b.command, button: file.buttons[i].name) {
+                    setMode(id, .clave, command: nil)
+                }
+            } else {
+                // (una línea: un salto de línea pegado rompería botones.txt)
+                LabeledContent(L("Contraseña")) {
+                    SecureField("", text: Binding(get: { file.buttons[i].command },
+                                                  set: { file.buttons[i].command = $0.filter { $0 != "\n" && $0 != "\r" } }))
+                        .frame(maxWidth: 380)
+                }
+                HStack {
+                    Text(L("Queda en botones.txt y en sus copias de seguridad (sólo tu usuario puede leerlas); no va al exportar."))
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button(L("Guardarla en el Llavero…")) {
+                        newCredential = NewCredential(name: file.buttons[i].name, password: file.buttons[i].command) {
+                            setMode(id, .pass, command: $0)
+                        }
+                    }
+                    .disabled(file.buttons[i].command.isEmpty)
+                }
+            }
         case .login:
             let parts = CommandButton.loginParts(file.buttons[i].command)
             let user = parts?.user ?? file.buttons[i].command.trimmingCharacters(in: .whitespaces), cred = parts?.credential ?? ""
             LabeledContent(L("Usuario")) { TextField("", text: Binding(get: { user }, set: { file.buttons[i].command = "\($0.trimmingCharacters(in: .whitespaces)) / \(cred)" }), prompt: Text(L("Usuario"))).frame(maxWidth: 380) }
-            credentialPicker(L("Su contraseña del Llavero"), selection: Binding(get: { cred }, set: { file.buttons[i].command = "\(user) / \($0)" }))
+            credentialPicker(L("Su contraseña del Llavero"), selection: Binding(get: { cred }, set: { file.buttons[i].command = "\(user) / \($0)" }),
+                             button: file.buttons[i].name)
         case .session:
             let names = model.sessions.profiles.map(\.name)
             ThemedPicker(L("Sesión"), selection: b.command) { o in
@@ -403,19 +471,37 @@ struct ButtonEditor: View {
         }
     }
 
-    /// Las contraseñas con nombre del Llavero (las que usan los botones); si la del botón ya no está, se ve y se avisa.
-    @ViewBuilder private func credentialPicker(_ title: String, selection: Binding<String>) -> some View {
+    /// Las contraseñas con nombre del Llavero (las que usan los botones). Lo que no es una de ellas no se enseña (puede
+    /// ser la contraseña escrita a la vista) y se ofrece guardarlo en el Llavero con el nombre del botón.
+    @ViewBuilder private func credentialPicker(_ title: String, selection: Binding<String>, button: String,
+                                               keepInButton: (() -> Void)? = nil) -> some View {
         let named = model.keychainAccounts.filter { $0.service == .named }.map(\.account)
+        let unknown = !selection.wrappedValue.isEmpty && !named.contains(selection.wrappedValue) && !model.core.keychainLoading && model.core.keychainError == nil
         HStack {
             ThemedPicker(title, selection: selection) { o in
                 o.append(("", L("(elige una)")))
                 for x in named { o.append((x, x)) }
-                if !selection.wrappedValue.isEmpty, !named.contains(selection.wrappedValue) { o.append((selection.wrappedValue, L("\(selection.wrappedValue) (no está en el Llavero)"))) }
+                if unknown { o.append((selection.wrappedValue, L("•••• (no está en el Llavero)"))) }
             }
+            Button(L("Nueva…")) {
+                newCredential = NewCredential(name: button, password: "") { selection.wrappedValue = $0 }
+            }
+            .help(L("Guardar una contraseña nueva en el Llavero y usarla en este botón"))
             Button(L("Gestionar…")) { model.openSettings("contraseñas") }
                 .help(L("Guardar o cambiar contraseñas del Llavero (Ajustes → Contraseñas)"))
         }
-        if named.isEmpty {
+        if unknown {
+            HStack {
+                Text(L("Aquí hay un texto que no es una contraseña del Llavero. Si es la contraseña, guárdala en el Llavero: así no queda escrita en botones.txt."))
+                    .font(.caption).foregroundStyle(.orange)
+                VStack(alignment: .trailing) {
+                    Button(L("Guardarla en el Llavero…")) {
+                        newCredential = NewCredential(name: button, password: selection.wrappedValue) { selection.wrappedValue = $0 }
+                    }
+                    if let keepInButton { Button(L("Dejarla escrita en el botón")) { keepInButton() } }
+                }
+            }
+        } else if named.isEmpty {
             Text(L("No hay contraseñas con nombre en el Llavero: guárdala primero en Ajustes → Contraseñas."))
                 .font(.caption).foregroundStyle(.orange)
         }
@@ -426,6 +512,7 @@ struct ButtonEditor: View {
         case .run: L("Orden (varias con « ;; »)")
         case .type: L("Texto a escribir")
         case .pass: L("Nombre de la contraseña del Llavero")
+        case .clave: L("Contraseña")
         case .login: L("usuario / nombre-de-la-contraseña")
         case .session: L("Sesión del ssh_config")
         }
@@ -436,6 +523,7 @@ struct ButtonEditor: View {
         case .run: L("Escribe la orden y pulsa Intro. Varias: una a una esperando al equipo (se para si da error). Huecos: {{interfaz}}, {{vlan=100}}.")
         case .type: L("Sólo la escribe, para que la completes tú. También admite huecos {{…}}.")
         case .pass: L("Escribe esa contraseña del Llavero + Intro, sólo si la línea pide «Password:» (si no, no hace nada).")
+        case .clave: L("Escribe la contraseña de este botón + Intro, sólo si la línea pide «Password:» (si no, no hace nada).")
         case .login: L("Escribe el usuario cuando pidan «Username:/login:» y luego su contraseña cuando la pidan.")
         case .session: L("Abre una pestaña con esa sesión.")
         }
@@ -498,12 +586,19 @@ struct ButtonEditor: View {
         p.nameFieldStringValue = "botones.txt"
         guard p.runModal() == .OK, let u = p.url else { return }
         do {
-            try file.save(to: u)                        // (SafeFile: copia .anterior si ya había uno y sólo para ti)
+            try file.withoutSecrets.save(to: u)         // (SafeFile: copia .anterior si ya había uno y sólo para ti)
             message = L("✓ \(String(file.buttons.count)) botones exportados a \(u.lastPathComponent)")
         } catch {
             ErrorLog.error("botones", "exportar \(u.lastPathComponent): \(error.localizedDescription)")
             message = "✗ \(error.localizedDescription)"
         }
+    }
+
+    /// Cambia el origen de la contraseña de un botón (por su id: la hoja puede cerrarse con otro elegido).
+    private func setMode(_ id: UUID, _ mode: CommandButton.Mode, command: String?) {
+        guard let i = file.buttons.firstIndex(where: { $0.id == id }) else { return }
+        file.buttons[i].mode = mode
+        if let command { file.buttons[i].command = command }
     }
 
     private func add(in group: String? = nil) {

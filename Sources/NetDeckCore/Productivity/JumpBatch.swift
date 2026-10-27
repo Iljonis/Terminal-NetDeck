@@ -91,6 +91,8 @@ public final class JumpBatchRunner {
     private let open: Opener
     private var panes: [Endpoint: (io: any TerminalIO, jump: DevicePrompt)] = [:]
     private var attempts: [Endpoint: Int] = [:]
+    /// Los que ya han recibido la contraseña: nunca se reintentan (un segundo intento fallido bloquearía la cuenta AD).
+    private var passwordTyped: Set<Endpoint> = []
 
     public init(list: JumpList, settings: Settings = .init(), store: CredentialStore, policy: CredentialPolicy = .init(),
                 ledger: CredentialLedger, abort: AbortSwitch, open: @escaping Opener) {
@@ -120,7 +122,7 @@ public final class JumpBatchRunner {
         var tasks: [Task<Void, Never>] = []
         for d in list.devices {
             guard !abort.isTripped else { break }                            // (Esc: tampoco se reintenta)
-            guard status[d]?.isRetryable == true, attempts[d, default: 0] <= settings.maxRetries,
+            guard status[d]?.isRetryable == true, !passwordTyped.contains(d), attempts[d, default: 0] <= settings.maxRetries,
                   let p = panes[d], p.jump.matches(p.io.cursorLine) else { continue }
             tasks.append(Task { @MainActor in await self.connect(d, io: p.io, jump: p.jump) })
             try? await Task.sleep(for: settings.spacing)
@@ -264,6 +266,7 @@ public final class JumpBatchRunner {
 
     private func set(_ d: Endpoint, _ s: DeviceStatus) {
         let key = list.devices.first { $0.host == d.host && ($0.port == d.port) } ?? d
+        if s == .passwordSent { passwordTyped.insert(key) }
         status[key] = s
         onChange?(key, s)
     }

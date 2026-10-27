@@ -22,29 +22,54 @@ struct PasswordSettings: View {
         @Bindable var s = model.settings
         Form {
             Section {
-                Toggle(L("Escribir sola la contraseña al abrir una sesión"), isOn: $s.sessionAutoPassword)
-                Text(L("Al abrir SSH o SFTP, usa sólo la contraseña asignada a esa sesión y a cada salto. Si falta, te la pide; Telnet se inicia a mano. ")
-                     + L("No espera a otras pestañas. Si no vale, te la pide a ti (no se bloquea)."))
-                    .font(t.ui(11)).foregroundStyle(.secondary)
-            } header: { Text(L("Sesiones")) }
+                HStack {
+                    SearchField(text: $query, prompt: L("Buscar"))
+                    Button(L("Nueva…")) { edition = Edition(ref: nil) }
+                }
+                if model.core.keychainLoading { ProgressView().controlSize(.small) }
+                if let error = model.core.keychainError {
+                    HStack {
+                        Text(error).font(.caption).foregroundStyle(.orange)
+                        Button(L("Recargar")) { model.core.refreshKeychain() }
+                    }
+                }
+                if filtered.isEmpty, !model.core.keychainLoading {
+                    Text(model.keychainAccounts.isEmpty ? L("Aún no hay ninguna: pulsa «Nueva…» o escríbela al conectar y te ofrecerá guardarla.") : L("Sin coincidencias"))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                ForEach(filtered.filter { $0.service == .named }, id: \.self) { ref in row(ref) }
+                let old = filtered.filter { $0.service == .device }
+                if !old.isEmpty {
+                    DisclosureGroup(L("De usuario y equipo (\(String(old.count)))")) {
+                        ForEach(old, id: \.self) { ref in row(ref) }
+                    }
+                }
+                if !message.isEmpty { Text(message).font(t.ui(11)) }
+            } header: { Text(L("Contraseñas")) } footer: {
+                Text(L("Se guardan sólo en el Llavero de macOS. Elígelas por su nombre en sesiones, grupos, botones y listas.")).font(t.ui(11))
+            }
             Section {
+                Toggle(L("Escribir sola la contraseña al abrir una sesión"), isOn: $s.sessionAutoPassword)
+                Toggle(L("Ofrecer guardar la que escribo yo"), isOn: $s.offerSaveTyped)
                 ThemedPicker(L("Cuando un equipo pide contraseña"), selection: $s.devicePasswordMode) { o in
                     o.append((PasswordAutomation.Mode.autoType, L("Escribirla sola")))
                     o.append((PasswordAutomation.Mode.suggest, L("Sugerirla (un clic)")))
                     o.append((PasswordAutomation.Mode.off, L("Nada")))
                 }
-                Text(L("Sólo después de enviar «ssh equipo» o «telnet» desde una sesión. La salida del equipo y los banners no activan la detección. ")
-                     + L("El usuario debe coincidir exactamente; los códigos de un solo uso y los cambios de contraseña se contestan a mano. ")
-                     + L("Si la credencial por defecto, escrita sola, no vale, no se vuelve a escribir sola en 15 min (a mano o con un botón, sí)."))
-                    .font(t.ui(11)).foregroundStyle(.secondary)
-            } header: { Text(L("Equipos")) }
+            } header: { Text(L("Al conectar")) } footer: {
+                Text(L("Sólo la del mismo usuario que piden. Si escribes tú una y entra, te pregunta si la guardas. Los códigos de un solo uso, siempre a mano."))
+                    .font(t.ui(11))
+            }
             Section {
-                ThemedPicker(L("Credencial predeterminada"), selection: $s.defaultCredentialName) { o in
-                    o.append(("", L("Ninguna (preguntar)")))
-                    if !s.defaultCredentialName.isEmpty, !named.contains(s.defaultCredentialName) {
-                        o.append((s.defaultCredentialName, L("\(s.defaultCredentialName) (no está en el Llavero)")))
+                HStack {
+                    ThemedPicker(L("Credencial predeterminada"), selection: $s.defaultCredentialName) { o in
+                        o.append(("", L("Ninguna (preguntar)")))
+                        if !s.defaultCredentialName.isEmpty, !named.contains(s.defaultCredentialName) {
+                            o.append((s.defaultCredentialName, L("\(s.defaultCredentialName) (no está en el Llavero)")))
+                        }
+                        for name in named { o.append((name, "🔑 \(name)")) }
                     }
-                    for name in named { o.append((name, "🔑 \(name)")) }
+                    Button(L("Nueva…")) { edition = Edition(ref: nil) }
                 }
                 if !s.defaultCredentialName.isEmpty {
                     LabeledContent(L("Usuario exacto")) {
@@ -59,47 +84,11 @@ struct PasswordSettings: View {
             } header: { Text(L("Por defecto")) } footer: {
                 Text(L("Se usa si el equipo no tiene otra asignada y pide exactamente ese usuario. Las sesiones guardadas usan su propia asignación.")).font(t.ui(11))
             }
-            Section {
-                HStack {
-                    SearchField(text: $query, prompt: L("Buscar credenciales"))
-                    Button(L("Recargar")) { model.core.refreshKeychain() }.disabled(model.core.keychainLoading)
-                    Button(L("Añadir…")) { edition = Edition(ref: nil) }
-                }
-                if model.core.keychainLoading { ProgressView().controlSize(.small) }
-                if let error = model.core.keychainError { Text(error).font(.caption).foregroundStyle(.orange) }
-                if filtered.isEmpty, !model.core.keychainLoading {
-                    Text(model.keychainAccounts.isEmpty ? L("Añade una credencial y selecciónala en Sesiones.") : L("Sin coincidencias"))
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                ForEach(filtered, id: \.self) { ref in
-                    HStack {
-                        Image(systemName: ref.service == .named ? "key.fill" : "server.rack")
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(ref.account).lineLimit(1).truncationMode(.middle)
-                            Text(ref.service == .named ? L("Con nombre · asignable a sesiones y grupos") : L("Propia de este usuario y equipo"))
-                                .font(t.ui(10.5)).foregroundStyle(.secondary)
-                            if let use = usage(ref) { Text(use).font(t.ui(10.5)).foregroundStyle(.secondary).lineLimit(2) }
-                        }
-                        Spacer()
-                        Button(L("Editar…")) { edit(ref) }.help(L("Editar nombre, usuario, equipo o contraseña"))
-                        if model.ledger.isBlocked(ref) {
-                            Button(L("Desbloquear")) { model.ledger.reset(ref); model.keychainRevision += 1 }
-                        } else if case .probing = model.ledger.state(of: ref) {
-                            Button(L("Restablecer pendiente")) { model.ledger.reset(ref); model.keychainRevision += 1 }
-                                .help(L("Úsalo sólo si el login pendiente ya terminó. No cambia la contraseña guardada."))
-                        }
-                        Button(role: .destructive) { delete(ref) } label: { Image(systemName: "trash") }.buttonStyle(.borderless)
-                    }
-                }
-                if !message.isEmpty { Text(message).font(t.ui(11)) }
-            } header: { Text(L("Llavero de macOS")) } footer: {
-                Text(L("Con nombre: reutiliza una credencial en las sesiones o grupos que elijas. Usuario y equipo: sólo para esa cuenta. Los secretos se guardan únicamente en el Llavero de macOS.")).font(t.ui(11))
-            }
         }
         .formStyle(.themed)
         .disabled(model.core.editingCredential)
         .sheet(item: $edition) { item in
-            CredentialEditorSheet(ref: item.ref) { _, result in message = result }
+            CredentialEditorSheet(ref: item.ref, namedOnly: item.ref == nil) { _, result in message = result }
         }
         .onChange(of: s.sessionAutoPassword) { model.applyPasswordModes() }
         .onChange(of: s.devicePasswordMode) { model.applyPasswordModes() }
@@ -115,6 +104,25 @@ struct PasswordSettings: View {
     }
     private func edit(_ ref: CredentialRef) { edition = Edition(ref: ref) }
 
+    private func row(_ ref: CredentialRef) -> some View {
+        HStack {
+            Image(systemName: ref.service == .named ? "key.fill" : "server.rack")
+            VStack(alignment: .leading, spacing: 2) {
+                Text(ref.account).lineLimit(1).truncationMode(.middle)
+                Text(usage(ref) ?? L("Sin usar")).font(t.ui(10.5)).foregroundStyle(.secondary).lineLimit(2)
+            }
+            Spacer()
+            if model.ledger.isBlocked(ref) {
+                Button(L("Desbloquear")) { model.ledger.reset(ref); model.keychainRevision += 1 }
+            } else if case .probing = model.ledger.state(of: ref) {
+                Button(L("Restablecer pendiente")) { model.ledger.reset(ref); model.keychainRevision += 1 }
+                    .help(L("Úsalo sólo si el login pendiente ya terminó. No cambia la contraseña guardada."))
+            }
+            Button(L("Cambiar…")) { edit(ref) }.help(L("Cambiar el nombre o la contraseña"))
+            Button(role: .destructive) { delete(ref) } label: { Image(systemName: "trash") }.buttonStyle(.borderless)
+        }
+    }
+
     private func usage(_ ref: CredentialRef) -> String? {
         let file = model.sessionFile
         var parts: [String] = []
@@ -122,6 +130,11 @@ struct PasswordSettings: View {
             let use = file.usage(ofNamed: ref.account)
             if !use.sessions.isEmpty { parts.append(L("sesiones: \(use.sessions.prefix(6).joined(separator: ", "))\(use.sessions.count > 6 ? "…" : "")")) }
             if !use.groups.isEmpty { parts.append(L("grupos: \(use.groups.joined(separator: ", "))")) }
+            let buttons = model.buttons.buttons.filter {
+                ($0.mode == .pass && $0.command == ref.account)
+                    || ($0.mode == .login && CommandButton.loginParts($0.command)?.credential == ref.account)
+            }.map(\.name)
+            if !buttons.isEmpty { parts.append(L("botones: \(buttons.prefix(6).joined(separator: ", "))\(buttons.count > 6 ? "…" : "")")) }
             if model.settings.defaultCredentialName == ref.account { parts.append(L("por defecto")) }
         } else {
             let names = file.sessions.filter {
@@ -129,7 +142,7 @@ struct PasswordSettings: View {
             }.map(\.name)
             if !names.isEmpty { parts.append(L("sesiones: \(names.prefix(6).joined(separator: ", "))\(names.count > 6 ? "…" : "")")) }
         }
-        return parts.isEmpty ? nil : L("La usan: ") + parts.joined(separator: " · ")
+        return parts.isEmpty ? nil : L("Se usa en: ") + parts.joined(separator: " · ")
     }
 
     private func delete(_ ref: CredentialRef) {
@@ -160,10 +173,13 @@ struct CredentialEditorSheet: View {
     @Stored private var error = ""
     @Stored private var busy = false
 
-    init(ref: CredentialRef?, namedOnly: Bool = false, done: @escaping (CredentialRef, String) -> Void = { _, _ in }) {
+    /// `name` y `password`: para guardar en el Llavero lo que estaba escrito a la vista (p. ej. en un botón).
+    init(ref: CredentialRef?, namedOnly: Bool = false, name: String = "", password: String = "",
+         done: @escaping (CredentialRef, String) -> Void = { _, _ in }) {
         self.ref = ref; self.namedOnly = namedOnly; self.done = done
         _service = Stored(initialValue: ref?.service ?? .named)
-        _name = Stored(initialValue: ref?.service == .named ? ref?.account ?? "" : "")
+        _name = Stored(initialValue: ref?.service == .named ? ref?.account ?? "" : name)
+        _first = Stored(initialValue: password); _second = Stored(initialValue: password)
         var user = "", host = ""
         if let ref, ref.service == .device {
             if let at = ref.account.lastIndex(of: "@") {

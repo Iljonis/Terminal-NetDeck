@@ -308,20 +308,3 @@ struct GridBackground: View {
         .allowsHitTesting(false)
     }
 }
-
-/// Muestra de colores de un tema (Ajustes → Temas).
-struct ThemeSwatch: View {
-    let theme: Theme
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array([theme.background, theme.panel, theme.accent, theme.accent2, theme.good, theme.bad,
-                           theme.special, theme.text].enumerated()), id: \.offset) { _, c in
-                Rectangle().fill(SwiftUI.Color(c))
-            }
-        }
-        .frame(width: 120, height: 16)
-        .clipShape(RoundedRectangle(cornerRadius: 3))
-        .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(.white.opacity(0.15)))
-    }
-}

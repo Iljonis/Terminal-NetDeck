@@ -9,40 +9,27 @@ enum Ingles {
         "; revisa estos archivos antes de borrar ninguna: %@": "; review these files before deleting either entry: %@",
         "; se han restaurado los archivos modificados": "; modified files have been restored",
         "Al renombrarla se actualizan sus asignaciones en sesiones, grupos, botones, listas y la predeterminada.": "Renaming updates its assignments in sessions, groups, buttons, lists and the default credential.",
-        "Automática: propia del equipo": "Automatic: device credential",
-        "Añade una credencial y selecciónala en Sesiones.": "Add a credential and select it in Sessions.",
-        "Añadir…": "Add…",
-        "Buscar credenciales": "Search credentials",
-        "Con nombre · asignable a sesiones y grupos": "Named · assignable to sessions and groups",
-        "Con nombre: reutiliza una credencial en las sesiones o grupos que elijas. Usuario y equipo: sólo para esa cuenta. Los secretos se guardan únicamente en el Llavero de macOS.": "Named: reuse a credential in the sessions or groups you choose. User and device: only for that account. Secrets are stored only in macOS Keychain.",
         "Contraseña nueva (opcional)": "New password (optional)",
-        "Credencial de la sesión": "Session credential",
         "Credencial predeterminada": "Default credential",
         "Credencial renombrada: %@": "Credential renamed: %@",
         "Deja ambos campos vacíos para conservar la contraseña. Renombrar conserva también su bloqueo por fallo.": "Leave both fields empty to keep the password. Renaming also preserves its failure block.",
         "Editar credencial": "Edit credential",
         "Editar credencial…": "Edit credential…",
-        "Editar nombre, usuario, equipo o contraseña": "Edit name, user, device or password",
         "El archivo %@ ha cambiado mientras se renombraba: no se sobrescribe": "File %@ changed during renaming: it will not be overwritten",
         "El nombre o la cuenta de la credencial no es válido": "The credential name or account is invalid",
         "Espera a que termine la autenticación pendiente antes de renombrar": "Wait for the pending authentication to finish before renaming",
         "Guarda y cierra los otros editores antes de renombrar una credencial": "Save and close the other editors before renaming a credential",
         "Guardada como «%@». Se conserva «%@» porque todavía la usa una sesión o configuración externa.": "Saved as “%@”. “%@” is kept because a session or external configuration still uses it.",
         "Guardada como «%@»; no se pudo borrar la entrada anterior: %@": "Saved as “%@”; could not delete the previous entry: %@",
-        "Heredar del grupo: %@": "Inherit from group: %@",
         "Indica el usuario para activar la credencial predeterminada.": "Enter the user to enable the default credential.",
         "La credencial que quieres renombrar ya no está en el Llavero": "The credential you want to rename is no longer in Keychain",
         "La cuenta propia corresponde a ese usuario y equipo. Para contraseñas distintas según el servicio, usa credenciales con nombre.": "A device account belongs to that user and device. Use named credentials for different passwords on different services.",
         "Las asignaciones que la usen quedarán sin contraseña guardada.": "Assignments using it will have no stored password.",
-        "Llavero de macOS": "macOS Keychain",
         "Ninguna (preguntar)": "None (ask)",
         "No se ha completado el renombrado: %@. Se conservan las dos entradas del Llavero": "Renaming was not completed: %@. Both Keychain entries are kept",
         "No se puede cambiar el tipo de una credencial al renombrarla": "A credential’s type cannot change when renaming it",
         "Nueva credencial": "New credential",
-        "Nueva credencial con nombre…": "New named credential…",
         "Por ejemplo: Red principal": "For example: Main network",
-        "Propia de este usuario y equipo": "Specific to this user and device",
-        "Propia del equipo (ignorar grupo)": "Device credential (ignore group)",
         "Se guarda únicamente en el Llavero de macOS.": "Stored only in macOS Keychain.",
         "Se usa si el equipo no tiene otra asignada y pide exactamente ese usuario. Las sesiones guardadas usan su propia asignación.": "Used if the device has no other assigned credential and asks for that exact user. Saved sessions use their own assignment.",
         "Sin coincidencias": "No matches",
@@ -154,8 +141,8 @@ enum Ingles {
             "Session",
         "línea %@: el formato es «Grupo :: modo :: Nombre :: comando»":
             "line %@: the format is “Group :: mode :: Name :: command”",
-        "línea %@: modo «%@» (usa run, type, pass, login o sesion)":
-            "line %@: mode “%@” (use run, type, pass, login or sesion)",
+        "línea %@: modo «%@» (usa run, type, pass, clave, login o sesion)":
+            "line %@: mode “%@” (use run, type, pass, clave, login or sesion)",
         "línea %@: la tecla %@ ya la usa otro botón (éste se queda sin ella)":
             "line %@: key %@ is already used by another button (this one goes without it)",
         "en cola":
@@ -653,14 +640,6 @@ enum Ingles {
             "CONNECTION",
         "%@ (no está en el Llavero)":
             "%@ (not in the Keychain)",
-        "Del grupo «%@»":
-            "From group “%@”",
-        "Guardar una para %@@%@":
-            "Save one for %@@%@",
-        "Al Llavero":
-            "To Keychain",
-        "✓ Hay una guardada para %@@%@":
-            "✓ There's one saved for %@@%@",
         "CONTRASEÑA (LLAVERO)":
             "PASSWORD (KEYCHAIN)",
         "Nunca se escribe sola la de otro usuario: sólo la de ese mismo usuario.":
@@ -677,8 +656,6 @@ enum Ingles {
             "It's removed when you press “Save” (a copy stays in ssh_config.anterior). Its Keychain password is not touched.",
         "Renombrar el grupo «%@»":
             "Rename the group “%@”",
-        "✓ Contraseña de %@@%@ guardada en el Llavero":
-            "✓ Password for %@@%@ saved in the Keychain",
         "✓ Guardadas":
             "✓ Saved",
         "Hay cambios sin guardar":
@@ -735,10 +712,6 @@ enum Ingles {
             "Suggest it (one click)",
         "Nada":
             "Nothing",
-        "Sólo después de enviar «ssh equipo» o «telnet» desde una sesión. La salida del equipo y los banners no activan la detección. ":
-            "Only after sending “ssh device” or “telnet” from a session. Device output and banners do not activate detection. ",
-        "Equipos":
-            "Devices",
         "Contraseña por defecto":
             "Default password",
         "Es del usuario":
@@ -1145,8 +1118,6 @@ enum Ingles {
             "groups: %@",
         "por defecto":
             "default",
-        "La usan: ":
-            "Used by: ",
         "Contraseña nueva":
             "New password",
         "Repítela":
@@ -1201,8 +1172,6 @@ enum Ingles {
             "Delete category “%@” and its %@ buttons?",
         "No se guarda hasta que pulses «Guardar» (queda copia en botones.txt.anterior).":
             "Nothing is saved until you press “Save” (a copy stays in botones.txt.anterior).",
-        "Sustituir la de %@@%@":
-            "Replace the one for %@@%@",
         "Usa: 🔑 %@ (la del grupo)":
             "Uses: 🔑 %@ (the group's)",
         "Usa: 🔑 %@":
@@ -2232,9 +2201,56 @@ enum Ingles {
             "\r\n\u{1b}[38;5;204m[NetDeck] The saved password “%@” did not work\u{1b}[0m",
         "No espera a otras pestañas. Si no vale, te la pide a ti (no se bloquea).":
             "It does not wait for other tabs. If it does not work, you are asked for it (it is not locked).",
-        "El usuario debe coincidir exactamente; los códigos de un solo uso y los cambios de contraseña se contestan a mano. ":
-            "The user must match exactly; one-time codes and password changes are answered manually. ",
-        "Si la credencial por defecto, escrita sola, no vale, no se vuelve a escribir sola en 15 min (a mano o con un botón, sí).":
-            "If the default credential, typed automatically, does not work, it is not typed automatically again for 15 min (manually or with a button, it is).",
+        "Nueva…": "New…",
+        "Guardar una contraseña nueva en el Llavero y usarla en este botón": "Save a new password in the Keychain and use it in this button",
+        "•••• (no está en el Llavero)": "•••• (not in the Keychain)",
+        "Aquí hay un texto que no es una contraseña del Llavero. Si es la contraseña, guárdala en el Llavero: así no queda escrita en botones.txt.":
+            "This is text, not a Keychain password. If it is the password, save it in the Keychain so it is not left written in botones.txt.",
+        "Guardarla en el Llavero…": "Save it in the Keychain…",
+        "pulsa «Guardar» para quitarla de botones.txt (sus copias .anterior y .original la conservan)":
+            "press “Save” to remove it from botones.txt (its .anterior and .original backups keep it)",
+        "🔑 Botón «%@»: su contraseña no está en el Llavero; edítalo en Ajustes → Botones":
+            "🔑 Button “%@”: its password is not in the Keychain; edit it in Settings → Buttons",
+        "escrita en el botón": "written in the button",
+        "Origen": "Source",
+        "Del Llavero": "From the Keychain",
+        "Escrita en el botón": "Written in the button",
+        "Queda en botones.txt y en sus copias de seguridad (sólo tu usuario puede leerlas); no va al exportar.":
+            "It stays in botones.txt and its backups (only your user can read them); it is left out when exporting.",
+        "Dejarla escrita en el botón": "Keep it written in the button",
+        "Escribe la contraseña de este botón + Intro, sólo si la línea pide «Password:» (si no, no hace nada).":
+            "Types this button's password + Return, only if the line asks for “Password:” (otherwise it does nothing).",
+        "🔑 Botón «%@»: no tiene contraseña; escríbela en Ajustes → Botones":
+            "🔑 Button “%@”: it has no password; type it in Settings → Buttons",
+        "botón «%@»": "button “%@”",
+        "Aún no hay ninguna: pulsa «Nueva…» o escríbela al conectar y te ofrecerá guardarla.":
+            "None yet: press “New…”, or type one when connecting and you will be offered to save it.",
+        "De usuario y equipo (%@)": "Per user and device (%@)",
+        "Se guardan sólo en el Llavero de macOS. Elígelas por su nombre en sesiones, grupos, botones y listas.":
+            "Stored only in the macOS Keychain. Pick them by name in sessions, groups, buttons and lists.",
+        "Ofrecer guardar la que escribo yo": "Offer to save the ones I type",
+        "Al conectar": "When connecting",
+        "Sólo la del mismo usuario que piden. Si escribes tú una y entra, te pregunta si la guardas. Los códigos de un solo uso, siempre a mano.":
+            "Only the one for the exact user asked. If you type one yourself and it works, you are asked whether to save it. One-time codes are always typed by hand.",
+        "Sin usar": "Unused",
+        "Cambiar…": "Change…",
+        "Cambiar el nombre o la contraseña": "Change the name or the password",
+        "botones: %@%@": "buttons: %@%@",
+        "Se usa en: ": "Used in: ",
+        "La del grupo: %@": "The group's: %@",
+        "La guardada para %@@%@": "The one saved for %@@%@",
+        "Ninguna (te la pide)": "None (asks you)",
+        "Ninguna (sin la del grupo)": "None (not the group's)",
+        "Guardar una contraseña nueva en el Llavero y usarla en esta sesión":
+            "Save a new password in the Keychain and use it in this session",
+        "Para todo el grupo «%@»": "For the whole group “%@”",
+        "¿Guardar en el Llavero la contraseña que has escrito?": "Save the password you typed in the Keychain?",
+        "La de «%@». La próxima vez se escribe sola. Puedes desactivar esta pregunta en Ajustes → Contraseñas.":
+            "The one for “%@”. Next time it is typed for you. You can turn this question off in Settings → Passwords.",
+        "Guardar…": "Save…",
+        "Ahora no": "Not now",
+        "asignada a la sesión «%@»": "assigned to the session “%@”",
+        "Guardar una contraseña nueva en el Llavero y usarla en esta lista":
+            "Save a new password in the Keychain and use it in this list",
 ]
 }

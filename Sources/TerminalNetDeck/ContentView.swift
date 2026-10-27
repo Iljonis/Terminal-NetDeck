@@ -51,6 +51,18 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.core.refreshKeychain()
         }
+        .sheet(item: $model.typedSave) { save in
+            CredentialEditorSheet(ref: nil, namedOnly: true, name: save.name, password: save.secret) { ref, result in
+                Task {
+                    let assigned = await model.assignSaved(ref.account, to: save.session)
+                    model.status = [result, assigned].compactMap { $0 }.joined(separator: " · ")
+                }
+            }
+            .environment(model)
+            .environment(\.theme, t)
+            .tint(SwiftUI.Color(t.accent))
+            .themedControls()
+        }
         .sheet(item: $model.sheet) { sheet in
             Group {
                 switch sheet {

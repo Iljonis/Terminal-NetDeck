@@ -15,7 +15,6 @@ public final class MultiExecGroup {
     public var isActive = false
     private var members: [ObjectIdentifier: Member] = [:]
     /// Sacados un momento (p. ej. uno pidiendo contraseña: lo tecleado no debe ir a los demás).
-    private var paused: Set<ObjectIdentifier> = []
     /// ¿Se está autenticando? Por defecto, si la línea del cursor pide un secreto (`SecretPrompt`); la app añade «aún
     /// no ha llegado a su primer prompt» (lo tecleado lo leería el askpass como contraseña).
     public var awaitingAuth: (any TerminalIO) -> Bool = { SecretPrompt.asks($0.cursorLine) }
@@ -36,25 +35,20 @@ public final class MultiExecGroup {
     public func join(_ io: TerminalIO) { members[ObjectIdentifier(io)] = Member(io: io) }
     public func leave(_ io: TerminalIO) {
         members[ObjectIdentifier(io)] = nil
-        paused.remove(ObjectIdentifier(io))
         typingSecret.remove(ObjectIdentifier(io))
         lineTargets[ObjectIdentifier(io)] = nil
-    }
-
-    public func setPaused(_ io: TerminalIO, _ p: Bool) {
-        if p { paused.insert(ObjectIdentifier(io)) } else { paused.remove(ObjectIdentifier(io)) }
     }
 
     /// Le llega lo repartido: está en el grupo, sin pausar y no se está autenticando.
     public func accepts(_ io: TerminalIO) -> Bool {
         let id = ObjectIdentifier(io)
-        return members[id] != nil && !paused.contains(id) && !typingSecret.contains(id) && !awaitingAuth(io)
+        return members[id] != nil && !typingSecret.contains(id) && !awaitingAuth(io)
     }
 
     /// Tecla del usuario en `origin`. true = repartida a todos (incluido `origin`); false = la vista la envía sólo ahí.
     public func broadcast(_ bytes: [UInt8], from origin: TerminalIO) -> Bool {
         let id = ObjectIdentifier(origin)
-        guard isActive, members[id] != nil, !paused.contains(id) else { return false }
+        guard isActive, members[id] != nil else { return false }
         guard canReceiveKeystrokes(origin) else { return true }
         if typingSecret.contains(id) || awaitingAuth(origin) {
             if Self.endsInput(bytes) { typingSecret.remove(id) } else { typingSecret.insert(id) }

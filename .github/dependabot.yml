@@ -1,5 +1,5 @@
 # Dependabot: avisa (con un PR) de versiones nuevas y de seguridad de las dependencias de SwiftPM (SwiftTerm,
-# swift-nio-ssh, swift-nio) y de las acciones de los workflows. Complementa a tools/seguridad_cron.sh (OSV.dev).
+# swift-png…) y de las acciones de los workflows. Complementa a tools/seguridad_cron.sh (OSV.dev).
 version: 2
 updates:
   - package-ecosystem: "swift"

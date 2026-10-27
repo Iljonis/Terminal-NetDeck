@@ -328,6 +328,11 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     @ObservationIgnored var promptRule: PromptRule?
     @ObservationIgnored private var appliedScrollback = TerminalHistory.current
     @ObservationIgnored var onEvent: ((TerminalSession, PasswordAutomation.Event) -> Void)?
+    /// La que has escrito tú en un «Password:» y ha entrado (para ofrecer guardarla en el Llavero).
+    @ObservationIgnored var onTypedPassword: ((TerminalSession, TypedPassword.Candidate) -> Void)?
+    @ObservationIgnored private var typedPassword = TypedPassword()
+    /// Ajustes → Contraseñas → «Ofrecer guardar la que escribo yo»: si no, lo que tecleas ni se mira.
+    @ObservationIgnored var offerTypedPassword: () -> Bool = { false }
     /// Lo que teclea el usuario (Esc, MultiExec, Intro…): true = ya está atendido, no se envía aquí.
     @ObservationIgnored var onInput: ((TerminalSession, [UInt8]) -> Bool)?
     /// Sesión cerrada: Intro = reconectar, Esc = cerrar la pestaña.
@@ -604,6 +609,7 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         hopTask?.cancel()
         commandInput = MacroRecorder(allowScreenFallback: true, soloConexiones: true)
         passwords.connectionEnded()
+        typedPassword.forget()
         state = .exited(code)
         gate.abortAll()
         if checksHostKey, !loggedIn, code != 0 {
@@ -833,6 +839,9 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
             DebugLog.log("contraseña", "«\(title)»: \(e)")
             onEvent?(self, e)
         }
+        if let c = typedPassword.resolve(lines: { [unowned self] in lines(from: $0) }, cursorLine: cursorLine, row: cursorRow) {
+            onTypedPassword?(self, c)
+        }
     }
 
     /// El salto no deja reenviar (-J) y ssh ha terminado con 255: con tu permiso, se abre el salto y se escribe allí el
@@ -920,6 +929,7 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
             if data.contains(13) { onReconnect?(self) } else if Array(data) == [27] { onCloseRequest?(self) }
             return
         }
+        if onTypedPassword != nil, offerTypedPassword(), !route.isLocal { typedPassword.feed(Array(data), cursorLine: cursorLine, row: cursorRow, above: linesAbove(3)) }
         if onInput?(self, Array(data)) == true { return }
         trackCommandInput(Array(data))
         process?.send(data: data)

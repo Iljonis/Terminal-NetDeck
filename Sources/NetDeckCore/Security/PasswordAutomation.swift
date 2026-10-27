@@ -473,6 +473,16 @@ public final class PasswordAutomation {
     /// no vale no se bloquea. También en la pregunta del askpass al abrir la sesión. El Llavero se lee fuera del hilo
     /// principal; justo antes de escribirla se comprueba que la siguen pidiendo.
     public func typeManually(_ ref: CredentialRef, into io: TerminalIO) async -> ManualResult {
+        await typeManually(ref, into: io) { [store] in await store.passwordInBackground(for: ref) }
+    }
+
+    /// La escrita en un botón (sin Llavero): igual que la manual; `button` sólo la nombra en los avisos.
+    public func typeLiteral(_ password: String, button: String, into io: TerminalIO) async -> ManualResult {
+        guard !password.isEmpty else { return .missing }
+        return await typeManually(.named(L("botón «\(button)»")), into: io) { password }
+    }
+
+    private func typeManually(_ ref: CredentialRef, into io: TerminalIO, secret: () async -> String?) async -> ManualResult {
         guard PasswordPrompt.acceptsManual(io.cursorLine) else { return .notAsked }
         let site = "\(io.cursorRow):\(io.cursorLine.trimmed)"
         guard operation == nil, site != handledSite || pending == nil else { return .busy }
@@ -482,7 +492,7 @@ public final class PasswordAutomation {
         let g = generation, op = UUID()
         operation = op
         defer { if operation == op { operation = nil } }
-        guard let pw = await store.passwordInBackground(for: ref) else { return .missing }
+        guard let pw = await secret() else { return .missing }
         guard generation == g, !Task.isCancelled else { return .notAsked }
         // (mientras se leía, la pantalla puede haber cambiado)
         guard "\(io.cursorRow):\(io.cursorLine.trimmed)" == site else { return .notAsked }

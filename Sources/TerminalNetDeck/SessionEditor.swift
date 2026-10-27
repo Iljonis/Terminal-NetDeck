@@ -18,7 +18,6 @@ struct SessionEditor: View {
     @Stored private var query = ""
     @Stored private var message = ""
     @Stored private var importing = false
-    @Stored private var newPassword = ""
     @Stored private var changing: CredentialRef?
     @Stored private var creatingCredential = false
     /// Puertos /dev/cu.* de este Mac (se buscan al abrir y con ↻).
@@ -182,7 +181,7 @@ struct SessionEditor: View {
         .padding(.vertical, 5).padding(.horizontal, 7)
         .background(RoundedRectangle(cornerRadius: 6).fill(on ? SwiftUI.Color(t.tab) : SwiftUI.Color.clear))
         .contentShape(Rectangle())
-        .onTapGesture { importing = false; selected = s.id; newPassword = "" }
+        .onTapGesture { importing = false; selected = s.id }
         // (arrastrar una sobre otra: se pone delante, en su grupo; el orden es el del archivo)
         .draggable(s.id.uuidString)
         .dropDestination(for: String.self) { items, _ in
@@ -408,32 +407,28 @@ struct SessionEditor: View {
         let user = file.sessions[i].user.isEmpty ? AppPaths.userName : file.sessions[i].user
         let host = file.sessions[i].host.isEmpty ? file.sessions[i].name : file.sessions[i].host
         return Section {
-                ThemedPicker(L("Credencial de la sesión"), selection: s.credential) { o in
-                    let group = file.groupCredentials[file.sessions[i].group] ?? ""
-                    o.append(("", group.isEmpty ? L("Automática: propia del equipo") : L("Heredar del grupo: \(group)")))
-                    o.append(("-", L("Propia del equipo (ignorar grupo)")))
-                    if !file.sessions[i].credential.isEmpty, file.sessions[i].credential != "-",
-                       !namedCredentials.contains(file.sessions[i].credential) { o.append((file.sessions[i].credential, L("\(file.sessions[i].credential) (no está en el Llavero)"))) }
-                    for x in namedCredentials { o.append((x, "🔑 \(x)")) }
+                let hasDevice = model.hasCredential(.device(user, host))
+                let group = file.groupCredentials[file.sessions[i].group] ?? ""
+                HStack {
+                    ThemedPicker(L("Contraseña"), selection: s.credential) { o in
+                        o.append(("", !group.isEmpty ? L("La del grupo: \(group)")
+                                      : hasDevice ? L("La guardada para \(user)@\(host)") : L("Ninguna (te la pide)")))
+                        if file.sessions[i].credential == "-" || (!group.isEmpty && hasDevice) {
+                            o.append(("-", hasDevice ? L("La guardada para \(user)@\(host)") : L("Ninguna (sin la del grupo)")))
+                        }
+                        if !file.sessions[i].credential.isEmpty, file.sessions[i].credential != "-",
+                           !namedCredentials.contains(file.sessions[i].credential) { o.append((file.sessions[i].credential, L("\(file.sessions[i].credential) (no está en el Llavero)"))) }
+                        for x in namedCredentials { o.append((x, "🔑 \(x)")) }
+                    }
+                    Button(L("Nueva…")) { creatingCredential = true }
+                        .help(L("Guardar una contraseña nueva en el Llavero y usarla en esta sesión"))
                 }
-                ThemedPicker(L("Del grupo «\(file.sessions[i].group)»"), selection: Binding(
+                ThemedPicker(L("Para todo el grupo «\(file.sessions[i].group)»"), selection: Binding(
                     get: { file.groupCredentials[file.sessions[i].group] ?? "" },
                     set: { file.groupCredentials[file.sessions[i].group] = $0.isEmpty ? nil : $0 })) { o in
                     o.append(("", L("(ninguna)")))
-                    if let group = file.groupCredentials[file.sessions[i].group], !group.isEmpty, !namedCredentials.contains(group) {
-                        o.append((group, L("\(group) (no está en el Llavero)")))
-                    }
+                    if !group.isEmpty, !namedCredentials.contains(group) { o.append((group, L("\(group) (no está en el Llavero)"))) }
                     for x in namedCredentials { o.append((x, "🔑 \(x)")) }
-                }
-                Button(L("Nueva credencial con nombre…")) { creatingCredential = true }
-                let hasDevice = model.hasCredential(.device(user, host))
-                HStack {
-                    SecureField(hasDevice ? L("Sustituir la de \(user)@\(host)") : L("Guardar una para \(user)@\(host)"),
-                                text: $newPassword)
-                    Button(L("Al Llavero")) { savePassword(user: user, host: host) }.disabled(newPassword.isEmpty)
-                }
-                if hasDevice {
-                    Text(L("✓ Hay una guardada para \(user)@\(host)")).font(.caption).foregroundStyle(SwiftUI.Color(t.good))
                 }
                 inUse(file.sessions[i], user: user, host: host, hasDevice: hasDevice)
             } header: { header(L("CONTRASEÑA (LLAVERO)")) } footer: {
@@ -453,7 +448,10 @@ struct SessionEditor: View {
                 Text(L("(no está en el Llavero)")).font(.caption).foregroundStyle(.orange)
             }
             Spacer()
-            Button(model.hasCredential(ref) ? L("Cambiar contraseña…") : L("Guardarla…")) { changing = ref }
+            // (sin ninguna asignada no se crea una de usuario@equipo: para eso está «Nueva…»)
+            if named != nil || hasDevice {
+                Button(model.hasCredential(ref) ? L("Cambiar contraseña…") : L("Guardarla…")) { changing = ref }
+            }
         }
     }
 
@@ -586,23 +584,6 @@ struct SessionEditor: View {
         p.directoryURL = AppPaths.home.appendingPathComponent(".ssh")
         guard p.runModal() == .OK, let u = p.url else { return }
         file.sessions[i].keyFile = AppPaths.tilde(u.path)
-    }
-
-    private func savePassword(user: String, host: String) {
-        let ref = CredentialRef.device(user, host)
-        let pw = newPassword
-        newPassword = ""                            // (vacío: «Al Llavero» se apaga mientras se guarda)
-        Task {
-            do {
-                try await model.store.saveInBackground(pw, for: ref)
-                model.ledger.reset(ref)
-                model.keychainRevision += 1
-                message = L("✓ Contraseña de \(user)@\(host) guardada en el Llavero")
-            } catch {
-                ErrorLog.error("llavero", "no se ha podido guardar \(user)@\(host): \(error.localizedDescription)")
-                message = "✗ \(error.localizedDescription)"
-            }
-        }
     }
 
     private func save(connect: Bool) {
