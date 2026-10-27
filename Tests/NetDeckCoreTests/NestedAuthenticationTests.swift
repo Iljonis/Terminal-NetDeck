@@ -238,13 +238,17 @@ import Testing
         }
     }
 
-    @Test func laEleccionManualSinContextoConservaLaProteccionDeFallo() async {
+    /// La eliges tú (menú 🔑, botones): si no vale, se dice, pero no se bloquea; y se escribe aunque la por defecto
+    /// esté bloqueada por un fallo suyo al escribirse sola.
+    @Test func laEleccionManualNoBloqueaNiSeBloquea() async {
         let store = CredencialesControladas(), ledger = CredentialLedger(), a = automation(store, ledger)
         let io = FakeTerminal(["Password:"]) { _ in ["Password:"] }
         #expect(await a.typeManually(ref, into: io) == .typed)
-        #expect(await a.observe(io, gate: AutomationGate()) == .failed(ref))
-        #expect(ledger.isBlocked(ref))
-        #expect(await a.typeManually(ref, into: io) == .blocked)
+        #expect(await a.observe(io, gate: AutomationGate()) == .rejected(ref))
+        #expect(!ledger.isBlocked(ref))
+        ledger.markFailed(ref)
+        #expect(await a.typeManually(ref, into: io) == .typed)
+        #expect(ledger.isBlocked(ref))                                     // (no la desbloquea)
     }
 
     @Test func elExitoManualNoResuelveLaReservaDeOtraPestana() async throws {
@@ -258,7 +262,8 @@ import Testing
         ledger.release(ref, reservation: other)
     }
 
-    @Test func elSelectorSoloOfreceCompatiblesOrdenadasSinBloqueadas() async throws {
+    /// Sólo las compatibles, en orden y sin repetir; una bloqueada también (el aviso es tu clic, no se escribe sola).
+    @Test func elSelectorSoloOfreceCompatiblesOrdenadas() async throws {
         let store = CredencialesControladas(), ledger = CredentialLedger(), a = automation(store, ledger)
         let second = CredentialRef.device("tu.usuario", "core-01"), blocked = CredentialRef.named("bloqueada"), other = CredentialRef.named("admin")
         ledger.markFailed(blocked)
@@ -273,7 +278,7 @@ import Testing
         let io = FakeTerminal(["Password:"])
         #expect(await a.observe(io, gate: AutomationGate()) == .suggested(ref))
         let offer = try #require(a.offer)
-        #expect(offer.refs == [ref, second] && offer.target.host == "core-01")
+        #expect(offer.refs == [ref, blocked, second] && offer.target.host == "core-01")
         #expect(await a.choose(other, offer: offer.id, into: io) == .notAsked)
         #expect(await a.choose(ref, offer: UUID(), into: io) == .notAsked)
         #expect(store.lecturas == 0 && io.sent.isEmpty)
@@ -345,7 +350,8 @@ import Testing
         #expect(io.sent.isEmpty && a.offer == nil && ledger.state(of: ref) == nil)
     }
 
-    @Test func unFalloMientrasSeLeeLaOfertaLaBloquea() async throws {
+    /// Un fallo de la por defecto en otra pestaña mientras se lee la que has elegido en el aviso: la eliges tú, se escribe.
+    @Test func unFalloMientrasSeLeeLaOfertaNoImpideTuEleccion() async throws {
         let store = CredencialesControladas(demoradas: true), ledger = CredentialLedger(), a = automation(store, ledger)
         defer { store.continuar() }
         a.mode = .suggest; a.beginCommand("ssh tu.usuario@core-01")
@@ -356,8 +362,8 @@ import Testing
         #expect(await until { store.lecturas == 1 })
         ledger.markFailed(ref)
         store.continuar()
-        #expect(await task.value == .blocked)
-        #expect(io.sent.isEmpty && ledger.isBlocked(ref))
+        #expect(await task.value == .typed)
+        #expect(io.sent.count == 1 && ledger.isBlocked(ref))
     }
 
     @Test func otroIntentoPendienteNoSeAnunciaComoFallo() async {

@@ -412,7 +412,8 @@ import Testing
         #expect(failed.isEmpty && !ledger.isBlocked(ref) && ledger.state(of: ref) == nil)
     }
 
-    @Test func rechazoPropioBloqueaSuContrasena() async throws {
+    /// El túnel no entra con la de su sesión: se dice cuál, pero no se bloquea (es de la sesión, no la por defecto).
+    @Test func rechazoPropioSeDiceSinBloquear() async throws {
         defer { try? FileManager.default.removeItem(at: dir) }
         let sid = UUID(), ref = CredentialRef.named("AD"), ledger = CredentialLedger()
         try SafeFile.write(Askpass.encodeGiven(ref, host: "core-01") + "\n", to: dir.appendingPathComponent(sid.uuidString))
@@ -428,7 +429,7 @@ import Testing
         }
         m.start(t, executable: exe, arguments: try arguments(t), environment: env)
         #expect(await until { if case .failed = m.state(t.id) { true } else { false } })
-        #expect(failed == [ref] && ledger.isBlocked(ref))
+        #expect(failed == [ref] && !ledger.isBlocked(ref))
     }
 
     @Test func unFalloDeRedNoBloqueaContrasenas() async throws {

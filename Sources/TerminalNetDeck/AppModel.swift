@@ -1058,6 +1058,7 @@ final class AppModel {
         case .confirmed: notices[s.id] = nil
         case .cancelled: status = L("⎋ Contraseña cancelada"); notices[s.id] = nil
         case .failed(let r): status = L("🔑 «\(r)» no ha valido: bloqueada 15 min en todas las pestañas"); notices[s.id] = e
+        case .rejected(let r): status = L("🔑 «\(r)» no ha valido: escríbela tú"); notices[s.id] = e
         case .suggested, .manual: notices[s.id] = e
         }
     }
@@ -1066,7 +1067,6 @@ final class AppModel {
         Task {
             switch await s.passwords.typeManually(ref, into: s) {
             case .typed: notices[s.id] = nil
-            case .blocked: status = L("🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes")
             case .notAsked: status = L("🔑 Ahí no piden contraseña ahora")
             case .missing: status = L("🔑 «\(ref)» no está en el Llavero")
             case .busy: status = L("🔑 Ya se está escribiendo una contraseña en «\(s.title)»; espera a que conteste")
@@ -1083,7 +1083,6 @@ final class AppModel {
             defer { s.gate.end(sw) }
             switch await s.passwords.choose(ref, offer: offer.id, into: s) {
             case .typed: notices[s.id] = nil
-            case .blocked: status = L("🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes")
             case .pending:
                 status = L("🔑 Otra autenticación con «\(ref.account)» sigue pendiente; escríbela a mano o, si ya terminó, restablécela en Ajustes → Contraseñas → «Restablecer pendiente»")
             case .missing: status = L("🔑 «\(ref)» no está en el Llavero")
@@ -1101,23 +1100,17 @@ final class AppModel {
     @ObservationIgnored private var anywayConfirmed: Set<TerminalSession.ID> = []
 
     /// La manda al terminal aunque ahí no se reconozca «Password:» (prompts raros). Se confirma la primera vez en cada
-    /// pestaña y siempre si está bloqueada por un fallo reciente. Nunca se registra.
+    /// pestaña (el bloqueo de la por defecto no cuenta: la eliges tú). Nunca se registra.
     func typePasswordAnyway(_ ref: CredentialRef, in s: TerminalSession, pressReturn: Bool) {
         Task {
             if !anywayConfirmed.contains(s.id) {
                 guard await ThemedAlert.confirm(L("¿Escribir «\(ref.account)» en «\(s.title)»?"), message: L("Va como texto al terminal aunque no pidan contraseña: si no es un prompt de contraseña, se verá en pantalla (y puede quedar en el historial del equipo)."), ok: L("Escribir")) else { return }
                 anywayConfirmed.insert(s.id)
             }
-            var force = false
-            if ledger.isBlocked(ref) {
-                guard await ThemedAlert.confirm(L("«\(ref.account)» ha fallado hace poco"), message: L("Si es una cuenta AD, otro intento fallido puede bloquearla. ¿Escribirla igualmente?"), ok: L("Escribir igualmente"), destructive: true) else { return }
-                force = true
-            }
             // (tras el aviso la pestaña puede haberse cerrado: nada se escribe en una que ya no está)
             guard tabs.contains(where: { $0.id == s.id }), !s.exited else { return }
-            switch await s.passwords.typeAnyway(ref, into: s, pressReturn: pressReturn, force: force) {
+            switch await s.passwords.typeAnyway(ref, into: s, pressReturn: pressReturn) {
             case .typed: notices[s.id] = nil; status = L("🔑 «\(ref)» escrita en \(s.title)")
-            case .blocked: status = L("🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes")
             case .notAsked, .busy, .pending: break
             case .missing: status = L("🔑 «\(ref)» no está en el Llavero")
             }

@@ -480,7 +480,7 @@ public final class FTPFileSystem: RemoteFileSystem, @unchecked Sendable {
     private let user: String
     private let password: String
     private let main: FTPConnection
-    /// La contraseña ya no vale (530 en una transferencia): avisa una vez (bloqueo de 15 min) y no se vuelve a probar.
+    /// La contraseña ya no vale (530 en una transferencia): avisa una vez y no se vuelve a probar.
     private let rejected: @Sendable () -> Void
     private let lock = NSLock()
     private var refused = false

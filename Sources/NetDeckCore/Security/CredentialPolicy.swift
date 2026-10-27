@@ -24,7 +24,7 @@ public enum ManualReason: Equatable, Sendable {
     case userMismatch(requested: String)
     /// La orden dice un usuario y el prompt otro: no se arriesga.
     case conflictingUsers(command: String, prompt: String)
-    /// Falló hace poco en otra pestaña: otra vez bloquearía la cuenta AD.
+    /// La por defecto falló hace poco al escribirse sola: otra vez bloquearía la cuenta AD.
     case recentlyFailed(CredentialRef)
     /// Hay otro intento interno pendiente; no es un fallo ni autoriza a repetirlo automáticamente.
     case pendingAttempt(CredentialRef)
@@ -41,7 +41,8 @@ public enum InjectionDecision: Equatable, Sendable {
 
 /// REGLA DE USUARIO: una contraseña sólo se escribe sola si es exactamente del usuario que la pide — el de la orden
 /// ssh/telnet (`ssh root@…`, `-l pepe`) o el del prompt («Username: pepe», «(admin@equipo) Enter password:»). Si no
-/// coincide, si se contradicen, si no se sabe quién la pide o si falló hace poco, nada se escribe: eliges tú a mano.
+/// coincide, si se contradicen, si no se sabe quién la pide o si la por defecto falló hace poco, nada se escribe: eliges
+/// tú a mano. El bloqueo (`isBlocked`) sólo cuenta para la por defecto: es la única que bloquea un rechazo.
 public struct CredentialPolicy: Sendable {
     /// «Password:» a secas y sin usuario en la orden: ¿vale la primera candidata? (NetDeck: sí; v0.4: no)
     public var allowWhenUserUnknown: Bool
@@ -54,24 +55,31 @@ public struct CredentialPolicy: Sendable {
     /// prompt de un salto puede pedir la de ese usuario aunque no sea el de la orden.
     public func decide(_ request: PasswordRequest, commandUser: String?, jumpUsers: Set<String> = [],
                        candidates: [CredentialCandidate], isBlocked: (CredentialRef) -> Bool) -> InjectionDecision {
-        if request.isChangeOrConfirm { return .manual(.changeOrConfirm) }
+        choose(request, commandUser: commandUser, jumpUsers: jumpUsers, candidates: candidates, isBlocked: isBlocked).decision
+    }
+
+    /// La decisión y la candidata elegida (su origen dice si un rechazo la bloquea).
+    public func choose(_ request: PasswordRequest, commandUser: String?, jumpUsers: Set<String> = [],
+                       candidates: [CredentialCandidate], isBlocked: (CredentialRef) -> Bool)
+        -> (decision: InjectionDecision, candidate: CredentialCandidate?) {
+        if request.isChangeOrConfirm { return (.manual(.changeOrConfirm), nil) }
         // Lo que sale en pantalla lo escribe el equipo: si la orden dice un usuario, el prompt no lo cambia
         // (salvo el de un salto que la propia orden nombra).
         if let c = commandUser, let p = request.user, p != c, !(request.account != nil && jumpUsers.contains(p)) {
-            return .manual(.conflictingUsers(command: c, prompt: p))
+            return (.manual(.conflictingUsers(command: c, prompt: p)), nil)
         }
         let wanted = request.user ?? commandUser
-        if wanted == nil, !allowWhenUserUnknown { return .manual(.unknownUser) }
+        if wanted == nil, !allowWhenUserUnknown { return (.manual(.unknownUser), nil) }
         var mismatch = false
         for c in candidates {
             if let w = wanted, !c.owners.contains(w) {          // exacto: «Admin» no es «admin»
                 mismatch = true
                 continue
             }
-            if isBlocked(c.ref) { return .manual(.recentlyFailed(c.ref)) }
-            return .inject(c.ref)
+            if c.origin == .defaultCredential, isBlocked(c.ref) { return (.manual(.recentlyFailed(c.ref)), c) }
+            return (.inject(c.ref), c)
         }
-        if mismatch, let w = wanted { return .manual(.userMismatch(requested: w)) }
-        return .manual(.noCredential)
+        if mismatch, let w = wanted { return (.manual(.userMismatch(requested: w)), nil) }
+        return (.manual(.noCredential), nil)
     }
 }

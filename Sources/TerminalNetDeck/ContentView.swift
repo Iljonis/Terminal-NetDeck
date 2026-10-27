@@ -983,6 +983,7 @@ struct PasswordNotice: View {
         case .suggested: ""
         case .manual(let why): L("Piden contraseña: \(Askpass.explain(why)) · o elígela en 🔑")
         case .failed(let r): L("«\(r.account)» no ha valido: bloqueada 15 min en todas las pestañas (cuenta AD)")
+        case .rejected(let r): L("«\(r.account)» no ha valido: escríbela tú o elige otra en 🔑")
         default: ""
         }
     }

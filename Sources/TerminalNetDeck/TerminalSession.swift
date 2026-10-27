@@ -707,12 +707,12 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         if code == 255, !loggedIn {
             // (sólo lo último de la pantalla, y sólo si hay intentos recientes: un «Permission denied» de una orden o
             // un corte horas después, en un equipo cuyo prompt no se reconoce, no es de la contraseña)
-            let blocked = Askpass.settleAfterExit(session: id, ledger: ledger) {
+            let rejected = Askpass.settleAfterExit(session: id, ledger: ledger) {
                 Askpass.rejection(in: self.lines(from: max(self.launchRow, self.cursorRow - 12))
                     .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.suffix(6))
             }
-            for r in blocked {
-                pipe.say(L("\r\n\u{1b}[38;5;204m[NetDeck] La contraseña guardada «\(r.account)» no ha valido: no se probará sola en 15 min\u{1b}[0m"))
+            for r in rejected {
+                pipe.say(L("\r\n\u{1b}[38;5;204m[NetDeck] La contraseña guardada «\(r.account)» no ha valido\u{1b}[0m"))
             }
         } else {
             _ = Askpass.takeAttempts(session: id)

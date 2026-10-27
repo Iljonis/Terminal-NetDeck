@@ -4,7 +4,9 @@ import Foundation
 
 /// Estado de cada contraseña entre todas las pestañas y el askpass, para no bloquear cuentas AD:
 ///  · probando: alguien la acaba de escribir; los demás esperan a ver si vale (TACACS/RADIUS lentos)
-///  · fallo: no ha valido; no se vuelve a escribir sola en ningún sitio durante `blockWindow` (15 min)
+///  · fallo: la por defecto, escrita sola tras un ssh/telnet en una sesión, no ha valido; no se vuelve a escribir sola
+///    durante `blockWindow` (15 min). Las de las sesiones y lo que eliges tú (menú 🔑, botones, el aviso) no se
+///    bloquean ni respetan este bloqueo (las listas de equipos, `JumpBatch`, sí)
 ///  · confirmada: ha entrado; los demás pueden usarla ya
 public final class CredentialLedger: @unchecked Sendable {
     public enum State: Equatable, Sendable {
@@ -100,6 +102,12 @@ public final class CredentialLedger: @unchecked Sendable {
             storage.write(ref, .failed(at: now()))
             return true
         }
+    }
+
+    /// ¿La has restablecido (guardada otra vez, desbloqueada) después de un intento hecho en `attempt`? Entonces su
+    /// rechazo era de la anterior. (con el mismo segundo de margen que `markFailed(_:attemptedAt:)`)
+    public func wasReset(_ ref: CredentialRef, after attempt: Date) -> Bool {
+        storage.locked { storage.lastReset(ref).map { attempt < $0.addingTimeInterval(-1) } ?? false }
     }
 
     /// Una respuesta antigua no resuelve la reserva creada después de cambiar o cancelar la contraseña.

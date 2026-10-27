@@ -139,18 +139,27 @@ import Testing
         #expect(test.ledger.state(of: .named("clave-a")) == before)
     }
 
-    @Test func unFalloConocidoSiBloqueaEnLasDemasSesiones() throws {
-        let test = try Inicio(profiles: [a], selected: a, items: [.named("clave-a"): "rechazada"])
+    /// Un fallo de esa misma contraseña en otra parte (la por defecto escrita sola) no impide a la sesión probarla una
+    /// vez: el bloqueo es sólo de la por defecto escrita sola.
+    @Test func unFalloEnOtraParteNoImpideProbarlaEnLaSesion() throws {
+        let test = try Inicio(profiles: [a], selected: a, items: [.named("clave-a"): "propia"])
         test.ledger.markFailed(.named("clave-a"))
-        #expect(test.ask("tu.usuario@192.0.2.11's password:") == 1)
-        #expect(test.answers.isEmpty && test.ledger.isBlocked(.named("clave-a")))
+        #expect(test.ask("tu.usuario@192.0.2.11's password:") == 0)
+        #expect(test.answers == ["propia"] && test.ui.secretReads.isEmpty)
     }
 
-    @Test func repetirLaPreguntaBloqueaSoloLaQueSeDio() throws {
+    /// ssh vuelve a preguntar: la guardada no valía → te la pide a ti, sin bloquearla. Si la que escribes tú (sin
+    /// guardarla) tampoco vale, te la vuelve a pedir: la guardada no se prueba sola otra vez en este ssh.
+    @Test func repetirLaPreguntaTeLaPideSinBloquear() throws {
         let test = try Inicio(profiles: [a], selected: a, items: [.named("clave-a"): "rechazada"])
         #expect(test.ask("tu.usuario@192.0.2.11's password:") == 0)
-        #expect(test.ask("tu.usuario@192.0.2.11's password:") == 1)
-        #expect(test.answers == ["rechazada"] && test.ledger.isBlocked(.named("clave-a")))
+        test.ui.responses = ["mala"]
+        #expect(test.ask("tu.usuario@192.0.2.11's password:") == 0)            // (te la pide: la escribes tú)
+        #expect(test.ui.messages.contains { $0.contains("escríbela tú") })
+        #expect(test.ask("tu.usuario@192.0.2.11's password:") == 1)            // (otra vez a ti; aquí, Esc)
+        #expect(test.answers == ["rechazada", "mala"] && test.ui.secretReads == [true, true])
+        #expect(!test.ledger.isBlocked(.named("clave-a")))
+        #expect(!test.ui.messages.contains { $0.contains("15 min") })
     }
 
     /// ssh repregunta tarde (TACACS lento) y, mientras, la has guardado otra vez en otra pestaña o en Ajustes: lo
@@ -216,7 +225,7 @@ import Testing
         let failed = Askpass.settleAfterExit(session: test.session, ledger: test.ledger, directory: test.directory) {
             Askpass.rejection(in: ["tu.usuario@192.0.2.11: Permission denied (password)."])
         }
-        #expect(failed == [.named("clave-a")] && test.ledger.isBlocked(.named("clave-a")))
+        #expect(failed == [.named("clave-a")] && !test.ledger.isBlocked(.named("clave-a")))   // (se dice; no se bloquea)
         #expect(!test.ledger.isBlocked(.named("salto")))
     }
 

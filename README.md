@@ -181,7 +181,9 @@ cd Terminal-NetDeck
 - **Regla de usuario estricta:** una contraseña sólo se escribe sola si es exactamente del usuario que la pide.
 - **Y del equipo correcto:** un servidor que escriba en pantalla un `admin@core-01's password:` falso no se lleva la
   contraseña de core-01; sólo cuentan el destino y los saltos de esa pestaña.
-- **Si una falla, se bloquea 15 minutos en todas las pestañas**, para no bloquear tu cuenta de Active Directory.
+- **Si la credencial por defecto, escrita sola, falla, no se vuelve a escribir sola en 15 minutos** en ninguna pestaña,
+  para no bloquear tu cuenta de Active Directory. Las de las sesiones no se bloquean (si una no vale, te la pide), y
+  lo que eliges tú —menú 🔑 o un botón— se escribe siempre.
 - **El Llavero nunca congela la app:** se consulta en segundo plano y con un tope de 10 segundos.
 - Menú 🔑 para escribir cualquiera a mano, también en prompts raros que la app no reconoce.
 
@@ -372,7 +374,8 @@ serie, **NetDeck Cyberpunk**.
 
 ## Seguridad y privacidad
 
-- Contraseñas sólo en el Llavero, con la regla de usuario y de equipo, y bloqueo de 15 minutos tras un fallo.
+- Contraseñas sólo en el Llavero, con la regla de usuario y de equipo, y 15 minutos sin escribirse sola la credencial
+  por defecto tras un fallo.
 - MultiExec y el pegado seguro sólo llegan a pestañas SSH/Telnet: nunca a una terminal local, SFTP o consola serie.
   Una línea sólo se reparte si la empiezas en el prompt del equipo, y sólo a las pestañas que están en el suyo: lo que
   escribes en una contraseña, passphrase, OTP o cualquier petición que no sea un prompt se queda en su pestaña. Si un

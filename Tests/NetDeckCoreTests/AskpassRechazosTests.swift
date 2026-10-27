@@ -81,7 +81,7 @@ import Testing
                 #expect(r.failed.isEmpty && r.confirmed.isEmpty, "«\(line)»: \(attempts)")
             }
         }
-        // (de punta a punta, al terminar la pestaña: bloqueada y no confirmada)
+        // (de punta a punta, al terminar la pestaña: se dice cuál no valía, sin bloquearla ni confirmarla)
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("sesiones-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -90,7 +90,8 @@ import Testing
         let failed = Askpass.settleAfterExit(session: session, ledger: ledger, directory: dir) {
             Askpass.rejection(in: ["Connection closed by 192.0.2.10 port 22"])
         }
-        #expect(failed == [dest] && ledger.isBlocked(dest))
+        #expect(failed == [dest] && !ledger.isBlocked(dest))
+        #expect(ledger.state(of: dest) == nil)
     }
 
     @Test func unRechazoSinEquipoNoAcusaAlUltimoSalto() {
@@ -132,18 +133,19 @@ import Testing
         #expect(!FileManager.default.fileExists(atPath: file.path))
     }
 
-    @Test func alTerminarSinEntrarQuedaBloqueada() throws {
+    /// La de una sesión guardada que no entra: se dice, pero no se bloquea (sólo la por defecto escrita sola se bloquea).
+    @Test func alTerminarSinEntrarSeDiceSinBloquear() throws {
         let ledger = CredentialLedger(), session = UUID(), ref = CredentialRef.named("AD")
         let file = AppPaths.ensure(AppPaths.sessions).appendingPathComponent(session.uuidString)
         try SafeFile.write(Askpass.encodeGiven(ref, host: "core-01") + "\n", to: file)
         let failed = Askpass.settleAfterExit(session: session, ledger: ledger) { Askpass.Rejection(host: "core-01") }
-        #expect(failed == [ref] && ledger.isBlocked(ref))
+        #expect(failed == [ref] && !ledger.isBlocked(ref))
         #expect(!FileManager.default.fileExists(atPath: file.path))                     // (resuelto: no queda)
     }
 
-    /// Un rechazo tardío de otra pestaña (un TACACS lento) llega cuando ya has guardado la nueva: era de la anterior y
-    /// no la bloquea 15 min. Si el intento es de después de guardarla, sí.
-    @Test func unRechazoTardioNoBloqueaLaRecienGuardada() throws {
+    /// Un rechazo tardío (un TACACS lento) llega cuando ya has guardado la nueva: era de la anterior y no se dice. Si el
+    /// intento es de después de guardarla, sí se dice; en ningún caso se bloquea.
+    @Test func unRechazoTardioNoAcusaALaRecienGuardada() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("sesiones-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -158,7 +160,7 @@ import Testing
             }
             let failed = Askpass.settleAfterExit(session: session, ledger: ledger, directory: dir) { Askpass.Rejection(host: "core-01") }
             #expect(failed == (savedAfter ? [] : [ref]))
-            #expect(ledger.isBlocked(ref) == !savedAfter)
+            #expect(!ledger.isBlocked(ref))
         }
     }
 

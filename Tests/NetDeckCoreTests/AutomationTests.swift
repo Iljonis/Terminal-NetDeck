@@ -90,7 +90,8 @@ import Testing
         }
     }
 
-    /// El botón de contraseña en la pregunta del askpass: la escribe; si vuelve a preguntar, no valía (bloqueada).
+    /// El botón de contraseña en la pregunta del askpass: la escribe; si vuelve a preguntar, no valía (sin bloquearla:
+    /// la eliges tú).
     @Test func botonDeContraseñaEnElAskpass() async {
         let io = FakeTerminal(["[NetDeck] Esc = cancelar", "[NetDeck] tu.usuario@core-01's password: "]) { _ in
             ["[NetDeck] tu.usuario@core-01's password: "]
@@ -100,8 +101,8 @@ import Testing
         #expect(await a.typeManually(.named("AD"), into: io) == .typed)
         #expect(io.sent == ["pw\r"])
         #expect(io.screen[1] == "[NetDeck] tu.usuario@core-01's password: ")  // (sin eco)
-        #expect(await a.observe(io, gate: AutomationGate()) == .failed(.named("AD")))
-        #expect(ledger.isBlocked(.named("AD")))
+        #expect(await a.observe(io, gate: AutomationGate()) == .rejected(.named("AD")))
+        #expect(!ledger.isBlocked(.named("AD")))
     }
 
     /// Con -J, tras la del salto el askpass pregunta por el destino: la del salto ha entrado, no se bloquea.
@@ -115,7 +116,8 @@ import Testing
         #expect(await a.typeManually(.named("AD"), into: io) == .typed)        // (y la del destino, otra vez a mano)
     }
 
-    /// Botón «login» con la contraseña ya pedida: nunca la de otro usuario; la suya, con bloqueo y seguimiento.
+    /// Botón «login» con la contraseña ya pedida: nunca la de otro usuario; la suya, con seguimiento y sin bloqueo (la
+    /// eliges tú: otro clic la vuelve a escribir).
     @Test func loginConLaContraseñaYaPedida() async {
         let askpass = "[NetDeck] tu.usuario@core-01's password: "
         #expect(PasswordPrompt.otherUser(than: "admin", cursorLine: askpass, above: []) == "tu.usuario")
@@ -126,9 +128,10 @@ import Testing
         let io = FakeTerminal(["Username: tu.usuario", "Password:"]) { _ in ["Password:"] }
         let a = make(io, MemoryCredentialStore([.named("AD"): "pw"]), ledger)
         #expect(await a.typeManually(.named("AD"), into: io) == .typed)
-        #expect(await a.observe(io, gate: AutomationGate()) == .failed(.named("AD")))
-        #expect(await a.typeManually(.named("AD"), into: io) == .blocked)       // (bloqueada: no se repite)
-        #expect(io.sent == ["pw\r"])
+        #expect(await a.observe(io, gate: AutomationGate()) == .rejected(.named("AD")))
+        #expect(!ledger.isBlocked(.named("AD")))
+        #expect(await a.typeManually(.named("AD"), into: io) == .typed)
+        #expect(io.sent == ["pw\r", "pw\r"])
     }
 
     /// Con el historial lleno la fila del cursor no crece: la nueva pregunta del askpass se ve por la revisión.
@@ -143,11 +146,12 @@ import Testing
         #expect(await a.observe(io, gate: AutomationGate()) == nil)             // (el salto de línea tras leerla)
         io.screen = ["", prompt]                                                // (misma fila: vuelve a preguntar)
         io.revision += 1
-        #expect(await a.observe(io, gate: AutomationGate()) == .failed(.named("AD")))
-        #expect(ledger.isBlocked(.named("AD")))
+        #expect(await a.observe(io, gate: AutomationGate()) == .rejected(.named("AD")))
+        #expect(!ledger.isBlocked(.named("AD")))
     }
 
-    /// «Escribir sin esperar a que la pida»: sin prompt reconocido, Intro sólo si se pide; bloqueada sólo con `force`.
+    /// «Escribir sin esperar a que la pida»: sin prompt reconocido, Intro sólo si se pide; también la por defecto
+    /// bloqueada (la eliges tú), sin desbloquearla.
     @Test func escribirSinQueLaPidan() async {
         let io = FakeTerminal(["Clave de acceso >"])
         let ledger = CredentialLedger()
@@ -157,8 +161,7 @@ import Testing
         #expect(await a.typeAnyway(.named("AD"), into: io, pressReturn: true) == .typed)
         #expect(io.sent == ["pw", "pw\r"])
         ledger.markFailed(.named("AD"))
-        #expect(await a.typeAnyway(.named("AD"), into: io, pressReturn: true) == .blocked)
-        #expect(await a.typeAnyway(.named("AD"), into: io, pressReturn: false, force: true) == .typed)
+        #expect(await a.typeAnyway(.named("AD"), into: io, pressReturn: true) == .typed)
         #expect(ledger.isBlocked(.named("AD")))                              // (no la desbloquea)
         #expect(await a.typeAnyway(.named("otra"), into: io, pressReturn: false) == .missing)
     }
@@ -172,7 +175,8 @@ import Testing
         #expect(io.sent.isEmpty)
     }
 
-    @Test func escribeLaSuyaYSiFallaLaBloquea() async {
+    /// La de usuario@equipo escrita sola: si no vale, no se repite en esa orden, pero no se bloquea (no es la por defecto).
+    @Test func escribeLaSuyaYSiFallaNoLaRepite() async {
         let io = FakeTerminal(["admin@192.0.2.1's password:"]) { _ in ["Permission denied, please try again.", "admin@192.0.2.1's password:"] }
         let ledger = CredentialLedger()
         let a = make(io, MemoryCredentialStore([.device("admin", "192.0.2.1"): "pw"]), ledger)
@@ -180,10 +184,29 @@ import Testing
         let gate = AutomationGate()
         #expect(await a.observe(io, gate: gate) == .typed(.device("admin", "192.0.2.1")))
         #expect(io.sent == ["pw\r"])
-        #expect(await a.observe(io, gate: gate) == .failed(.device("admin", "192.0.2.1")))
+        #expect(await a.observe(io, gate: gate) == .rejected(.device("admin", "192.0.2.1")))
         #expect(await a.observe(io, gate: gate) == nil)                        // la misma petición: nada más
-        #expect(ledger.isBlocked(.device("admin", "192.0.2.1")))
+        #expect(!ledger.isBlocked(.device("admin", "192.0.2.1")))
+        #expect(ledger.state(of: .device("admin", "192.0.2.1")) == nil)       // (sin reserva colgada)
         #expect(io.sent.count == 1)
+    }
+
+    /// La por defecto escrita sola tras «ssh …» en una sesión: si no vale, bloqueada 15 min (la única que se bloquea);
+    /// la siguiente orden ya no la escribe sola, pero un botón o el menú 🔑 sí.
+    @Test func laPorDefectoSiFallaSeBloquea() async {
+        let io = FakeTerminal(["tu.usuario@192.0.2.1's password:"]) { _ in ["Permission denied, please try again.", "tu.usuario@192.0.2.1's password:"] }
+        let ledger = CredentialLedger(), gate = AutomationGate()
+        let a = make(io, MemoryCredentialStore([.named("AD"): "pw"]), ledger, default: .init(name: "AD", user: "tu.usuario"))
+        a.beginCommand("ssh tu.usuario@192.0.2.1")
+        #expect(await a.observe(io, gate: gate) == .typed(.named("AD")))
+        #expect(await a.observe(io, gate: gate) == .failed(.named("AD")))
+        #expect(ledger.isBlocked(.named("AD")))
+        a.beginCommand("ssh tu.usuario@192.0.2.1")
+        io.screen += ["tu.usuario@192.0.2.1's password:"]
+        #expect(await a.observe(io, gate: gate) == .manual(.recentlyFailed(.named("AD"))))
+        #expect(io.sent == ["pw\r"])
+        #expect(await a.typeManually(.named("AD"), into: io) == .typed)        // (la eliges tú: se escribe)
+        #expect(io.sent == ["pw\r", "pw\r"])
     }
 
     /// «ssh -J tu.usuario@bastion admin@core-01» tecleado con contraseña en los dos: tras la del salto, ssh pide la del
@@ -205,8 +228,8 @@ import Testing
         let other = CredentialLedger(), b = make(again, MemoryCredentialStore([jump: "del-salto"]), other)
         b.beginCommand("ssh -J tu.usuario@bastion admin@core-01")
         #expect(await b.observe(again, gate: gate) == .typed(jump))
-        #expect(await b.observe(again, gate: gate) == .failed(jump))
-        #expect(other.isBlocked(jump) && again.sent == ["del-salto\r"])
+        #expect(await b.observe(again, gate: gate) == .rejected(jump))       // (no es la por defecto: sin bloqueo)
+        #expect(!other.isBlocked(jump) && again.sent == ["del-salto\r"])
     }
 
     /// El login de la sesión nunca arma la detección; la orden enviada hacia otro equipo sí.

@@ -134,7 +134,7 @@ final class RemoteBrowser {
                 Askpass.takeGiven(session: sid).forEach(ledger.confirmDirect) // (sin quitar la reserva de otro contexto)
                 try await self.connected(fs, generation: generation)
             } catch {
-                // (sin entrar: si ssh dice que no valía la que dio el askpass, bloqueada 15 min como en las pestañas)
+                // (sin entrar: se confirman las que entraron; la que no valía no se bloquea, es de la sesión)
                 Askpass.settleAfterExit(session: sid, ledger: ledger) {
                     Askpass.rejection(in: [String(describing: error), error.localizedDescription])
                 }
@@ -143,7 +143,7 @@ final class RemoteBrowser {
         }
     }
 
-    /// FTP: su contraseña guardada, sin reservarla ni esperar a otras pestañas; un rechazo real mantiene el bloqueo.
+    /// FTP: su contraseña guardada, sin reservarla ni esperar a otras pestañas; un rechazo te la pide a ti (no se bloquea).
     func connectFTP(password typed: String?, save: CredentialRef?) {
         guard let model, state != .connecting, state != .connected else { return }
         guard !model.core.renamingCredential else { state = .failed(L("Espera a que termine el renombrado de la credencial")); return }
@@ -165,23 +165,15 @@ final class RemoteBrowser {
             if password == nil, auto {
                 // (Llavero fuera del hilo principal)
                 let have = await store.availableInBackground(candidates)
-                if case .inject(let c) = policy.decide(request, commandUser: nil, candidates: have, isBlocked: ledger.isBlocked),
+                // (las de la sesión no se bloquean: un rechazo te la pide a ti, sin reintentarla sola)
+                if case .inject(let c) = policy.decide(request, commandUser: nil, candidates: have, isBlocked: { _ in false }),
                    let pw = await store.passwordInBackground(for: c) { (ref, password) = (c, pw) }
             }
             guard !Task.isCancelled, self.connectionGeneration == generation else { return }    // («Cancelar» mientras se leía)
             guard let password else { self.state = .needsPassword(nil); return }
-            if let ref, ledger.isBlocked(ref) {                // (otro rechazo pudo llegar mientras se leía el Llavero)
-                self.state = .needsPassword(L("«\(ref.account)» no ha valido: bloqueada 15 min en todas las pestañas"))
-                return
-            }
-            // (un rechazo, aunque llegue tarde, es de la que se dio ahora: si la guardas otra vez después, no la bloquea)
-            let attempted = Date()
             do {
-                // (si más tarde una transferencia recibe 530, la contraseña ha cambiado: bloqueada como en las pestañas)
-                let used = ref
-                let rejected: @Sendable () -> Void = { if let used { ledger.markFailed(used, attemptedAt: attempted) } }
                 let fs = try await FTPFileSystem.connect(label: label, host: r.target.host, port: r.target.port,
-                                                         user: user, password: password, rejected: rejected)
+                                                         user: user, password: password)
                 guard !Task.isCancelled, self.connectionGeneration == generation else { await fs.close(); return }
                 if let ref { ledger.confirmDirect(ref) }
                 if let save {
@@ -196,12 +188,11 @@ final class RemoteBrowser {
                 }
                 try await self.connected(fs, generation: generation)
             } catch is FTPLoginError {
-                // (el servidor ya ha dicho 530: aunque se haya cancelado, esa contraseña no vale y queda bloqueada)
-                if let ref { ledger.markFailed(ref, attemptedAt: attempted) }
+                // (530: esa contraseña no vale; se te pide a ti, sin bloquearla)
                 guard !Task.isCancelled, self.connectionGeneration == generation else { return }    // (cancelada: sin aviso)
                 if let ref {
-                    self.state = .needsPassword(L("«\(ref.account)» no ha valido: bloqueada 15 min en todas las pestañas"))
-                    model.status = L("🔑 «\(ref.account)» no ha valido: bloqueada 15 min en todas las pestañas")
+                    self.state = .needsPassword(L("«\(ref.account)» no ha valido: escríbela tú"))
+                    model.status = L("🔑 «\(ref.account)» no ha valido: escríbela tú")
                 } else {
                     self.state = .needsPassword(L("Usuario o contraseña no válidos"))
                 }

@@ -386,7 +386,7 @@ struct SetupContent: View {
         VStack(alignment: .leading, spacing: 14) {
             toggleCard(L("Contraseña de las sesiones automática"),
                        L("Al abrir SSH o SFTP, usa sólo la contraseña asignada a esa sesión y a cada salto. Si falta, te la pide; Telnet se inicia a mano. ")
-                       + L("No espera a otras pestañas. Un rechazo confirmado bloquea esa contraseña durante 15 min."), $wizard.sessionAuto)
+                       + L("No espera a otras pestañas. Si no vale, te la pide a ti (no se bloquea)."), $wizard.sessionAuto)
             VStack(alignment: .leading, spacing: 8) {
                 Text(L("EQUIPOS (ssh / telnet desde una sesión)")).font(t.ui(10, .bold)).tracking(2).foregroundStyle(SwiftUI.Color(t.accent2))
                 ThemedSegmented("", selection: $wizard.deviceMode) { o in

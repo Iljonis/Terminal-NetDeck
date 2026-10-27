@@ -175,7 +175,9 @@ cd Terminal-NetDeck
 - **Strict user rule:** a password is only typed automatically when it belongs to exactly the user being asked for.
 - **And the right device:** a server that prints a fake `admin@core-01's password:` doesn't get core-01's password;
   only that tab's destination and jump hosts count.
-- **A failed password is locked for 15 minutes in every tab**, so your Active Directory account doesn't get locked out.
+- **If the default credential, typed automatically, fails, it is not typed automatically again for 15 minutes** in any
+  tab, so your Active Directory account doesn't get locked out. Saved sessions' passwords are not locked (if one
+  doesn't work, you are asked for it), and whatever you choose — 🔑 menu or a button — is always typed.
 - **The Keychain never freezes the app:** it's read in the background, with a 10-second limit.
 - 🔑 menu to type any of them by hand, even at odd prompts the app doesn't recognise.
 
@@ -360,7 +362,8 @@ Mac's light or dark mode**, and **every theme passes a WCAG contrast test** (tex
 
 ## Security and privacy
 
-- Passwords only in the Keychain, with the user and device rules, and a 15-minute lock after a failure.
+- Passwords only in the Keychain, with the user and device rules, and the default credential not typed automatically
+  for 15 minutes after a failure.
 - MultiExec and safe paste only reach SSH/Telnet tabs: never a local terminal, SFTP or serial console.
   A line is only broadcast if you start it at the device prompt, and only to tabs that are at theirs: whatever you type
   at a password, passphrase, OTP or any request that isn't a prompt stays in its tab. If a device has an unusual

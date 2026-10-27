@@ -24,7 +24,7 @@ struct PasswordSettings: View {
             Section {
                 Toggle(L("Escribir sola la contraseña al abrir una sesión"), isOn: $s.sessionAutoPassword)
                 Text(L("Al abrir SSH o SFTP, usa sólo la contraseña asignada a esa sesión y a cada salto. Si falta, te la pide; Telnet se inicia a mano. ")
-                     + L("No espera a otras pestañas. Un rechazo confirmado bloquea esa contraseña durante 15 min."))
+                     + L("No espera a otras pestañas. Si no vale, te la pide a ti (no se bloquea)."))
                     .font(t.ui(11)).foregroundStyle(.secondary)
             } header: { Text(L("Sesiones")) }
             Section {
@@ -34,7 +34,8 @@ struct PasswordSettings: View {
                     o.append((PasswordAutomation.Mode.off, L("Nada")))
                 }
                 Text(L("Sólo después de enviar «ssh equipo» o «telnet» desde una sesión. La salida del equipo y los banners no activan la detección. ")
-                     + L("El usuario debe coincidir exactamente; los códigos de un solo uso y los cambios de contraseña se contestan a mano."))
+                     + L("El usuario debe coincidir exactamente; los códigos de un solo uso y los cambios de contraseña se contestan a mano. ")
+                     + L("Si la credencial por defecto, escrita sola, no vale, no se vuelve a escribir sola en 15 min (a mano o con un botón, sí)."))
                     .font(t.ui(11)).foregroundStyle(.secondary)
             } header: { Text(L("Equipos")) }
             Section {

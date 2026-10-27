@@ -5,8 +5,9 @@ import Foundation
 /// respuesta, así que la contraseña de cada SESIÓN (y de sus saltos con -J) entra sola al abrirla, sin teclearla en el
 /// terminal, como en cualquier cliente SSH:
 ///  · sólo la con nombre de ese perfil o la de su usuario@equipo, con usuario estricto;
-///  · un intento: si ssh vuelve a preguntar, no valía → bloqueada 15 min en todas partes y te la pide a ti;
-///  · sin reservas ni esperas entre sesiones guardadas; los fallos conocidos sí se comparten;
+///  · un intento: si ssh vuelve a preguntar, no valía → te la pide a ti (no se bloquea: el bloqueo de 15 min es sólo
+///    de la por defecto escrita sola dentro de una sesión, `PasswordAutomation`);
+///  · sin reservas ni esperas entre sesiones guardadas;
 ///  · cualquier otra pregunta (yes/no, passphrase, OTP…) te la hace a ti, en la pestaña. Esc cancela.
 /// Lo que escribe en la pestaña empieza por «[NetDeck]»: el autocompletado de equipos no lo toma por una petición.
 public enum Askpass {
@@ -144,11 +145,11 @@ public enum Askpass {
         return (confirmed, failed)
     }
 
-    /// Una pestaña, un explorador o un túnel han terminado sin entrar: sus intentos, resueltos en el registro de bloqueos
-    /// (`attributeRejection`). Sin esto, con «NumberOfPasswordPrompts 1» o un equipo que corta al primer fallo, ssh sale
-    /// sin volver a preguntar y cada reintento probaba otra vez la misma (cuenta AD bloqueada). Sólo intentos recientes
-    /// (`maxAge`: un rechazo mucho después no es de esa contraseña) y la pantalla sólo se mira si los hay. Devuelve las
-    /// bloqueadas.
+    /// Una pestaña, un explorador o un túnel han terminado sin entrar: sus intentos, resueltos (`attributeRejection`).
+    /// Las que han entrado se confirman; las que no, sólo se devuelven para decirlo (con «NumberOfPasswordPrompts 1» o
+    /// un equipo que corta al primer fallo, ssh sale sin volver a preguntar). No se bloquean: son de la sesión. Sólo
+    /// intentos recientes (`maxAge`: un rechazo mucho después no es de esa contraseña) y la pantalla sólo se mira si los
+    /// hay. Devuelve las que no han valido.
     @discardableResult
     public static func settleAfterExit(session: UUID, ledger: CredentialLedger, maxAge: TimeInterval = 150, now: Date = Date(),
                                        directory: URL = AppPaths.sessions, rejection: () -> Rejection?) -> [CredentialRef] {
@@ -157,14 +158,15 @@ public enum Askpass {
         let attempts = takeAttempts(at: url)
         guard !attempts.isEmpty, let modified, now.timeIntervalSince(modified) <= maxAge else { return [] }
         let (confirmed, failed) = attributeRejection(attempts, rejection: rejection())
-        // (si la has guardado otra vez después de darla, el rechazo era de la anterior: no bloquea la nueva)
-        let blocked = failed.filter { ledger.markFailed($0, attemptedAt: modified) }
+        // (las de la sesión no se bloquean: sólo se dice cuál no ha valido; si la has guardado otra vez después de
+        // darla, el rechazo era de la anterior y no se dice)
         confirmed.forEach(ledger.confirmDirect)
+        let rejected = failed.filter { !ledger.wasReset($0, after: modified) }
         if !failed.isEmpty {
             DebugLog.log("askpass", "rechazada al terminar: \(failed.map(\.description).joined(separator: ", "))"
-                         + (blocked.count < failed.count ? " (restablecida después: no se bloquea)" : ""))
+                         + (rejected.count < failed.count ? " (guardada otra vez después)" : ""))
         }
-        return blocked
+        return rejected
     }
 
     /// En la pestaña `session` ssh pregunta ya por `host`: las dadas antes a OTROS equipos de esa pestaña (los saltos)
@@ -239,28 +241,22 @@ public enum Askpass {
                         store: store, ledger: ledger, state: state, session: session, directory: directory, reply: reply)
 
         if let session { confirmEarlier(session: session, host: host, ledger: ledger, directory: directory) }
-        // ssh vuelve a preguntar enseguida: la que le dimos no valía (salvo que la hayas guardado otra vez después de
-        // dársela, en otra pestaña o en Ajustes: entonces era la anterior y la nueva no se bloquea)
+        // ssh vuelve a preguntar enseguida: la que le dimos no valía → te la pide a ti (un solo intento por pregunta; no
+        // se bloquea: eso es sólo de la por defecto escrita sola)
         if let used = ask.recentlyGiven() {
-            if ledger.markFailed(used.ref, attemptedAt: used.at) {
-                tty.say(L("\(red)\(marker) la contraseña guardada «\(used.ref)» no ha funcionado en \(account): ")
-                        + L("no se probará sola en 15 min\(reset)\n"))
-            } else {
-                tty.say(L("\(yellow)\(marker) «\(used.ref)» no ha funcionado en \(account), pero se ha guardado otra vez después: no se bloquea\(reset)\n"))
-            }
+            tty.say(L("\(red)\(marker) la contraseña guardada «\(used.ref)» no ha funcionado en \(account): escríbela tú\(reset)\n"))
             return ask.user(failed: used.ref)
         }
-        if env[manualFlag] == "1" { return ask.user(failed: nil) }
+        if ask.typedRecently() || env[manualFlag] == "1" { return ask.user(failed: nil) }
         let request = PasswordRequest(line: question, account: account)
         let candidates = scope.candidates.filter { store.contains($0.ref) }
-        switch CredentialPolicy().decide(request, commandUser: nil, candidates: candidates, isBlocked: ledger.isBlocked) {
+        // (las de la sesión no se bloquean: un rechazo en otra pestaña no impide probarla aquí una vez)
+        switch CredentialPolicy().decide(request, commandUser: nil, candidates: candidates, isBlocked: { _ in false }) {
         case .manual(let why):
             if why != .noCredential { tty.say("\(yellow)\(marker) \(explain(why))\(reset)\n") }
             return ask.user(failed: nil)
         case .inject(let ref):
             guard let pw = try? store.password(for: ref), !pw.isEmpty else { return ask.user(failed: ref) }
-            // (leer el Llavero puede tardar: un rechazo de otra ventana mientras tanto sigue mandando)
-            if ledger.isBlocked(ref) { return ask.user(failed: nil) }
             ask.given(ref)
             return reply(pw)
         }
@@ -399,8 +395,17 @@ public enum Askpass {
             return (given.ref, m)
         }
 
+        /// La última respuesta a esta pregunta, hace poco, la escribiste tú sin guardarla: si ssh vuelve a preguntar,
+        /// tampoco valía y se te pregunta otra vez (no se prueba sola la guardada que ya falló en este ssh).
+        func typedRecently() -> Bool {
+            guard let attrs = try? FileManager.default.attributesOfItem(atPath: state.path),
+                  let m = attrs[.modificationDate] as? Date, Date().timeIntervalSince(m) < 120,
+                  let text = try? String(contentsOf: state, encoding: .utf8) else { return false }
+            return text.trimmed == encodeManual(host: account)
+        }
+
         func given(_ ref: CredentialRef?) {
-            try? SafeFile.write(ref.map { encodeGiven($0, host: account) } ?? "", to: state)
+            try? SafeFile.write(ref.map { encodeGiven($0, host: account) } ?? encodeManual(host: account), to: state)
             guard let session else { return }
             // (también la escrita a mano sin guardar: así, si entra, no se confirma la guardada que falló antes)
             let line = ref.map { encodeGiven($0, host: host) } ?? encodeManual(host: host)

@@ -366,7 +366,8 @@ final class RelojVirtual: PollClock, @unchecked Sendable {
     private func automatismo(_ ledger: CredentialLedger) -> PasswordAutomation {
         let a = PasswordAutomation(mode: .autoType, store: MemoryCredentialStore([.named("AD"): "secreto-demo"]),
                                    ledger: ledger) { _ in
-            [CredentialCandidate(ref: .named("AD"), owners: ["tu.usuario"], origin: .sessionNamed)]
+            // (la por defecto: la única que un rechazo bloquea)
+            [CredentialCandidate(ref: .named("AD"), owners: ["tu.usuario"], origin: .defaultCredential)]
         }
         a.settle = .milliseconds(1)
         a.beginCommand("ssh tu.usuario@192.0.2.1")

@@ -2,7 +2,8 @@ import Foundation
 
 /// La contraseña de un equipo abierto DESDE una sesión: sólo una orden enviada por la persona arma la detección.
 /// Decide con `CredentialPolicy`, espera un instante (Esc la cancela) y comprueba otra vez antes de escribir. El
-/// login inicial de la sesión no pasa por aquí. Un rechazo bloquea la contraseña en todas las pestañas.
+/// login inicial de la sesión no pasa por aquí. Sólo el rechazo de la por defecto escrita sola la bloquea 15 min en
+/// todas las pestañas; lo que eliges tú (menú 🔑, botones, el aviso) y las de la sesión o del equipo, nunca.
 @MainActor
 public final class PasswordAutomation {
     public enum Mode: String, Sendable, CaseIterable {
@@ -15,7 +16,10 @@ public final class PasswordAutomation {
         case typed(CredentialRef)
         case suggested(CredentialRef)
         case manual(ManualReason)
+        /// La por defecto, escrita sola, no ha valido: bloqueada 15 min en todas las pestañas.
         case failed(CredentialRef)
+        /// Otra (de la sesión, de un equipo, elegida por ti) no ha valido: no se bloquea; la escribes tú.
+        case rejected(CredentialRef)
         case confirmed(CredentialRef)
         case cancelled
     }
@@ -65,8 +69,9 @@ public final class PasswordAutomation {
     private let ledger: CredentialLedger
     private var handledSite: String?
     /// La enviada que espera respuesta, con la cuenta de su petición («tu.usuario@bastion»; nil si no la decía).
-    /// (`revision`: la de la pantalla al enviarla; con el historial lleno la fila del cursor deja de crecer)
-    private typealias Pending = (ref: CredentialRef, row: Int, reservation: UUID?, account: String?, revision: Int)
+    /// (`revision`: la de la pantalla al enviarla; con el historial lleno la fila del cursor deja de crecer. `blocks`:
+    /// sólo la por defecto escrita sola se bloquea si no vale; lo que eliges tú y las de la sesión, nunca)
+    private typealias Pending = (ref: CredentialRef, row: Int, reservation: UUID?, account: String?, revision: Int, blocks: Bool)
     private var pending: Pending?
     private var unresolved: [CredentialRef: UUID] = [:]
     private var external: [CredentialRef: UUID] = [:]
@@ -186,7 +191,7 @@ public final class PasswordAutomation {
         var seen = Set<CredentialRef>()
         return available.compactMap { candidate in
             guard case .inject(let ref) = policy.decide(request, commandUser: commandUser, jumpUsers: commandJumpUsers,
-                                                        candidates: [candidate], isBlocked: ledger.isBlocked),
+                                                        candidates: [candidate], isBlocked: { _ in false }),
                   seen.insert(ref).inserted else { return nil }
             return ref
         }
@@ -268,9 +273,7 @@ public final class PasswordAutomation {
         // (el rechazo puede haber quedado encima de una fila vacía o de un prompt, en el mismo bloque de salida)
         if let p = pending, io.lines(from: p.row).contains(where: PromptRule.authenticationFailed) {
             pending = nil
-            if let token = p.reservation { ledger.markFailed(p.ref, reservation: token) } else { ledger.markFailed(p.ref) }
-            cancelCommand()
-            return .failed(p.ref)
+            return rejected(p)
         }
         if !loggedIn, PromptRule.isPrompt(line, custom: io.promptRule) { loggedIn = true }
         var mode = self.mode
@@ -345,8 +348,8 @@ public final class PasswordAutomation {
                 return .suggested(first)
             }
         }
-        let decision = policy.decide(request, commandUser: commandUser, jumpUsers: commandJumpUsers, candidates: cands,
-                                     isBlocked: ledger.isBlocked)
+        let (decision, chosen) = policy.choose(request, commandUser: commandUser, jumpUsers: commandJumpUsers,
+                                               candidates: cands, isBlocked: ledger.isBlocked)
         guard case .inject(let ref) = decision else {
             if case .manual(let why) = decision { return .manual(why) }
             return nil
@@ -384,7 +387,7 @@ public final class PasswordAutomation {
         if sameLogin(context, io: io), !sw.isTripped, !Task.isCancelled, owns(ref, token: token),
            io.revision == revision, !ledger.isBlocked(ref), let pw = secret {
             reservation = nil                                // (ya enviada: la reserva se resuelve con su respuesta)
-            pending = (ref, io.cursorRow, token, request.account, io.revision)
+            pending = (ref, io.cursorRow, token, request.account, io.revision, chosen?.origin == .defaultCredential)
             io.sendLine(pw)
             event = .typed(ref)
         } else {
@@ -397,15 +400,25 @@ public final class PasswordAutomation {
     }
 
     /// Piden otra vez contraseña tras enviar `p`: con otra cuenta (-J: tras la del salto, la del destino), la anterior
-    /// ha entrado; con la misma o sin cuenta, no valía (`.failed`).
+    /// ha entrado; con la misma o sin cuenta, no valía (`rejected`).
     private func resolveRepeated(_ p: Pending, asking account: String?) -> Event? {
         if let asked = p.account?.lowercased(), let now = account?.lowercased(), asked != now {
             if let token = p.reservation { ledger.confirm(p.ref, reservation: token) } else { ledger.confirmDirect(p.ref) }
             return nil
         }
-        if let token = p.reservation { ledger.markFailed(p.ref, reservation: token) } else { ledger.markFailed(p.ref) }
+        return rejected(p)
+    }
+
+    /// No ha valido: sólo la por defecto escrita sola queda bloqueada (`.failed`); las demás sueltan su reserva y no
+    /// se vuelven a escribir solas en esta orden (`.rejected`: la escribes tú).
+    private func rejected(_ p: Pending) -> Event {
+        if p.blocks {
+            if let token = p.reservation { ledger.markFailed(p.ref, reservation: token) } else { ledger.markFailed(p.ref) }
+        } else if let token = p.reservation {
+            ledger.release(p.ref, reservation: token)
+        }
         cancelCommand()
-        return .failed(p.ref)
+        return p.blocks ? .failed(p.ref) : .rejected(p.ref)
     }
 
     /// (aparte: con el cierre dentro de observe, el compilador de Swift 6.3 se cae en ClosureLifetimeFixup)
@@ -418,20 +431,21 @@ public final class PasswordAutomation {
     }
 
     /// `busy`: ya se está escribiendo una (dos clics seguidos no la mandan dos veces).
-    public enum ManualResult: Equatable, Sendable { case typed, blocked, notAsked, missing, busy, pending }
+    public enum ManualResult: Equatable, Sendable { case typed, notAsked, missing, busy, pending }
 
     /// El selector del login interno: una ref ofrecida para su id y su pantalla, con usuario estricto. Mantiene la
     /// propuesta durante la lectura para que un doble clic sea `busy`; cancelarla invalida también el await pendiente.
+    /// La eliges tú: también la por defecto bloqueada (sin reserva), y si no vale no se bloquea.
     public func choose(_ ref: CredentialRef, offer token: UUID, into io: TerminalIO) async -> ManualResult {
         guard operation == nil else { return .busy }
         guard let proposal = offer, proposal.id == token, proposal.refs.contains(ref) else { return .notAsked }
         guard current(proposal, io: io) else { offer = nil; return .notAsked }
-        if ledger.isBlocked(ref) { return .blocked }
         guard compatible(proposal.request, from: candidates(proposal.request)).contains(ref) else { return .notAsked }
         let probe = ledger.reserveProbe(ref)
-        guard probe.result == .go, let reservationToken = probe.token else { return probe.result == .wait ? .pending : .blocked }
+        if probe.result == .wait { return .pending }
+        let reservationToken = probe.token
         let g = generation, op = UUID()
-        reservation = (ref, g, reservationToken)
+        if let t = reservationToken { reservation = (ref, g, t) }
         operation = op
         defer {
             releaseReservation(g)
@@ -440,22 +454,25 @@ public final class PasswordAutomation {
         }
         guard let pw = await Self.secret(ref, in: store) else { return .missing }
         guard !Task.isCancelled, offer?.id == token, current(proposal, io: io) else { return .notAsked }
-        if ledger.isBlocked(ref) { return .blocked }
-        guard owns(ref, token: reservationToken) else { return .notAsked }
+        var held = reservationToken
+        if let t = held, !owns(ref, token: t) {
+            // (otra pestaña la ha reservado: no; un fallo de la por defecto mientras se leía no cuenta, la eliges tú)
+            guard ledger.isBlocked(ref) else { return .notAsked }
+            held = nil
+        }
         guard compatible(proposal.request, from: candidates(proposal.request)).contains(ref) else { return .notAsked }
         reservation = nil
-        pending = (ref, io.cursorRow, reservationToken, proposal.request.account, io.revision)
+        pending = (ref, io.cursorRow, held, proposal.request.account, io.revision, false)
         handledSite = proposal.site
         offer = nil
         io.sendLine(pw)
         return .typed
     }
 
-    /// Elección manual (menú 🔑, botones): sin la regla de usuario (la eliges tú), pero nunca una bloqueada sin `force`.
-    /// También en la pregunta del askpass al abrir la sesión. El Llavero se lee fuera del hilo principal; justo antes
-    /// de escribirla se comprueba que la siguen pidiendo.
-    public func typeManually(_ ref: CredentialRef, into io: TerminalIO, force: Bool = false) async -> ManualResult {
-        if !force, ledger.isBlocked(ref) { return .blocked }
+    /// Elección manual (menú 🔑, botones): sin la regla de usuario ni el bloqueo de la por defecto (la eliges tú), y si
+    /// no vale no se bloquea. También en la pregunta del askpass al abrir la sesión. El Llavero se lee fuera del hilo
+    /// principal; justo antes de escribirla se comprueba que la siguen pidiendo.
+    public func typeManually(_ ref: CredentialRef, into io: TerminalIO) async -> ManualResult {
         guard PasswordPrompt.acceptsManual(io.cursorLine) else { return .notAsked }
         let site = "\(io.cursorRow):\(io.cursorLine.trimmed)"
         guard operation == nil, site != handledSite || pending == nil else { return .busy }
@@ -467,22 +484,19 @@ public final class PasswordAutomation {
         defer { if operation == op { operation = nil } }
         guard let pw = await store.passwordInBackground(for: ref) else { return .missing }
         guard generation == g, !Task.isCancelled else { return .notAsked }
-        // (mientras se leía, otra pestaña puede haberla marcado como fallida, o la pantalla haber cambiado)
-        if !force, ledger.isBlocked(ref) { return .blocked }
+        // (mientras se leía, la pantalla puede haber cambiado)
         guard "\(io.cursorRow):\(io.cursorLine.trimmed)" == site else { return .notAsked }
         if let p = pending, let token = p.reservation { ledger.release(p.ref, reservation: token) }
-        if force { ledger.reset(ref) }
         let asked = PasswordPrompt.detect(cursorLine: io.cursorLine, above: []) ?? PasswordPrompt.askpassRequest(io.cursorLine)
-        pending = (ref, io.cursorRow, nil, asked?.account, io.revision)
+        pending = (ref, io.cursorRow, nil, asked?.account, io.revision, false)
         io.sendLine(pw)
         handledSite = site
         return .typed
     }
 
     /// «Escribir sin esperar a que la pida» (menú 🔑): la manda al terminal aunque la línea no sea «Password:» (un
-    /// prompt que no se reconoce). Intro sólo con `pressReturn`. Nunca una bloqueada sin `force` (y no la desbloquea).
-    public func typeAnyway(_ ref: CredentialRef, into io: TerminalIO, pressReturn: Bool, force: Bool = false) async -> ManualResult {
-        if !force, ledger.isBlocked(ref) { return .blocked }
+    /// prompt que no se reconoce). Intro sólo con `pressReturn`. La eliges tú: también la por defecto bloqueada.
+    public func typeAnyway(_ ref: CredentialRef, into io: TerminalIO, pressReturn: Bool) async -> ManualResult {
         guard operation == nil else { return .busy }
         waitingProbe?.task.cancel()
         waitingProbe = nil
@@ -492,7 +506,6 @@ public final class PasswordAutomation {
         defer { if operation == op { operation = nil } }
         guard let pw = await store.passwordInBackground(for: ref) else { return .missing }
         guard generation == g, !Task.isCancelled else { return .notAsked }
-        if !force, ledger.isBlocked(ref) { return .blocked }
         if pressReturn { io.sendLine(pw) } else { io.send(pw) }
         return .typed
     }

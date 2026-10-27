@@ -75,7 +75,7 @@ extension AppModel {
             if let sid = tunnelAskpass.removeValue(forKey: id) { Askpass.takeGiven(session: sid).forEach(ledger.confirmDirect) }
             status = L("Túnel «\(name)» activo")
         case .failed(let why):
-            // (si ssh dice que no valía la que dio el askpass, bloqueada 15 min como en las pestañas)
+            // (se confirman las que entraron, p. ej. la del salto; la que no valía no se bloquea: es de la sesión)
             if let sid = tunnelAskpass.removeValue(forKey: id) {
                 Askpass.settleAfterExit(session: sid, ledger: ledger) { tunnelRunner.authenticationRejection(for: id) }
             }

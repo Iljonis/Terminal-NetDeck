@@ -194,12 +194,6 @@ enum Ingles {
             "not in the Keychain",
         "el equipo no ha contestado":
             "the device didn't respond",
-        "%@%@ la contraseña guardada «%@» no ha funcionado en %@: ":
-            "%@%@ the saved password “%@” didn't work on %@: ",
-        "no se probará sola en 15 min%@\n":
-            "it won't be tried automatically for 15 min%@\n",
-        "%@%@ «%@» no ha funcionado en %@, pero se ha guardado otra vez después: no se bloquea%@\n":
-            "%@%@ “%@” didn't work on %@, but it was saved again afterwards: it isn't blocked%@\n",
         "piden una contraseña nueva o repetida: escríbela tú":
             "a new or repeated password is requested: type it yourself",
         "ninguna guardada es de «%@»: escríbela tú":
@@ -331,8 +325,6 @@ enum Ingles {
             "⎋ Password cancelled",
         "🔑 «%@» no ha valido: bloqueada 15 min en todas las pestañas":
             "🔑 “%@” didn't work: locked for 15 min in all tabs",
-        "🔑 «%@» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes":
-            "🔑 “%@” failed recently: not typing it (AD account) · unlock it in Settings",
         "🔑 Ahí no piden contraseña ahora":
             "🔑 No password is being requested there right now",
         "🔑 «%@» no está en el Llavero":
@@ -733,8 +725,6 @@ enum Ingles {
             "Type the password automatically when opening a session",
         "Al abrir SSH o SFTP, usa sólo la contraseña asignada a esa sesión y a cada salto. Si falta, te la pide; Telnet se inicia a mano. ":
             "When opening SSH or SFTP, only the password assigned to that session and each jump host is used. If missing, you are asked; Telnet starts manually. ",
-        "No espera a otras pestañas. Un rechazo confirmado bloquea esa contraseña durante 15 min.":
-            "No waiting for other tabs. A confirmed rejection locks that password for 15 min.",
         "Sesiones":
             "Sessions",
         "Cuando un equipo pide contraseña":
@@ -747,8 +737,6 @@ enum Ingles {
             "Nothing",
         "Sólo después de enviar «ssh equipo» o «telnet» desde una sesión. La salida del equipo y los banners no activan la detección. ":
             "Only after sending “ssh device” or “telnet” from a session. Device output and banners do not activate detection. ",
-        "El usuario debe coincidir exactamente; los códigos de un solo uso y los cambios de contraseña se contestan a mano.":
-            "The user must match exactly; one-time codes and password changes are answered manually.",
         "Equipos":
             "Devices",
         "Contraseña por defecto":
@@ -1233,12 +1221,6 @@ enum Ingles {
             "Type “%@” into “%@”?",
         "Va como texto al terminal aunque no pidan contraseña: si no es un prompt de contraseña, se verá en pantalla (y puede quedar en el historial del equipo).":
             "It goes to the terminal as text even if no password is being asked for: if it isn't a password prompt, it will show on screen (and may stay in the device's history).",
-        "«%@» ha fallado hace poco":
-            "“%@” failed recently",
-        "Si es una cuenta AD, otro intento fallido puede bloquearla. ¿Escribirla igualmente?":
-            "If it's an AD account, another failed attempt may lock it. Type it anyway?",
-        "Escribir igualmente":
-            "Type Anyway",
         "Escribir sin esperar a que la pida":
             "Type Without Waiting for the Prompt",
         "Sin Intro":
@@ -1567,8 +1549,6 @@ enum Ingles {
             "%@ items",
         "%@ elementos · %@":
             "%@ items · %@",
-        "«%@» no ha valido: bloqueada 15 min en todas las pestañas":
-            "“%@” didn't work: blocked for 15 min in every tab",
         "Abre otra pestaña SFTP o FTP y conéctala":
             "Open another SFTP or FTP tab and connect it",
         "Abrir la consola":
@@ -2223,8 +2203,6 @@ enum Ingles {
         "la contraseña está vacía": "the password is empty",
         "%@%@ está vacía: escríbela o pulsa Esc para cancelar%@\n%@ %@'s password: ":
             "%@%@ it's empty: type it or press Esc to cancel%@\n%@ %@'s password: ",
-        "\r\n\u{1b}[38;5;204m[NetDeck] La contraseña guardada «%@» no ha valido: no se probará sola en 15 min\u{1b}[0m":
-            "\r\n\u{1b}[38;5;204m[NetDeck] The saved password “%@” didn’t work: it won’t be tried automatically for 15 min\u{1b}[0m",
         "Contraseña para %@": "Password for %@",
         "🔑 Otra autenticación con «%@» sigue pendiente; escríbela a mano o, si ya terminó, restablécela en Ajustes → Contraseñas → «Restablecer pendiente»":
             "🔑 Another authentication using “%@” is still pending; type it manually or, if it has ended, reset it in Settings → Passwords → “Reset pending attempt”",
@@ -2242,5 +2220,21 @@ enum Ingles {
             "✗ Button “%@”: no tab can receive it right now",
         "✗ Botón «%@»: piden la contraseña de «%@», no la de «%@»":
             "✗ Button “%@”: the password requested is for “%@”, not “%@”",
+        "🔑 «%@» no ha valido: escríbela tú":
+            "🔑 “%@” did not work: type it yourself",
+        "«%@» no ha valido: escríbela tú o elige otra en 🔑":
+            "“%@” did not work: type it yourself or choose another one in 🔑",
+        "«%@» no ha valido: escríbela tú":
+            "“%@” did not work: type it yourself",
+        "%@%@ la contraseña guardada «%@» no ha funcionado en %@: escríbela tú%@\n":
+            "%@%@ the saved password “%@” did not work on %@: type it yourself%@\n",
+        "\r\n\u{1b}[38;5;204m[NetDeck] La contraseña guardada «%@» no ha valido\u{1b}[0m":
+            "\r\n\u{1b}[38;5;204m[NetDeck] The saved password “%@” did not work\u{1b}[0m",
+        "No espera a otras pestañas. Si no vale, te la pide a ti (no se bloquea).":
+            "It does not wait for other tabs. If it does not work, you are asked for it (it is not locked).",
+        "El usuario debe coincidir exactamente; los códigos de un solo uso y los cambios de contraseña se contestan a mano. ":
+            "The user must match exactly; one-time codes and password changes are answered manually. ",
+        "Si la credencial por defecto, escrita sola, no vale, no se vuelve a escribir sola en 15 min (a mano o con un botón, sí).":
+            "If the default credential, typed automatically, does not work, it is not typed automatically again for 15 min (manually or with a button, it is).",
 ]
 }
