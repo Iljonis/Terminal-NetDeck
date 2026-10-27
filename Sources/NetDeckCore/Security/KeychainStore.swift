@@ -47,15 +47,27 @@ public struct KeychainStore: CredentialStore {
     }
 
     public func save(_ password: String, for ref: CredentialRef) throws {
-        let label = ref.service == .device ? "NetDeck ssh \(ref.account)" : "NetDeck \(ref.account)"
-        guard !password.contains(where: \.isNewline) else { throw KeychainError(message: L("la contraseña lleva un salto de línea")) }
-        // (vacía, nunca: sustituiría la buena y cada intento con ella sería un fallo más en la cuenta)
-        guard !password.isEmpty else { throw KeychainError(message: L("la contraseña está vacía")) }
+        let cmd = try Self.saveCommand(password, for: ref)
         // Por la entrada estándar («security -i»), no en los argumentos: ahí la vería cualquiera con «ps».
-        let cmd = ["add-generic-password", "-U", "-s", ref.service.rawValue, "-a", ref.account, "-l", label, "-w", password]
-            .map(Self.quoted).joined(separator: " ")
         let r = try Self.security(["-i"], input: cmd + "\n")
         guard r.status == 0, !r.error.contains("error") else { throw KeychainError(message: r.error) }
+    }
+
+    /// Alta sin sustituir una cuenta que haya aparecido desde que se abrió el formulario.
+    public func create(_ password: String, for ref: CredentialRef) throws {
+        let cmd = try Self.saveCommand(password, for: ref, replaceExisting: false)
+        let r = try Self.security(["-i"], input: cmd + "\n")
+        guard r.status == 0, !r.error.contains("error") else { throw KeychainError(message: r.error) }
+    }
+
+    /// La validación ocurre antes de arrancar `security`; se puede probar sin acceder al Llavero.
+    static func saveCommand(_ password: String, for ref: CredentialRef, replaceExisting: Bool = true) throws -> String {
+        try CredentialValidation.validate(password, for: ref)
+        let label = ref.service == .device ? "NetDeck ssh \(ref.account)" : "NetDeck \(ref.account)"
+        var args = ["add-generic-password"]
+        if replaceExisting { args.append("-U") }
+        args += ["-s", ref.service.rawValue, "-a", ref.account, "-l", label, "-w", password]
+        return args.map(Self.quoted).joined(separator: " ")
     }
 
     public func delete(_ ref: CredentialRef) throws {
@@ -130,6 +142,7 @@ public struct KeychainStore: CredentialStore {
 
 public struct KeychainError: LocalizedError, Equatable {
     public let message: String
+    public init(message: String) { self.message = message }
 
     public var errorDescription: String? { L("Llavero: \(message)") }
 }

@@ -13,7 +13,7 @@ final class AppCore {
     let settings = AppSettings()
     let themes: ThemeStore
     let sessions = SessionManager()
-    let store: CredentialStore = KeychainStore()
+    let store: CredentialStore
     let ledger = CredentialLedger.shared()
     let policy = CredentialPolicy()
     /// Copias de los exploradores SFTP/FTP (también de servidor a servidor y de una ventana a otra).
@@ -27,8 +27,13 @@ final class AppCore {
     var buttons = ButtonFile()
     @ObservationIgnored var buttonsMoved = false
     /// Para refrescar lo que depende del Llavero.
-    var keychainRevision = 0
-    @ObservationIgnored var keychainCache: (rev: Int, list: [CredentialRef])?
+    var keychainRevision = 0 { didSet { refreshKeychain() } }
+    var keychainAccounts: [CredentialRef] = []
+    var keychainLoading = false
+    var keychainError: String?
+    var editingCredential = false
+    var renamingCredential = false
+    @ObservationIgnored private var keychainLoadID = UUID()
     /// Las reglas de resaltado leídas (todas, también las apagadas) y de dónde.
     var highlightConfig = HighlightConfig()
     var highlightFile: URL?
@@ -93,6 +98,10 @@ final class AppCore {
     }
 
     private init() {
+        // (las capturas usan un catálogo ficticio: ni siquiera consultan nombres del Llavero real)
+        store = ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] != nil
+            ? MemoryCredentialStore([.named("AD"): "ejemplo", .named("Red principal"): "ejemplo", .device("tu.usuario", "core-01"): "ejemplo"])
+            : KeychainStore()
         themes = ThemeStore(selected: settings.themeID)
         DebugLog.enabled = settings.debugLog
         DebugLog.log("app", "arranca \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")"
@@ -102,6 +111,28 @@ final class AppCore {
         transfers.showCopied = { [weak self] fs, dir in self?.refreshBrowsers(showing: [dir], of: fs) }
         tunnelRunner.onChange = { [weak self] id, state in self?.front?.tunnelChanged(id, state) }
         watchMenus()
+        refreshKeychain()
+    }
+
+    /// Listar también puede esperar a macOS: las vistas sólo leen esta copia, compartida entre ventanas.
+    func refreshKeychain() {
+        let id = UUID()
+        keychainLoadID = id
+        keychainLoading = true
+        Task { [weak self, store] in
+            do {
+                let entries = try await store.accountsInBackground()
+                guard let self, self.keychainLoadID == id else { return }
+                self.keychainAccounts = entries
+                self.keychainError = nil
+                self.keychainLoading = false
+            } catch {
+                guard let self, self.keychainLoadID == id else { return }
+                self.keychainError = error.localizedDescription
+                self.keychainLoading = false
+                ErrorLog.error("llavero", "no se pueden listar las contraseñas: \(error.localizedDescription)")
+            }
+        }
     }
 
     /// Los menús: lo que decide si se ven activos (la ventana de delante, sus hojas, su pestaña…). SwiftUI no los vuelve

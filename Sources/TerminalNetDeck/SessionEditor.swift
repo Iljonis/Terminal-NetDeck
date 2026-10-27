@@ -20,6 +20,7 @@ struct SessionEditor: View {
     @Stored private var importing = false
     @Stored private var newPassword = ""
     @Stored private var changing: CredentialRef?
+    @Stored private var creatingCredential = false
     /// Puertos /dev/cu.* de este Mac (se buscan al abrir y con ↻).
     @Stored private var ports: [String] = []
     /// Fuentes monoespaciadas instaladas (para el perfil; se buscan al abrir).
@@ -72,6 +73,12 @@ struct SessionEditor: View {
         }
         .sheet(isPresented: Binding(get: { changing != nil }, set: { if !$0 { changing = nil } })) {
             if let ref = changing { PasswordChangeSheet(ref: ref) { message = $0 } }
+        }
+        .sheet(isPresented: $creatingCredential) {
+            CredentialEditorSheet(ref: nil, namedOnly: true) { ref, result in
+                if let i = index { file.sessions[i].credential = ref.account }
+                message = result
+            }
         }
     }
 
@@ -401,9 +408,10 @@ struct SessionEditor: View {
         let user = file.sessions[i].user.isEmpty ? AppPaths.userName : file.sessions[i].user
         let host = file.sessions[i].host.isEmpty ? file.sessions[i].name : file.sessions[i].host
         return Section {
-                ThemedPicker(L("Contraseña"), selection: s.credential) { o in
-                    o.append(("", L("Automática (la de \(user)@\(host))")))
-                    o.append(("-", L("La propia del equipo (-)")))
+                ThemedPicker(L("Credencial de la sesión"), selection: s.credential) { o in
+                    let group = file.groupCredentials[file.sessions[i].group] ?? ""
+                    o.append(("", group.isEmpty ? L("Automática: propia del equipo") : L("Heredar del grupo: \(group)")))
+                    o.append(("-", L("Propia del equipo (ignorar grupo)")))
                     if !file.sessions[i].credential.isEmpty, file.sessions[i].credential != "-",
                        !namedCredentials.contains(file.sessions[i].credential) { o.append((file.sessions[i].credential, L("\(file.sessions[i].credential) (no está en el Llavero)"))) }
                     for x in namedCredentials { o.append((x, "🔑 \(x)")) }
@@ -412,9 +420,13 @@ struct SessionEditor: View {
                     get: { file.groupCredentials[file.sessions[i].group] ?? "" },
                     set: { file.groupCredentials[file.sessions[i].group] = $0.isEmpty ? nil : $0 })) { o in
                     o.append(("", L("(ninguna)")))
+                    if let group = file.groupCredentials[file.sessions[i].group], !group.isEmpty, !namedCredentials.contains(group) {
+                        o.append((group, L("\(group) (no está en el Llavero)")))
+                    }
                     for x in namedCredentials { o.append((x, "🔑 \(x)")) }
                 }
-                let hasDevice = model.store.contains(.device(user, host))
+                Button(L("Nueva credencial con nombre…")) { creatingCredential = true }
+                let hasDevice = model.hasCredential(.device(user, host))
                 HStack {
                     SecureField(hasDevice ? L("Sustituir la de \(user)@\(host)") : L("Guardar una para \(user)@\(host)"),
                                 text: $newPassword)
@@ -432,20 +444,16 @@ struct SessionEditor: View {
     /// Cuál usará de verdad (en el orden en que se prueban) y «Cambiar contraseña…» para sustituirla.
     @ViewBuilder private func inUse(_ se: EditableSession, user: String, host: String, hasDevice: Bool) -> some View {
         let named = file.namedCredential(of: se)
-        let ref: CredentialRef? = se.credential == "-" ? nil
-            : named.map { .named($0.name) } ?? (hasDevice ? .device(user, host) : nil)
+        let ref: CredentialRef = named.map { .named($0.name) } ?? .device(user, host)
         HStack {
-            Text(se.credential == "-" ? L("Usa: la propia del equipo (la escribes tú)")
-                 : named.map { $0.fromGroup ? L("Usa: 🔑 \($0.name) (la del grupo)") : L("Usa: 🔑 \($0.name)") }
+            Text(named.map { $0.fromGroup ? L("Usa: 🔑 \($0.name) (la del grupo)") : L("Usa: 🔑 \($0.name)") }
                  ?? (hasDevice ? L("Usa: la de \(user)@\(host)") : L("Usa: ninguna (a mano)")))
                 .font(.caption).foregroundStyle(.secondary)
-            if let ref, !model.store.contains(ref) {
+            if named != nil, !model.hasCredential(ref) {
                 Text(L("(no está en el Llavero)")).font(.caption).foregroundStyle(.orange)
             }
             Spacer()
-            if let ref {
-                Button(model.store.contains(ref) ? L("Cambiar contraseña…") : L("Guardarla…")) { changing = ref }
-            }
+            Button(model.hasCredential(ref) ? L("Cambiar contraseña…") : L("Guardarla…")) { changing = ref }
         }
     }
 
@@ -489,7 +497,7 @@ struct SessionEditor: View {
     // MARK: acciones
 
     private var namedCredentials: [String] {
-        model.keychainAccounts.filter { $0.service == .named }.map(\.account)
+        model.keychainAccounts.filter { $0.service == .named && $0.account != "-" }.map(\.account)
     }
 
     private func load() {

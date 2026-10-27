@@ -39,6 +39,9 @@ public final class PasswordAutomation {
         didSet { if oldValue != offer { onOfferChange?(offer) } }
     }
     public var onOfferChange: ((Offer?) -> Void)?
+    /// La pantalla seguía pidiendo la misma contraseña al terminar una consulta obsoleta o una espera ajena.
+    /// Se llama con la operación ya liberada; la vista agrupa esta petición con las comprobaciones de salida.
+    public var onRetry: (() -> Void)?
 
     public var mode: Mode { didSet { if mode == .off { cancelCommand() } } }
     public private(set) var loggedIn = false
@@ -70,6 +73,18 @@ public final class PasswordAutomation {
     private var reservation: (ref: CredentialRef, generation: UInt64, token: UUID)?
     private var commandRow: Int?
     private var lastObservedRow: Int?
+    private struct Observation {
+        let generation: UInt64
+        let site: String
+        let request: PasswordRequest
+        let target: Endpoint
+        let user: String?
+        let jumpUsers: Set<String>
+        let hosts: Set<String>
+        let mode: Mode
+        let onlySuggestDevices: Bool
+    }
+    private var waitingProbe: (id: UUID, ref: CredentialRef, context: Observation, task: Task<Void, Never>)?
 
     public init(mode: Mode = .suggest, store: CredentialStore, policy: CredentialPolicy = .init(),
                 ledger: CredentialLedger, candidates: @escaping (PasswordRequest) -> [CredentialCandidate] = { _ in [] }) {
@@ -100,6 +115,8 @@ public final class PasswordAutomation {
     /// Esc, cierre, reconexión u otra orden: una lectura del Llavero que siga en marcha ya no puede enviar nada.
     public func cancelCommand() {
         generation &+= 1
+        waitingProbe?.task.cancel()
+        waitingProbe = nil
         if offer == nil { onOfferChange?(nil) } else { offer = nil }
         if let r = reservation { ledger.release(r.ref, reservation: r.token); reservation = nil }
         // (Esc cancela el seguimiento, pero una contraseña ya enviada puede seguir autenticándose en TACACS)
@@ -179,6 +196,47 @@ public final class PasswordAutomation {
             && site(io) == proposal.site && io.revision == proposal.revision && request(io) == proposal.request
     }
 
+    /// Una revisión puede cambiar sin mover el prompt (salida fragmentada); el resto del contexto debe ser idéntico.
+    private func sameLogin(_ context: Observation, io: TerminalIO) -> Bool {
+        generation == context.generation && commandTarget == context.target && commandUser == context.user
+            && commandJumpUsers == context.jumpUsers && commandHosts == context.hosts && mode == context.mode
+            && onlySuggestDevices == context.onlySuggestDevices && site(io) == context.site
+            && request(io) == context.request
+    }
+
+    /// Sólo un observador por petición. No reserva ni lee secretos mientras otra pestaña comprueba la contraseña.
+    private func waitForProbe(_ ref: CredentialRef, context: Observation, io: TerminalIO, gate: AutomationGate) {
+        guard waitingProbe == nil else { return }
+        let id = UUID()
+        let task = Task { @MainActor [weak self, weak io] in
+            let sw = gate.begin()
+            var retry = false
+            defer {
+                gate.end(sw)
+                if self?.waitingProbe?.id == id {
+                    self?.waitingProbe = nil
+                    if retry, let self, let io, self.sameLogin(context, io: io) {
+                        self.handledSite = nil
+                        self.onRetry?()
+                    }
+                }
+            }
+            let end = ContinuousClock.now + .seconds(120)
+            repeat {
+                do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+                guard let self, let io, !Task.isCancelled, !sw.isTripped,
+                      self.sameLogin(context, io: io) else {
+                    if sw.isTripped, self?.generation == context.generation { self?.cancelCommand() }
+                    return
+                }
+                if case .probing = self.ledger.state(of: ref) { continue }
+                retry = true
+                return
+            } while ContinuousClock.now < end
+        }
+        waitingProbe = (id, ref, context, task)
+    }
+
     /// Mirar la pantalla (tras cada salida del equipo). nil = nada que hacer.
     public func observe(_ io: TerminalIO, gate: AutomationGate) async -> Event? {
         let line = io.cursorLine
@@ -232,6 +290,12 @@ public final class PasswordAutomation {
             return nil
         }
         let site = "\(io.cursorRow):\(line.trimmed)"
+        if let wait = waitingProbe {
+            if sameLogin(wait.context, io: io), case .probing = ledger.state(of: wait.ref) { return nil }
+            wait.task.cancel()
+            waitingProbe = nil
+            if sameLogin(wait.context, io: io) { handledSite = nil }
+        }
         guard site != handledSite else { return nil }
         if let p = pending {
             pending = nil
@@ -245,19 +309,31 @@ public final class PasswordAutomation {
             }
         }
         // (sin una orden propia no se buscan candidatas ni se consulta el almacén, aunque parezca una contraseña)
-        guard mode != .off, commandTarget != nil else { return nil }
+        guard mode != .off, let target = commandTarget else { return nil }
         handledSite = site
+        let context = Observation(generation: generation, site: site, request: request, target: target,
+                                  user: commandUser, jumpUsers: commandJumpUsers, hosts: commandHosts,
+                                  mode: self.mode, onlySuggestDevices: onlySuggestDevices)
+        var retry = false
         let listed = candidates(request), lookupGeneration = generation, lookup = UUID(), lookupRevision = io.revision
         let lookupSwitch = gate.begin()
         operation = lookup
-        defer { gate.end(lookupSwitch); if operation == lookup { operation = nil } }
+        defer {
+            gate.end(lookupSwitch)
+            if operation == lookup { operation = nil }
+            if retry, !Task.isCancelled, !lookupSwitch.isTripped, sameLogin(context, io: io) {
+                handledSite = nil
+                DebugLog.log("autopass", "misma petición tras cambiar la revisión: vuelvo a comprobarla")
+                onRetry?()
+            }
+        }
         // (también comprobar si existe una entrada puede esperar al servicio del Llavero: fuera de la interfaz)
         let cands = await Self.available(listed, in: store)
-        guard generation == lookupGeneration, commandTarget != nil, self.mode != .off,
-              !Task.isCancelled, !lookupSwitch.isTripped, self.site(io) == site, io.revision == lookupRevision,
-              self.request(io) == request else {
+        guard sameLogin(context, io: io), !Task.isCancelled, !lookupSwitch.isTripped,
+              io.revision == lookupRevision else {
             let cancelled = lookupSwitch.isTripped || Task.isCancelled || generation != lookupGeneration
             if cancelled, generation == lookupGeneration { cancelCommand() }
+            if !cancelled, sameLogin(context, io: io), io.revision != lookupRevision { retry = true }
             return cancelled ? .cancelled : nil
         }
         if mode == .suggest, let target = commandTarget {
@@ -277,6 +353,7 @@ public final class PasswordAutomation {
         guard mode == .autoType else { return nil }
         let probe = ledger.reserveProbe(ref)
         guard probe.result == .go, let token = probe.token else {
+            if probe.result == .wait { waitForProbe(ref, context: context, io: io, gate: gate) }
             return .manual(probe.result == .wait ? .pendingAttempt(ref) : .recentlyFailed(ref))
         }
 
@@ -295,13 +372,16 @@ public final class PasswordAutomation {
             if generation == g { cancelCommand() }
             return .cancelled
         }
+        guard sameLogin(context, io: io), io.revision == revision else {
+            if sameLogin(context, io: io), io.revision != revision { retry = true }
+            return nil
+        }
         // (el Llavero, fuera del hilo principal: si tarda, la ventana no se congela)
         let secret = await Self.secret(ref, in: store)
         let event: Event?
         // (justo antes de escribir: ni Esc, ni otra pantalla)
-        if generation == g, commandTarget != nil, self.mode == .autoType, !onlySuggestDevices, !sw.isTripped, !Task.isCancelled,
-           owns(ref, token: token), io.revision == revision, self.request(io) == request,
-           !ledger.isBlocked(ref), "\(io.cursorRow):\(io.cursorLine.trimmed)" == site, let pw = secret {
+        if sameLogin(context, io: io), !sw.isTripped, !Task.isCancelled, owns(ref, token: token),
+           io.revision == revision, !ledger.isBlocked(ref), let pw = secret {
             reservation = nil                                // (ya enviada: la reserva se resuelve con su respuesta)
             pending = (ref, io.cursorRow, token, request.account)
             io.sendLine(pw)
@@ -309,6 +389,7 @@ public final class PasswordAutomation {
         } else {
             let cancelled = sw.isTripped || Task.isCancelled || generation != g || self.mode != .autoType || onlySuggestDevices || !owns(ref, token: token)
             if cancelled, generation == g { cancelCommand() }
+            if !cancelled, sameLogin(context, io: io), io.revision != revision { retry = true }
             event = cancelled ? .cancelled : nil
         }
         return event
@@ -320,7 +401,7 @@ public final class PasswordAutomation {
     }
 
     nonisolated private static func available(_ candidates: [CredentialCandidate], in store: CredentialStore) async -> [CredentialCandidate] {
-        await Task.detached { candidates.filter { store.contains($0.ref) } }.value
+        await store.availableInBackground(candidates)
     }
 
     /// `busy`: ya se está escribiendo una (dos clics seguidos no la mandan dos veces).
@@ -364,6 +445,8 @@ public final class PasswordAutomation {
         guard PasswordPrompt.asksForPassword(io.cursorLine) else { return .notAsked }
         let site = "\(io.cursorRow):\(io.cursorLine.trimmed)"
         guard operation == nil, site != handledSite || pending == nil else { return .busy }
+        waitingProbe?.task.cancel()
+        waitingProbe = nil
         offer = nil
         let g = generation, op = UUID()
         operation = op
@@ -386,6 +469,8 @@ public final class PasswordAutomation {
     public func typeAnyway(_ ref: CredentialRef, into io: TerminalIO, pressReturn: Bool, force: Bool = false) async -> ManualResult {
         if !force, ledger.isBlocked(ref) { return .blocked }
         guard operation == nil else { return .busy }
+        waitingProbe?.task.cancel()
+        waitingProbe = nil
         offer = nil
         let g = generation, op = UUID()
         operation = op

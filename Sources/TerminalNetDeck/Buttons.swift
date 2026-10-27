@@ -385,8 +385,8 @@ struct ButtonEditor: View {
         case .pass:
             credentialPicker(L("Contraseña del Llavero"), selection: b.command)
         case .login:
-            let parts = file.buttons[i].command.components(separatedBy: "/").map { $0.trimmingCharacters(in: .whitespaces) }
-            let user = parts.first ?? "", cred = parts.count > 1 ? parts[1] : ""
+            let parts = CommandButton.loginParts(file.buttons[i].command)
+            let user = parts?.user ?? file.buttons[i].command.trimmingCharacters(in: .whitespaces), cred = parts?.credential ?? ""
             LabeledContent(L("Usuario")) { TextField("", text: Binding(get: { user }, set: { file.buttons[i].command = "\($0.trimmingCharacters(in: .whitespaces)) / \(cred)" }), prompt: Text(L("Usuario"))).frame(maxWidth: 380) }
             credentialPicker(L("Su contraseña del Llavero"), selection: Binding(get: { cred }, set: { file.buttons[i].command = "\(user) / \($0)" }))
         case .session:

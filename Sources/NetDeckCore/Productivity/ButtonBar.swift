@@ -53,6 +53,14 @@ public struct CommandButton: Hashable, Sendable, Identifiable {
         command.components(separatedBy: " ;; ").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
 
+    /// Sólo la primera barra separa el usuario: el nombre de la contraseña puede contener otras.
+    public static func loginParts(_ command: String) -> (user: String, credential: String)? {
+        guard let slash = command.firstIndex(of: "/") else { return nil }
+        let user = String(command[..<slash]).trimmed
+        let credential = String(command[command.index(after: slash)...]).trimmed
+        return (user, credential)
+    }
+
     /// Huecos «{{interfaz}}», «{{vlan=100}}» (con su valor por defecto), sin repetir.
     public var holes: [(name: String, value: String)] {
         var seen = Set<String>()

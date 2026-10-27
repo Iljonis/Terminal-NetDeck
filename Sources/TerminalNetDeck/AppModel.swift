@@ -108,7 +108,7 @@ final class AppModel {
     var showSettings = false
     /// Hay una hoja, Ajustes o el asistente abiertos: los atajos que cambian de hoja o actúan sobre las pestañas se
     /// apagan (⌘K sustituiría el gestor con sus cambios; ⌘W cerraría la pestaña a la que va el botón que rellenas).
-    var modalOpen: Bool { sheet != nil || showSettings || showSetup }
+    var modalOpen: Bool { sheet != nil || showSettings || showSetup || core.renamingCredential }
     var settingsTab = "contraseñas"
     /// La sección de Ajustes abierta con cambios sin guardar (Sesiones, Listas) pregunta antes de cambiar de sección o
     /// cerrar (`true`: se puede salir). `owner`: la vista que lo puso (sólo ella lo quita).
@@ -437,12 +437,14 @@ final class AppModel {
 
     func openSettings(_ tab: String? = nil) {
         guard !sharedEditorBusy() else { return }
+        core.refreshKeychain()
         if let tab { settingsTab = tab }
         showSettings = true
     }
 
     func editSessions(_ focus: EditorFocus? = nil) {
         guard !sharedEditorBusy() else { return }
+        core.refreshKeychain()
         editorFocus = focus
         sheet = .sessions
     }
@@ -1122,25 +1124,8 @@ final class AppModel {
     }
 
     /// Todas las del Llavero de NetDeck (para elegir a mano).
-    var keychainAccounts: [CredentialRef] {
-        let rev = keychainRevision
-        if let c = keychainCache, c.rev == rev { return c.list }      // (se pide en varias vistas: una consulta por cambio)
-        func accounts(_ service: CredentialRef.Service) -> [String] {
-            do { return try store.accounts(in: service) } catch {
-                ErrorLog.error("llavero", "no se pueden listar las contraseñas: \(error.localizedDescription)")
-                return []
-            }
-        }
-        let named = accounts(.named)
-        let device = accounts(.device)
-        let list = named.map(CredentialRef.named) + device.map { .init(service: .device, account: $0) }
-        keychainCache = (rev, list)
-        return list
-    }
-    private var keychainCache: (rev: Int, list: [CredentialRef])? {
-        get { core.keychainCache }
-        set { core.keychainCache = newValue }
-    }
+    var keychainAccounts: [CredentialRef] { core.keychainAccounts }
+    func hasCredential(_ ref: CredentialRef) -> Bool { keychainAccounts.contains(ref) }
 
     // MARK: - pegado seguro y listas
 
@@ -1499,8 +1484,7 @@ final class AppModel {
             typePassword(.named(cmd), in: s)
         case .login:
             guard let s = current else { return }
-            let parts = cmd.components(separatedBy: "/").map { $0.trimmingCharacters(in: .whitespaces) }
-            guard parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty else {
+            guard let parts = CommandButton.loginParts(cmd), !parts.user.isEmpty, !parts.credential.isEmpty else {
                 status = L("✗ Botón «\(b.name)»: el login es «usuario / nombre-de-la-contraseña»")
                 return
             }
@@ -1508,9 +1492,9 @@ final class AppModel {
                 let sw = s.gate.begin()
                 defer { s.gate.end(sw) }
                 s.cancelPasswordContext()
-                s.passwords.commandUser = parts[0]
+                s.passwords.commandUser = parts.user
                 s.passwords.commandJumpUsers = []
-                let r = await InputScript.login(user: parts[0], credential: .named(parts[1])).run(on: s, store: store, abort: sw)
+                let r = await InputScript.login(user: parts.user, credential: .named(parts.credential)).run(on: s, store: store, abort: sw)
                 status = L("🔑 Login «\(b.name)»: \(r)")
             }
         }

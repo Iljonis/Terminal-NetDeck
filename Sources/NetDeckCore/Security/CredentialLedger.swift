@@ -75,6 +75,20 @@ public final class CredentialLedger: @unchecked Sendable {
 
     public func markFailed(_ ref: CredentialRef) { storage.locked { storage.write(ref, .failed(at: now())) } }
 
+    /// Renombrar no permite saltarse los 15 min. No cambia la fecha ni mueve un login que siga pendiente.
+    public func copyFailure(from old: CredentialRef, to new: CredentialRef) -> Bool {
+        storage.locked {
+            let source = current(old), target = current(new)
+            if case .probing = source { return false }
+            if case .probing = target { return false }
+            if case .failed(let date) = source {
+                if case .failed(let newer) = target, newer > date { return true }
+                storage.write(new, .failed(at: date))
+            }
+            return true
+        }
+    }
+
     /// El rechazo de un intento hecho en `attempt` (el askpass al repreguntar, ssh al terminar…). Si después la has
     /// restablecido (guardada otra vez, desbloqueada), era de la anterior y no bloquea la de ahora. true = bloqueada.
     /// (con un segundo de margen: la hora suele ser la de un archivo, que no cuadra al milisegundo con el reloj; ante

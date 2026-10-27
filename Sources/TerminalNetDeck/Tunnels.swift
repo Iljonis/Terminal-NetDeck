@@ -38,6 +38,7 @@ extension AppModel {
     /// Inicia un túnel guardado (sólo desde un clic): la ruta de su sesión, con el ssh_config de Ajustes y la conexión al
     /// salto compartida como las pestañas; la contraseña, si hace falta, por el askpass (en una ventana).
     func startTunnel(_ t: Tunnel) {
+        guard !core.renamingCredential else { status = "✗ " + L("Espera a que termine el renombrado de la credencial"); return }
         guard !tunnelRunner.state(t.id).isRunning else { return }
         do {
             let route = try t.route(using: sessions)

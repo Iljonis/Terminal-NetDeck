@@ -35,6 +35,7 @@ public struct SSHConfigParser: Sendable {
             for alias in b.patterns where !Self.isPattern(alias) && seen.insert(alias).inserted {
                 var p = profile(alias, blocks)
                 if p.namedCredential == nil, let g = p.group { p.namedCredential = groupCredentials[g] }
+                if p.namedCredential == "-" { p.namedCredential = nil } // (propia del equipo: tampoco hereda la del grupo)
                 out.append(p)
             }
         }

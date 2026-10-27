@@ -100,6 +100,7 @@ final class RemoteBrowser {
 
     private func connectSFTP() {
         guard let model else { return }
+        guard !model.core.renamingCredential else { state = .failed(L("Espera a que termine el renombrado de la credencial")); return }
         connectionGeneration &+= 1
         let generation = connectionGeneration
         state = .connecting
@@ -145,6 +146,7 @@ final class RemoteBrowser {
     /// FTP: su contraseña guardada, sin reservarla ni esperar a otras pestañas; un rechazo real mantiene el bloqueo.
     func connectFTP(password typed: String?, save: CredentialRef?) {
         guard let model, state != .connecting, state != .connected else { return }
+        guard !model.core.renamingCredential else { state = .failed(L("Espera a que termine el renombrado de la credencial")); return }
         connectionGeneration &+= 1
         let generation = connectionGeneration
         state = .connecting
@@ -162,13 +164,9 @@ final class RemoteBrowser {
             var password = typed
             if password == nil, auto {
                 // (Llavero fuera del hilo principal)
-                let found: (CredentialRef, String)? = await Task.detached {
-                    let have = candidates.filter { store.contains($0.ref) }
-                    guard case .inject(let c) = policy.decide(request, commandUser: nil, candidates: have, isBlocked: ledger.isBlocked),
-                          let pw = try? store.password(for: c), !pw.isEmpty else { return nil }
-                    return (c, pw)
-                }.value
-                if let found { (ref, password) = (found.0, found.1) }
+                let have = await store.availableInBackground(candidates)
+                if case .inject(let c) = policy.decide(request, commandUser: nil, candidates: have, isBlocked: ledger.isBlocked),
+                   let pw = await store.passwordInBackground(for: c) { (ref, password) = (c, pw) }
             }
             guard !Task.isCancelled, self.connectionGeneration == generation else { return }    // («Cancelar» mientras se leía)
             guard let password else { self.state = .needsPassword(nil); return }
@@ -187,11 +185,11 @@ final class RemoteBrowser {
                 guard !Task.isCancelled, self.connectionGeneration == generation else { await fs.close(); return }
                 if let ref { ledger.confirmDirect(ref) }
                 if let save {
-                    let saved: String? = await Task.detached {
-                        do { try store.save(password, for: save); ledger.reset(save); ledger.confirmDirect(save); return nil } catch {
-                            return error.localizedDescription
-                        }
-                    }.value
+                    var saved: String?
+                    do {
+                        try await store.saveInBackground(password, for: save)
+                        ledger.reset(save); ledger.confirmDirect(save)
+                    } catch { saved = error.localizedDescription }
                     guard !Task.isCancelled, self.connectionGeneration == generation else { await fs.close(); return }
                     model.keychainRevision += 1
                     if let saved { model.status = "✗ \(saved)" } else { model.status = L("🔑 «\(save.account)» guardada en el Llavero") }

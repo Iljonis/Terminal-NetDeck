@@ -31,10 +31,9 @@ if not sdks or any(int(s.split('.')[0]) < 26 for s in sdks):
 print('✓ SDK del paquete: '+', '.join(sdks))
 PY
 shasum -a 256 dist/Terminal-NetDeck.dmg > "$OUT/paquete-sha256.txt"
-# (excepción de la 0.9.4: el autor comprueba la interfaz en su Mac y pide publicar sin la demo gráfica;
-# las versiones siguientes vuelven a ejecutarla. Firma, versión, SDK y huella del paquete se comprueban siempre.)
-if [ "$esperada" = 0.9.4 ]; then
-  echo '· Demo gráfica omitida en 0.9.4 por indicación del autor; paquete comprobado'
+# (en esta versión el autor pide la demo sólo en GitHub; las comprobaciones del paquete se hacen siempre)
+if [ "$esperada" = 0.9.5 ] && [ "${GITHUB_ACTIONS:-}" != true ]; then
+  echo '· Demo gráfica local omitida en 0.9.5; se ejecuta en GitHub Actions'
 else
   NETDECK_QA_APP="$APP" tools/verificar_demo.sh "$OUT"
 fi

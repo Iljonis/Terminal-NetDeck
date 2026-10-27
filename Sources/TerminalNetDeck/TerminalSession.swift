@@ -386,6 +386,7 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         view.changeScrollback(TerminalHistory.current) // (Ajustes → Terminal; SwiftTerm guarda 500)
         view.terminalDelegate = self
         pipe.view = view
+        passwords.onRetry = { [weak self] in self?.scheduleOutputCheck() }
         let counter = pipe.counter
         pipe.onOutput = { [weak self] in
             Task { @MainActor in
@@ -553,7 +554,7 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     /// No basta con solicitar SIGTERM: una autenticación enviada mantiene su reserva hasta que el proceso muera. Si a
     /// los 3 s sigue vivo, SIGKILL (como los túneles) y, como mucho 2 s después, se suelta igual: la espera no es eterna.
     private func retireAuthentication() {
-        commandInput = MacroRecorder(allowScreenFallback: false)
+        commandInput = MacroRecorder(allowScreenFallback: true, soloConexiones: true)
         guard let cleanup = passwords.connectionCleanup() else { return }
         let p = process, pid = p?.shellPid ?? 0, title = title
         guard let p, pid > 0 else { cleanup(); return }
@@ -601,7 +602,7 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     private func processExited(generation: Int, code: Int32?) {
         guard generation == pipe.current else { return }      // (un proceso anterior a reconectar)
         hopTask?.cancel()
-        commandInput = MacroRecorder(allowScreenFallback: false)
+        commandInput = MacroRecorder(allowScreenFallback: true, soloConexiones: true)
         passwords.connectionEnded()
         state = .exited(code)
         gate.abortAll()
@@ -745,10 +746,10 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     }
 
     /// Sólo las órdenes que salen hacia una shell remota arman la detección de equipos; un banner no la arma.
-    @ObservationIgnored private var commandInput = MacroRecorder(allowScreenFallback: false)
+    @ObservationIgnored private var commandInput = MacroRecorder(allowScreenFallback: true, soloConexiones: true)
 
     func cancelPasswordContext() {
-        commandInput = MacroRecorder(allowScreenFallback: false)
+        commandInput = MacroRecorder(allowScreenFallback: true, soloConexiones: true)
         passwords.cancelCommand()
     }
 
@@ -757,7 +758,10 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         let skipped = commandInput.skipped
         commandInput.feed(bytes, from: self)
         let commands = commandInput.takeLines()
-        for command in commands { passwords.beginCommand(command, after: cursorRow) }
+        for command in commands {
+            passwords.beginCommand(command, after: cursorRow)
+            DebugLog.log("autopass", "pestaña \(id.uuidString.prefix(8)): \(passwords.commandTarget == nil ? "otra orden, contexto cerrado" : "orden de conexión armada")")
+        }
         // (con un prompt desconocido tampoco se conserva el login anterior al enviar otra orden)
         if commands.isEmpty, commandInput.skipped > skipped, !SecretPrompt.asks(cursorLine),
            !PasswordPrompt.isLoginLine(cursorLine) { passwords.cancelCommand() }

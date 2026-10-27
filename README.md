@@ -9,10 +9,10 @@ y 51 temas. Nativo, rápido y en tu idioma.
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.9.4](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.4)** · macOS 15 o posterior ·
+Versión actual: **[v0.9.5](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.5)** · macOS 15 o posterior ·
 código abierto (MIT)
 
-[![Versión](https://img.shields.io/badge/versión-v0.9.4-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.4)
+[![Versión](https://img.shields.io/badge/versión-v0.9.5-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.5)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,19 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - **Explorador SFTP/FTP** con copias atómicas, verificación MD5 integrada y envío de servidor a servidor.
 - **Multipestaña** con vista dividida, MultiExec y pegado seguro; **51 temas** con contraste WCAG.
 - **Sesiones con saltos** sobre tu `ssh_config` y contraseñas sólo en el Llavero de macOS.
+
+### Novedades de 0.9.5
+
+- **Autopass con historial y Tab:** reconoce la orden SSH/Telnet elegida al pulsar Intro desde el mismo prompt,
+  también al volver al equipo o abrir otra pestaña. La salida de un `show run` o un banner no inicia un login.
+- **Autopass sin intentos perdidos:** reevalúa la misma petición si llega salida mientras se consulta el Llavero y
+  continúa cuando otra pestaña confirma la contraseña; Esc y los bloqueos por rechazo siguen deteniéndolo.
+- **Llavero en segundo plano:** las esperas de las operaciones síncronas dejan libres las tareas de Swift.
+- **Gestor de credenciales editable:** cambia el nombre, o el usuario y equipo, sin volver a introducir la contraseña.
+  Renombrar actualiza las asignaciones y conserva el bloqueo por fallo; si algo falla, mantiene las entradas recuperables.
+- **Asignaciones más claras:** elige una credencial con nombre, hereda la del grupo o usa la propia del equipo. Puedes
+  crear una credencial desde el editor de sesiones. La predeterminada muestra su usuario exacto y las entradas ausentes.
+- **Catálogo del Llavero con búsqueda y recarga**, sin consultas en el hilo de la interfaz ni sobrescrituras silenciosas al añadir.
 
 ### Novedades de 0.9.4
 
@@ -173,6 +186,24 @@ cd Terminal-NetDeck
 - **Si una falla, se bloquea 15 minutos en todas las pestañas**, para no bloquear tu cuenta de Active Directory.
 - **El Llavero nunca congela la app:** se consulta en segundo plano y con un tope de 10 segundos.
 - Menú 🔑 para escribir cualquiera a mano, también en prompts raros que la app no reconoce.
+
+En **Ajustes → Contraseñas**, pulsa **Añadir…** y elige **Con nombre** (por ejemplo, «Red principal») o **Usuario y
+equipo**. **Editar…** permite cambiar su nombre o cuenta y, si quieres, sustituir la contraseña; deja los dos campos
+de contraseña vacíos para conservarla. Un nombre existente no se sobrescribe al añadir otro. **Recargar** recoge los
+cambios hechos desde Acceso a Llaveros.
+
+En **Sesiones → Credencial de la sesión**, elige el nombre guardado, **Heredar del grupo** o **Propia del equipo
+(ignorar grupo)**. La indicación **Usa:** muestra la asignación efectiva. **Nueva credencial con nombre…** la crea en
+el Llavero y la selecciona en el borrador; pulsa **Guardar** para conservar la asignación. Cada salto usa la de su
+propia sesión.
+
+La **Credencial predeterminada** se elige en Contraseñas junto con su **Usuario exacto**: actúa como alternativa para
+los equipos abiertos desde una sesión. Dejarla en **Ninguna (preguntar)** o vaciar el usuario la desactiva. El login
+inicial de una sesión guardada usa su asignación, sin recurrir a la predeterminada.
+
+Al renombrar se actualizan sesiones, grupos, botones, listas y predeterminada. Si una configuración externa aún usa
+el nombre anterior, la app conserva esa entrada y lo indica. Los archivos externos no se reescriben; los secretos
+siguen únicamente en el Llavero de macOS.
 
 ### 🛡️ Saltos y bastiones, sin sorpresas
 

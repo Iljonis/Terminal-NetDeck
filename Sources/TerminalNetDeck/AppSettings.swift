@@ -158,8 +158,9 @@ final class AppSettings {
     }
 
     var defaultCredential: DefaultCredential? {
-        defaultCredentialName.isEmpty ? nil
-            : DefaultCredential(name: defaultCredentialName, user: defaultCredentialUser.isEmpty ? NSUserName() : defaultCredentialUser)
+        let user = defaultCredentialUser.trimmingCharacters(in: .whitespacesAndNewlines)
+        return defaultCredentialName.isEmpty || user.isEmpty ? nil
+            : DefaultCredential(name: defaultCredentialName, user: user)
     }
 
     var sshConfigURL: URL { URL(fileURLWithPath: AppPaths.expand(sshConfigPath)) }

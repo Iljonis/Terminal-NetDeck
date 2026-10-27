@@ -9,10 +9,10 @@ and 51 themes. Native, fast and in your language.
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v0.9.4](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.4)** · macOS 15 or later ·
+Current version: **[v0.9.5](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.5)** · macOS 15 or later ·
 open source (MIT)
 
-[![Version](https://img.shields.io/badge/version-v0.9.4-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.4)
+[![Version](https://img.shields.io/badge/version-v0.9.5-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.5)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,19 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - **SFTP/FTP browser** with atomic copies, built-in MD5 verification and server-to-server transfers.
 - **Multi-tab** with split view, MultiExec and safe paste; **51 themes** with WCAG contrast.
 - **Sessions with jump hosts** on top of your `ssh_config`, passwords only in the macOS Keychain.
+
+### New in 0.9.5
+
+- **Autopass with history and Tab:** recognizes the SSH/Telnet command selected with Enter from the same prompt,
+  including return visits and other tabs. A `show run` or banner cannot start a login.
+- **No lost autopass attempts:** rechecks the same request when output arrives during a Keychain lookup and resumes
+  after another tab confirms the password; Escape and rejection blocks still stop it.
+- **Background Keychain access:** synchronous operations leave Swift's task workers available while waiting.
+- **Editable credential manager:** change the name, or user and device, without re-entering the password. Renaming
+  updates assignments and preserves failure blocks; recoverable entries are kept if an update fails.
+- **Clearer assignments:** choose a named credential, inherit the group's, or use the device's own. You can create
+  a credential from the session editor. The default shows its exact user and missing entries.
+- **Searchable Keychain catalog with reload**, without main-thread lookups or silent overwrites when adding entries.
 
 ### New in 0.9.4
 
@@ -167,6 +180,21 @@ cd Terminal-NetDeck
 - **A failed password is locked for 15 minutes in every tab**, so your Active Directory account doesn't get locked out.
 - **The Keychain never freezes the app:** it's read in the background, with a 10-second limit.
 - 🔑 menu to type any of them by hand, even at odd prompts the app doesn't recognise.
+
+In **Settings → Passwords**, click **Add…** and choose **Named** (for example, “Main network”) or **User and device**.
+**Edit…** lets you change the name or account and optionally replace its password; leave both password fields empty
+to keep it. Adding an entry cannot overwrite an existing name. **Reload** picks up changes made in Keychain Access.
+
+In **Sessions → Session credential**, choose a stored name, **Inherit from group**, or **Device credential (ignore
+group)**. **Uses:** shows the effective assignment. **New named credential…** creates it in Keychain and selects it
+in the draft; click **Save** to keep the assignment. Each jump host uses its own session's credential.
+
+Select the **Default credential** in Passwords together with its **Exact user**: it is a fallback for devices opened
+from a session. Choosing **None (ask)** or clearing the user disables it. A saved session's initial login uses its
+own assignment without falling back to the default.
+
+Renaming updates sessions, groups, buttons, lists and the default. If an external configuration still uses the old
+name, the app keeps that entry and tells you. External files are not rewritten; secrets stay only in macOS Keychain.
 
 ### 🛡️ Jump hosts without surprises
 

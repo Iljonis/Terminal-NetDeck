@@ -272,7 +272,7 @@ public final class SessionManager {
         let matches = Set(scopes.filter { $0.names.contains(account.host.lowercased()) && $0.endpoint.user == user })
         // (askpass no incluye el puerto: dos etapas con el mismo usuario/equipo son ambiguas)
         guard matches.count == 1, let own = matches.first else { return .init(candidates: [], named: nil) }
-        let named = own.profile?.namedCredential
+        let named = own.profile?.namedCredential.flatMap { $0 == "-" ? nil : $0 }
         var candidates: [CredentialCandidate] = []
         if let named { candidates.append(.init(ref: .named(named), owners: [user], origin: .sessionNamed)) }
         candidates.append(.init(ref: .device(user, own.endpoint.host), owners: [user], origin: .device))
@@ -322,7 +322,7 @@ public final class SessionManager {
         }
         var out: [CredentialCandidate] = []
         func session(_ p: SessionProfile?, user: String, host: String, origin: CredentialCandidate.Origin) {
-            if let n = p?.namedCredential { out.append(.init(ref: .named(n), owners: owners(ofNamed: n), origin: origin)) }
+            if let n = p?.namedCredential, n != "-" { out.append(.init(ref: .named(n), owners: owners(ofNamed: n), origin: origin)) }
             out.append(.init(ref: .device(user, p?.endpoint.host ?? host), owners: [user], origin: origin == .sessionNamed ? .device : origin))
         }
         if let a = request.account, let at = a.lastIndex(of: "@"),

@@ -41,12 +41,16 @@ struct ContentView: View {
         .background { if t.isTranslucent { BehindWindowBlur(material: t.blurMaterial) } }
         .tint(SwiftUI.Color(t.accent))
         .themedControls()
+        .disabled(model.core.renamingCredential)
         .overlay(alignment: .bottomTrailing) {
             StatusToast().padding(.trailing, 14).padding(.bottom, 34)
                 .animation(.easeInOut(duration: 0.3), value: model.toast)
         }
         .overlay { if model.showSettings { SettingsOverlay().themedControls() } }
         .onAppear(perform: snapshotAction)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.core.refreshKeychain()
+        }
         .sheet(item: $model.sheet) { sheet in
             Group {
                 switch sheet {
@@ -375,11 +379,11 @@ struct TopBar: View {
                     if let s = model.current {
                         MenuHeader(title: L("Escribir en «\(s.title)»"))
                         ForEach(model.keychainAccounts, id: \.self) { ref in
-                            Button { model.typePassword(ref, in: s) } label: { Label(ref.account, systemImage: "key") }
+                            Button { model.typePassword(ref, in: s) } label: { Label(ref.menuTitle, systemImage: "key") }
                         }
                         ThemedSubmenu(title: L("Escribir sin esperar a que la pida")) {
                             ForEach(model.keychainAccounts, id: \.self) { ref in
-                                ThemedSubmenu(title: ref.account) {
+                                ThemedSubmenu(title: ref.menuTitle) {
                                     Button(L("Sin Intro")) { model.typePasswordAnyway(ref, in: s, pressReturn: false) }
                                     Button(L("Con Intro")) { model.typePasswordAnyway(ref, in: s, pressReturn: true) }
                                 }

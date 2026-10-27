@@ -143,11 +143,12 @@ public struct SessionFile: Sendable {
         }
         for line in text.components(separatedBy: .newlines) {
             let s = line.trimmed
+            let note = SSHConfigParser.note(s)
             let (key, value) = SSHConfigParser.option(s).map { ($0.0, $0.1) } ?? ("", "")
-            if s.hasPrefix("# @grupo ") {
-                group = String(s.dropFirst(9)).trimmed
-            } else if s.hasPrefix("# @clave-grupo ") {
-                groupCredentials[group] = String(s.dropFirst(15)).trimmed
+            if let note, note.0 == "grupo", !note.1.isEmpty {
+                group = note.1
+            } else if let note, note.0 == "clave-grupo", !note.1.isEmpty {
+                groupCredentials[group] = note.1
             } else if key == "host", Self.sessionHost.matches("host \(value)"), !value.contains(where: \.isWhitespace) {
                 sessions.append(EditableSession(group: group, name: value))
                 cur = sessions.count - 1
@@ -169,7 +170,7 @@ public struct SessionFile: Sendable {
                     sessions[i].kind = k
                 }
                 else if s.hasPrefix("# @serie "), let l = SerialLine(annotation: String(s.dropFirst(9))) { sessions[i].serial = l }
-                else if s.hasPrefix("# @clave ") { sessions[i].credential = String(s.dropFirst(9)).trimmed }
+                else if let note, note.0 == "clave" { sessions[i].credential = note.1 }
                 else if let (k, v) = SSHConfigParser.note(s), TerminalProfile.keys.contains(k) {
                     // (la primera de cada clave, como al conectar; una que no vale se ignora con aviso)
                     if !sessions[i].terminal.has(k) { sessions[i].terminal.read(k, v, session: sessions[i].name) }

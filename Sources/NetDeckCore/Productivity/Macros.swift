@@ -283,8 +283,10 @@ public final class MacroRecorder {
     public private(set) var skipped = 0
     /// ¿Se está autenticando? (la app añade «aún no ha llegado a su primer prompt», como MultiExec)
     public var awaitingAuth: (any TerminalIO) -> Bool = { SecretPrompt.asks($0.cursorLine) }
-    /// Las macros pueden recuperar una línea editada con flechas/Tab; para autenticación sólo valen bytes propios.
+    /// Recupera la línea que la persona elige con flechas/Tab, anclada al prompt donde empezó a editar.
     private let allowScreenFallback: Bool
+    private let soloConexiones: Bool
+    private var historial = false
 
     private var buffer: [UInt8] = []
     /// Sólo caracteres y borrar: el búfer es exactamente lo enviado. Con flechas, Tab… se lee de la pantalla.
@@ -302,7 +304,10 @@ public final class MacroRecorder {
     private enum Escape { case none, started, csi([UInt8]), ss3 }
     private var escape = Escape.none
 
-    public init(allowScreenFallback: Bool = true) { self.allowScreenFallback = allowScreenFallback }
+    public init(allowScreenFallback: Bool = true, soloConexiones: Bool = false) {
+        self.allowScreenFallback = allowScreenFallback
+        self.soloConexiones = soloConexiones
+    }
 
     public func feed(_ bytes: [UInt8], from io: TerminalIO) {
         for b in bytes {
@@ -316,11 +321,13 @@ public final class MacroRecorder {
                 continue
             case .ss3:
                 escape = .none
+                if b == 0x41 || b == 0x42 { historial = true }
                 check(io)
                 clean = false
                 continue
             case .csi(var params):
                 if (0x40...0x7E).contains(b) {
+                    if b == 0x41 || b == 0x42 { historial = true }
                     // (pegado entre corchetes: ESC[200~ … ESC[201~ no cambia la línea)
                     if b != 0x7E || !["200", "201"].contains(String(decoding: params, as: UTF8.self)) { check(io); clean = false }
                     escape = .none
@@ -334,10 +341,12 @@ public final class MacroRecorder {
             switch b {
             case 13, 10: finish(io)
             case 3: reset()                                       // Ctrl+C: la línea no se envía
-            case 0x15: buffer = []; clean = true                  // Ctrl+U: borra la línea
+            case 0x15: buffer = []; clean = true; historial = false // Ctrl+U: borra también la elección del historial
             case 0x7F, 0x08:
                 while let last = buffer.popLast(), last & 0xC0 == 0x80 {}     // (un carácter UTF-8 entero)
             case 0x1B: escape = .started
+            case 0x12, 0x10, 0x0E:                               // Ctrl+R, Ctrl+P y Ctrl+N: historial de la shell
+                check(io); clean = false; historial = true
             case 0..<0x20: check(io); clean = false               // Tab, Ctrl+R…: lo enviado, en la pantalla
             default: check(io); buffer.append(b)
             }
@@ -372,6 +381,18 @@ public final class MacroRecorder {
             line = String(decoding: buffer, as: UTF8.self)
         } else if allowScreenFallback, let s = start, !s.trimmed.isEmpty, io.cursorLine.hasPrefix(s) {
             line = String(io.cursorLine.dropFirst(s.count))
+        } else if allowScreenFallback, soloConexiones, historial, let s = start,
+                  PromptRule.isPrompt(s, custom: io.promptRule), io.cursorLine.hasPrefix("(reverse-i-search)"),
+                  let separator = io.cursorLine.range(of: "': ", options: .backwards) {
+            line = String(io.cursorLine[separator.upperBound...])
+        }
+        if !clean, soloConexiones {
+            // (Tab no convierte un «show …» en una conexión; las flechas eligen una orden del historial)
+            let typed = String(decoding: buffer, as: UTF8.self).split(whereSeparator: \.isWhitespace).first.map(String.init)
+            let selected = line?.split(whereSeparator: \.isWhitespace).first.map(String.init)
+            if (!historial && !["ssh", "telnet"].contains(typed ?? "")) || !["ssh", "telnet"].contains(selected ?? "") {
+                line = nil
+            }
         }
         guard let l = line?.trimmed, !l.isEmpty, !SessionFile.hasControl(l), l.count <= MacroStep.maxLine else {
             if line == nil { skipped += 1 }
@@ -387,6 +408,7 @@ public final class MacroRecorder {
         masked = false
         checked = false
         escape = .none
+        historial = false
     }
 }
 

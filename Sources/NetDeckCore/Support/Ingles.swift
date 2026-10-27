@@ -2,6 +2,62 @@
 // cada valor interpolado (y %% por cada %). Lo comprueba IdiomaTests: toda clave del código tiene que estar aquí.
 enum Ingles {
     static let textos: [String: String] = [
+        "Desconecta FTP y espera a que terminen las transferencias antes de renombrar": "Disconnect FTP and wait for transfers to finish before renaming",
+        "Espera a que termine el renombrado de la credencial": "Wait for the credential rename to finish",
+        "%@ (con nombre)": "%@ (named)",
+        "%@ (equipo)": "%@ (device)",
+        "; revisa estos archivos antes de borrar ninguna: %@": "; review these files before deleting either entry: %@",
+        "; se han restaurado los archivos modificados": "; modified files have been restored",
+        "Al renombrarla se actualizan sus asignaciones en sesiones, grupos, botones, listas y la predeterminada.": "Renaming updates its assignments in sessions, groups, buttons, lists and the default credential.",
+        "Automática: propia del equipo": "Automatic: device credential",
+        "Añade una credencial y selecciónala en Sesiones.": "Add a credential and select it in Sessions.",
+        "Añadir…": "Add…",
+        "Buscar credenciales": "Search credentials",
+        "Con nombre · asignable a sesiones y grupos": "Named · assignable to sessions and groups",
+        "Con nombre: reutiliza una credencial en las sesiones o grupos que elijas. Usuario y equipo: sólo para esa cuenta. Los secretos se guardan únicamente en el Llavero de macOS.": "Named: reuse a credential in the sessions or groups you choose. User and device: only for that account. Secrets are stored only in macOS Keychain.",
+        "Contraseña nueva (opcional)": "New password (optional)",
+        "Credencial de la sesión": "Session credential",
+        "Credencial predeterminada": "Default credential",
+        "Credencial renombrada: %@": "Credential renamed: %@",
+        "Deja ambos campos vacíos para conservar la contraseña. Renombrar conserva también su bloqueo por fallo.": "Leave both fields empty to keep the password. Renaming also preserves its failure block.",
+        "Editar credencial": "Edit credential",
+        "Editar credencial…": "Edit credential…",
+        "Editar nombre, usuario, equipo o contraseña": "Edit name, user, device or password",
+        "El archivo %@ ha cambiado mientras se renombraba: no se sobrescribe": "File %@ changed during renaming: it will not be overwritten",
+        "El nombre o la cuenta de la credencial no es válido": "The credential name or account is invalid",
+        "Espera a que termine la autenticación pendiente antes de renombrar": "Wait for the pending authentication to finish before renaming",
+        "Guarda y cierra los otros editores antes de renombrar una credencial": "Save and close the other editors before renaming a credential",
+        "Guardada como «%@». Se conserva «%@» porque todavía la usa una sesión o configuración externa.": "Saved as “%@”. “%@” is kept because a session or external configuration still uses it.",
+        "Guardada como «%@»; no se pudo borrar la entrada anterior: %@": "Saved as “%@”; could not delete the previous entry: %@",
+        "Heredar del grupo: %@": "Inherit from group: %@",
+        "Indica el usuario para activar la credencial predeterminada.": "Enter the user to enable the default credential.",
+        "La credencial que quieres renombrar ya no está en el Llavero": "The credential you want to rename is no longer in Keychain",
+        "La cuenta propia corresponde a ese usuario y equipo. Para contraseñas distintas según el servicio, usa credenciales con nombre.": "A device account belongs to that user and device. Use named credentials for different passwords on different services.",
+        "Las asignaciones que la usen quedarán sin contraseña guardada.": "Assignments using it will have no stored password.",
+        "Llavero de macOS": "macOS Keychain",
+        "Ninguna (preguntar)": "None (ask)",
+        "No se ha completado el renombrado: %@. Se conservan las dos entradas del Llavero": "Renaming was not completed: %@. Both Keychain entries are kept",
+        "No se puede cambiar el tipo de una credencial al renombrarla": "A credential’s type cannot change when renaming it",
+        "Nueva credencial": "New credential",
+        "Nueva credencial con nombre…": "New named credential…",
+        "Por ejemplo: Red principal": "For example: Main network",
+        "Propia de este usuario y equipo": "Specific to this user and device",
+        "Propia del equipo (ignorar grupo)": "Device credential (ignore group)",
+        "Se guarda únicamente en el Llavero de macOS.": "Stored only in macOS Keychain.",
+        "Se usa si el equipo no tiene otra asignada y pide exactamente ese usuario. Las sesiones guardadas usan su propia asignación.": "Used if the device has no other assigned credential and asks for that exact user. Saved sessions use their own assignment.",
+        "Sin coincidencias": "No matches",
+        "Una lista usa una cuenta compartida por dos tipos de credencial: revísala antes de renombrar": "A list uses an account shared by two credential types: review it before renaming",
+        "Usuario exacto": "Exact user",
+        "Usuario y equipo": "User and device",
+        "Ya existe una contraseña con ese nombre o cuenta": "A password with that name or account already exists",
+        "Ya existe una credencial con ese nombre o cuenta": "A credential with that name or account already exists",
+        "Ya se está modificando una credencial": "A credential is already being modified",
+        "el nombre o la cuenta lleva caracteres de control": "the name or account contains control characters",
+        "falta el nombre o la cuenta de la contraseña": "the password name or account is missing",
+        "la contraseña lleva un carácter nulo": "the password contains a null character",
+        "la cuenta debe tener el formato usuario@equipo, sin espacios": "the account must use the user@device format, without spaces",
+        "tu.usuario": "your.user",
+        "«-» está reservado para la contraseña propia del equipo": "“−” is reserved for the device’s own password",
         "Este servidor no permite guardar una copia sin riesgo de sobrescribir otro archivo. Tu copia local se conserva.": "This server cannot save a copy without risking overwriting another file. Your local copy is preserved.",
         "⏳ La pestaña ya tiene una secuencia en marcha; pulsa Esc para cortarla": "⏳ This tab already has a sequence running; press Esc to stop it",
         "✗ El pegado seguro requiere una pestaña SSH/Telnet autenticada": "✗ Safe paste requires an authenticated SSH/Telnet tab",
@@ -603,10 +659,6 @@ enum Ingles {
             "Legacy device (old ssh algorithms)",
         "CONEXIÓN":
             "CONNECTION",
-        "Automática (la de %@@%@)":
-            "Automatic (the one for %@@%@)",
-        "La propia del equipo (-)":
-            "The device's own (-)",
         "%@ (no está en el Llavero)":
             "%@ (not in the Keychain)",
         "Del grupo «%@»":
@@ -705,20 +757,14 @@ enum Ingles {
             "Belongs to user",
         "Por defecto":
             "Default",
-        "Sólo para equipos abiertos desde una sesión y cuando piden exactamente ese usuario. No se usa al abrir sesiones guardadas.":
-            "Only for devices opened from a session and when exactly that user is requested. Not used when opening saved sessions.",
         "con nombre":
             "named",
         "usuario@equipo":
             "user@device",
         "Desbloquear":
             "Unlock",
-        "Ha fallado hace poco: ahora no se escribe sola (para no bloquear la cuenta AD)":
-            "Failed recently: not typed automatically for now (to avoid locking the AD account)",
         "Con nombre":
             "Named",
-        "Nombre (p. ej. AD)":
-            "Name (e.g. AD)",
         "tu.usuario@192.0.2.1":
             "your.user@192.0.2.1",
         "Llavero":
@@ -1105,8 +1151,6 @@ enum Ingles {
             "A new version of Terminal NetDeck is available: click to see it",
         "No se puede leer %@: no lo sobrescribo (¿no es UTF-8?). Revísalo o muévelo y vuelve a probar.":
             "Can't read %@: not overwriting it (is it not UTF-8?). Check or move it and try again.",
-        "Cambiar la contraseña guardada":
-            "Change the saved password",
         "sesiones: %@%@":
             "sessions: %@%@",
         "grupos: %@":
@@ -1171,8 +1215,6 @@ enum Ingles {
             "Nothing is saved until you press “Save” (a copy stays in botones.txt.anterior).",
         "Sustituir la de %@@%@":
             "Replace the one for %@@%@",
-        "Usa: la propia del equipo (la escribes tú)":
-            "Uses: the device's own (you type it)",
         "Usa: 🔑 %@ (la del grupo)":
             "Uses: 🔑 %@ (the group's)",
         "Usa: 🔑 %@":
