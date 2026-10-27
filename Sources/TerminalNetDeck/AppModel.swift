@@ -1069,7 +1069,8 @@ final class AppModel {
             case .blocked: status = L("🔑 «\(ref)» falló hace poco: no la escribo (cuenta AD) · desbloquéala en Ajustes")
             case .notAsked: status = L("🔑 Ahí no piden contraseña ahora")
             case .missing: status = L("🔑 «\(ref)» no está en el Llavero")
-            case .busy, .pending: break
+            case .busy: status = L("🔑 Ya se está escribiendo una contraseña en «\(s.title)»; espera a que conteste")
+            case .pending: break
             }
         }
     }
@@ -1224,6 +1225,7 @@ final class AppModel {
         }
         if let k = FunctionKey.name(bytes), let b = buttons.button(forKey: k) {      // F5, Mayús+F6…
             DebugLog.log("botones", "\(k) → «\(b.name)»")
+            if selection != s.id, tabs.contains(where: { $0 === s }) { selection = s.id }   // (el panel donde se pulsa)
             runButton(b)
             return true
         }
@@ -1467,6 +1469,17 @@ final class AppModel {
             status = L("⏳ La pestaña ya tiene una secuencia en marcha; pulsa Esc para cortarla"); return
         }
         DebugLog.log("botones", "«\(b.name)» (\(b.mode.rawValue)) en \(targets.map(\.title))")
+        // (nunca una orden en una petición de contraseña: iría como contraseña; se dice por qué en vez de «▶»)
+        if targets.isEmpty, b.mode == .type || b.mode == .run {
+            if let s = current, !multiExecOn, SecretPrompt.asks(s.cursorLine) {
+                status = L("✗ Botón «\(b.name)»: «\(s.title)» pide una contraseña; no escribo órdenes ahí (usa un botón de contraseña)")
+            } else if let s = current, !multiExecOn, s.route.usesPasswords, !s.loggedIn, !s.exited {
+                status = L("✗ Botón «\(b.name)»: «\(s.title)» aún no ha entrado en el equipo")
+            } else {
+                status = L("✗ Botón «\(b.name)»: ninguna pestaña puede recibirlo ahora")
+            }
+            return
+        }
         switch b.mode {
         case .session:
             quickConnect(cmd)
@@ -1494,7 +1507,8 @@ final class AppModel {
                 s.cancelPasswordContext()
                 s.passwords.commandUser = parts.user
                 s.passwords.commandJumpUsers = []
-                let r = await InputScript.login(user: parts.user, credential: .named(parts.credential)).run(on: s, store: store, abort: sw)
+                let r = await InputScript.login(user: parts.user, credential: .named(parts.credential), cursorLine: s.cursorLine)
+                    .run(on: s, store: store, abort: sw)
                 status = L("🔑 Login «\(b.name)»: \(r)")
             }
         }

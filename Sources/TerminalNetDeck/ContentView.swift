@@ -1000,12 +1000,27 @@ struct TerminalHost: NSViewRepresentable {
         return box
     }
 
+    /// `claim`: acaba de pasar a ser la activa y aún no tiene el teclado.
+    @MainActor final class Coordinator {
+        var focused = false
+        var claim = false
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func updateNSView(_ box: NSView, context: Context) {
         if session.host === box { adopt(into: box) }
+        let c = context.coordinator
+        if c.focused != focused { c.focused = focused; c.claim = focused }
         guard focused else { return }
         DispatchQueue.main.async {
             let v = session.view
-            if v.superview === box, v.window?.firstResponder !== v { v.window?.makeFirstResponder(v) }
+            guard c.focused, v.superview === box, let w = v.window else { return }
+            if w.firstResponder === v { c.claim = false; return }
+            // (al redibujarse no quita el teclado al panel en el que acabas de hacer clic: lo tecleado, «ssh …»
+            // incluido, iría a otro; sólo al cambiar de activa o si el teclado no está en ninguna terminal)
+            guard c.claim || !(w.firstResponder is NetDeckTerminalView) else { return }
+            if w.makeFirstResponder(v) { c.claim = false }
         }
     }
 
