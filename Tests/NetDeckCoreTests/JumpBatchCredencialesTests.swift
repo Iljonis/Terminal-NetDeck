@@ -149,7 +149,8 @@ import Testing
     // MARK: - varios equipos con la misma contraseña
 
     /// Una lista de varios equipos y sus pestañas (cada una contesta «password:» al ssh y nada a la contraseña).
-    private func lista(_ hosts: [String], ledger: CredentialLedger, passwordTimeout: Duration = .seconds(5))
+    private func lista(_ hosts: [String], ledger: CredentialLedger, passwordTimeout: Duration = .seconds(5),
+                       deviceTimeout: Duration = .seconds(5))
         -> (batch: JumpBatchRunner, panes: [Endpoint: FakeTerminal]) {
         let devices = hosts.map { Endpoint(host: $0) }
         let panes = Dictionary(uniqueKeysWithValues: devices.map { d in
@@ -161,7 +162,7 @@ import Testing
         settings.spacing = .milliseconds(1)
         settings.poll = .milliseconds(1)
         settings.jumpTimeout = .seconds(5)
-        settings.deviceTimeout = .seconds(5)
+        settings.deviceTimeout = deviceTimeout
         settings.passwordTimeout = passwordTimeout
         let store = MemoryCredentialStore([ref: "secreto-demo"])
         return (JumpBatchRunner(list: list, settings: settings, store: store, ledger: ledger, abort: AbortSwitch()) { panes[$0] }, panes)
@@ -230,7 +231,8 @@ import Testing
     @Test func siDejanDePedirlaMientrasEsperaNoLaEscribeEnElSalto() async throws {
         let ledger = CredentialLedger()
         let foreign = try #require(ledger.reserveProbe(ref).token)
-        let (batch, panes) = lista(["192.0.2.11"], ledger: ledger)
+        // (margen amplio: acaba en cuanto vuelve al salto; con la integración continua cargada 5 s no bastaban)
+        let (batch, panes) = lista(["192.0.2.11"], ledger: ledger, passwordTimeout: .seconds(30), deviceTimeout: .seconds(30))
         let io = try #require(panes[device])
         Task { @MainActor in
             while !PasswordPrompt.asksForPassword(io.cursorLine) { try? await Task.sleep(for: .milliseconds(2)) }
