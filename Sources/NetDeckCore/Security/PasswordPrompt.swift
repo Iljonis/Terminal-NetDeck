@@ -56,6 +56,14 @@ public enum PasswordPrompt {
         return detect(cursorLine: String(l.dropFirst(Askpass.marker.count)), above: [])
     }
 
+    /// Botón «login» con la contraseña ya pedida: el usuario que la pide (el del askpass, el de la cuenta o el tecleado
+    /// en «Username:») si no es `user`; nil = es el suyo o no lo dice. Así no se escribe la de otro (cuenta AD).
+    public static func otherUser(than user: String, cursorLine: String, above: [String]) -> String? {
+        guard let asked = (askpassRequest(cursorLine) ?? detect(cursorLine: cursorLine, above: above))?.user,
+              asked.lowercased() != user.lowercased() else { return nil }
+        return asked
+    }
+
     /// La petición de la línea del cursor (`above`: las líneas de encima, la última justo antes), o nil.
     public static func detect(cursorLine: String, above: [String]) -> PasswordRequest? {
         guard asksForPassword(cursorLine) else { return nil }

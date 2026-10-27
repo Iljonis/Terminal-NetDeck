@@ -28,12 +28,10 @@ public struct InputScript: Sendable {
         self.steps = steps
     }
 
-    /// Botón «login»: usuario en «Username:/login:» y su contraseña cuando la pidan. Si al pulsarlo ya piden la
-    /// contraseña (`cursorLine`: el usuario ya está escrito, o la pregunta del askpass), sólo la contraseña.
-    public static func login(user: String, credential: CredentialRef, timeout: Duration = .seconds(15),
-                             cursorLine: String = "") -> InputScript {
-        if PasswordPrompt.acceptsManual(cursorLine) { return InputScript([.secret(credential)]) }
-        return InputScript([
+    /// Botón «login»: usuario en «Username:/login:» y su contraseña cuando la pidan. (Si ya piden la contraseña, la
+    /// app la escribe con `PasswordAutomation.typeManually`, tras `PasswordPrompt.otherUser`.)
+    public static func login(user: String, credential: CredentialRef, timeout: Duration = .seconds(15)) -> InputScript {
+        InputScript([
             .waitFor(Pattern(#"(?:user\s*name|login|user|usuario)\s*:\s*$"#), timeout: timeout),
             .line(user),
             .waitFor(PasswordPrompt.asks, timeout: timeout),

@@ -65,7 +65,9 @@ public final class PasswordAutomation {
     private let ledger: CredentialLedger
     private var handledSite: String?
     /// La enviada que espera respuesta, con la cuenta de su petición («tu.usuario@bastion»; nil si no la decía).
-    private var pending: (ref: CredentialRef, row: Int, reservation: UUID?, account: String?)?
+    /// (`revision`: la de la pantalla al enviarla; con el historial lleno la fila del cursor deja de crecer)
+    private typealias Pending = (ref: CredentialRef, row: Int, reservation: UUID?, account: String?, revision: Int)
+    private var pending: Pending?
     private var unresolved: [CredentialRef: UUID] = [:]
     private var external: [CredentialRef: UUID] = [:]
     private var generation: UInt64 = 0
@@ -276,7 +278,8 @@ public final class PasswordAutomation {
         guard operation == nil else { return nil }
         guard let request = request(io) else {
             // (la escrita a mano en el askpass: si vuelve a preguntar en otra fila, no valía; otra cuenta, era el salto)
-            if let p = pending, io.cursorRow > p.row, let asked = PasswordPrompt.askpassRequest(line) {
+            if let p = pending, io.cursorRow > p.row || io.revision != p.revision,
+               let asked = PasswordPrompt.askpassRequest(line) {
                 pending = nil
                 return resolveRepeated(p, asking: asked.account)
             }
@@ -381,7 +384,7 @@ public final class PasswordAutomation {
         if sameLogin(context, io: io), !sw.isTripped, !Task.isCancelled, owns(ref, token: token),
            io.revision == revision, !ledger.isBlocked(ref), let pw = secret {
             reservation = nil                                // (ya enviada: la reserva se resuelve con su respuesta)
-            pending = (ref, io.cursorRow, token, request.account)
+            pending = (ref, io.cursorRow, token, request.account, io.revision)
             io.sendLine(pw)
             event = .typed(ref)
         } else {
@@ -395,8 +398,7 @@ public final class PasswordAutomation {
 
     /// Piden otra vez contraseña tras enviar `p`: con otra cuenta (-J: tras la del salto, la del destino), la anterior
     /// ha entrado; con la misma o sin cuenta, no valía (`.failed`).
-    private func resolveRepeated(_ p: (ref: CredentialRef, row: Int, reservation: UUID?, account: String?),
-                                 asking account: String?) -> Event? {
+    private func resolveRepeated(_ p: Pending, asking account: String?) -> Event? {
         if let asked = p.account?.lowercased(), let now = account?.lowercased(), asked != now {
             if let token = p.reservation { ledger.confirm(p.ref, reservation: token) } else { ledger.confirmDirect(p.ref) }
             return nil
@@ -442,7 +444,7 @@ public final class PasswordAutomation {
         guard owns(ref, token: reservationToken) else { return .notAsked }
         guard compatible(proposal.request, from: candidates(proposal.request)).contains(ref) else { return .notAsked }
         reservation = nil
-        pending = (ref, io.cursorRow, reservationToken, proposal.request.account)
+        pending = (ref, io.cursorRow, reservationToken, proposal.request.account, io.revision)
         handledSite = proposal.site
         offer = nil
         io.sendLine(pw)
@@ -471,7 +473,7 @@ public final class PasswordAutomation {
         if let p = pending, let token = p.reservation { ledger.release(p.ref, reservation: token) }
         if force { ledger.reset(ref) }
         let asked = PasswordPrompt.detect(cursorLine: io.cursorLine, above: []) ?? PasswordPrompt.askpassRequest(io.cursorLine)
-        pending = (ref, io.cursorRow, nil, asked?.account)
+        pending = (ref, io.cursorRow, nil, asked?.account, io.revision)
         io.sendLine(pw)
         handledSite = site
         return .typed

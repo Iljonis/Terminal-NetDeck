@@ -915,6 +915,7 @@ struct SessionContent: View {
         VStack(spacing: 0) {
             if session.browser != nil { RemoteConsoleBar(session: session) }
             TerminalHost(session: session, focused: focused)
+                .id(session.id)                                // (el estado del foco no pasa de una sesión a otra)
                 .padding(.leading, inset)
                 .padding(.top, inset * 0.75)
         }
@@ -1017,9 +1018,10 @@ struct TerminalHost: NSViewRepresentable {
             let v = session.view
             guard c.focused, v.superview === box, let w = v.window else { return }
             if w.firstResponder === v { c.claim = false; return }
-            // (al redibujarse no quita el teclado al panel en el que acabas de hacer clic: lo tecleado, «ssh …»
-            // incluido, iría a otro; sólo al cambiar de activa o si el teclado no está en ninguna terminal)
-            guard c.claim || !(w.firstResponder is NetDeckTerminalView) else { return }
+            // (al redibujarse no quita el teclado al panel en el que acabas de hacer clic —lo tecleado, «ssh …»
+            // incluido, iría a otro— ni a un campo de texto: sólo al cambiar de activa o si no lo tiene nadie)
+            let r = w.firstResponder
+            guard c.claim || r == nil || r === w || (r as? NSView)?.window !== w else { return }
             if w.makeFirstResponder(v) { c.claim = false }
         }
     }

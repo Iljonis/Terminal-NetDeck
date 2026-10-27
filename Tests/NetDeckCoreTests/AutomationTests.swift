@@ -115,21 +115,36 @@ import Testing
         #expect(await a.typeManually(.named("AD"), into: io) == .typed)        // (y la del destino, otra vez a mano)
     }
 
-    /// Botón «login»: si ya piden la contraseña (el usuario ya escrito, o el askpass), sólo la contraseña.
+    /// Botón «login» con la contraseña ya pedida: nunca la de otro usuario; la suya, con bloqueo y seguimiento.
     @Test func loginConLaContraseñaYaPedida() async {
-        let store = MemoryCredentialStore([.named("AD"): "pw"])
-        for prompt in ["Password:", "[NetDeck] tu.usuario@core-01's password: "] {
-            let io = FakeTerminal(["Username: tu.usuario", prompt]) { _ in ["core-01>"] }
-            let r = await InputScript.login(user: "tu.usuario", credential: .named("AD"), cursorLine: io.cursorLine)
-                .run(on: io, store: store, abort: AbortSwitch())
-            #expect(r == .done)
-            #expect(io.sent == ["pw\r"])
-        }
-        let io = FakeTerminal(["Username: "]) { $0 == "tu.usuario" ? ["Password:"] : ["core-01>"] }
-        let r = await InputScript.login(user: "tu.usuario", credential: .named("AD"), cursorLine: io.cursorLine)
-            .run(on: io, store: store, abort: AbortSwitch())
-        #expect(r == .done)
-        #expect(io.sent == ["tu.usuario\r", "pw\r"])
+        let askpass = "[NetDeck] tu.usuario@core-01's password: "
+        #expect(PasswordPrompt.otherUser(than: "admin", cursorLine: askpass, above: []) == "tu.usuario")
+        #expect(PasswordPrompt.otherUser(than: "TU.USUARIO", cursorLine: askpass, above: []) == nil)
+        #expect(PasswordPrompt.otherUser(than: "admin", cursorLine: "Password:", above: ["Username: tu.usuario"]) == "tu.usuario")
+        #expect(PasswordPrompt.otherUser(than: "admin", cursorLine: "Password:", above: []) == nil)   // (no lo dice)
+        let ledger = CredentialLedger()
+        let io = FakeTerminal(["Username: tu.usuario", "Password:"]) { _ in ["Password:"] }
+        let a = make(io, MemoryCredentialStore([.named("AD"): "pw"]), ledger)
+        #expect(await a.typeManually(.named("AD"), into: io) == .typed)
+        #expect(await a.observe(io, gate: AutomationGate()) == .failed(.named("AD")))
+        #expect(await a.typeManually(.named("AD"), into: io) == .blocked)       // (bloqueada: no se repite)
+        #expect(io.sent == ["pw\r"])
+    }
+
+    /// Con el historial lleno la fila del cursor no crece: la nueva pregunta del askpass se ve por la revisión.
+    @Test func askpassRepiteConElHistorialLleno() async {
+        let prompt = "[NetDeck] tu.usuario@core-01's password:"
+        let io = FakeTerminal(["", prompt])
+        io.respond = { [unowned io] _ in io.screen.removeFirst(); return [""] }   // (la fila de arriba sale del historial)
+        let ledger = CredentialLedger()
+        let a = make(io, MemoryCredentialStore([.named("AD"): "pw"]), ledger)
+        #expect(await a.typeManually(.named("AD"), into: io) == .typed)
+        #expect(io.cursorRow == 1)
+        #expect(await a.observe(io, gate: AutomationGate()) == nil)             // (el salto de línea tras leerla)
+        io.screen = ["", prompt]                                                // (misma fila: vuelve a preguntar)
+        io.revision += 1
+        #expect(await a.observe(io, gate: AutomationGate()) == .failed(.named("AD")))
+        #expect(ledger.isBlocked(.named("AD")))
     }
 
     /// «Escribir sin esperar a que la pida»: sin prompt reconocido, Intro sólo si se pide; bloqueada sólo con `force`.

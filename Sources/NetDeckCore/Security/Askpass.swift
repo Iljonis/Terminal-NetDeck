@@ -425,7 +425,8 @@ public enum Askpass {
                 return 1
             }
             var saved: CredentialRef?
-            if let named, tty.yesNo(L("¿Guardarla como «\(named)»?"), default: true) == true {
+            // (sin una guardada que fallase, por defecto no: un Intro de más no pisa «named» con otra)
+            if let named, tty.yesNo(L("¿Guardarla como «\(named)»?"), default: failed != nil) == true {
                 saved = .named(named)
             } else if named == nil,
                       tty.yesNo(L("¿Guardar la \(failed != nil ? L("nueva ") : "")contraseña de \(account) en el Llavero?"),

@@ -1501,14 +1501,22 @@ final class AppModel {
                 status = L("✗ Botón «\(b.name)»: el login es «usuario / nombre-de-la-contraseña»")
                 return
             }
+            // (ya piden la contraseña: sólo si es de su usuario, y con bloqueos y seguimiento como la del menú 🔑)
+            if PasswordPrompt.acceptsManual(s.cursorLine) {
+                if let other = PasswordPrompt.otherUser(than: parts.user, cursorLine: s.cursorLine, above: s.linesAbove(3)) {
+                    status = L("✗ Botón «\(b.name)»: piden la contraseña de «\(other)», no la de «\(parts.user)»")
+                    return
+                }
+                typePassword(.named(parts.credential), in: s)
+                return
+            }
             Task {
                 let sw = s.gate.begin()
                 defer { s.gate.end(sw) }
                 s.cancelPasswordContext()
                 s.passwords.commandUser = parts.user
                 s.passwords.commandJumpUsers = []
-                let r = await InputScript.login(user: parts.user, credential: .named(parts.credential), cursorLine: s.cursorLine)
-                    .run(on: s, store: store, abort: sw)
+                let r = await InputScript.login(user: parts.user, credential: .named(parts.credential)).run(on: s, store: store, abort: sw)
                 status = L("🔑 Login «\(b.name)»: \(r)")
             }
         }

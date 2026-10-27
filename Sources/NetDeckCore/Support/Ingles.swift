@@ -2240,5 +2240,7 @@ enum Ingles {
             "✗ Button “%@”: “%@” has not logged in to the device yet",
         "✗ Botón «%@»: ninguna pestaña puede recibirlo ahora":
             "✗ Button “%@”: no tab can receive it right now",
+        "✗ Botón «%@»: piden la contraseña de «%@», no la de «%@»":
+            "✗ Button “%@”: the password requested is for “%@”, not “%@”",
 ]
 }

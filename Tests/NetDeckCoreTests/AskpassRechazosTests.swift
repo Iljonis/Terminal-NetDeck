@@ -178,6 +178,21 @@ import Testing
         #expect(again.user(failed: nil) == 0)
     }
 
+    /// «¿Guardarla como «AD»?» con Intro: sólo sí si la guardada había fallado (si no, una escrita con un botón u
+    /// otra cuenta pisaría «AD» y la desbloquearía).
+    @Test func guardarlaComoPorDefectoSoloTrasUnFallo() throws {
+        for failed in [nil, CredentialRef.named("AD")] {
+            let store = MemoryCredentialStore([.named("AD"): "buena"]), ledger = CredentialLedger()
+            let state = FileManager.default.temporaryDirectory.appendingPathComponent("askpass-\(UUID().uuidString)")
+            defer { try? FileManager.default.removeItem(at: state) }
+            let ask = Askpass.Asker(tty: SoloIntro(texto: "otra"), account: "tu.usuario@core-01", user: "tu.usuario",
+                                    host: "core-01", named: "AD", store: store, ledger: ledger, state: state, session: nil,
+                                    reply: { _ in 0 })
+            #expect(ask.user(failed: failed) == 0)
+            #expect(try store.password(for: .named("AD")) == (failed == nil ? "buena" : "otra"))
+        }
+    }
+
     @Test func unaVaciaEnElLlaveroCuentaComoQueNoEsta() async {
         #expect(await MemoryCredentialStore([.named("AD"): ""]).passwordInBackground(for: .named("AD")) == nil)
     }
@@ -230,4 +245,13 @@ private final class Respuestas: AskpassUI {
     func say(_ s: String) {}
     func read(secret: Bool) -> String? { textos.isEmpty ? siempre : textos.removeFirst() }
     func yesNo(_ question: String, default d: Bool) -> Bool? { false }
+}
+
+/// Escribe una contraseña y contesta Intro (lo de por defecto) a todo.
+private final class SoloIntro: AskpassUI {
+    let texto: String
+    init(texto: String) { self.texto = texto }
+    func say(_ s: String) {}
+    func read(secret: Bool) -> String? { texto }
+    func yesNo(_ question: String, default d: Bool) -> Bool? { d }
 }
