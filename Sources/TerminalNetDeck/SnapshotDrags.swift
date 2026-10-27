@@ -220,9 +220,11 @@ enum SnapshotDrags {
         let core = model.core
         say("— ventanas")
         guard let screen = w.screen?.visibleFrame else { check(false, "ventanas: sin pantalla"); return }
-        // (la de prueba, a la izquierda y no muy alta: la nueva va a su derecha y arriba queda hueco libre)
-        let left = CGRect(x: screen.minX, y: screen.minY, width: max(960, (screen.width * 0.48).rounded()),
-                          height: min(640, screen.height - 160))
+        // (en pantallas pequeñas no caben dos mínimos: se solapan, con la barra de la nueva por encima de ésta)
+        let minWidth = max(960, w.minSize.width), minHeight = max(600, w.minSize.height)
+        let left = WindowPlacement.fit(CGRect(x: screen.minX, y: screen.minY,
+                                             width: max(minWidth, (screen.width * 0.48).rounded()),
+                                             height: max(minHeight, min(640, screen.height - 160))), in: screen)
         w.setFrame(left, display: true)
         while model.tabs.count < 5 {
             model.open(ConnectionRoute(title: "lab-\(model.tabs.count)", target: Endpoint(user: "tu.usuario", host: "198.51.100.\(model.tabs.count + 1)")))
@@ -245,8 +247,11 @@ enum SnapshotDrags {
             return
         }
         check(b.tabs.isEmpty, "ventana nueva: abierta y vacía (portada)")
-        bw.setFrame(CGRect(x: left.maxX + 16, y: left.minY, width: min(1000, screen.maxX - left.maxX - 16), height: left.height),
-                    display: true)
+        let beside = CGRect(x: left.maxX + 16, y: left.minY,
+                            width: min(1000, screen.maxX - left.maxX - 16), height: left.height)
+        let right = beside.width >= minWidth ? beside
+            : CGRect(x: screen.maxX - left.width, y: screen.maxY - left.height, width: left.width, height: left.height)
+        bw.setFrame(right, display: true)
         try? await Task.sleep(for: .milliseconds(600))
 
         // los menús van a la ventana de delante
@@ -274,11 +279,18 @@ enum SnapshotDrags {
         try? await Task.sleep(for: .milliseconds(500))
 
         // menú «Mover a la ventana»: sin reconectar (el mismo terminal, ahora en la otra)
-        let s1 = model.tabs[1]
+        // (una shell viva y sin red: las conexiones ficticias de RFC 5737 pueden haber terminado durante los arrastres)
+        let s1 = model.open(ConnectionRoute.local(shell: "/bin/sh"))
+        guard await until({ s1.view.window === w && s1.revision > 0 && !s1.exited }) else {
+            check(false, "mover a otra ventana: no ha arrancado la shell local de prueba")
+            return
+        }
+        let generation = s1.pipe.current
         let moved = model.moveTab(s1, to: b)
-        _ = await until { s1.view.window === bw }
-        check(moved && b.tabs.contains { $0 === s1 } && !model.tabs.contains { $0 === s1 } && s1.view.window === bw && !s1.exited,
-              "mover a otra ventana: «\(s1.title)» pasa con su terminal, sin reconectar")
+        let arrived = await until { s1.view.window === bw }
+        check(moved && arrived && b.tabs.contains { $0 === s1 } && !model.tabs.contains { $0 === s1 }
+              && !s1.exited && s1.pipe.current == generation,
+              "mover a otra ventana: «\(s1.title)» pasa con su terminal, sin reconectar (generación \(generation)→\(s1.pipe.current), cerrada=\(s1.exited))")
         // con una hoja abierta en la otra no se le lleva nada (el pegado escribiría en la que llega)
         b.sheet = .paste
         try? await Task.sleep(for: .milliseconds(200))
@@ -371,7 +383,8 @@ enum SnapshotDrags {
         // reabrir: las de la primera ventana aquí, las de la segunda en una nueva en su sitio
         let firstFrame = w.frame.offsetBy(dx: 20, dy: -20)
         let expectedFirst = WindowPlacement.restored(firstFrame, screens: NSScreen.screens.map(\.visibleFrame))
-        let frame = CGRect(x: left.maxX + 30, y: left.minY + 20, width: 980, height: 560)     // (más baja que el mínimo)
+        // (su centro debe seguir en una pantalla: fuera de ella la app deja el marco que elija macOS)
+        let frame = CGRect(x: min(left.maxX + 30, screen.maxX - 980), y: left.minY + 20, width: 980, height: 560)
         let minimum = core.attachedWindows.first?.window?.minSize ?? .zero
         let want = CGRect(x: frame.minX, y: frame.maxY - max(frame.height, minimum.height),
                           width: max(frame.width, minimum.width), height: max(frame.height, minimum.height))
@@ -383,30 +396,41 @@ enum SnapshotDrags {
         ])
         let n2 = core.attachedWindows.count, before = model.tabs.count
         model.reopenLast()
-        let reopened = await until { core.attachedWindows.count == n2 + 1 && core.attachedWindows.last?.tabs.count == 2 }
+        let reopened = await until {
+            core.attachedWindows.count == n2 + 1 && core.attachedWindows.last?.tabs.count == 2
+                && w.frame == expectedFirst && core.attachedWindows.last?.window?.frame == expected
+        }
         let r = core.attachedWindows.last
         check(reopened && model.tabs.count == before + 1 && r?.tabs.map(\.route.title) == ["pe-02", "rr-01"]
               && w.frame == expectedFirst && r?.window?.frame == expected,
-              "reabrir en sus ventanas: 1 aquí y 2 en una nueva, ambas en su sitio (\(w.frame) · \(r?.window?.frame ?? .zero))")
+              "reabrir en sus ventanas: 1 aquí y 2 en una nueva, ambas en su sitio (\(w.frame) · \(r?.window?.frame ?? .zero); esperados \(expectedFirst ?? .zero) · \(expected ?? .zero))")
         if let r, r !== model, let rw = r.window {
             rw.close()
             _ = await until { !core.attachedWindows.contains { $0 === r } }
         }
-        await fullScreenMove(model, w)
+        await fullScreenMove(model, w, s1)
     }
 
     /// A pantalla completa: «Mover a una ventana nueva» también (la nueva sale aparte y la conexión sigue).
-    private static func fullScreenMove(_ model: AppModel, _ w: NSWindow) async {
+    private static func fullScreenMove(_ model: AppModel, _ w: NSWindow, _ s: TerminalSession) async {
         let core = model.core
         w.toggleFullScreen(nil)
         guard await until({ w.styleMask.contains(.fullScreen) }) else { check(false, "ventana nueva: no entra en pantalla completa"); return }
         try? await Task.sleep(for: .seconds(1))
         let n = core.attachedWindows.count
-        guard model.tabs.count > 1, let s = model.current else { check(false, "ventana nueva: sin pestañas que mover"); return }
+        guard model.tabs.count > 1, model.tabs.contains(where: { $0 === s }), !s.exited else {
+            check(false, "ventana nueva: sin la shell local viva que mover")
+            return
+        }
+        model.show(s)
+        let generation = s.pipe.current
         model.moveTabToNewWindow(s)
-        let made = await until { core.attachedWindows.count == n + 1 && core.attachedWindows.last?.tabs.first === s }
-        check(made && !s.exited && s.view.window === core.attachedWindows.last?.window,
-              "ventana nueva: desde pantalla completa, con «\(s.title)» y sin reconectar")
+        let made = await until {
+            core.attachedWindows.count == n + 1 && core.attachedWindows.last?.tabs.first === s
+                && s.view.window === core.attachedWindows.last?.window
+        }
+        check(made && !s.exited && s.pipe.current == generation,
+              "ventana nueva: desde pantalla completa, con «\(s.title)» y sin reconectar (generación \(generation)→\(s.pipe.current), cerrada=\(s.exited))")
         if made, let c = core.attachedWindows.last, let cw = c.window {
             _ = c.moveTab(s, to: model)                             // (vuelve; la nueva, vacía, se cierra sola)
             let back = await until { !core.attachedWindows.contains { $0 === c } && model.tabs.contains { $0 === s } }

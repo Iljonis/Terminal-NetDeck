@@ -8,12 +8,15 @@ extension CredentialRef {
 
 /// Catálogo del Llavero: los nombres y asociaciones se editan sin sacar los secretos de macOS.
 struct PasswordSettings: View {
+    private struct Edition: Identifiable {
+        let id = UUID()
+        let ref: CredentialRef?
+    }
     @Environment(\.theme) private var t
     @Environment(AppModel.self) private var model
     @Stored private var query = ""
     @Stored private var message = ""
-    @Stored private var editing: CredentialRef?
-    @Stored private var showingEditor = false
+    @Stored private var edition: Edition?
 
     var body: some View {
         @Bindable var s = model.settings
@@ -59,7 +62,7 @@ struct PasswordSettings: View {
                 HStack {
                     SearchField(text: $query, prompt: L("Buscar credenciales"))
                     Button(L("Recargar")) { model.core.refreshKeychain() }.disabled(model.core.keychainLoading)
-                    Button(L("Añadir…")) { editing = nil; showingEditor = true }
+                    Button(L("Añadir…")) { edition = Edition(ref: nil) }
                 }
                 if model.core.keychainLoading { ProgressView().controlSize(.small) }
                 if let error = model.core.keychainError { Text(error).font(.caption).foregroundStyle(.orange) }
@@ -94,8 +97,8 @@ struct PasswordSettings: View {
         }
         .formStyle(.themed)
         .disabled(model.core.editingCredential)
-        .sheet(isPresented: $showingEditor) {
-            CredentialEditorSheet(ref: editing) { _, result in message = result }
+        .sheet(item: $edition) { item in
+            CredentialEditorSheet(ref: item.ref) { _, result in message = result }
         }
         .onChange(of: s.sessionAutoPassword) { model.applyPasswordModes() }
         .onChange(of: s.devicePasswordMode) { model.applyPasswordModes() }
@@ -109,7 +112,7 @@ struct PasswordSettings: View {
     private var filtered: [CredentialRef] {
         model.keychainAccounts.filter { query.isEmpty || $0.account.localizedCaseInsensitiveContains(query) }
     }
-    private func edit(_ ref: CredentialRef) { editing = ref; showingEditor = true }
+    private func edit(_ ref: CredentialRef) { edition = Edition(ref: ref) }
 
     private func usage(_ ref: CredentialRef) -> String? {
         let file = model.sessionFile
@@ -142,6 +145,7 @@ struct PasswordSettings: View {
 /// Editar la identidad no exige volver a escribir el secreto; cambiarlo sigue siendo una decisión explícita.
 struct CredentialEditorSheet: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.theme) private var t
     @Environment(\.dismiss) private var dismiss
     let ref: CredentialRef?
     var namedOnly = false
@@ -154,6 +158,19 @@ struct CredentialEditorSheet: View {
     @Stored private var second = ""
     @Stored private var error = ""
     @Stored private var busy = false
+
+    init(ref: CredentialRef?, namedOnly: Bool = false, done: @escaping (CredentialRef, String) -> Void = { _, _ in }) {
+        self.ref = ref; self.namedOnly = namedOnly; self.done = done
+        _service = Stored(initialValue: ref?.service ?? .named)
+        _name = Stored(initialValue: ref?.service == .named ? ref?.account ?? "" : "")
+        var user = "", host = ""
+        if let ref, ref.service == .device {
+            if let at = ref.account.lastIndex(of: "@") {
+                user = String(ref.account[..<at]); host = String(ref.account[ref.account.index(after: at)...])
+            } else { host = ref.account }
+        }
+        _user = Stored(initialValue: user); _host = Stored(initialValue: host)
+    }
 
     private var destination: CredentialRef {
         service == .named ? .named(name.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -171,56 +188,55 @@ struct CredentialEditorSheet: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                if ref == nil, !namedOnly {
-                    ThemedPicker(L("Tipo"), selection: $service) { o in
-                        o.append((CredentialRef.Service.named, L("Con nombre")))
-                        o.append((CredentialRef.Service.device, L("Usuario y equipo")))
+        VStack(spacing: 0) {
+            Form {
+                Section {
+                    if ref == nil, !namedOnly {
+                        ThemedPicker(L("Tipo"), selection: $service) { o in
+                            o.append((CredentialRef.Service.named, L("Con nombre")))
+                            o.append((CredentialRef.Service.device, L("Usuario y equipo")))
+                        }
                     }
+                    if service == .named {
+                        LabeledContent(L("Nombre")) { TextField("", text: $name, prompt: Text(L("Por ejemplo: Red principal"))) }
+                    } else {
+                        LabeledContent(L("Usuario")) { TextField("", text: $user) }
+                        LabeledContent(L("Equipo")) { TextField("", text: $host, prompt: Text("core-01")) }
+                    }
+                    if let problem = referenceProblem { Text(problem).font(.caption).foregroundStyle(.orange) }
+                } header: { Text(ref == nil ? L("Nueva credencial") : L("Editar credencial")) } footer: {
+                    Text(service == .named
+                         ? L("Al renombrarla se actualizan sus asignaciones en sesiones, grupos, botones, listas y la predeterminada.")
+                         : L("La cuenta propia corresponde a ese usuario y equipo. Para contraseñas distintas según el servicio, usa credenciales con nombre."))
+                        .font(.caption)
                 }
-                if service == .named {
-                    TextField(L("Nombre"), text: $name, prompt: Text(L("Por ejemplo: Red principal")))
-                } else {
-                    TextField(L("Usuario"), text: $user)
-                    TextField(L("Equipo"), text: $host, prompt: Text("core-01"))
+                Section {
+                    SecureField(ref == nil ? L("Contraseña") : L("Contraseña nueva (opcional)"), text: $first)
+                    SecureField(L("Repítela"), text: $second)
+                    if !second.isEmpty, first != second { Text(L("No coinciden")).font(.caption).foregroundStyle(.orange) }
+                } footer: {
+                    Text(ref == nil ? L("Se guarda únicamente en el Llavero de macOS.")
+                         : L("Deja ambos campos vacíos para conservar la contraseña. Renombrar conserva también su bloqueo por fallo."))
+                        .font(.caption)
                 }
-                if let problem = referenceProblem { Text(problem).font(.caption).foregroundStyle(.orange) }
-            } header: { Text(ref == nil ? L("Nueva credencial") : L("Editar credencial")) } footer: {
-                Text(service == .named
-                     ? L("Al renombrarla se actualizan sus asignaciones en sesiones, grupos, botones, listas y la predeterminada.")
-                     : L("La cuenta propia corresponde a ese usuario y equipo. Para contraseñas distintas según el servicio, usa credenciales con nombre."))
-                    .font(.caption)
+                if !error.isEmpty { Text(error).font(.caption).foregroundStyle(.red) }
             }
-            Section {
-                SecureField(ref == nil ? L("Contraseña") : L("Contraseña nueva (opcional)"), text: $first)
-                SecureField(L("Repítela"), text: $second)
-                if !second.isEmpty, first != second { Text(L("No coinciden")).font(.caption).foregroundStyle(.orange) }
-            } footer: {
-                Text(ref == nil ? L("Se guarda únicamente en el Llavero de macOS.")
-                     : L("Deja ambos campos vacíos para conservar la contraseña. Renombrar conserva también su bloqueo por fallo."))
-                    .font(.caption)
-            }
-            if !error.isEmpty { Text(error).font(.caption).foregroundStyle(.red) }
+            .formStyle(.themed)
+            Divider().overlay(SwiftUI.Color(t.panel))
+            HStack {
+                Spacer()
+                Button(L("Cancelar")) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(busy ? L("Guardando…") : L("Guardar")) { save() }
+                    .keyboardShortcut(.defaultAction).disabled(!valid)
+            }.padding(12)
         }
-        .formStyle(.themed)
-        .frame(width: 540)
+        .frame(width: 540, height: 420)
+        .background(SwiftUI.Color(t.background.opaque))
+        .foregroundStyle(SwiftUI.Color(t.text))
+        .tint(SwiftUI.Color(t.accent))
+        .themedControls()
         .disabled(busy)
         .interactiveDismissDisabled(busy)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) { Button(L("Cancelar")) { dismiss() }.disabled(busy) }
-            ToolbarItem(placement: .confirmationAction) {
-                Button(busy ? L("Guardando…") : L("Guardar")) { save() }.disabled(busy || !valid)
-            }
-        }
-        .onAppear {
-            guard let ref else { return }
-            service = ref.service
-            if service == .named { name = ref.account }
-            else if let at = ref.account.lastIndex(of: "@") {
-                user = String(ref.account[..<at]); host = String(ref.account[ref.account.index(after: at)...])
-            } else { host = ref.account }
-        }
     }
 
     private func save() {

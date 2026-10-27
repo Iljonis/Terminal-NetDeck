@@ -9,10 +9,10 @@ y 51 temas. Nativo, rápido y en tu idioma.
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.9.5](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.5)** · macOS 15 o posterior ·
+Versión actual: **[v0.9.6](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.6)** · macOS 15 o posterior ·
 código abierto (MIT)
 
-[![Versión](https://img.shields.io/badge/versión-v0.9.5-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.5)
+[![Versión](https://img.shields.io/badge/versión-v0.9.6-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.6)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -42,7 +42,7 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - **Multipestaña** con vista dividida, MultiExec y pegado seguro; **51 temas** con contraste WCAG.
 - **Sesiones con saltos** sobre tu `ssh_config` y contraseñas sólo en el Llavero de macOS.
 
-### Novedades de 0.9.5
+### Novedades de 0.9.6
 
 - **Autopass con historial y Tab:** reconoce la orden SSH/Telnet elegida al pulsar Intro desde el mismo prompt,
   también al volver al equipo o abrir otra pestaña. La salida de un `show run` o un banner no inicia un login.
