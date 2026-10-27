@@ -43,6 +43,19 @@ public enum PasswordPrompt {
         return !command.matches(String(l[..<r.lowerBound]))
     }
 
+    /// Donde la persona (un botón, el menú 🔑) puede escribir la que elija: también la pregunta del askpass de la
+    /// sesión («[NetDeck] tu.usuario@core-01's password:», que la lee sin eco). La automática nunca escribe ahí.
+    public static func acceptsManual(_ line: String) -> Bool {
+        asksForPassword(line) || askpassRequest(line) != nil
+    }
+
+    /// La pregunta de contraseña del askpass, sin su «[NetDeck]», o nil (sus avisos, sí/no y lo demás no lo son).
+    public static func askpassRequest(_ line: String) -> PasswordRequest? {
+        let l = line.trimmed
+        guard l.hasPrefix(Askpass.marker) else { return nil }
+        return detect(cursorLine: String(l.dropFirst(Askpass.marker.count)), above: [])
+    }
+
     /// La petición de la línea del cursor (`above`: las líneas de encima, la última justo antes), o nil.
     public static func detect(cursorLine: String, above: [String]) -> PasswordRequest? {
         guard asksForPassword(cursorLine) else { return nil }

@@ -19,7 +19,7 @@ final class FakeTerminal: TerminalIO {
         sent.append(text)
         guard text.hasSuffix("\r") else { return }
         let cmd = String(text.dropLast())
-        if !PasswordPrompt.asksForPassword(cursorLine) { screen[screen.count - 1] += cmd }
+        if !PasswordPrompt.acceptsManual(cursorLine) { screen[screen.count - 1] += cmd }
         screen += respond(cmd)
         revision += 1
     }

@@ -275,6 +275,11 @@ public final class PasswordAutomation {
         if onlySuggestDevices, mode == .autoType { mode = .suggest }
         guard operation == nil else { return nil }
         guard let request = request(io) else {
+            // (la escrita a mano en el askpass: si vuelve a preguntar en otra fila, no valía; otra cuenta, era el salto)
+            if let p = pending, io.cursorRow > p.row, let asked = PasswordPrompt.askpassRequest(line) {
+                pending = nil
+                return resolveRepeated(p, asking: asked.account)
+            }
             // (con «# @prompt», el de la sesión; el login anidado lo termina también el prompt genérico del otro equipo)
             let atShell = PromptRule.isPrompt(line, custom: io.promptRule)
                 || (pending != nil && PromptRule.endsNestedLogin(line, custom: io.promptRule))
@@ -299,14 +304,7 @@ public final class PasswordAutomation {
         guard site != handledSite else { return nil }
         if let p = pending {
             pending = nil
-            if let asked = p.account?.lowercased(), let now = request.account?.lowercased(), asked != now {
-                // (con -J, tras la del salto ssh pide la del destino: la del salto ha entrado y ésta es otra petición)
-                if let token = p.reservation { ledger.confirm(p.ref, reservation: token) } else { ledger.confirmDirect(p.ref) }
-            } else {                                           // otra vez «Password:» = no valía
-                if let token = p.reservation { ledger.markFailed(p.ref, reservation: token) } else { ledger.markFailed(p.ref) }
-                cancelCommand()
-                return .failed(p.ref)
-            }
+            if let failed = resolveRepeated(p, asking: request.account) { return failed }
         }
         // (sin una orden propia no se buscan candidatas ni se consulta el almacén, aunque parezca una contraseña)
         guard mode != .off, let target = commandTarget else { return nil }
@@ -395,6 +393,19 @@ public final class PasswordAutomation {
         return event
     }
 
+    /// Piden otra vez contraseña tras enviar `p`: con otra cuenta (-J: tras la del salto, la del destino), la anterior
+    /// ha entrado; con la misma o sin cuenta, no valía (`.failed`).
+    private func resolveRepeated(_ p: (ref: CredentialRef, row: Int, reservation: UUID?, account: String?),
+                                 asking account: String?) -> Event? {
+        if let asked = p.account?.lowercased(), let now = account?.lowercased(), asked != now {
+            if let token = p.reservation { ledger.confirm(p.ref, reservation: token) } else { ledger.confirmDirect(p.ref) }
+            return nil
+        }
+        if let token = p.reservation { ledger.markFailed(p.ref, reservation: token) } else { ledger.markFailed(p.ref) }
+        cancelCommand()
+        return .failed(p.ref)
+    }
+
     /// (aparte: con el cierre dentro de observe, el compilador de Swift 6.3 se cae en ClosureLifetimeFixup)
     nonisolated private static func secret(_ ref: CredentialRef, in store: CredentialStore) async -> String? {
         await store.passwordInBackground(for: ref)
@@ -438,11 +449,12 @@ public final class PasswordAutomation {
         return .typed
     }
 
-    /// Elección manual (menú 🔑): sin la regla de usuario (la eliges tú), pero nunca una bloqueada sin `force`.
-    /// El Llavero se lee fuera del hilo principal; justo antes de escribirla se comprueba que la siguen pidiendo.
+    /// Elección manual (menú 🔑, botones): sin la regla de usuario (la eliges tú), pero nunca una bloqueada sin `force`.
+    /// También en la pregunta del askpass al abrir la sesión. El Llavero se lee fuera del hilo principal; justo antes
+    /// de escribirla se comprueba que la siguen pidiendo.
     public func typeManually(_ ref: CredentialRef, into io: TerminalIO, force: Bool = false) async -> ManualResult {
         if !force, ledger.isBlocked(ref) { return .blocked }
-        guard PasswordPrompt.asksForPassword(io.cursorLine) else { return .notAsked }
+        guard PasswordPrompt.acceptsManual(io.cursorLine) else { return .notAsked }
         let site = "\(io.cursorRow):\(io.cursorLine.trimmed)"
         guard operation == nil, site != handledSite || pending == nil else { return .busy }
         waitingProbe?.task.cancel()
@@ -458,7 +470,8 @@ public final class PasswordAutomation {
         guard "\(io.cursorRow):\(io.cursorLine.trimmed)" == site else { return .notAsked }
         if let p = pending, let token = p.reservation { ledger.release(p.ref, reservation: token) }
         if force { ledger.reset(ref) }
-        pending = (ref, io.cursorRow, nil, PasswordPrompt.detect(cursorLine: io.cursorLine, above: [])?.account)
+        let asked = PasswordPrompt.detect(cursorLine: io.cursorLine, above: []) ?? PasswordPrompt.askpassRequest(io.cursorLine)
+        pending = (ref, io.cursorRow, nil, asked?.account)
         io.sendLine(pw)
         handledSite = site
         return .typed

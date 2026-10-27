@@ -28,9 +28,12 @@ public struct InputScript: Sendable {
         self.steps = steps
     }
 
-    /// Botón «login»: usuario en «Username:/login:» y su contraseña cuando la pidan.
-    public static func login(user: String, credential: CredentialRef, timeout: Duration = .seconds(15)) -> InputScript {
-        InputScript([
+    /// Botón «login»: usuario en «Username:/login:» y su contraseña cuando la pidan. Si al pulsarlo ya piden la
+    /// contraseña (`cursorLine`: el usuario ya está escrito, o la pregunta del askpass), sólo la contraseña.
+    public static func login(user: String, credential: CredentialRef, timeout: Duration = .seconds(15),
+                             cursorLine: String = "") -> InputScript {
+        if PasswordPrompt.acceptsManual(cursorLine) { return InputScript([.secret(credential)]) }
+        return InputScript([
             .waitFor(Pattern(#"(?:user\s*name|login|user|usuario)\s*:\s*$"#), timeout: timeout),
             .line(user),
             .waitFor(PasswordPrompt.asks, timeout: timeout),
@@ -52,7 +55,7 @@ public struct InputScript: Sendable {
                     guard let pw = await store.passwordInBackground(for: ref) else { return .missingCredential(ref) }
                     // (justo antes: ni Esc ni una pantalla que ya no pide contraseña)
                     try abort.check()
-                    guard PasswordPrompt.asksForPassword(io.cursorLine) else { return .promptGone(step: i) }
+                    guard PasswordPrompt.acceptsManual(io.cursorLine) else { return .promptGone(step: i) }
                     io.sendLine(pw)
                 case .waitFor(let p, let timeout):
                     let hit = try await Poll.until(every: poll, timeout: timeout, abort: abort) {

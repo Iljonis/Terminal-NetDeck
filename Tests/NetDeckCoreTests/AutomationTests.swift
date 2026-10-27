@@ -72,6 +72,66 @@ import Testing
         #expect(await a.observe(io, gate: AutomationGate()) == .typed(.named("AD")))
     }
 
+    /// Las peticiones de siempre (con espacios al final) y la del askpass al abrir la sesión: un botón o el menú 🔑
+    /// pueden escribir ahí; sus avisos y el «¿Guardarla?» no son peticiones.
+    @Test func peticionesQueAceptanUnaManual() {
+        for l in ["tu.usuario@192.0.2.11's password: ", "Password for tu.usuario:", "(tu.usuario@core-01) Password:",
+                  "Enter password:", "Password:   ", "Contraseña:"] {
+            #expect(PasswordPrompt.asksForPassword(l), "\(l)")
+            #expect(PasswordPrompt.acceptsManual(l), "\(l)")
+        }
+        let askpass = "[NetDeck] tu.usuario@core-01's password: "
+        #expect(!PasswordPrompt.asksForPassword(askpass))                  // (la automática no escribe ahí)
+        #expect(PasswordPrompt.acceptsManual(askpass))
+        #expect(PasswordPrompt.askpassRequest(askpass)?.account == "tu.usuario@core-01")
+        #expect(SecretPrompt.asks(askpass))                                // (ni órdenes de botones ni MultiExec)
+        for l in ["[NetDeck] Esc = cancelar", "[NetDeck] ¿Guardarla como «AD»? [S/n] (Esc = no)", "core-01#show run | i password:"] {
+            #expect(!PasswordPrompt.acceptsManual(l), "\(l)")
+        }
+    }
+
+    /// El botón de contraseña en la pregunta del askpass: la escribe; si vuelve a preguntar, no valía (bloqueada).
+    @Test func botonDeContraseñaEnElAskpass() async {
+        let io = FakeTerminal(["[NetDeck] Esc = cancelar", "[NetDeck] tu.usuario@core-01's password: "]) { _ in
+            ["[NetDeck] tu.usuario@core-01's password: "]
+        }
+        let ledger = CredentialLedger()
+        let a = make(io, MemoryCredentialStore([.named("AD"): "pw"]), ledger)
+        #expect(await a.typeManually(.named("AD"), into: io) == .typed)
+        #expect(io.sent == ["pw\r"])
+        #expect(io.screen[1] == "[NetDeck] tu.usuario@core-01's password: ")  // (sin eco)
+        #expect(await a.observe(io, gate: AutomationGate()) == .failed(.named("AD")))
+        #expect(ledger.isBlocked(.named("AD")))
+    }
+
+    /// Con -J, tras la del salto el askpass pregunta por el destino: la del salto ha entrado, no se bloquea.
+    @Test func botonEnElAskpassDelSalto() async {
+        let io = FakeTerminal(["[NetDeck] tu.usuario@bastion's password:"]) { _ in ["[NetDeck] tu.usuario@192.0.2.11's password:"] }
+        let ledger = CredentialLedger()
+        let a = make(io, MemoryCredentialStore([.named("AD"): "pw"]), ledger)
+        #expect(await a.typeManually(.named("AD"), into: io) == .typed)
+        #expect(await a.observe(io, gate: AutomationGate()) == nil)
+        #expect(!ledger.isBlocked(.named("AD")))
+        #expect(await a.typeManually(.named("AD"), into: io) == .typed)        // (y la del destino, otra vez a mano)
+    }
+
+    /// Botón «login»: si ya piden la contraseña (el usuario ya escrito, o el askpass), sólo la contraseña.
+    @Test func loginConLaContraseñaYaPedida() async {
+        let store = MemoryCredentialStore([.named("AD"): "pw"])
+        for prompt in ["Password:", "[NetDeck] tu.usuario@core-01's password: "] {
+            let io = FakeTerminal(["Username: tu.usuario", prompt]) { _ in ["core-01>"] }
+            let r = await InputScript.login(user: "tu.usuario", credential: .named("AD"), cursorLine: io.cursorLine)
+                .run(on: io, store: store, abort: AbortSwitch())
+            #expect(r == .done)
+            #expect(io.sent == ["pw\r"])
+        }
+        let io = FakeTerminal(["Username: "]) { $0 == "tu.usuario" ? ["Password:"] : ["core-01>"] }
+        let r = await InputScript.login(user: "tu.usuario", credential: .named("AD"), cursorLine: io.cursorLine)
+            .run(on: io, store: store, abort: AbortSwitch())
+        #expect(r == .done)
+        #expect(io.sent == ["tu.usuario\r", "pw\r"])
+    }
+
     /// «Escribir sin esperar a que la pida»: sin prompt reconocido, Intro sólo si se pide; bloqueada sólo con `force`.
     @Test func escribirSinQueLaPidan() async {
         let io = FakeTerminal(["Clave de acceso >"])

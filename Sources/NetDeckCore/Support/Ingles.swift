@@ -2232,5 +2232,13 @@ enum Ingles {
             "another authentication using “%@” is still pending; type it manually or, if it has ended, reset it in Settings → Passwords → “Reset pending attempt”",
         "Restablecer pendiente": "Reset pending attempt",
         "Úsalo sólo si el login pendiente ya terminó. No cambia la contraseña guardada.": "Only use this when the pending login has ended. It does not change the saved password.",
+        "🔑 Ya se está escribiendo una contraseña en «%@»; espera a que conteste":
+            "🔑 A password is already being typed in “%@”; wait for the reply",
+        "✗ Botón «%@»: «%@» pide una contraseña; no escribo órdenes ahí (usa un botón de contraseña)":
+            "✗ Button “%@”: “%@” is asking for a password; commands are not typed there (use a password button)",
+        "✗ Botón «%@»: «%@» aún no ha entrado en el equipo":
+            "✗ Button “%@”: “%@” has not logged in to the device yet",
+        "✗ Botón «%@»: ninguna pestaña puede recibirlo ahora":
+            "✗ Button “%@”: no tab can receive it right now",
 ]
 }
