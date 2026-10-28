@@ -107,10 +107,10 @@ import Testing
     /// lo anclado dentro de tmux no lee luego el historial normal.
     @Test func entrarYSalirDeLaPantallaAlternativaRecoloca() {
         let normal = (0..<5).map { "n\($0)" }, tmux = (0..<5).map { "t\($0)" }
-        #expect(BufferRows.isAlternate(active: tmux, alternate: tmux, screenRows: 5))
-        #expect(!BufferRows.isAlternate(active: normal, alternate: tmux, screenRows: 5))
-        #expect(!BufferRows.isAlternate(active: ["", ""], alternate: ["", ""], screenRows: 2))      // (al arrancar)
-        #expect(!BufferRows.isAlternate(active: normal + ["x"], alternate: normal + ["x"], screenRows: 5))
+        #expect(BufferRows.alternateEvidence(active: tmux, alternate: tmux, screenRows: 5) == true)
+        #expect(BufferRows.alternateEvidence(active: normal, alternate: tmux, screenRows: 5) == nil)   // (difieren)
+        #expect(BufferRows.alternateEvidence(active: ["", ""], alternate: ["", ""], screenRows: 2) == nil)  // (en blanco)
+        #expect(BufferRows.alternateEvidence(active: normal + ["x"], alternate: tmux, screenRows: 5) == false) // (historial)
         var f = BufferRows()
         f.update(normal, screenRows: 5, cursor: 4, layout: [80, 5, 0])
         f.update(tmux, screenRows: 5, cursor: 2, layout: [80, 5, 1])
@@ -118,6 +118,26 @@ import Testing
         let dentro = f.resync
         f.update(normal, screenRows: 5, cursor: 4, layout: [80, 5, 0])
         #expect(f.resyncs == 2 && f.first(from: dentro) > dentro)
+    }
+
+    /// Dentro de tmux con salida continua, una lectura a destiempo (activo ≠ alternativo) o un «clear» que deja la
+    /// alternativa en blanco no son pruebas de haber salido: no recolocan ni cancelan el autopass armado.
+    @Test func laAlternaEsEstableSinPruebas() {
+        var estado = false, f = BufferRows()
+        func leer(_ activo: [String], _ alt: [String]) {
+            estado = BufferRows.alternateEvidence(active: activo, alternate: alt, screenRows: 5) ?? estado
+            f.update(activo, screenRows: 5, cursor: activo.count - 1, layout: [80, 5, estado ? 1 : 0])
+        }
+        let tmux = (0..<5).map { "t\($0)" }, otro = (0..<5).map { "u\($0)" }, blanco = Array(repeating: "", count: 5)
+        leer(tmux, tmux)                                                // (entra: un recolocado)
+        let entrar = f.resyncs
+        leer(otro, tmux)                                                // (a destiempo: ambiguo)
+        leer(otro, otro)
+        leer(blanco, blanco)                                            // (clear en screen: ambiguo)
+        leer(tmux, tmux)
+        #expect(f.resyncs == entrar && estado)
+        leer((0..<9).map { "n\($0)" }, tmux)                            // (sale: con historial, sí)
+        #expect(f.resyncs == entrar + 1 && !estado)
     }
 
     @Test func unEscSueltoNoSeComeLaSiguienteTecla() {

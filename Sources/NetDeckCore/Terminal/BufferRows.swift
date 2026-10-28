@@ -44,11 +44,15 @@ public struct BufferRows: Sendable {
         }
     }
 
-    /// ¿Es la pantalla alternativa (tmux, screen, less, vi)? SwiftTerm 2 no lo dice desde la vista: el búfer activo
-    /// es exactamente el alternativo (sólo la pantalla, sin historial) y éste tiene algo escrito (al arrancar, los dos
-    /// están en blanco y es el normal). Entrar y salir cuentan como recolocar (`layout`).
-    public static func isAlternate(active: [String], alternate: [String], screenRows: Int) -> Bool {
-        active.count == screenRows && active == alternate && alternate.contains { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    /// ¿Es la pantalla alternativa (tmux, screen, less, vi)? SwiftTerm 2 no lo dice desde la vista, y sus lecturas
+    /// cogen el lock por separado (con salida continua, un trozo puede llegar entre una y otra). Sólo con pruebas:
+    /// true = el activo es del tamaño de la pantalla e igual al alternativo, que tiene algo escrito; false = el activo
+    /// tiene historial (el alternativo nunca lo tiene); nil = no se sabe (difieren, o la alternativa está en blanco):
+    /// se queda lo que había y no cuenta como recolocar. Entrar y salir de verdad sí cuentan (`layout`).
+    public static func alternateEvidence(active: [String], alternate: [String], screenRows: Int) -> Bool? {
+        guard active.count == screenRows else { return false }
+        guard active == alternate, alternate.contains(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) else { return nil }
+        return true
     }
 
     /// La primera fila absoluta que se puede leer desde `row` (lo de antes del último `resync`, no).

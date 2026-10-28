@@ -128,29 +128,32 @@ final class RemoteBrowser {
                 let fs = try await SFTPFileSystem.connect(label: label, executable: cmd.0, arguments: cmd.1, environment: env)
                 guard !Task.isCancelled, self.connectionGeneration == generation else {
                     _ = Askpass.takeGiven(session: sid)
+                    _ = Askpass.takeSaved(session: sid)
                     await fs.close()
                     return
                 }
                 Askpass.takeGiven(session: sid).forEach(ledger.confirmDirect) // (sin quitar la reserva de otro contexto)
-                self.reportSaved(sid)
+                if let saved = Self.savedMessage(sid) { self.model?.status = saved }
                 try await self.connected(fs, generation: generation)
             } catch {
-                self.reportSaved(sid)
+                let saved = Self.savedMessage(sid)
                 // (sin entrar: se confirman las que entraron; la que no valía no se bloquea, es de la sesión)
                 Askpass.settleAfterExit(session: sid, ledger: ledger) {
                     Askpass.rejection(in: [String(describing: error), error.localizedDescription])
                 }
                 self.fail(error, generation: generation)
+                if let saved { self.model?.status = saved }          // (después del fallo: que no lo pise)
             }
         }
     }
 
-    /// Lo que guardó (o no) el askpass de la ventana: por la barra de estado (el askpass no puede esperar a un clic).
-    private func reportSaved(_ sid: UUID) {
-        for s in Askpass.takeSaved(session: sid) {
-            model?.status = s.ok ? L("🔑 Guardada en el Llavero: «\(s.ref.account)»")
-                                 : L("🔑 No se ha podido guardar en el Llavero «\(s.ref.account)»")
+    /// Lo que guardó (o no) el askpass de la ventana, en un solo aviso para la barra de estado (el askpass no puede
+    /// esperar a un clic); nil si no guardó nada.
+    private static func savedMessage(_ sid: UUID) -> String? {
+        let lines = Askpass.takeSaved(session: sid).map {
+            $0.ok ? L("🔑 Guardada en el Llavero: «\($0.ref.account)»") : L("🔑 No se ha podido guardar en el Llavero «\($0.ref.account)»")
         }
+        return lines.isEmpty ? nil : lines.joined(separator: " · ")
     }
 
     /// FTP: su contraseña guardada, sin reservarla ni esperar a otras pestañas; un rechazo te la pide a ti (no se bloquea).

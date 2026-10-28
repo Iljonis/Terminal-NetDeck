@@ -372,6 +372,8 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     @ObservationIgnored private var cache: (rev: Int, lines: [String], cursor: Int, base: Int)?
     /// Filas absolutas que no retroceden con el historial lleno (`BufferRows`).
     @ObservationIgnored private var bufferRows = BufferRows()
+    /// ¿En la pantalla alternativa? (`BufferRows.alternateEvidence`: sólo cambia con pruebas)
+    @ObservationIgnored private var alternate = false
     @ObservationIgnored private var hopTask: Task<Void, Never>?
     @ObservationIgnored private var fellBack = false
     /// ssh ha dicho que el salto rechaza el reenvío; sólo cuenta si además ssh termina con 255 (`processExited`).
@@ -950,13 +952,14 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         if lines.last == "" { lines.removeLast() }
         let st = view.terminalStateSnapshot()
         let cursor = max(0, min(lines.count - 1, lines.count - st.dimensions.rows + st.cursor.row))
-        // (la pantalla alternativa, sólo si el búfer activo es del tamaño de la pantalla: entonces leerla es barato)
-        var alternate = false
+        // (la pantalla alternativa, sólo si el búfer activo es del tamaño de la pantalla: entonces leerla es barato;
+        // sin pruebas en un sentido u otro, se queda la de antes)
+        var alt: [String] = []
         if lines.count == st.dimensions.rows {
-            var alt = String(decoding: view.getBufferAsData(kind: .alt), as: UTF8.self).components(separatedBy: "\n")
+            alt = String(decoding: view.getBufferAsData(kind: .alt), as: UTF8.self).components(separatedBy: "\n")
             if alt.last == "" { alt.removeLast() }
-            alternate = BufferRows.isAlternate(active: lines, alternate: alt, screenRows: st.dimensions.rows)
         }
+        alternate = BufferRows.alternateEvidence(active: lines, alternate: alt, screenRows: st.dimensions.rows) ?? alternate
         bufferRows.update(lines, screenRows: st.dimensions.rows, cursor: cursor,
                           layout: [st.dimensions.cols, st.dimensions.rows, alternate ? 1 : 0])
         cache = (rev, lines, cursor, bufferRows.base)
