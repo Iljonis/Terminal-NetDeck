@@ -78,7 +78,7 @@ public struct PromptRule: Hashable, Sendable {
     /// del askpass. Las reglas que aceptan vacío necesitan además un prompt genérico reconocible.
     public static func isPrompt(_ line: String, custom: PromptRule?) -> Bool {
         let l = line.trimmed
-        guard !l.isEmpty, l.count <= maxLine, !SecretPrompt.asks(l), !authenticationFailed(l),
+        guard !l.isEmpty, l.count <= maxLine, !l.hasPrefix(Askpass.marker), !SecretPrompt.asks(l), !authenticationFailed(l),
               !login.matches(l), !PasteRules.errors.matches(l), !PasteRules.pager.matches(l) else { return false }
         if let custom {
             // (una regla que acepta vacío, como «.*», tampoco demuestra que un banner o un fragmento sea un prompt)

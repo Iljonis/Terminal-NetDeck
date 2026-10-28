@@ -434,7 +434,7 @@ public enum Askpass {
             try? SafeFile.write(old + line + "\n", to: url)
         }
 
-        /// Te la pide; te ofrece guardarla (si la guardada falló, por defecto sí).
+        /// Te la pide y te ofrece guardarla (Intro = sí). Ctrl+C en la pregunta de guardar cancela la autenticación.
         func user(failed: CredentialRef?) -> Int32 {
             tty.say(L("\(cyan)\(marker) Esc = cancelar\(reset)\n\(marker) \(account)'s password: "))
             // (vacía —un Intro de más—: se vuelve a pedir; mandarla sería un fallo más en la cuenta, y guardarla
@@ -449,24 +449,31 @@ public enum Askpass {
                 note(hostField(host) + "\t" + cancelMark, session: session, directory: directory)
                 return 1
             }
-            var saved: CredentialRef?
-            // (sin una guardada que fallase, por defecto no: un Intro de más no pisa «named» con otra)
-            if let named, tty.yesNo(L("¿Guardarla como «\(named)»?"), default: failed != nil) == true {
-                saved = .named(named)
-            } else if named == nil,
-                      tty.yesNo(L("¿Guardar la \(failed != nil ? L("nueva ") : "")contraseña de \(account) en el Llavero?"),
-                                default: failed != nil) == true {
-                saved = .device(user, host)
+            // (Intro = sí: la respuesta es una pulsación nueva, el TTY descarta lo que quedara de antes)
+            let target = named.map(CredentialRef.named) ?? .device(user, host)
+            let question = named.map { L("¿Guardarla como «\($0)»?") }
+                ?? L("¿Guardar la \(failed != nil ? L("nueva ") : "")contraseña de \(account) en el Llavero?")
+            guard let yes = tty.yesNo(question + (store.contains(target) ? L(" (sustituye la guardada)") : ""), default: true) else {
+                DebugLog.log("askpass", "guardar: cancelado con Ctrl+C (\(target))")
+                tty.say(L("\(yellow)\(marker) cancelado\(reset)\n"))
+                note(hostField(host) + "\t" + cancelMark, session: session, directory: directory)
+                return 1
             }
-            if let s = saved {
+            DebugLog.log("askpass", "guardar=\(yes ? "sí" : "no") (\(target))")
+            var saved: CredentialRef?
+            if yes {
                 do {
-                    try store.save(pw, for: s)
-                    ledger.reset(s)
+                    try store.save(pw, for: target)
+                    ledger.reset(target)
+                    saved = target
                     tty.say(L("\(green)\(marker) guardada ✓\(reset)\n"))
                 } catch {
-                    tty.say("\(red)\(marker) \(error.localizedDescription)\(reset)\n")
-                    saved = nil
+                    // (nunca la salida de security en la pestaña: podría llevar la orden con la contraseña)
+                    ErrorLog.warning("askpass", "no se ha podido guardar «\(target)» en el Llavero")
+                    tty.say(L("\(red)\(marker) no guardada: el Llavero no la ha aceptado\(reset)\n"))
                 }
+            } else {
+                tty.say(L("\(marker) no guardada\n"))
             }
             given(saved)
             return reply(pw)
@@ -477,8 +484,60 @@ public enum Askpass {
 /// Dónde pregunta el askpass: la pestaña (/dev/tty) o una ventana de la app.
 public protocol AskpassUI: AnyObject {
     func say(_ s: String)
+    /// Una línea; nil = Esc, Ctrl+C o la pestaña cerrada.
     func read(secret: Bool) -> String?
+    /// Sí o no (Esc = no); nil = Ctrl+C: se cancela la autenticación.
     func yesNo(_ question: String, default d: Bool) -> Bool?
+}
+
+/// Cómo acaba la lectura de una línea en la pestaña.
+enum TTYLine: Equatable {
+    case line(String), escape, interrupt, closed
+
+    /// Las teclas de una línea (aparte del terminal, para probarlo). `next(nil)` espera lo que haga falta y
+    /// `next(n)`, como mucho n décimas; `unread` devuelve un byte que es de la pregunta siguiente. Intro también es el
+    /// del teclado numérico («ESC O M») y ⌥+Intro («ESC ⏎»); un CR+LF pegado es un solo Intro. Las flechas y F1…
+    /// («ESC [ …» / «ESC O x») se ignoran enteras; Esc sola cancela.
+    static func read(secret: Bool, next: (UInt8?) -> UInt8?, unread: (UInt8) -> Void, echo: (String) -> Void) -> TTYLine {
+        var data: [UInt8] = []
+        func done(_ b: UInt8) -> TTYLine {
+            if b == 13, let n = next(0), n != 10 { unread(n) }
+            return .line(String(decoding: data, as: UTF8.self))
+        }
+        while true {
+            guard let b = next(nil) else { return .closed }      // (la pestaña se ha cerrado: no lo tecleado a medias)
+            switch b {
+            case 10, 13:
+                return done(b)
+            case 0x03:
+                return .interrupt
+            case 0x1B:
+                guard let n1 = next(1) else { return .escape }
+                if n1 == 13 || n1 == 10 { return done(n1) }
+                if n1 == UInt8(ascii: "O") {
+                    if let n2 = next(1), n2 == UInt8(ascii: "M") { return done(13) }
+                } else if n1 == UInt8(ascii: "[") {
+                    while let c = next(1), !(0x40...0x7E).contains(c) {}
+                } else {
+                    return .escape
+                }
+            case 0x7F, 0x08:
+                if !data.isEmpty {
+                    while let last = data.last, last & 0xC0 == 0x80 { data.removeLast() }
+                    data.removeLast()
+                    if !secret { echo("\u{8} \u{8}") }
+                }
+            case 0x15:
+                if !secret { echo(String(repeating: "\u{8} \u{8}", count: String(decoding: data, as: UTF8.self).count)) }
+                data = []
+            default:
+                if b >= 0x20 {
+                    data.append(b)
+                    if !secret { echo(String(decoding: [b], as: UTF8.self)) }
+                }
+            }
+        }
+    }
 }
 
 /// La pestaña de la sesión (/dev/tty), no la salida que lee ssh.
@@ -499,8 +558,10 @@ final class TTY: AskpassUI {
         _ = d.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
     }
 
-    /// Una línea; nil = Esc o Ctrl+C. Tecla a tecla (para ver la Esc sin esperar al Intro), sin confundirla con las
-    /// flechas y F1… («ESC [ …» / «ESC O x», que se ignoran enteras).
+    /// Cómo acabó la última lectura (Ctrl+C o la pestaña cerrada cancelan la autenticación; Esc sólo dice «no»).
+    private var last = TTYLine.closed
+
+    /// Una línea; nil = Esc o Ctrl+C. Tecla a tecla (para ver la Esc sin esperar al Intro): `TTYLine`.
     func read(secret: Bool) -> String? {
         var old = termios()
         tcgetattr(fd, &old)
@@ -524,42 +585,20 @@ final class TTY: AskpassUI {
             pending = Array(buf[1..<n])
             return buf[0]
         }
-        var data: [UInt8] = []
-        while true {
-            guard let b = next(nil) else { return nil }        // (la pestaña se ha cerrado: cancelado, no lo tecleado a medias)
-            switch b {
-            case 10, 13:
-                return String(decoding: data, as: UTF8.self)
-            case 0x03:
-                return nil
-            case 0x1B:
-                guard let n1 = next(1), n1 == UInt8(ascii: "[") || n1 == UInt8(ascii: "O") else { return nil }  // Esc
-                if n1 == UInt8(ascii: "O") {
-                    _ = next(1)
-                } else {
-                    while let c = next(1), !(0x40...0x7E).contains(c) {}
-                }
-            case 0x7F, 0x08:
-                if !data.isEmpty {
-                    while let last = data.last, last & 0xC0 == 0x80 { data.removeLast() }
-                    data.removeLast()
-                    if !secret { say("\u{8} \u{8}") }
-                }
-            case 0x15:
-                if !secret { say(String(repeating: "\u{8} \u{8}", count: String(decoding: data, as: UTF8.self).count)) }
-                data = []
-            default:
-                if b >= 0x20 {
-                    data.append(b)
-                    if !secret { _ = withUnsafePointer(to: b) { write(fd, $0, 1) } }
-                }
-            }
-        }
+        last = TTYLine.read(secret: secret, next: next, unread: { pending.insert($0, at: 0) }, echo: say)
+        if case .line(let s) = last { return s }
+        return nil
     }
 
     func yesNo(_ question: String, default d: Bool) -> Bool? {
+        // (la respuesta tiene que ser una pulsación nueva: lo pegado o tecleado de más antes no contesta solo)
+        pending = []
+        tcflush(fd, TCIFLUSH)
         say(L("\(Askpass.cyan)\(Askpass.marker) \(question) \(d ? L("[S/n]") : L("[s/N]")) (Esc = no)\(Askpass.reset) "))
-        guard let r = read(secret: false)?.trimmed.lowercased() else { say("\n"); return nil }
+        guard let r = read(secret: false)?.trimmed.lowercased() else {
+            say("\n")
+            return last == .escape ? false : nil
+        }
         say("\n")
         return r.isEmpty ? d : ["s", "si", "sí", "y", "yes"].contains(r)
     }

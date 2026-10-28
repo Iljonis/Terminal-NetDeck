@@ -143,6 +143,14 @@ final class AppModel {
         let secret: String
         let session: String?
     }
+    /// «¿Guardar la que has escrito?» en cada pestaña: un aviso encima del terminal, no una ventana modal (no se queda
+    /// con el teclado mientras sigues escribiendo). Se olvida en 2 min si no lo contestas.
+    var typedOffers: [TerminalSession.ID: TypedOffer] = [:]
+    struct TypedOffer: Identifiable {
+        let id = UUID()
+        let account: String
+        let save: TypedSave
+    }
     /// Pestañas a las que ya se ha preguntado (una vez por pestaña: los saltos no vuelven a preguntar).
     @ObservationIgnored private var typedOffered: Set<TerminalSession.ID> = []
     var passwordOffers: [TerminalSession.ID: PasswordAutomation.Offer] = [:]
@@ -854,6 +862,7 @@ final class AppModel {
         _ = Askpass.takeGiven(session: s.id)             // (lo que dejó el askpass si se cierra antes de entrar)
         if recording == s.id { stopRecording() }
         notices[s.id] = nil
+        typedOffers[s.id] = nil
         detach(s)
         saveOpenTabs()
     }
@@ -1106,20 +1115,32 @@ final class AppModel {
         }
     }
 
-    /// Has escrito tú la contraseña y ha entrado: «¿guardarla?». Nunca en una captura ni con otra hoja abierta.
+    /// Has escrito tú la contraseña y ha entrado: «¿guardarla?», como aviso de la pestaña (sin quitarte el teclado).
+    /// Nunca en una captura.
     func offerToSave(_ c: TypedPassword.Candidate, from s: TerminalSession) {
-        guard settings.offerSaveTyped, ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil, sheet == nil, typedSave == nil, typedOffered.insert(s.id).inserted else { return }
-        Task {
-            guard await ThemedAlert.confirm(L("¿Guardar en el Llavero la contraseña que has escrito?"),
-                                            message: L("La de «\(c.account ?? s.title)». La próxima vez se escribe sola. Puedes desactivar esta pregunta en Ajustes → Contraseñas."),
-                                            ok: L("Guardar…"), cancel: L("Ahora no")) else { return }
-            // (a la sesión sólo si es su propio login: no la de un equipo al que has saltado desde ella)
-            let t = s.route.target, own = c.account.map { a in
-                a.lowercased().hasSuffix("@\(t.host.lowercased())") && (t.user.map { a.hasPrefix("\($0)@") } ?? true)
-            } ?? false
-            typedSave = TypedSave(name: c.user ?? s.title, secret: c.secret, session: own ? s.route.sessionName : nil)
+        guard settings.offerSaveTyped, ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil, typedSave == nil,
+              typedOffered.insert(s.id).inserted else { return }
+        // (a la sesión sólo si es su propio login: no la de un equipo al que has saltado desde ella)
+        let t = s.route.target, own = c.account.map { a in
+            a.lowercased().hasSuffix("@\(t.host.lowercased())") && (t.user.map { a.hasPrefix("\($0)@") } ?? true)
+        } ?? false
+        let offer = TypedOffer(account: c.account ?? s.title,
+                               save: TypedSave(name: c.user ?? s.title, secret: c.secret, session: own ? s.route.sessionName : nil))
+        typedOffers[s.id] = offer
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(120))                     // (el secreto no se queda en memoria)
+            if self?.typedOffers[s.id]?.id == offer.id { self?.typedOffers[s.id] = nil }
         }
     }
+
+    /// «Guardar…» en el aviso: la hoja de credencial nueva, ya con ella.
+    func acceptTypedOffer(in s: TerminalSession) {
+        guard let o = typedOffers.removeValue(forKey: s.id) else { return }
+        guard sheet == nil, typedSave == nil else { status = L("✗ Cierra la ventana abierta antes de guardar la contraseña"); return }
+        typedSave = o.save
+    }
+
+    func dismissTypedOffer(in s: TerminalSession) { typedOffers[s.id] = nil }
 
     /// Guardada: si su sesión no tenía contraseña (ni la del grupo), se le asigna. Si el ssh_config no se puede leer,
     /// no se toca.
@@ -1574,9 +1595,14 @@ final class AppModel {
                 typePassword(.named(parts.credential), in: s)
                 return
             }
+            // (dos pulsaciones seguidas: la segunda no lanza otra secuencia en la misma pestaña)
+            guard loginsRunning.insert(s.id).inserted else {
+                status = L("⏳ La pestaña ya tiene una secuencia en marcha; pulsa Esc para cortarla")
+                return
+            }
             Task {
                 let sw = s.gate.begin()
-                defer { s.gate.end(sw) }
+                defer { s.gate.end(sw); loginsRunning.remove(s.id) }
                 s.cancelPasswordContext()
                 s.passwords.commandUser = parts.user
                 s.passwords.commandJumpUsers = []
@@ -1587,6 +1613,9 @@ final class AppModel {
         if b.mode != .session { status = "▶ \(b.name)" + (targets.count > 1 ? " ×\(targets.count)" : "") }
         current?.view.window?.makeFirstResponder(current?.view)
     }
+
+    /// Pestañas con un botón de login en marcha.
+    @ObservationIgnored private var loginsRunning: Set<TerminalSession.ID> = []
 
     /// Con el Llavero aún sin listar se intenta igual (y si falta, lo dice `typePassword`).
     private func knownCredential(_ name: String) -> Bool {

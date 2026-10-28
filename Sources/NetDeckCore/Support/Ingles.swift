@@ -2256,5 +2256,12 @@ enum Ingles {
             "couldn't read the Keychain (locked?): type it yourself",
         "🔑 No se ha podido leer el Llavero (¿bloqueado?): escribe tú la contraseña en %@ o elígela en 🔑":
             "🔑 Couldn't read the Keychain (locked?): type the password in %@ yourself or pick it in 🔑",
+        " (sustituye la guardada)": " (replaces the saved one)",
+        "%@%@ no guardada: el Llavero no la ha aceptado%@\n": "%@%@ not saved: the Keychain didn't accept it%@\n",
+        "%@ no guardada\n": "%@ not saved\n",
+        "✗ Cierra la ventana abierta antes de guardar la contraseña": "✗ Close the open window before saving the password",
+        "no se ha podido guardar la contraseña": "couldn't save the password",
+        "el nombre de la cuenta es demasiado largo": "the account name is too long",
+        "la contraseña es demasiado larga (más de %@ bytes)": "the password is too long (more than %@ bytes)",
 ]
 }

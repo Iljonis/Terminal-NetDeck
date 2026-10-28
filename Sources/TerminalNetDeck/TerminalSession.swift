@@ -948,12 +948,15 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
             if data.contains(13) { onReconnect?(self) } else if Array(data) == [27] { onCloseRequest?(self) }
             return
         }
-        if onTypedPassword != nil, offerTypedPassword(), !route.isLocal { typedPassword.feed(Array(data), cursorLine: cursorLine, row: cursorRow, above: linesAbove(3)) }
+        // (la línea del cursor de antes de mandarlo: después, el equipo ya puede haber contestado)
+        let line = cursorLine, row = cursorRow
         if onInput?(self, Array(data)) == true {
             // (lo atiende la app: reserva de una automatización, MultiExec o una tecla F de un botón)
             if data.contains(13) { DebugLog.log("autopass", "pestaña \(tabID): Intro atendido por la app (reserva, MultiExec o tecla F)") }
             return
         }
+        // (sólo lo que llega al equipo: lo tecleado durante «⏳ Enviando…» no es la contraseña que ha entrado)
+        if onTypedPassword != nil, offerTypedPassword(), !route.isLocal { typedPassword.feed(Array(data), cursorLine: line, row: row, above: linesAbove(3)) }
         trackCommandInput(Array(data))
         process?.send(data: data)
         serialPort?.write(data)

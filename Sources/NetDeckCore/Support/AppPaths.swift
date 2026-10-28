@@ -5,8 +5,18 @@ public enum AppPaths {
     /// La carpeta personal. Desarrollo: NETDECK_HOME=/otra/carpeta (capturas con datos de ejemplo, sin tocar los tuyos).
     public static var home: URL {
         if let h = ProcessInfo.processInfo.environment["NETDECK_HOME"], !h.isEmpty { return URL(fileURLWithPath: h, isDirectory: true) }
+        if underTests { return testHome }
         return FileManager.default.homeDirectoryForCurrentUser
     }
+
+    /// Los tests sin NETDECK_HOME (`swift test` a mano, sin ./test.sh): ni sus registros ni sus archivos van a los tuyos.
+    static let underTests: Bool = {
+        let p = ProcessInfo.processInfo
+        return ["xctest", "swiftpm-testing-helper"].contains(p.processName)
+            || p.environment["XCTestConfigurationFilePath"] != nil || p.environment["XCTestSessionIdentifier"] != nil
+    }()
+    private static let testHome = FileManager.default.temporaryDirectory
+        .appendingPathComponent("netdeck-pruebas-\(getpid())", isDirectory: true)
 
     /// Tu usuario del Mac para enseñarlo (usuario por defecto de una sesión, del explorador…). En una captura
     /// (NETDECK_SNAPSHOT), «tu.usuario»: así no sale el tuyo en las imágenes que se publican.

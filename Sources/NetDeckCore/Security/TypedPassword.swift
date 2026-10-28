@@ -29,14 +29,15 @@ public struct TypedPassword: Sendable {
     public init() {}
 
     /// Las teclas que mandas, con la línea del cursor de antes de mandarlas. Sólo cuenta un login de verdad: un prompt
-    /// que dice la cuenta («usuario@equipo's password:» o la pregunta del askpass); ni sudo, ni enable, ni passwd.
+    /// que dice la cuenta («usuario@equipo's password:»); ni sudo, ni enable, ni passwd. Tampoco la pregunta del
+    /// askpass («[NetDeck] …'s password:»): él mismo ofrece guardarla (serían dos avisos).
     public mutating func feed(_ bytes: [UInt8], cursorLine: String, row: Int, above: [String], now: Date = Date()) {
-        guard PasswordPrompt.acceptsManual(cursorLine) else { buffer = []; bufferRow = nil; return }
+        guard PasswordPrompt.asksForPassword(cursorLine) else { buffer = []; bufferRow = nil; return }
         if bufferRow != row { buffer = []; bufferRow = row }
         for b in bytes {
             switch b {
             case 13, 10:
-                let asked = PasswordPrompt.detect(cursorLine: cursorLine, above: above) ?? PasswordPrompt.askpassRequest(cursorLine)
+                let asked = PasswordPrompt.detect(cursorLine: cursorLine, above: above)
                 if let s = String(bytes: buffer, encoding: .utf8), !s.isEmpty, let asked, asked.account != nil, !asked.isChangeOrConfirm {
                     candidate = Candidate(secret: s, account: asked.account, row: row, at: now)
                 } else {

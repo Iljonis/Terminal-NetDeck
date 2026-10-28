@@ -180,9 +180,9 @@ import Testing
         #expect(again.user(failed: nil) == 0)
     }
 
-    /// «¿Guardarla como «AD»?» con Intro: sólo sí si la guardada había fallado (si no, una escrita con un botón u
-    /// otra cuenta pisaría «AD» y la desbloquearía).
-    @Test func guardarlaComoPorDefectoSoloTrasUnFallo() throws {
+    /// «¿Guardarla como «AD»? (sustituye la guardada)» con Intro: sí, haya fallado o no la guardada (decisión del
+    /// autor: Intro = guardar; la pregunta avisa de que sustituye la que hay).
+    @Test func guardarlaComoConIntroSiempreLaGuarda() throws {
         for failed in [nil, CredentialRef.named("AD")] {
             let store = MemoryCredentialStore([.named("AD"): "buena"]), ledger = CredentialLedger()
             let state = FileManager.default.temporaryDirectory.appendingPathComponent("askpass-\(UUID().uuidString)")
@@ -191,7 +191,7 @@ import Testing
                                     host: "core-01", named: "AD", store: store, ledger: ledger, state: state, session: nil,
                                     reply: { _ in 0 })
             #expect(ask.user(failed: failed) == 0)
-            #expect(try store.password(for: .named("AD")) == (failed == nil ? "buena" : "otra"))
+            #expect(try store.password(for: .named("AD")) == "otra")
         }
     }
 

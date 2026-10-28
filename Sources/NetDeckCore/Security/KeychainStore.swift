@@ -8,12 +8,25 @@ import Security
 public struct KeychainStore: CredentialStore {
     public static let tool = "/usr/bin/security"
 
-    public init() {}
+    typealias Run = @Sendable ([String], String?) throws -> (status: Int32, output: String, error: String)
+    /// `security` y la búsqueda con SecItem (las pruebas ponen las suyas: sin tocar tu Llavero).
+    private let run: Run
+    private let lookup: @Sendable ([String: Any]) -> OSStatus
+
+    public init() {
+        run = { try KeychainStore.security($0, input: $1) }
+        lookup = { SecItemCopyMatching($0 as CFDictionary, nil) }
+    }
+
+    init(run: @escaping Run, lookup: @escaping @Sendable ([String: Any]) -> OSStatus) {
+        self.run = run
+        self.lookup = lookup
+    }
 
     public func password(for ref: CredentialRef) throws -> String? {
         // «-g» y no «-w»: con «-w» una contraseña con ñ, €, º, \… sale en hexadecimal sin avisar (y se escribía ESO,
         // que no vale: fallo y bloqueo de 15 min de la cuenta AD). «-g» la da entre comillas o como «0x…», sin dudas.
-        let r = try Self.security(["find-generic-password", "-s", ref.service.rawValue, "-a", ref.account, "-g"])
+        let r = try run(["find-generic-password", "-s", ref.service.rawValue, "-a", ref.account, "-g"], nil)
         if r.status == 44 { return nil }                          // (errSecItemNotFound)
         guard r.status == 0 else { throw KeychainError(message: r.error) }
         guard let pw = Self.decodePassword(r.error) else { throw KeychainError(message: L("no se entiende la contraseña que devuelve")) }
@@ -46,24 +59,34 @@ public struct KeychainStore: CredentialStore {
     public func exists(_ ref: CredentialRef) throws -> Bool {
         var q = query(ref)
         q[kSecMatchLimit as String] = kSecMatchLimitOne
-        let st = SecItemCopyMatching(q as CFDictionary, nil)
+        let st = lookup(q)
         if st == errSecSuccess { return true }
         if st == errSecItemNotFound { return false }
         throw KeychainError(message: (SecCopyErrorMessageString(st, nil) as String?) ?? "error \(st)")
     }
 
     public func save(_ password: String, for ref: CredentialRef) throws {
-        let cmd = try Self.saveCommand(password, for: ref)
         // Por la entrada estándar («security -i»), no en los argumentos: ahí la vería cualquiera con «ps».
-        let r = try Self.security(["-i"], input: cmd + "\n")
-        guard r.status == 0, !r.error.contains("error") else { throw KeychainError(message: r.error) }
+        try add(Self.saveCommand(password, for: ref), ref: ref)
     }
 
     /// Alta sin sustituir una cuenta que haya aparecido desde que se abrió el formulario.
     public func create(_ password: String, for ref: CredentialRef) throws {
-        let cmd = try Self.saveCommand(password, for: ref, replaceExisting: false)
-        let r = try Self.security(["-i"], input: cmd + "\n")
-        guard r.status == 0, !r.error.contains("error") else { throw KeychainError(message: r.error) }
+        try add(Self.saveCommand(password, for: ref, replaceExisting: false), ref: ref)
+    }
+
+    /// `security -i` sale con 0 aunque la orden falle: se mira lo que dice y, después, que la entrada esté. Su salida
+    /// nunca va al mensaje ni a los registros (podría repetir la orden, con la contraseña): un motivo fijo.
+    private func add(_ cmd: String, ref: CredentialRef) throws {
+        let r = try run(["-i"], cmd + "\n")
+        if r.error.localizedCaseInsensitiveContains("already exists") {
+            throw KeychainError(message: L("Ya existe una contraseña con ese nombre o cuenta"))
+        }
+        let saved = r.status == 0 && !r.error.localizedCaseInsensitiveContains("error") && ((try? exists(ref)) ?? false)
+        guard saved else {
+            ErrorLog.error("llavero", "«\(ref)» no se ha guardado (security -i: código \(r.status), \(r.error.isEmpty ? "sin" : "con") aviso)")
+            throw KeychainError(message: L("no se ha podido guardar la contraseña"))
+        }
     }
 
     /// La validación ocurre antes de arrancar `security`; se puede probar sin acceder al Llavero.
@@ -73,11 +96,17 @@ public struct KeychainStore: CredentialStore {
         var args = ["add-generic-password"]
         if replaceExisting { args.append("-U") }
         args += ["-s", ref.service.rawValue, "-a", ref.account, "-l", label, "-w", password]
-        return args.map(Self.quoted).joined(separator: " ")
+        let cmd = args.map(Self.quoted).joined(separator: " ")
+        // (security -i lee cada orden con un búfer de 4095 bytes: más larga, se guardaría cortada)
+        guard cmd.utf8.count < maxCommand else { throw KeychainError(message: L("el nombre de la cuenta es demasiado largo")) }
+        return cmd
     }
 
+    /// Lo más que cabe en una orden de «security -i» (con margen).
+    static let maxCommand = 4000
+
     public func delete(_ ref: CredentialRef) throws {
-        let r = try Self.security(["delete-generic-password", "-s", ref.service.rawValue, "-a", ref.account])
+        let r = try run(["delete-generic-password", "-s", ref.service.rawValue, "-a", ref.account], nil)
         guard r.status == 0 || r.status == 44 else { throw KeychainError(message: r.error) }
     }
 

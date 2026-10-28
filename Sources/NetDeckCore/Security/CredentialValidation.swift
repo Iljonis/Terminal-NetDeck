@@ -2,6 +2,9 @@ import Foundation
 
 /// Altas y cambios del Llavero: valida los metadatos sin modificar la cuenta ni el secreto.
 public enum CredentialValidation {
+    /// Lo más largo que se guarda, ya escapada (bytes UTF-8).
+    public static let maxPassword = 1024
+
     public static func validateReference(_ ref: CredentialRef) throws {
         let account = ref.account.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !account.isEmpty else { throw KeychainError(message: L("falta el nombre o la cuenta de la contraseña")) }
@@ -26,6 +29,10 @@ public enum CredentialValidation {
         try validateReference(ref)
         // (sin trim: los espacios, símbolos y Unicode de una contraseña forman parte de ella)
         guard !password.isEmpty else { throw KeychainError(message: L("la contraseña está vacía")) }
+        // (escapada para «security -i» tiene que caber en su orden: más larga, se guardaría cortada)
+        guard KeychainStore.quoted(password).utf8.count <= maxPassword else {
+            throw KeychainError(message: L("la contraseña es demasiado larga (más de \(String(maxPassword)) bytes)"))
+        }
         guard !password.contains(where: \.isNewline) else { throw KeychainError(message: L("la contraseña lleva un salto de línea")) }
         guard !password.unicodeScalars.contains(where: { $0.value == 0 }) else {
             throw KeychainError(message: L("la contraseña lleva un carácter nulo"))

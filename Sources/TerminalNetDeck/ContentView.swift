@@ -890,6 +890,7 @@ struct MainArea: View {
             }
             .overlay(alignment: .topTrailing) {
                 if let e = model.notices[s.id] { PasswordNotice(session: s, event: e).padding(12) }
+                else if let o = model.typedOffers[s.id] { TypedOfferNotice(session: s, offer: o).padding(12) }
             }
             .background(SwiftUI.Color(t.layer))
         } else {
@@ -949,6 +950,37 @@ extension TerminalSession {
         case .connecting: return t.warning
         case .connected: return notice ? t.warning : t.good
         }
+    }
+}
+
+/// «¿Guardar la que has escrito?»: encima del terminal, sin quitarle el teclado (sólo se contesta con el ratón).
+struct TypedOfferNotice: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.theme) private var t
+    let session: TerminalSession
+    let offer: AppModel.TypedOffer
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "key.fill").foregroundStyle(SwiftUI.Color(t.warning))
+            VStack(alignment: .leading, spacing: 10) {
+                Text(L("¿Guardar en el Llavero la contraseña que has escrito?")).font(t.ui(12, .bold))
+                Text(L("La de «\(offer.account)». La próxima vez se escribe sola. Puedes desactivar esta pregunta en Ajustes → Contraseñas."))
+                    .font(t.ui(12)).foregroundStyle(SwiftUI.Color(t.text)).fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    NeonButton(title: L("Guardar…"), icon: "key.fill", tint: t.good) { model.acceptTypedOffer(in: session) }
+                        .focusable(false)
+                    NeonButton(title: L("Ahora no"), icon: "xmark", tint: t.accent) { model.dismissTypedOffer(in: session) }
+                        .focusable(false)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .frame(maxWidth: 360)
+        .background(SwiftUI.Color(t.panel), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(SwiftUI.Color(t.warning).opacity(0.5)))
+        .shadow(color: .black.opacity(0.25), radius: 10, y: 3)
     }
 }
 

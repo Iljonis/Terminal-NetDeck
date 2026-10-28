@@ -17,11 +17,13 @@ import Testing
         for l in ["tu.usuario@192.0.2.1's password: ", "Enter passphrase for key '/Users/x/.ssh/id_ed25519': ",
                   "Verification code: ", "One-time password (OATH) for `tu.usuario': ", "Enter PASSCODE:",
                   "Passcode or option (1-3): ", "Enter PIN for 'PIV Card Holder pin (PIV_II)': ", "Token code:",
-                  "[NetDeck] tu.usuario@192.0.2.1's password: ", "[NetDeck] ¿Guardarla como «AD»? [S/n] (Esc = no) ",
+                  "[NetDeck] tu.usuario@192.0.2.1's password: ",
                   "Are you sure you want to continue connecting (yes/no/[fingerprint])? ", "Código de verificación:"] {
             #expect(SecretPrompt.asks(l), "\(l)")
         }
+        // (el sí/no de guardarla no es un secreto: tampoco es un prompt, y mientras se autentica la pestaña no reparte)
         for l in ["core-01#", "core-01#show run | i password:", "tu.usuario@bastion:~$ ", "Username: ",
+                  "[NetDeck] ¿Guardarla como «AD»? [S/n] (Esc = no) ",
                   "core-01(config)#crypto pki token default removal timeout:", "Building configuration..."] {
             #expect(!SecretPrompt.asks(l), "\(l)")
         }

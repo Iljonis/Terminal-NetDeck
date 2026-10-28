@@ -65,6 +65,7 @@ struct SplitPane: View {
             SessionContent(session: session, focused: selected, inset: 6)
                 .overlay(alignment: .topTrailing) {
                     if let e = model.notices[session.id] { PasswordNotice(session: session, event: e).padding(10) }
+                    else if let o = model.typedOffers[session.id] { TypedOfferNotice(session: session, offer: o).padding(10) }
                 }
         }
         .background(SwiftUI.Color(t.layer))
