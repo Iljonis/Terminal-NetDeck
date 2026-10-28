@@ -2252,5 +2252,9 @@ enum Ingles {
         "asignada a la sesión «%@»": "assigned to the session “%@”",
         "Guardar una contraseña nueva en el Llavero y usarla en esta lista":
             "Save a new password in the Keychain and use it in this list",
+        "no se ha podido leer el Llavero (¿bloqueado?): escríbela tú":
+            "couldn't read the Keychain (locked?): type it yourself",
+        "🔑 No se ha podido leer el Llavero (¿bloqueado?): escribe tú la contraseña en %@ o elígela en 🔑":
+            "🔑 Couldn't read the Keychain (locked?): type the password in %@ yourself or pick it in 🔑",
 ]
 }

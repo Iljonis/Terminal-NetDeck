@@ -368,7 +368,10 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     /// Consola serie: el puerto abierto por la app (sin proceso).
     @ObservationIgnored private var serialPort: SerialPort?
     @ObservationIgnored private var environment: [String: String] = [:]
-    @ObservationIgnored private var cache: (rev: Int, lines: [String], cursor: Int)?
+    /// La última lectura del búfer: sus líneas, el índice del cursor en ellas y la fila absoluta de la primera.
+    @ObservationIgnored private var cache: (rev: Int, lines: [String], cursor: Int, base: Int)?
+    /// Filas absolutas que no retroceden con el historial lleno (`BufferRows`).
+    @ObservationIgnored private var bufferRows = BufferRows()
     @ObservationIgnored private var hopTask: Task<Void, Never>?
     @ObservationIgnored private var fellBack = false
     /// ssh ha dicho que el salto rechaza el reenvío; sólo cuenta si además ssh termina con 255 (`processExited`).
@@ -760,18 +763,29 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     }
 
     private func trackCommandInput(_ bytes: [UInt8]) {
-        guard loggedIn, route.transport == .ssh || route.transport == .telnet else { return }
+        guard route.transport == .ssh || route.transport == .telnet else { return }
+        // (diagnóstico sin lo tecleado: sólo que un Intro no se ha mirado y por qué)
+        guard loggedIn else {
+            if bytes.contains(13) || bytes.contains(10) { DebugLog.log("autopass", "pestaña \(tabID): Intro sin seguir (aún sin su primer prompt)") }
+            return
+        }
         let skipped = commandInput.skipped
         commandInput.feed(bytes, from: self)
         let commands = commandInput.takeLines()
         for command in commands {
             passwords.beginCommand(command, after: cursorRow)
-            DebugLog.log("autopass", "pestaña \(id.uuidString.prefix(8)): \(passwords.commandTarget == nil ? "otra orden, contexto cerrado" : "orden de conexión armada")")
+            DebugLog.log("autopass", "pestaña \(tabID): \(passwords.commandTarget == nil ? "otra orden, contexto cerrado" : "orden de conexión armada")")
+        }
+        if commands.isEmpty, commandInput.skipped > skipped {
+            DebugLog.log("autopass", "pestaña \(tabID): orden descartada (\(commandInput.lastDrop ?? "?"), fila \(cursorRow), revisión \(revision))")
         }
         // (con un prompt desconocido tampoco se conserva el login anterior al enviar otra orden)
         if commands.isEmpty, commandInput.skipped > skipped, !SecretPrompt.asks(cursorLine),
            !PasswordPrompt.isLoginLine(cursorLine) { passwords.cancelCommand() }
     }
+
+    /// Para el registro de depuración: el principio del id de la pestaña.
+    private var tabID: Substring { id.uuidString.prefix(8) }
 
     /// Mirar la pantalla como mucho cada 60 ms: con mucha salida (show tech, tail -f) no se recorre el búfer entero en
     /// cada trozo que llega.
@@ -830,6 +844,8 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         if let d = PromptDevice.name(line, previous: device), d != device {
             if homeDevice == nil, loggedIn, route.thenCommand == nil || hopSent { homeDevice = d }
             device = d
+            // (lo que hubiera a medias en la línea, o el último Intro, era del equipo de antes)
+            commandInput.resetLine()
             if route.thenCommand != nil || d != route.target.host { DebugLog.log("pestaña", "«\(title)» → equipo «\(d)»") }
             if let c = customTitle, renamed.deviceChanged(to: d) {
                 DebugLog.log("pestaña", "«\(title)»: prompt de otro equipo («\(d)»), deja el nombre «\(c)»")
@@ -896,29 +912,32 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     }
 
     var revision: Int { pipe.counter.value }
-    var cursorRow: Int { snapshot().cursor }
+    /// Absoluta: sigue creciendo aunque el historial esté lleno (`BufferRows`).
+    var cursorRow: Int { let s = snapshot(); return s.base + s.cursor }
 
     var cursorLine: String {
         let s = snapshot()
         return s.lines.indices.contains(s.cursor) ? s.lines[s.cursor] : ""
     }
 
+    /// Desde una fila absoluta; las ya expulsadas del historial se omiten.
     func lines(from row: Int) -> [String] {
         let s = snapshot()
-        guard !s.lines.isEmpty, row <= s.cursor else { return [] }
-        return Array(s.lines[max(0, row)...s.cursor])
+        guard !s.lines.isEmpty, row <= s.base + s.cursor else { return [] }
+        return Array(s.lines[max(0, row - s.base)...s.cursor])
     }
 
     /// Todo el búfer (historial + pantalla) como texto; la pantalla son las últimas `rows` filas.
-    private func snapshot() -> (lines: [String], cursor: Int) {
+    private func snapshot() -> (lines: [String], cursor: Int, base: Int) {
         let rev = pipe.counter.value
-        if let c = cache, c.rev == rev { return (c.lines, c.cursor) }
+        if let c = cache, c.rev == rev { return (c.lines, c.cursor, c.base) }
         var lines = String(decoding: view.getBufferAsData(), as: UTF8.self).components(separatedBy: "\n")
         if lines.last == "" { lines.removeLast() }
         let st = view.terminalStateSnapshot()
         let cursor = max(0, min(lines.count - 1, lines.count - st.dimensions.rows + st.cursor.row))
-        cache = (rev, lines, cursor)
-        return (lines, cursor)
+        bufferRows.update(lines, screenRows: st.dimensions.rows)
+        cache = (rev, lines, cursor, bufferRows.base)
+        return (lines, cursor, bufferRows.base)
     }
 
     // MARK: - TerminalViewDelegate
@@ -930,7 +949,11 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
             return
         }
         if onTypedPassword != nil, offerTypedPassword(), !route.isLocal { typedPassword.feed(Array(data), cursorLine: cursorLine, row: cursorRow, above: linesAbove(3)) }
-        if onInput?(self, Array(data)) == true { return }
+        if onInput?(self, Array(data)) == true {
+            // (lo atiende la app: reserva de una automatización, MultiExec o una tecla F de un botón)
+            if data.contains(13) { DebugLog.log("autopass", "pestaña \(tabID): Intro atendido por la app (reserva, MultiExec o tecla F)") }
+            return
+        }
         trackCommandInput(Array(data))
         process?.send(data: data)
         serialPort?.write(data)

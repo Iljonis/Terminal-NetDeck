@@ -33,8 +33,10 @@ public struct DefaultCredential: Codable, Hashable, Sendable {
 
 public protocol CredentialStore: Sendable {
     func password(for ref: CredentialRef) throws -> String?
-    /// ¿Existe? (sin leer el secreto: no pide permiso al Llavero)
+    /// ¿Existe? (sin leer el secreto: no pide permiso al Llavero). Un error cuenta como «no».
     func contains(_ ref: CredentialRef) -> Bool
+    /// ¿Existe?, distinguiendo «no está» (false) de «no se ha podido mirar» (lanza: Llavero bloqueado, sin respuesta…).
+    func exists(_ ref: CredentialRef) throws -> Bool
     func save(_ password: String, for ref: CredentialRef) throws
     /// Alta sin sustituir una entrada existente (el Llavero lo comprueba de forma atómica).
     func create(_ password: String, for ref: CredentialRef) throws
@@ -42,7 +44,18 @@ public protocol CredentialStore: Sendable {
     func accounts(in service: CredentialRef.Service) throws -> [String]
 }
 
+/// Lo leído del Llavero: la contraseña, que no está o que no se ha podido leer (bloqueado, sin respuesta…).
+public enum CredentialRead: Equatable, Sendable {
+    case found(String)
+    case missing
+    case failed
+
+    public var password: String? { if case .found(let pw) = self { pw } else { nil } }
+}
+
 extension CredentialStore {
+    public func exists(_ ref: CredentialRef) throws -> Bool { contains(ref) }
+
     public func create(_ password: String, for ref: CredentialRef) throws {
         guard !contains(ref) else { throw KeychainError(message: L("Ya existe una contraseña con ese nombre o cuenta")) }
         try save(password, for: ref)
@@ -72,23 +85,56 @@ extension CredentialStore {
     /// Fuera del hilo principal: `security` puede tardar (o esperar a que se desbloquee el Llavero) y la ventana no se
     /// debe congelar. Un error del Llavero cuenta como «no está» (igual que `try?`).
     public func passwordInBackground(for ref: CredentialRef) async -> String? {
+        await readInBackground(ref).password
+    }
+
+    /// Igual, pero distingue «no está» de «no se ha podido leer» (el error no se convierte en una ausencia).
+    public func readInBackground(_ ref: CredentialRef) async -> CredentialRead {
         // (una vacía cuenta como «no está»: escribirla sería un fallo más en la cuenta)
         await withCheckedContinuation { continuation in
             // (el Llavero es síncrono y puede bloquear: no debe ocupar el pool cooperativo de Swift)
             DispatchQueue.global(qos: .userInitiated).async {
-                continuation.resume(returning: (try? self.password(for: ref)).flatMap { $0.isEmpty ? nil : $0 })
+                continuation.resume(returning: self.read(ref))
             }
+        }
+    }
+
+    /// Síncrona (el askpass, que no tiene interfaz que congelar).
+    public func read(_ ref: CredentialRef) -> CredentialRead {
+        do {
+            guard let pw = try password(for: ref), !pw.isEmpty else { return .missing }
+            return .found(pw)
+        } catch {
+            DebugLog.log("llavero", "no se ha podido leer «\(ref)»")
+            return .failed
         }
     }
 
     /// Las candidatas que están en el Llavero (sin leer su secreto), también fuera del hilo principal: comprobar si
     /// existe puede esperar igual al servicio del Llavero.
     public func availableInBackground(_ candidates: [CredentialCandidate]) async -> [CredentialCandidate] {
+        await availabilityInBackground(candidates).available
+    }
+
+    /// Igual, y si alguna no se ha podido comprobar (`failed`: entonces su ausencia no es segura).
+    public func availabilityInBackground(_ candidates: [CredentialCandidate]) async -> (available: [CredentialCandidate], failed: Bool) {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                continuation.resume(returning: candidates.filter { self.contains($0.ref) })
+                continuation.resume(returning: self.availability(candidates))
             }
         }
+    }
+
+    public func availability(_ candidates: [CredentialCandidate]) -> (available: [CredentialCandidate], failed: Bool) {
+        var failed = false
+        let available = candidates.filter { c in
+            do { return try self.exists(c.ref) } catch {
+                DebugLog.log("llavero", "no se ha podido comprobar «\(c.ref)»: \(error.localizedDescription)")
+                failed = true
+                return false
+            }
+        }
+        return (available, failed)
     }
 
     public func saveInBackground(_ password: String, for ref: CredentialRef) async throws {

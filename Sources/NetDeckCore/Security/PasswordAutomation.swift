@@ -68,6 +68,9 @@ public final class PasswordAutomation {
     private let policy: CredentialPolicy
     private let ledger: CredentialLedger
     private var handledSite: String?
+    /// Desde que se envió la contraseña, el cursor ha estado en otra línea (el salto de línea tras ella): si la misma
+    /// petición vuelve a salir en la misma fila (con el historial lleno la fila puede no moverse), es que la repiten.
+    private var leftSite = false
     /// La enviada que espera respuesta, con la cuenta de su petición («tu.usuario@bastion»; nil si no la decía).
     /// (`revision`: la de la pantalla al enviarla; con el historial lleno la fila del cursor deja de crecer. `blocks`:
     /// sólo la por defecto escrita sola se bloquea si no vale; lo que eliges tú y las de la sesión, nunca)
@@ -131,6 +134,7 @@ public final class PasswordAutomation {
         pending = nil
         operation = nil
         handledSite = nil
+        leftSite = false
         commandTarget = nil
         commandRow = nil
         commandUser = nil
@@ -249,6 +253,7 @@ public final class PasswordAutomation {
         let line = io.cursorLine
         let observedGeneration = generation
         defer { if generation == observedGeneration { lastObservedRow = io.cursorRow } }
+        if pending != nil, let h = handledSite, site(io) != h { leftSite = true }
         if !unresolved.isEmpty, PromptRule.endsNestedLogin(line, custom: io.promptRule) {
             for (ref, token) in unresolved { ledger.release(ref, reservation: token) }
             unresolved.removeAll()                         // (ha vuelto a una shell; el login cancelado ya terminó)
@@ -289,6 +294,15 @@ public final class PasswordAutomation {
             // (con «# @prompt», el de la sesión; el login anidado lo termina también el prompt genérico del otro equipo)
             let atShell = PromptRule.isPrompt(line, custom: io.promptRule)
                 || (pending != nil && PromptRule.endsNestedLogin(line, custom: io.promptRule))
+            // (el equipo cortó entre la contraseña y la vuelta a la shell —«Connection closed by…», un timeout—: ni
+            // ha entrado ni la ha rechazado; se suelta la reserva sin confirmarla ni marcarla)
+            if atShell, let p = pending, io.lines(from: p.row).contains(where: Self.cutBeforePrompt.matches) {
+                pending = nil
+                if let token = p.reservation { ledger.release(p.ref, reservation: token) }
+                DebugLog.log("autopass", "corte antes del prompt tras «\(p.ref)»: ni se confirma ni cuenta como fallo")
+                cancelCommand()
+                return nil
+            }
             if atShell {
                 let confirmed = pending?.ref
                 if let p = pending {
@@ -307,7 +321,7 @@ public final class PasswordAutomation {
             waitingProbe = nil
             if sameLogin(wait.context, io: io) { handledSite = nil }
         }
-        guard site != handledSite else { return nil }
+        guard site != handledSite || (pending != nil && leftSite) else { return nil }
         if let p = pending {
             pending = nil
             if let failed = resolveRepeated(p, asking: request.account) { return failed }
@@ -332,13 +346,18 @@ public final class PasswordAutomation {
             }
         }
         // (también comprobar si existe una entrada puede esperar al servicio del Llavero: fuera de la interfaz)
-        let cands = await Self.available(listed, in: store)
+        let (cands, lookupFailed) = await Self.available(listed, in: store)
         guard sameLogin(context, io: io), !Task.isCancelled, !lookupSwitch.isTripped,
               io.revision == lookupRevision else {
             let cancelled = lookupSwitch.isTripped || Task.isCancelled || generation != lookupGeneration
             if cancelled, generation == lookupGeneration { cancelCommand() }
             if !cancelled, sameLogin(context, io: io), io.revision != lookupRevision { retry = true }
             return cancelled ? .cancelled : nil
+        }
+        // (no se ha podido mirar el Llavero: que no esté no es seguro. Se avisa y, si lo vuelven a pedir, se reintenta)
+        if lookupFailed {
+            handledSite = nil
+            return .manual(.keychainUnavailable)
         }
         if mode == .suggest, let target = commandTarget {
             let refs = compatible(request, from: cands)
@@ -381,15 +400,19 @@ public final class PasswordAutomation {
             return nil
         }
         // (el Llavero, fuera del hilo principal: si tarda, la ventana no se congela)
-        let secret = await Self.secret(ref, in: store)
+        let read = await Self.read(ref, in: store)
         let event: Event?
         // (justo antes de escribir: ni Esc, ni otra pantalla)
         if sameLogin(context, io: io), !sw.isTripped, !Task.isCancelled, owns(ref, token: token),
-           io.revision == revision, !ledger.isBlocked(ref), let pw = secret {
+           io.revision == revision, !ledger.isBlocked(ref), let pw = read.password {
             reservation = nil                                // (ya enviada: la reserva se resuelve con su respuesta)
             pending = (ref, io.cursorRow, token, request.account, io.revision, chosen?.origin == .defaultCredential)
+            leftSite = false
             io.sendLine(pw)
             event = .typed(ref)
+        } else if read == .failed, generation == g, sameLogin(context, io: io), !sw.isTripped, !Task.isCancelled {
+            handledSite = nil                                // (la reserva se suelta al salir; si la repiten, otra vez)
+            event = .manual(.keychainUnavailable)
         } else {
             let cancelled = sw.isTripped || Task.isCancelled || generation != g || self.mode != .autoType || onlySuggestDevices || !owns(ref, token: token)
             if cancelled, generation == g { cancelCommand() }
@@ -426,9 +449,18 @@ public final class PasswordAutomation {
         await store.passwordInBackground(for: ref)
     }
 
-    nonisolated private static func available(_ candidates: [CredentialCandidate], in store: CredentialStore) async -> [CredentialCandidate] {
-        await store.availableInBackground(candidates)
+    nonisolated private static func read(_ ref: CredentialRef, in store: CredentialStore) async -> CredentialRead {
+        await store.readInBackground(ref)
     }
+
+    nonisolated private static func available(_ candidates: [CredentialCandidate], in store: CredentialStore) async -> ([CredentialCandidate], Bool) {
+        let r = await store.availabilityInBackground(candidates)
+        return (r.available, r.failed)
+    }
+
+    /// El equipo corta la conexión (no es un rechazo de la contraseña): «Connection to core-01 closed.», «Connection
+    /// closed by 192.0.2.11 port 22», «Connection reset by …», «… timed out».
+    static let cutBeforePrompt = Pattern(#"\bconnection (?:to \S+ closed|closed by|reset)\b|\btimed out\b"#)
 
     /// `busy`: ya se está escribiendo una (dos clics seguidos no la mandan dos veces).
     public enum ManualResult: Equatable, Sendable { case typed, notAsked, missing, busy, pending }
@@ -463,6 +495,7 @@ public final class PasswordAutomation {
         guard compatible(proposal.request, from: candidates(proposal.request)).contains(ref) else { return .notAsked }
         reservation = nil
         pending = (ref, io.cursorRow, held, proposal.request.account, io.revision, false)
+        leftSite = false
         handledSite = proposal.site
         offer = nil
         io.sendLine(pw)
@@ -499,6 +532,7 @@ public final class PasswordAutomation {
         if let p = pending, let token = p.reservation { ledger.release(p.ref, reservation: token) }
         let asked = PasswordPrompt.detect(cursorLine: io.cursorLine, above: []) ?? PasswordPrompt.askpassRequest(io.cursorLine)
         pending = (ref, io.cursorRow, nil, asked?.account, io.revision, false)
+        leftSite = false
         io.sendLine(pw)
         handledSite = site
         return .typed

@@ -249,16 +249,27 @@ public enum Askpass {
         }
         if ask.typedRecently() || env[manualFlag] == "1" { return ask.user(failed: nil) }
         let request = PasswordRequest(line: question, account: account)
-        let candidates = scope.candidates.filter { store.contains($0.ref) }
+        // (un Llavero que no contesta no es «no hay ninguna guardada»: se dice y te la pide)
+        let (candidates, lookupFailed) = store.availability(scope.candidates)
+        if lookupFailed {
+            tty.say("\(yellow)\(marker) \(explain(.keychainUnavailable))\(reset)\n")
+            return ask.user(failed: nil)
+        }
         // (las de la sesión no se bloquean: un rechazo en otra pestaña no impide probarla aquí una vez)
         switch CredentialPolicy().decide(request, commandUser: nil, candidates: candidates, isBlocked: { _ in false }) {
         case .manual(let why):
             if why != .noCredential { tty.say("\(yellow)\(marker) \(explain(why))\(reset)\n") }
             return ask.user(failed: nil)
         case .inject(let ref):
-            guard let pw = try? store.password(for: ref), !pw.isEmpty else { return ask.user(failed: ref) }
-            ask.given(ref)
-            return reply(pw)
+            switch store.read(ref) {
+            case .found(let pw):
+                ask.given(ref)
+                return reply(pw)
+            case .missing: return ask.user(failed: ref)
+            case .failed:
+                tty.say("\(yellow)\(marker) \(explain(.keychainUnavailable))\(reset)\n")
+                return ask.user(failed: nil)
+            }
         }
     }
 
@@ -272,6 +283,7 @@ public enum Askpass {
             L("otra autenticación con «\(r)» sigue pendiente; escríbela a mano o, si ya terminó, restablécela en Ajustes → Contraseñas → «Restablecer pendiente»")
         case .unknownUser: L("no se sabe qué usuario la pide: escríbela tú")
         case .noCredential: L("no hay ninguna guardada")
+        case .keychainUnavailable: L("no se ha podido leer el Llavero (¿bloqueado?): escríbela tú")
         }
     }
 
@@ -302,14 +314,23 @@ public enum Askpass {
     static func stateFile(session: String? = nil) -> URL {
         let dir = AppPaths.ensure(AppPaths.sessions)
         purgeStale(in: dir)
-        if let old = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]) {
-            for f in old where f.lastPathComponent.hasPrefix("ndapp-askpass.") {
-                let m = (try? f.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-                if let m, Date().timeIntervalSince(m) > 600 { try? FileManager.default.removeItem(at: f) }
-            }
-        }
+        purgeStates(in: dir)
         let id = session.flatMap(UUID.init(uuidString:))?.uuidString ?? "externa"
         return dir.appendingPathComponent("ndapp-askpass.\(id).\(getppid())")
+    }
+
+    /// Fuera los de ssh que ya no están (pasados 10 min) y, aunque siga vivo, los de más de un día: el de un ssh vivo
+    /// que repregunta tarde se queda, para no volver a darle la guardada que ya falló.
+    static func purgeStates(in dir: URL, now: Date = Date(), alive: (pid_t) -> Bool = { kill($0, 0) == 0 || errno == EPERM }) {
+        guard let old = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]) else { return }
+        for f in old where f.lastPathComponent.hasPrefix("ndapp-askpass.") {
+            guard let m = (try? f.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate else { continue }
+            let age = now.timeIntervalSince(m)
+            let pid = f.pathExtension.isEmpty ? nil : pid_t(f.pathExtension)
+            if age > 24 * 3600 || (age > 600 && !(pid.map { $0 > 1 && alive($0) } ?? false)) {
+                try? FileManager.default.removeItem(at: f)
+            }
+        }
     }
 
     static func encode(_ r: CredentialRef) -> String { "\(r.service.rawValue)\t\(r.account)" }
@@ -386,21 +407,20 @@ public enum Askpass {
         var directory: URL = AppPaths.sessions
         var reply: (String) -> Int32 = Askpass.answer
 
-        /// La que se dio hace poco a esta misma pregunta, y cuándo (la hora del archivo de estado).
+        /// La que se dio a esta misma pregunta en este mismo ssh, y cuándo (la hora del archivo de estado). Sin límite
+        /// de tiempo: el archivo es de este ssh (sesión y PID), y si repregunta tarde (un TACACS lento) tampoco valía.
         func recentlyGiven() -> (ref: CredentialRef, at: Date)? {
             guard let attrs = try? FileManager.default.attributesOfItem(atPath: state.path),
-                  let m = attrs[.modificationDate] as? Date, Date().timeIntervalSince(m) < 120,
+                  let m = attrs[.modificationDate] as? Date,
                   let text = try? String(contentsOf: state, encoding: .utf8) else { return nil }
             guard let given = decodeGiven(text.trimmed), given.host == account else { return nil }
             return (given.ref, m)
         }
 
-        /// La última respuesta a esta pregunta, hace poco, la escribiste tú sin guardarla: si ssh vuelve a preguntar,
+        /// La última respuesta a esta pregunta en este ssh la escribiste tú sin guardarla: si ssh vuelve a preguntar,
         /// tampoco valía y se te pregunta otra vez (no se prueba sola la guardada que ya falló en este ssh).
         func typedRecently() -> Bool {
-            guard let attrs = try? FileManager.default.attributesOfItem(atPath: state.path),
-                  let m = attrs[.modificationDate] as? Date, Date().timeIntervalSince(m) < 120,
-                  let text = try? String(contentsOf: state, encoding: .utf8) else { return false }
+            guard let text = try? String(contentsOf: state, encoding: .utf8) else { return false }
             return text.trimmed == encodeManual(host: account)
         }
 

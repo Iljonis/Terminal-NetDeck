@@ -32,6 +32,8 @@ public enum ManualReason: Equatable, Sendable {
     case unknownUser
     /// No hay ninguna guardada que valga.
     case noCredential
+    /// No se ha podido leer el Llavero (bloqueado, sin respuesta…): que no esté no es seguro; se reintenta si la repiten.
+    case keychainUnavailable
 }
 
 public enum InjectionDecision: Equatable, Sendable {

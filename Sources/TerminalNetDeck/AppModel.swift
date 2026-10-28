@@ -1071,6 +1071,9 @@ final class AppModel {
         case .cancelled: status = L("⎋ Contraseña cancelada"); notices[s.id] = nil
         case .failed(let r): status = L("🔑 «\(r)» no ha valido: bloqueada 15 min en todas las pestañas"); notices[s.id] = e
         case .rejected(let r): status = L("🔑 «\(r)» no ha valido: escríbela tú"); notices[s.id] = e
+        case .manual(.keychainUnavailable):
+            status = L("🔑 No se ha podido leer el Llavero (¿bloqueado?): escribe tú la contraseña en \(s.title) o elígela en 🔑")
+            notices[s.id] = e
         case .suggested, .manual: notices[s.id] = e
         }
     }
@@ -1203,11 +1206,13 @@ final class AppModel {
         runner.onChange = { [weak self] d, st in
             // ya en el salto: la del equipo la escribe la lista (un solo intento, nunca dos)
             if st == .connecting { byDevice[d]?.passwords.mode = .off }
+            if st == .connected { self?.restorePasswordMode(byDevice[d]) }    // (ya dentro: lo siguiente es tuyo)
             self?.status = "\(list.name) · \(d.host): \(st.texto)"
         }
         await runner.run()
         // (sólo las que se quedaron en el salto sin probar contraseña; nunca una denegada)
         for _ in 0..<runner.settings.maxRetries where !sw.isTripped { await runner.retryFailed() }
+        byDevice.values.forEach(restorePasswordMode)                         // (la lista ha terminado)
         let ok = runner.status.values.filter { $0 == .connected }.count
         status = L("\(list.name): \(ok)/\(list.devices.count) dentro")
         // juntas en una vista; las que se han quedado en el salto, fuera de MultiExec (nada se ejecuta en el salto)
@@ -1217,6 +1222,14 @@ final class AppModel {
             split = Split(layout: .grid, panes: opened.map(\.id))
             showSplit = true
         }
+    }
+
+    /// Una pestaña de una lista vuelve al modo de Ajustes → Contraseñas (la lista lo apaga mientras escribe ella la del
+    /// equipo). Sin el contexto que armó el ssh de la lista: lo que haya en pantalla no se escribe solo después.
+    private func restorePasswordMode(_ s: TerminalSession?) {
+        guard let s, s.route.usesPasswords, s.passwords.mode != settings.devicePasswordMode else { return }
+        s.cancelPasswordContext()
+        s.passwords.mode = settings.devicePasswordMode
     }
 
     /// Las pestañas en las que está pegando el pegado a todas.

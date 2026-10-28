@@ -40,10 +40,16 @@ public struct KeychainStore: CredentialStore {
         return String(v.dropFirst().dropLast())
     }
 
-    public func contains(_ ref: CredentialRef) -> Bool {
+    public func contains(_ ref: CredentialRef) -> Bool { (try? exists(ref)) ?? false }
+
+    /// «No está» (errSecItemNotFound) es false; bloqueado, sin permiso para preguntar… es un error.
+    public func exists(_ ref: CredentialRef) throws -> Bool {
         var q = query(ref)
         q[kSecMatchLimit as String] = kSecMatchLimitOne
-        return SecItemCopyMatching(q as CFDictionary, nil) == errSecSuccess
+        let st = SecItemCopyMatching(q as CFDictionary, nil)
+        if st == errSecSuccess { return true }
+        if st == errSecItemNotFound { return false }
+        throw KeychainError(message: (SecCopyErrorMessageString(st, nil) as String?) ?? "error \(st)")
     }
 
     public func save(_ password: String, for ref: CredentialRef) throws {

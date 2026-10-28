@@ -281,6 +281,9 @@ public final class MacroRecorder {
     public private(set) var lines: [String] = []
     /// Líneas no grabadas por ser un secreto (o no poder leerse).
     public private(set) var skipped = 0
+    /// Por qué se descartó la última (para el registro de depuración; nunca lleva lo tecleado): «enmascarada-secreto»,
+    /// «autenticando», «sin-prompt», «misma-fila», «sin-prefijo» o «no-conexion».
+    public private(set) var lastDrop: String?
     /// ¿Se está autenticando? (la app añade «aún no ha llegado a su primer prompt», como MultiExec)
     public var awaitingAuth: (any TerminalIO) -> Bool = { SecretPrompt.asks($0.cursorLine) }
     /// Recupera la línea que la persona elige con flechas/Tab, anclada al prompt donde empezó a editar.
@@ -293,14 +296,18 @@ public final class MacroRecorder {
     private var clean = true
     /// La línea del cursor antes de la primera tecla (el prompt).
     private var start: String?
-    /// La línea es un secreto (contraseña, OTP…) o no se puede comprobar: no se graba.
-    private var masked = false
+    /// La línea es un secreto (contraseña, OTP…) o no se puede comprobar: no se graba (`maskedBy`: el motivo).
+    private var masked = false { didSet { if !masked { maskedBy = nil } } }
+    private var maskedBy: String?
     /// Ya se ha mirado la pantalla con la primera tecla que cambia la línea.
     private var checked = false
     /// La fila del cursor en el último Intro con algo escrito. Lo siguiente sólo se graba si el equipo ya ha contestado
     /// (el cursor está en otra fila y en ella hay un prompt): si no, puede ser la respuesta a un «Password:» que aún no
-    /// ha pintado (un pegado «enable⏎contraseña⏎», entero o llegue en los trozos que llegue).
+    /// ha pintado (un pegado «enable⏎contraseña⏎», entero o llegue en los trozos que llegue). Con la revisión de
+    /// entonces: si ha salido algo desde aquel Intro, el equipo ya ha contestado aunque la fila sea la misma (con el
+    /// historial lleno la fila puede no moverse): nunca se queda enmascarado para siempre.
     private var lastEnterRow: Int?
+    private var lastEnterRevision: Int?
     private enum Escape { case none, started, csi([UInt8]), ss3 }
     private var escape = Escape.none
 
@@ -313,12 +320,14 @@ public final class MacroRecorder {
         for b in bytes {
             if start == nil { start = io.cursorLine }
             // (al empezar y con cada tecla: un «Password:» que sale a mitad también cuenta)
-            if SecretPrompt.asks(io.cursorLine) || awaitingAuth(io) { masked = true }
+            if SecretPrompt.asks(io.cursorLine) { mask("enmascarada-secreto") } else if awaitingAuth(io) { mask("autenticando") }
             switch escape {
             case .started:
                 escape = b == 0x5B ? .csi([]) : (b == 0x4F ? .ss3 : .none)
                 if b != 0x5B { check(io); clean = false }
-                continue
+                // (Esc suelto y luego una tecla, o Alt+tecla: esa tecla no se pierde; la línea se lee de la pantalla. Un
+                // Esc al final de un trozo sigue a la espera: los marcadores del pegado pueden llegar partidos)
+                if b == 0x5B || b == 0x4F { continue }
             case .ss3:
                 escape = .none
                 if b == 0x41 || b == 0x42 { historial = true }
@@ -353,12 +362,24 @@ public final class MacroRecorder {
         }
     }
 
+    private func mask(_ why: String) {
+        if !masked { maskedBy = why }
+        masked = true
+    }
+
     /// Con la primera tecla que cambia la línea (no con los marcadores del pegado): ¿ha contestado el equipo a la anterior?
     private func check(_ io: TerminalIO) {
         guard !checked else { return }
         checked = true
-        if !PromptRule.isPrompt(io.cursorLine, custom: io.promptRule) { masked = true }
-        if let row = lastEnterRow, io.cursorRow == row { masked = true }
+        if !PromptRule.isPrompt(io.cursorLine, custom: io.promptRule) { mask("sin-prompt") }
+        if let row = lastEnterRow, io.cursorRow == row, lastEnterRevision == io.revision { mask("misma-fila") }
+    }
+
+    /// Otro equipo u otro proceso: lo que había a medias en la línea (y el último Intro) era de antes.
+    public func resetLine() {
+        reset()
+        lastEnterRow = nil
+        lastEnterRevision = nil
     }
 
     /// Consume las órdenes recogidas sin perder el estado del teclado ni la protección tras Intro.
@@ -374,8 +395,13 @@ public final class MacroRecorder {
         defer { reset() }
         let typed = !buffer.isEmpty || !clean
         guard typed else { return }
-        defer { lastEnterRow = io.cursorRow }
-        guard !masked, !SecretPrompt.asks(io.cursorLine), !awaitingAuth(io) else { skipped += 1; return }
+        defer { lastEnterRow = io.cursorRow; lastEnterRevision = io.revision }
+        lastDrop = nil
+        guard !masked, !SecretPrompt.asks(io.cursorLine), !awaitingAuth(io) else {
+            lastDrop = maskedBy ?? (SecretPrompt.asks(io.cursorLine) ? "enmascarada-secreto" : "autenticando")
+            skipped += 1
+            return
+        }
         var line: String?
         if clean {
             line = String(decoding: buffer, as: UTF8.self)
@@ -390,12 +416,15 @@ public final class MacroRecorder {
             // (Tab no convierte un «show …» en una conexión; las flechas eligen una orden del historial)
             let typed = String(decoding: buffer, as: UTF8.self).split(whereSeparator: \.isWhitespace).first.map(String.init)
             let selected = line?.split(whereSeparator: \.isWhitespace).first.map(String.init)
-            if (!historial && !["ssh", "telnet"].contains(typed ?? "")) || !["ssh", "telnet"].contains(selected ?? "") {
+            if line == nil {
+                lastDrop = "sin-prefijo"
+            } else if (!historial && !["ssh", "telnet"].contains(typed ?? "")) || !["ssh", "telnet"].contains(selected ?? "") {
                 line = nil
+                lastDrop = "no-conexion"
             }
         }
         guard let l = line?.trimmed, !l.isEmpty, !SessionFile.hasControl(l), l.count <= MacroStep.maxLine else {
-            if line == nil { skipped += 1 }
+            if line == nil { skipped += 1; lastDrop = lastDrop ?? "sin-prefijo" }
             return
         }
         lines.append(l)
