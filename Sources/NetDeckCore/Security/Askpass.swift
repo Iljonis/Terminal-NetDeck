@@ -467,10 +467,12 @@ public enum Askpass {
                     ledger.reset(target)
                     saved = target
                     tty.say(L("\(green)\(marker) guardada ✓\(reset)\n"))
+                    if tty.reportsSaved { noteSaved(target, ok: true, session: session, directory: directory) }
                 } catch {
                     // (nunca la salida de security en la pestaña: podría llevar la orden con la contraseña)
                     ErrorLog.warning("askpass", "no se ha podido guardar «\(target)» en el Llavero")
                     tty.say(L("\(red)\(marker) no guardada: el Llavero no la ha aceptado\(reset)\n"))
+                    if tty.reportsSaved { noteSaved(target, ok: false, session: session, directory: directory) }
                 }
             } else {
                 tty.say(L("\(marker) no guardada\n"))
@@ -481,13 +483,42 @@ public enum Askpass {
     }
 }
 
+extension Askpass {
+    /// Sin pestaña (SFTP): si se ha guardado lo dice la app (`takeSaved`), no otra ventana que pararía a ssh.
+    /// «<sesión>.guardado»: una línea «ok|fallo\tservicio\tcuenta» por intento; nunca la contraseña.
+    static func noteSaved(_ ref: CredentialRef, ok: Bool, session: String?, directory: URL = AppPaths.sessions) {
+        guard let session else { return }
+        let url = AppPaths.ensure(directory).appendingPathComponent(session + ".guardado")
+        let old = (try? SafeFile.read(url)) ?? nil
+        try? SafeFile.write((old ?? "") + (ok ? "ok" : "fallo") + "\t" + encode(ref) + "\n", to: url)
+    }
+
+    /// Lo que ha guardado (o no) el askpass de esa conexión; se borra al leerlo.
+    public static func takeSaved(session: UUID, directory: URL = AppPaths.sessions) -> [(ref: CredentialRef, ok: Bool)] {
+        let url = directory.appendingPathComponent(session.uuidString + ".guardado")
+        guard let text = (try? SafeFile.read(url)) ?? nil else { return [] }
+        try? FileManager.default.removeItem(at: url)
+        return text.components(separatedBy: "\n").compactMap { line in
+            let (mark, _, rest) = line.partition("\t")
+            guard mark == "ok" || mark == "fallo", let ref = decode(rest) else { return nil }
+            return (ref, mark == "ok")
+        }
+    }
+}
+
 /// Dónde pregunta el askpass: la pestaña (/dev/tty) o una ventana de la app.
 public protocol AskpassUI: AnyObject {
+    /// Sin pestaña donde decirlo: el resultado de guardarla se apunta para que lo diga la app (`Askpass.takeSaved`).
+    var reportsSaved: Bool { get }
     func say(_ s: String)
     /// Una línea; nil = Esc, Ctrl+C o la pestaña cerrada.
     func read(secret: Bool) -> String?
     /// Sí o no (Esc = no); nil = Ctrl+C: se cancela la autenticación.
     func yesNo(_ question: String, default d: Bool) -> Bool?
+}
+
+public extension AskpassUI {
+    var reportsSaved: Bool { false }
 }
 
 /// Cómo acaba la lectura de una línea en la pestaña.

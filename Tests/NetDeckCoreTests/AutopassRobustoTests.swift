@@ -78,12 +78,46 @@ import Testing
         r.feed(Array("S3cr3t\r".utf8), from: io)
         #expect(r.lines == ["enable"])
         // (pasado un rato —salir de less y escribir otra orden—, no)
+        var reloj = Date()
         let tarde = MacroRecorder()
+        tarde.now = { reloj }
         tarde.feed(Array("show clock\r".utf8), from: io)
         io.row += 1
-        tarde.bufferRealigned(now: Date().addingTimeInterval(10))
+        reloj += 10
+        tarde.bufferRealigned()
         tarde.feed(Array("show users\r".utf8), from: io)
         #expect(tarde.lines == ["show clock", "show users"])
+    }
+
+    /// «clear⏎» o «tmux attach⏎» recolocan el búfer justo tras el Intro; la orden de un minuto después sí se mira (la
+    /// marca caduca): antes se descartaba como «misma-fila», sin aviso.
+    @Test func laMarcaDeRecolocadoCaduca() {
+        var reloj = Date()
+        let io = FilaFija("tu.usuario@bastion:~$ "), r = MacroRecorder(allowScreenFallback: true, soloConexiones: true)
+        r.now = { reloj }
+        r.feed(Array("clear\r".utf8), from: io)
+        io.row += 1
+        r.bufferRealigned()                                             // (justo tras el Intro)
+        reloj += 60
+        r.feed(Array("ssh core-02\r".utf8), from: io)
+        #expect(r.takeLines() == ["clear", "ssh core-02"] && r.lastDrop == nil)
+    }
+
+    /// Entrar en la pantalla alternativa (tmux, less) y salir cuentan como recolocar, aunque allí no haya historial:
+    /// lo anclado dentro de tmux no lee luego el historial normal.
+    @Test func entrarYSalirDeLaPantallaAlternativaRecoloca() {
+        let normal = (0..<5).map { "n\($0)" }, tmux = (0..<5).map { "t\($0)" }
+        #expect(BufferRows.isAlternate(active: tmux, alternate: tmux, screenRows: 5))
+        #expect(!BufferRows.isAlternate(active: normal, alternate: tmux, screenRows: 5))
+        #expect(!BufferRows.isAlternate(active: ["", ""], alternate: ["", ""], screenRows: 2))      // (al arrancar)
+        #expect(!BufferRows.isAlternate(active: normal + ["x"], alternate: normal + ["x"], screenRows: 5))
+        var f = BufferRows()
+        f.update(normal, screenRows: 5, cursor: 4, layout: [80, 5, 0])
+        f.update(tmux, screenRows: 5, cursor: 2, layout: [80, 5, 1])
+        #expect(f.resyncs == 1)
+        let dentro = f.resync
+        f.update(normal, screenRows: 5, cursor: 4, layout: [80, 5, 0])
+        #expect(f.resyncs == 2 && f.first(from: dentro) > dentro)
     }
 
     @Test func unEscSueltoNoSeComeLaSiguienteTecla() {

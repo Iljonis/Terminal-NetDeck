@@ -102,6 +102,29 @@ import Testing
                              echo: { _ in }) == .line(""))
     }
 
+    /// Sin pestaña (SFTP) el askpass no puede enseñar si la guardó sin parar a ssh: lo apunta y la app lo dice.
+    @Test func sinPestanaElResultadoQuedaApuntadoParaLaApp() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("guardado-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        for ventana in [true, false] {
+            let session = UUID(), store = MemoryCredentialStore(), state = estado()
+            defer { try? FileManager.default.removeItem(at: state) }
+            let ui = Teclas(["nueva"], respuesta: .intro)
+            ui.ventana = ventana
+            let a = Askpass.Asker(tty: ui, account: "tu.usuario@core-01", user: "tu.usuario", host: "core-01", named: "AD",
+                                  store: store, ledger: CredentialLedger(), state: state, session: session.uuidString,
+                                  directory: dir, reply: { _ in 0 })
+            #expect(a.user(failed: nil) == 0)
+            let saved = Askpass.takeSaved(session: session, directory: dir)
+            #expect(saved.map(\.ref) == (ventana ? [.named("AD")] : []) && saved.allSatisfy(\.ok))
+            #expect(Askpass.takeSaved(session: session, directory: dir).isEmpty)      // (se borra al leerlo)
+            let texto = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+                .compactMap { try? String(contentsOf: dir.appendingPathComponent($0), encoding: .utf8) }.joined()
+            #expect(!texto.contains("nueva"))                                         // (nunca la contraseña)
+        }
+    }
+
     // MARK: - D: la pregunta del askpass no es otra oferta de guardar
 
     @Test func laPreguntaDelAskpassNoCreaCandidata() {
@@ -165,6 +188,8 @@ private final class Teclas: AskpassUI {
     enum Respuesta { case intro, no, ctrlC }
     private var textos: [String]
     let respuesta: Respuesta
+    var ventana = false
+    var reportsSaved: Bool { ventana }
     var messages: [String] = [], questions: [String] = [], defaults: [Bool] = []
     init(_ textos: [String], respuesta: Respuesta) { self.textos = textos; self.respuesta = respuesta }
     func say(_ s: String) { messages.append(s) }

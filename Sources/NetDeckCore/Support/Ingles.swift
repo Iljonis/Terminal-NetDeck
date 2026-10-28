@@ -2263,5 +2263,7 @@ enum Ingles {
         "no se ha podido guardar la contraseña": "couldn't save the password",
         "el nombre de la cuenta es demasiado largo": "the account name is too long",
         "la contraseña es demasiado larga (más de %@ bytes)": "the password is too long (more than %@ bytes)",
+        "🔑 Guardada en el Llavero: «%@»": "🔑 Saved in the Keychain: “%@”",
+        "🔑 No se ha podido guardar en el Llavero «%@»": "🔑 Couldn't save “%@” in the Keychain",
 ]
 }

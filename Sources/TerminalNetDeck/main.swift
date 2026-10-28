@@ -5,6 +5,8 @@ import NetDeckCore
 /// Sin pestaña (SFTP, procesos sin terminal): el askpass pregunta en una ventana.
 final class DialogAskpass: AskpassUI {
     private var notes: [String] = []
+    /// (sin pestaña: lo dice el explorador al conectar, `Askpass.takeSaved`)
+    var reportsSaved: Bool { true }
 
     init() {
         NSApplication.shared.setActivationPolicy(.accessory)

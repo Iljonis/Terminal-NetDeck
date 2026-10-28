@@ -132,14 +132,24 @@ final class RemoteBrowser {
                     return
                 }
                 Askpass.takeGiven(session: sid).forEach(ledger.confirmDirect) // (sin quitar la reserva de otro contexto)
+                self.reportSaved(sid)
                 try await self.connected(fs, generation: generation)
             } catch {
+                self.reportSaved(sid)
                 // (sin entrar: se confirman las que entraron; la que no valía no se bloquea, es de la sesión)
                 Askpass.settleAfterExit(session: sid, ledger: ledger) {
                     Askpass.rejection(in: [String(describing: error), error.localizedDescription])
                 }
                 self.fail(error, generation: generation)
             }
+        }
+    }
+
+    /// Lo que guardó (o no) el askpass de la ventana: por la barra de estado (el askpass no puede esperar a un clic).
+    private func reportSaved(_ sid: UUID) {
+        for s in Askpass.takeSaved(session: sid) {
+            model?.status = s.ok ? L("🔑 Guardada en el Llavero: «\(s.ref.account)»")
+                                 : L("🔑 No se ha podido guardar en el Llavero «\(s.ref.account)»")
         }
     }
 

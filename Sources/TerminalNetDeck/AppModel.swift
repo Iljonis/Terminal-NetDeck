@@ -916,12 +916,14 @@ final class AppModel {
         }
         let notice = notices.removeValue(forKey: s.id)
         let offer = typedOffers.removeValue(forKey: s.id)
+        let offered = typedOffered.remove(s.id) != nil
         passwordOffers[s.id] = nil
         let confirmed = anywayConfirmed.remove(s.id) != nil
         let wasExcluded = excluded.contains(s.id)
         detach(s)
         target.adopt(s, notice: notice, anywayConfirmed: confirmed, excluded: wasExcluded, at: index)
         if let offer { target.showTypedOffer(offer, in: s) }
+        if offered { target.typedOffered.insert(s.id) }        // (allí tampoco se vuelve a preguntar)
         DebugLog.log("ventana", "«\(s.title)» pasa a otra ventana (\(tabs.count) quedan aquí, \(target.tabs.count) allí)")
         if tabs.isEmpty, core.attachedWindows.count > 1 { window?.close() }      // (vacía: sobra, como en Safari)
         saveOpenTabs()

@@ -44,6 +44,13 @@ public struct BufferRows: Sendable {
         }
     }
 
+    /// ¿Es la pantalla alternativa (tmux, screen, less, vi)? SwiftTerm 2 no lo dice desde la vista: el búfer activo
+    /// es exactamente el alternativo (sólo la pantalla, sin historial) y éste tiene algo escrito (al arrancar, los dos
+    /// están en blanco y es el normal). Entrar y salir cuentan como recolocar (`layout`).
+    public static func isAlternate(active: [String], alternate: [String], screenRows: Int) -> Bool {
+        active.count == screenRows && active == alternate && alternate.contains { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
     /// La primera fila absoluta que se puede leer desde `row` (lo de antes del último `resync`, no).
     public func first(from row: Int) -> Int { max(row, resync) }
 

@@ -309,6 +309,11 @@ public final class MacroRecorder {
     private var lastEnterRow: Int?
     private var lastEnterAt: Date?
     private var realigned = false
+    /// El reloj de esa marca (las pruebas ponen el suyo).
+    public var now: () -> Date = Date.init
+    /// Una recolocación sólo enmascara lo que llega en este tiempo tras el Intro (un pegado troceado).
+    static let realignWindow: TimeInterval = 2
+    private var justEntered: Bool { lastEnterAt.map { now().timeIntervalSince($0) < Self.realignWindow } ?? false }
     private enum Escape { case none, started, csi([UInt8]), ss3 }
     private var escape = Escape.none
 
@@ -373,7 +378,8 @@ public final class MacroRecorder {
         guard !checked else { return }
         checked = true
         if !PromptRule.isPrompt(io.cursorLine, custom: io.promptRule) { mask("sin-prompt") }
-        if let row = lastEnterRow, io.cursorRow == row || realigned { mask("misma-fila") }
+        // (lo recolocado caduca: tras «clear⏎» o «tmux attach⏎», la orden de un minuto después sí se mira)
+        if let row = lastEnterRow, io.cursorRow == row || (realigned && justEntered) { mask("misma-fila") }
     }
 
     /// Otro equipo u otro proceso: lo que había a medias en la línea (y el último Intro) era de antes.
@@ -386,8 +392,8 @@ public final class MacroRecorder {
     /// El búfer se ha recolocado (otro tamaño, pantalla alternativa…): si hubo un Intro hace nada (un pegado
     /// troceado), lo siguiente se enmascara: no se sabe si el equipo ha contestado. Pasado un rato (salir de less o
     /// de vi y escribir otra orden), no: se perdería la orden siguiente.
-    public func bufferRealigned(now: Date = Date()) {
-        if lastEnterRow != nil, let at = lastEnterAt, now.timeIntervalSince(at) < 2 { realigned = true }
+    public func bufferRealigned() {
+        if lastEnterRow != nil, justEntered { realigned = true }
     }
 
     /// Consume las órdenes recogidas sin perder el estado del teclado ni la protección tras Intro.
@@ -403,7 +409,7 @@ public final class MacroRecorder {
         defer { reset() }
         let typed = !buffer.isEmpty || !clean
         guard typed else { return }
-        defer { lastEnterRow = io.cursorRow; lastEnterAt = Date(); realigned = false }
+        defer { lastEnterRow = io.cursorRow; lastEnterAt = now(); realigned = false }
         lastDrop = nil
         guard !masked, !SecretPrompt.asks(io.cursorLine), !awaitingAuth(io) else {
             lastDrop = maskedBy ?? (SecretPrompt.asks(io.cursorLine) ? "enmascarada-secreto" : "autenticando")

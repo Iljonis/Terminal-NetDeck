@@ -950,7 +950,15 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         if lines.last == "" { lines.removeLast() }
         let st = view.terminalStateSnapshot()
         let cursor = max(0, min(lines.count - 1, lines.count - st.dimensions.rows + st.cursor.row))
-        bufferRows.update(lines, screenRows: st.dimensions.rows, cursor: cursor, layout: [st.dimensions.cols, st.dimensions.rows])
+        // (la pantalla alternativa, sólo si el búfer activo es del tamaño de la pantalla: entonces leerla es barato)
+        var alternate = false
+        if lines.count == st.dimensions.rows {
+            var alt = String(decoding: view.getBufferAsData(kind: .alt), as: UTF8.self).components(separatedBy: "\n")
+            if alt.last == "" { alt.removeLast() }
+            alternate = BufferRows.isAlternate(active: lines, alternate: alt, screenRows: st.dimensions.rows)
+        }
+        bufferRows.update(lines, screenRows: st.dimensions.rows, cursor: cursor,
+                          layout: [st.dimensions.cols, st.dimensions.rows, alternate ? 1 : 0])
         cache = (rev, lines, cursor, bufferRows.base)
         return (lines, cursor, bufferRows.base)
     }
