@@ -5,26 +5,47 @@ import Foundation
 /// anclado a filas (el Intro de una orden, la contraseña enviada, «lo nuevo» desde una marca) dejaba de ver lo nuevo.
 /// SwiftTerm 2 no dice desde la vista cuántas ha expulsado: se deduce comparando el historial anterior con el nuevo
 /// (el historial sólo pierde filas por arriba y gana por abajo). Si no casan (borrar el historial, la pantalla
-/// alternativa, otro ancho), todo lo de antes se da por expulsado: la fila salta hacia delante, nunca hacia atrás.
+/// alternativa, otro tamaño con las líneas recolocadas), todo lo de antes se da por expulsado: la fila salta hacia
+/// delante, nunca hacia atrás, y lo anclado antes deja de ver nada anterior al cursor de ese momento (`resync`): un
+/// «Permission denied» viejo, recolocado, no se puede tomar por nuevo.
 public struct BufferRows: Sendable {
     /// Filas ya expulsadas (o dadas por perdidas): fila absoluta = `base` + índice en el búfer.
     public private(set) var base = 0
+    /// La fila absoluta del cursor la última vez que se perdió la alineación: nada de antes vale como «nuevo».
+    public private(set) var resync = 0
+    /// Cuántas veces se ha perdido (la pestaña suelta entonces lo anclado a filas: contraseña enviada, último Intro…).
+    public private(set) var resyncs = 0
     /// El historial de la última lectura (sin la pantalla), resumido por línea.
     private var history: [Int] = []
     private var count = 0
+    private var layout: [Int]?
+    /// Menos que esto en común (con historial para tenerlo) no demuestra que sea el mismo historial desplazado.
+    static let minimumOverlap = 8
 
     public init() {}
 
-    /// Con cada lectura nueva del búfer: todas sus líneas (las `screenRows` últimas son la pantalla).
-    public mutating func update(_ lines: [String], screenRows: Int) {
+    /// Con cada lectura nueva del búfer: todas sus líneas (las `screenRows` últimas son la pantalla), el índice del
+    /// cursor en ellas y el tamaño (`layout`: columnas y filas; si cambia, las líneas se han recolocado).
+    public mutating func update(_ lines: [String], screenRows: Int, cursor: Int? = nil, layout: [Int]? = nil) {
         let hashes = lines.map(\.hashValue)
-        let old = history, oldCount = count
+        let old = history, oldCount = count, oldLayout = self.layout
         history = Array(hashes.prefix(max(0, lines.count - max(0, screenRows))))
         count = lines.count
-        guard !old.isEmpty else { return }
-        let kept = Self.overlap(suffixOf: old, prefixOf: hashes)
-        base += kept > 0 ? old.count - kept : oldCount
+        self.layout = layout ?? oldLayout
+        let resized = layout != nil && oldLayout != nil && layout != oldLayout
+        guard !old.isEmpty || resized else { return }
+        let kept = resized ? 0 : Self.overlap(suffixOf: old, prefixOf: hashes)
+        if kept >= min(old.count, Self.minimumOverlap), kept > 0 {
+            base += old.count - kept
+        } else {
+            base += oldCount
+            resync = base + (cursor ?? max(0, lines.count - 1))
+            resyncs += 1
+        }
     }
+
+    /// La primera fila absoluta que se puede leer desde `row` (lo de antes del último `resync`, no).
+    public func first(from row: Int) -> Int { max(row, resync) }
 
     /// Fila absoluta de un índice del búfer.
     public func absolute(_ index: Int) -> Int { base + index }

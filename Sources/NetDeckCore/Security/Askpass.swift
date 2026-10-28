@@ -498,14 +498,18 @@ enum TTYLine: Equatable {
     /// `next(n)`, como mucho n décimas; `unread` devuelve un byte que es de la pregunta siguiente. Intro también es el
     /// del teclado numérico («ESC O M») y ⌥+Intro («ESC ⏎»); un CR+LF pegado es un solo Intro. Las flechas y F1…
     /// («ESC [ …» / «ESC O x») se ignoran enteras; Esc sola cancela.
-    static func read(secret: Bool, next: (UInt8?) -> UInt8?, unread: (UInt8) -> Void, echo: (String) -> Void) -> TTYLine {
+    /// `skipLeadingLF`: lo anterior acabó en CR; un LF que llega tarde es su otra mitad, no una respuesta.
+    static func read(secret: Bool, skipLeadingLF: Bool = false, next: (UInt8?) -> UInt8?, unread: (UInt8) -> Void,
+                     echo: (String) -> Void) -> TTYLine {
         var data: [UInt8] = []
+        var skipLF = skipLeadingLF
         func done(_ b: UInt8) -> TTYLine {
             if b == 13, let n = next(0), n != 10 { unread(n) }
             return .line(String(decoding: data, as: UTF8.self))
         }
         while true {
             guard let b = next(nil) else { return .closed }      // (la pestaña se ha cerrado: no lo tecleado a medias)
+            if skipLF { skipLF = false; if b == 10 { continue } }
             switch b {
             case 10, 13:
                 return done(b)
@@ -538,6 +542,15 @@ enum TTYLine: Equatable {
             }
         }
     }
+
+    /// Lo que siga llegando del pegado (la cola de un CR+LF partido, un CR repetido): se tira hasta que haya `tenths`
+    /// décimas sin nada (como mucho `limit` bytes). Devuelve cuántos.
+    @discardableResult
+    static func drain(within tenths: UInt8 = 3, limit: Int = 4096, next: (UInt8?) -> UInt8?) -> Int {
+        var n = 0
+        while n < limit, next(tenths) != nil { n += 1 }
+        return n
+    }
 }
 
 /// La pestaña de la sesión (/dev/tty), no la salida que lee ssh.
@@ -560,9 +573,14 @@ final class TTY: AskpassUI {
 
     /// Cómo acabó la última lectura (Ctrl+C o la pestaña cerrada cancelan la autenticación; Esc sólo dice «no»).
     private var last = TTYLine.closed
+    /// El último byte leído (un CR: un LF que llegue tarde es su otra mitad).
+    private var lastByte: UInt8?
 
     /// Una línea; nil = Esc o Ctrl+C. Tecla a tecla (para ver la Esc sin esperar al Intro): `TTYLine`.
-    func read(secret: Bool) -> String? {
+    func read(secret: Bool) -> String? { readLine(secret: secret, fresh: false) }
+
+    /// `fresh`: la respuesta tiene que ser una pulsación nueva; antes se tira lo que quede del pegado.
+    private func readLine(secret: Bool, fresh: Bool) -> String? {
         var old = termios()
         tcgetattr(fd, &old)
         var raw = old
@@ -577,25 +595,36 @@ final class TTY: AskpassUI {
             if secret { say("\n") }
         }
         func next(_ tenths: UInt8?) -> UInt8? {        // nil = esperar lo que haga falta
-            if !pending.isEmpty { return pending.removeFirst() }
-            if let tenths { return byte(within: tenths) }
-            var buf = [UInt8](repeating: 0, count: 256)
-            let n = Darwin.read(fd, &buf, buf.count)
-            guard n > 0 else { return nil }
-            pending = Array(buf[1..<n])
-            return buf[0]
+            let b = rawNext(tenths)
+            if let b { lastByte = b }
+            return b
         }
-        last = TTYLine.read(secret: secret, next: next, unread: { pending.insert($0, at: 0) }, echo: say)
+        var skipLF = false
+        if fresh {
+            pending = []
+            TTYLine.drain { byte(within: $0 ?? 3) }
+            tcflush(fd, TCIFLUSH)
+            skipLF = lastByte == 13
+        }
+        last = TTYLine.read(secret: secret, skipLeadingLF: skipLF, next: next, unread: { pending.insert($0, at: 0) }, echo: say)
         if case .line(let s) = last { return s }
         return nil
     }
 
+    private func rawNext(_ tenths: UInt8?) -> UInt8? {
+        if !pending.isEmpty { return pending.removeFirst() }
+        if let tenths { return byte(within: tenths) }
+        var buf = [UInt8](repeating: 0, count: 256)
+        let n = Darwin.read(fd, &buf, buf.count)
+        guard n > 0 else { return nil }
+        pending = Array(buf[1..<n])
+        return buf[0]
+    }
+
     func yesNo(_ question: String, default d: Bool) -> Bool? {
-        // (la respuesta tiene que ser una pulsación nueva: lo pegado o tecleado de más antes no contesta solo)
-        pending = []
-        tcflush(fd, TCIFLUSH)
         say(L("\(Askpass.cyan)\(Askpass.marker) \(question) \(d ? L("[S/n]") : L("[s/N]")) (Esc = no)\(Askpass.reset) "))
-        guard let r = read(secret: false)?.trimmed.lowercased() else {
+        // (la respuesta tiene que ser una pulsación nueva: lo pegado o tecleado de más antes no contesta solo)
+        guard let r = readLine(secret: false, fresh: true)?.trimmed.lowercased() else {
             say("\n")
             return last == .escape ? false : nil
         }

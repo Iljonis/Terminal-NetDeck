@@ -762,8 +762,21 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         passwords.cancelCommand()
     }
 
+    /// El búfer se ha recolocado (`BufferRows.resync`): se suelta todo lo anclado a filas de antes.
+    private func noticeRealignment() {
+        guard bufferRows.resyncs != seenResyncs else { return }
+        seenResyncs = bufferRows.resyncs
+        DebugLog.log("autopass", "pestaña \(tabID): búfer recolocado (fila \(bufferRows.resync))")
+        passwords.bufferRealigned()
+        typedPassword.forget()
+        commandInput.bufferRealigned()
+    }
+    @ObservationIgnored private var seenResyncs = 0
+
     private func trackCommandInput(_ bytes: [UInt8]) {
         guard route.transport == .ssh || route.transport == .telnet else { return }
+        _ = cursorRow
+        noticeRealignment()
         // (diagnóstico sin lo tecleado: sólo que un Intro no se ha mirado y por qué)
         guard loggedIn else {
             if bytes.contains(13) || bytes.contains(10) { DebugLog.log("autopass", "pestaña \(tabID): Intro sin seguir (aún sin su primer prompt)") }
@@ -812,6 +825,7 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     private func outputChanged() async {
         if !isVisible { activity = true }
         let line = cursorLine.trimmingCharacters(in: .whitespaces)
+        noticeRealignment()
         if !loggedIn {
             if !route.jumps.isEmpty, route.thenCommand == nil, !fellBack, !refusalSeen, ConnectionRoute.forwardingRefused(lines(from: max(0, cursorRow - 6))) {
                 refusalSeen = true                 // (se decide al terminar ssh: el texto solo lo podría poner el salto)
@@ -923,8 +937,9 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     /// Desde una fila absoluta; las ya expulsadas del historial se omiten.
     func lines(from row: Int) -> [String] {
         let s = snapshot()
-        guard !s.lines.isEmpty, row <= s.base + s.cursor else { return [] }
-        return Array(s.lines[max(0, row - s.base)...s.cursor])
+        let from = bufferRows.first(from: row)
+        guard !s.lines.isEmpty, from <= s.base + s.cursor else { return [] }
+        return Array(s.lines[max(0, from - s.base)...s.cursor])
     }
 
     /// Todo el búfer (historial + pantalla) como texto; la pantalla son las últimas `rows` filas.
@@ -935,7 +950,7 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         if lines.last == "" { lines.removeLast() }
         let st = view.terminalStateSnapshot()
         let cursor = max(0, min(lines.count - 1, lines.count - st.dimensions.rows + st.cursor.row))
-        bufferRows.update(lines, screenRows: st.dimensions.rows)
+        bufferRows.update(lines, screenRows: st.dimensions.rows, cursor: cursor, layout: [st.dimensions.cols, st.dimensions.rows])
         cache = (rev, lines, cursor, bufferRows.base)
         return (lines, cursor, bufferRows.base)
     }
@@ -949,14 +964,16 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
             return
         }
         // (la línea del cursor de antes de mandarlo: después, el equipo ya puede haber contestado)
-        let line = cursorLine, row = cursorRow
+        // (la línea del cursor de antes de mandarlo, sólo si se va a mirar lo tecleado)
+        let typed = onTypedPassword != nil && offerTypedPassword() && !route.isLocal
+        let before = typed ? (line: cursorLine, row: cursorRow) : nil
         if onInput?(self, Array(data)) == true {
             // (lo atiende la app: reserva de una automatización, MultiExec o una tecla F de un botón)
             if data.contains(13) { DebugLog.log("autopass", "pestaña \(tabID): Intro atendido por la app (reserva, MultiExec o tecla F)") }
             return
         }
         // (sólo lo que llega al equipo: lo tecleado durante «⏳ Enviando…» no es la contraseña que ha entrado)
-        if onTypedPassword != nil, offerTypedPassword(), !route.isLocal { typedPassword.feed(Array(data), cursorLine: line, row: row, above: linesAbove(3)) }
+        if let b = before { typedPassword.feed(Array(data), cursorLine: b.line, row: b.row, above: linesAbove(3)) }
         trackCommandInput(Array(data))
         process?.send(data: data)
         serialPort?.write(data)

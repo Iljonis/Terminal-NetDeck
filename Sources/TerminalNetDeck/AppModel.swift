@@ -150,6 +150,8 @@ final class AppModel {
         let id = UUID()
         let account: String
         let save: TypedSave
+        /// Cuándo se olvida (viaja con la pestaña si pasa a otra ventana).
+        let expires = Date().addingTimeInterval(120)
     }
     /// Pestañas a las que ya se ha preguntado (una vez por pestaña: los saltos no vuelven a preguntar).
     @ObservationIgnored private var typedOffered: Set<TerminalSession.ID> = []
@@ -913,11 +915,13 @@ final class AppModel {
             return false
         }
         let notice = notices.removeValue(forKey: s.id)
+        let offer = typedOffers.removeValue(forKey: s.id)
         passwordOffers[s.id] = nil
         let confirmed = anywayConfirmed.remove(s.id) != nil
         let wasExcluded = excluded.contains(s.id)
         detach(s)
         target.adopt(s, notice: notice, anywayConfirmed: confirmed, excluded: wasExcluded, at: index)
+        if let offer { target.showTypedOffer(offer, in: s) }
         DebugLog.log("ventana", "«\(s.title)» pasa a otra ventana (\(tabs.count) quedan aquí, \(target.tabs.count) allí)")
         if tabs.isEmpty, core.attachedWindows.count > 1 { window?.close() }      // (vacía: sobra, como en Safari)
         saveOpenTabs()
@@ -1126,18 +1130,25 @@ final class AppModel {
         } ?? false
         let offer = TypedOffer(account: c.account ?? s.title,
                                save: TypedSave(name: c.user ?? s.title, secret: c.secret, session: own ? s.route.sessionName : nil))
+        showTypedOffer(offer, in: s)
+    }
+
+    /// El aviso en esta ventana, hasta que venza (el secreto no se queda en memoria).
+    private func showTypedOffer(_ offer: TypedOffer, in s: TerminalSession) {
+        guard offer.expires > Date() else { return }
         typedOffers[s.id] = offer
         Task { [weak self] in
-            try? await Task.sleep(for: .seconds(120))                     // (el secreto no se queda en memoria)
+            try? await Task.sleep(for: .seconds(max(0, offer.expires.timeIntervalSinceNow)))
             if self?.typedOffers[s.id]?.id == offer.id { self?.typedOffers[s.id] = nil }
         }
     }
 
-    /// «Guardar…» en el aviso: la hoja de credencial nueva, ya con ella.
+    /// «Guardar…» en el aviso: la hoja de credencial nueva, ya con ella (con otra hoja abierta, el aviso se queda).
     func acceptTypedOffer(in s: TerminalSession) {
-        guard let o = typedOffers.removeValue(forKey: s.id) else { return }
+        guard let o = typedOffers[s.id] else { return }
         guard sheet == nil, typedSave == nil else { status = L("✗ Cierra la ventana abierta antes de guardar la contraseña"); return }
         typedSave = o.save
+        typedOffers[s.id] = nil
     }
 
     func dismissTypedOffer(in s: TerminalSession) { typedOffers[s.id] = nil }

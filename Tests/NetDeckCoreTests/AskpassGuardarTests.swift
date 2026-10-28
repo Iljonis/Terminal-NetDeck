@@ -87,6 +87,21 @@ import Testing
         #expect(r2 == .line("clave") && resto2 == Array("s\r".utf8))
     }
 
+    /// Un CR+LF pegado que llega partido: el LF tardío no contesta (y guarda) solo; lo que sigue llegando del pegado
+    /// se tira antes de preguntar.
+    @Test func elTerminadorQueLlegaTardeNoContesta() {
+        var queue = Array("\nn\r".utf8)
+        let r = TTYLine.read(secret: false, skipLeadingLF: true, next: { _ in queue.isEmpty ? nil : queue.removeFirst() },
+                             unread: { _ in }, echo: { _ in })
+        #expect(r == .line("n"))
+        var cola = Array("\r\r\n".utf8)
+        #expect(TTYLine.drain { _ in cola.isEmpty ? nil : cola.removeFirst() } == 3 && cola.isEmpty)
+        // (sin CR antes, un LF es un Intro de verdad)
+        var otra = Array("\n".utf8)
+        #expect(TTYLine.read(secret: false, next: { _ in otra.isEmpty ? nil : otra.removeFirst() }, unread: { _ in },
+                             echo: { _ in }) == .line(""))
+    }
+
     // MARK: - D: la pregunta del askpass no es otra oferta de guardar
 
     @Test func laPreguntaDelAskpassNoCreaCandidata() {

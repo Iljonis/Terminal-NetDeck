@@ -14,7 +14,8 @@ final class DialogAskpass: AskpassUI {
     func say(_ s: String) {
         let clean = s.replacingOccurrences(of: #"\u{1b}\[[0-9;]*m"#, with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        // (se enseña con la siguiente pregunta o, si no la hay, en una última ventana: `flush`)
+        // (se enseña con la siguiente pregunta. Lo dicho al final —«guardada ✓», un error al guardarla— no: ssh espera
+        // a que termine el askpass y una ventana más lo dejaría parado hasta Aceptar; queda en los registros)
         if !clean.isEmpty { notes.append(clean) }
     }
 
@@ -45,18 +46,6 @@ final class DialogAskpass: AskpassUI {
     }
 }
 
-extension DialogAskpass {
-    /// Lo que no ha llegado a enseñarse («guardada ✓», un error al guardarla), en una última ventana.
-    func flush() {
-        guard !notes.isEmpty else { return }
-        let a = NSAlert()
-        a.messageText = notes.removeLast()
-        a.informativeText = notes.joined(separator: "\n")
-        notes = []
-        a.addButton(withTitle: L("Aceptar"))
-        a.runModal()
-    }
-}
 
 // Escribir en una tubería ya cerrada (security, ssh, gzcat que terminan antes) da error, no cierra la app.
 signal(SIGPIPE, SIG_IGN)
@@ -64,10 +53,8 @@ signal(SIGPIPE, SIG_IGN)
 // El mismo ejecutable es el SSH_ASKPASS de las pestañas (contraseña de sesión automática): sin interfaz.
 if ProcessInfo.processInfo.environment[Askpass.flag] == "1" {
     let code = MainActor.assumeIsolated {
-        var shown: DialogAskpass?
-        defer { shown?.flush() }
-        return Askpass.run(arguments: CommandLine.arguments, environment: ProcessInfo.processInfo.environment,
-                           dialog: { shown = DialogAskpass(); return shown })
+        Askpass.run(arguments: CommandLine.arguments, environment: ProcessInfo.processInfo.environment,
+                    dialog: { DialogAskpass() })
     }
     DebugLog.flush()
     exit(code)

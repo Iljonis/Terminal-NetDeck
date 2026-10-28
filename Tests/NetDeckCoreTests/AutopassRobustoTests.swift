@@ -42,18 +42,48 @@ import Testing
 
     // MARK: - recolector de órdenes
 
-    @Test func conLaFilaFijaYLaRevisionCreciendoNoSeQuedaEnmascarado() {
-        let io = FilaFija("tu.usuario@bastion:~$ "), r = MacroRecorder(allowScreenFallback: true, soloConexiones: true)
+    /// Con el historial lleno la fila absoluta sigue avanzando: la orden siguiente no se queda enmascarada.
+    @Test func conElHistorialLlenoElRecolectorNoSeQuedaEnmascarado() {
+        let io = TerminalAcotado(capacidad: 30, pantalla: 5), r = MacroRecorder(allowScreenFallback: true, soloConexiones: true)
+        for i in 0..<40 { io.escribir("línea \(i)") }
+        io.escribir("tu.usuario@bastion:~$ ")
         r.feed(Array("ssh core-01\r".utf8), from: io)
         #expect(r.takeLines() == ["ssh core-01"])
-        // (el equipo corta y vuelve el prompt del salto en la misma fila: ha salido algo)
-        io.revision += 3
+        // (el equipo corta y vuelve el prompt del salto)
+        io.escribir("Connection to core-01 closed.")
+        io.escribir("tu.usuario@bastion:~$ ")
         r.feed(Array("ssh core-02\r".utf8), from: io)
         #expect(r.takeLines() == ["ssh core-02"] && r.lastDrop == nil)
-        // (sin salida entre medias —un pegado de dos líneas— la segunda sí se enmascara)
-        io.revision += 1
+        // (sin respuesta entre medias —un pegado de dos líneas— la segunda sí se enmascara)
+        io.escribir("tu.usuario@bastion:~$ ")
         r.feed(Array("ssh core-03\rssh core-04\r".utf8), from: io)
         #expect(r.takeLines() == ["ssh core-03"] && r.lastDrop == "misma-fila")
+    }
+
+    /// Un BEL o un color suben la revisión sin que el equipo haya contestado: el secreto de un pegado troceado
+    /// «enable⏎secreto⏎» no se graba.
+    @Test func unaSalidaSinPromptNoPruebaQueHayaContestado() {
+        let io = FakeTerminal(["core-01>"]), r = MacroRecorder()
+        r.feed(Array("enable\r".utf8), from: io)
+        io.revision += 1                                                // (un BEL, en la misma fila)
+        r.feed(Array("S3cr3t\r".utf8), from: io)
+        #expect(r.lines == ["enable"] && r.skipped == 1)
+    }
+
+    @Test func trasRecolocarElBuferJustoTrasUnIntroSeEnmascara() {
+        let io = FilaFija("core-01>"), r = MacroRecorder()
+        r.feed(Array("enable\r".utf8), from: io)
+        io.row += 1
+        r.bufferRealigned()
+        r.feed(Array("S3cr3t\r".utf8), from: io)
+        #expect(r.lines == ["enable"])
+        // (pasado un rato —salir de less y escribir otra orden—, no)
+        let tarde = MacroRecorder()
+        tarde.feed(Array("show clock\r".utf8), from: io)
+        io.row += 1
+        tarde.bufferRealigned(now: Date().addingTimeInterval(10))
+        tarde.feed(Array("show users\r".utf8), from: io)
+        #expect(tarde.lines == ["show clock", "show users"])
     }
 
     @Test func unEscSueltoNoSeComeLaSiguienteTecla() {
@@ -86,14 +116,14 @@ import Testing
         let io = FilaFija("tu.usuario@bastion:~$ "), r = MacroRecorder(allowScreenFallback: true, soloConexiones: true)
         r.feed(Array("show version\r".utf8), from: io)
         #expect(r.takeLines() == ["show version"] && r.lastDrop == nil)  // (otra orden: cierra el contexto)
-        io.revision += 1
+        io.row += 1
         r.feed(Array("ls\t\r".utf8), from: io)
         #expect(r.lastDrop == "no-conexion")
-        io.revision += 1
+        io.row += 1
         io.line = "Password:"
         r.feed(Array("secreto\r".utf8), from: io)
         #expect(r.lastDrop == "enmascarada-secreto")
-        io.revision += 1
+        io.row += 1
         io.line = "Last login: ayer"
         r.feed(Array("ssh core-01\r".utf8), from: io)
         #expect(r.lastDrop == "sin-prompt")
@@ -134,6 +164,41 @@ import Testing
         io.escribir("tu.usuario@core-01's password:")
         #expect(await a.observe(io, gate: gate) == .failed(ref))
         #expect(io.sent == ["secreto-demo\r"])
+    }
+
+    /// Recolocar el búfer (otro tamaño) no hace que un «Permission denied» viejo cuente como el rechazo de ahora.
+    @Test func trasRecolocarElBuferNoSeLeeLoViejo() async {
+        let ledger = CredentialLedger(), a = automation(MemoryCredentialStore([ref: "secreto-demo"]), ledger: ledger)
+        defer { a.cancelCommand() }
+        let io = TerminalAcotado(capacidad: 30, pantalla: 5), gate = AutomationGate()
+        for i in 0..<10 { io.escribir("línea \(i)") }
+        io.escribir("tu.usuario@core-02: Permission denied (password).")     // (de antes)
+        for i in 0..<10 { io.escribir("salida \(i)") }
+        io.escribir("tu.usuario@core-01's password:")
+        #expect(await a.observe(io, gate: gate) == .typed(ref))
+        let antes = io.cursorRow
+        io.redimensionar()
+        #expect(io.cursorRow > antes && io.lines(from: 0).count == 1)       // (sólo desde el cursor de entonces)
+        // (la pestaña suelta la enviada sin confirmarla ni marcarla y la orden deja de armar nada)
+        a.bufferRealigned()
+        #expect(ledger.state(of: ref) == nil && a.commandTarget == nil)
+        io.escribir("tu.usuario@core-02: Permission denied (password).")    // (aunque luego salga otro rechazo)
+        #expect(await a.observe(io, gate: gate) == nil)
+        #expect(!ledger.isBlocked(ref) && io.sent.count == 1)
+    }
+
+    @Test func soloUnSolapeSuficienteCuentaComoElMismoHistorial() {
+        var f = BufferRows()
+        let viejo = (0..<40).map { "l\($0)" }
+        f.update(viejo, screenRows: 5, cursor: 39)
+        // (sólo coinciden 3 líneas: no demuestra nada; se da por recolocado)
+        f.update(Array(viejo.suffix(3)) + (0..<37).map { "n\($0)" }, screenRows: 5, cursor: 39)
+        #expect(f.resyncs == 1 && f.resync == f.base + 39)
+        // (desplazado una línea: el mismo historial)
+        var g = BufferRows()
+        g.update(viejo, screenRows: 5, cursor: 39)
+        g.update(Array(viejo.dropFirst()) + ["l40"], screenRows: 5, cursor: 39)
+        #expect(g.resyncs == 0 && g.base == 1)
     }
 
     // MARK: - Llavero
@@ -271,6 +336,15 @@ private final class TerminalAcotado: TerminalIO {
         filas.update(lineas, screenRows: pantalla)
     }
 
+    /// Otro tamaño: las líneas se recolocan (aquí, cada una cambia) y no casan con el historial de antes.
+    func redimensionar() {
+        lineas = lineas.map { $0 + " " }
+        revision += 1
+        ancho += 1
+        filas.update(lineas, screenRows: pantalla, cursor: lineas.count - 1, layout: [ancho, pantalla])
+    }
+    private var ancho = 80
+
     func borrarHistorial() {
         lineas = Array(lineas.suffix(pantalla))
         revision += 1
@@ -281,8 +355,9 @@ private final class TerminalAcotado: TerminalIO {
     var cursorRow: Int { filas.absolute(lineas.count - 1) }
     var cursorLine: String { lineas.last ?? "" }
     func lines(from row: Int) -> [String] {
-        guard row <= cursorRow, !lineas.isEmpty else { return [] }
-        return Array(lineas[max(0, filas.local(row))...])
+        let from = filas.first(from: row)
+        guard from <= cursorRow, !lineas.isEmpty else { return [] }
+        return Array(lineas[max(0, filas.local(from))...])
     }
 }
 

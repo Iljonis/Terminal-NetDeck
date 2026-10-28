@@ -303,11 +303,12 @@ public final class MacroRecorder {
     private var checked = false
     /// La fila del cursor en el último Intro con algo escrito. Lo siguiente sólo se graba si el equipo ya ha contestado
     /// (el cursor está en otra fila y en ella hay un prompt): si no, puede ser la respuesta a un «Password:» que aún no
-    /// ha pintado (un pegado «enable⏎contraseña⏎», entero o llegue en los trozos que llegue). Con la revisión de
-    /// entonces: si ha salido algo desde aquel Intro, el equipo ya ha contestado aunque la fila sea la misma (con el
-    /// historial lleno la fila puede no moverse): nunca se queda enmascarado para siempre.
+    /// ha pintado (un pegado «enable⏎contraseña⏎», entero o llegue en los trozos que llegue). La fila es absoluta
+    /// (`BufferRows`): con el historial lleno también avanza. Que salga algo (un BEL, un color) no prueba que haya
+    /// contestado: sólo la fila. `realigned`: el búfer se ha recolocado y la fila de entonces ya no se puede comparar.
     private var lastEnterRow: Int?
-    private var lastEnterRevision: Int?
+    private var lastEnterAt: Date?
+    private var realigned = false
     private enum Escape { case none, started, csi([UInt8]), ss3 }
     private var escape = Escape.none
 
@@ -372,14 +373,21 @@ public final class MacroRecorder {
         guard !checked else { return }
         checked = true
         if !PromptRule.isPrompt(io.cursorLine, custom: io.promptRule) { mask("sin-prompt") }
-        if let row = lastEnterRow, io.cursorRow == row, lastEnterRevision == io.revision { mask("misma-fila") }
+        if let row = lastEnterRow, io.cursorRow == row || realigned { mask("misma-fila") }
     }
 
     /// Otro equipo u otro proceso: lo que había a medias en la línea (y el último Intro) era de antes.
     public func resetLine() {
         reset()
         lastEnterRow = nil
-        lastEnterRevision = nil
+        realigned = false
+    }
+
+    /// El búfer se ha recolocado (otro tamaño, pantalla alternativa…): si hubo un Intro hace nada (un pegado
+    /// troceado), lo siguiente se enmascara: no se sabe si el equipo ha contestado. Pasado un rato (salir de less o
+    /// de vi y escribir otra orden), no: se perdería la orden siguiente.
+    public func bufferRealigned(now: Date = Date()) {
+        if lastEnterRow != nil, let at = lastEnterAt, now.timeIntervalSince(at) < 2 { realigned = true }
     }
 
     /// Consume las órdenes recogidas sin perder el estado del teclado ni la protección tras Intro.
@@ -395,7 +403,7 @@ public final class MacroRecorder {
         defer { reset() }
         let typed = !buffer.isEmpty || !clean
         guard typed else { return }
-        defer { lastEnterRow = io.cursorRow; lastEnterRevision = io.revision }
+        defer { lastEnterRow = io.cursorRow; lastEnterAt = Date(); realigned = false }
         lastDrop = nil
         guard !masked, !SecretPrompt.asks(io.cursorLine), !awaitingAuth(io) else {
             lastDrop = maskedBy ?? (SecretPrompt.asks(io.cursorLine) ? "enmascarada-secreto" : "autenticando")

@@ -144,6 +144,18 @@ public final class PasswordAutomation {
 
     public func reset() { cancelCommand(); loggedIn = false; lastObservedRow = nil }
 
+    /// El búfer se ha recolocado y lo anclado a filas ya no se puede leer: la enviada se suelta sin confirmarla ni
+    /// marcarla (como un corte) y la orden deja de armar nada (no se escribe otra vez sin saber qué ha pasado).
+    public func bufferRealigned() {
+        guard pending != nil || commandTarget != nil else { return }
+        if let p = pending {
+            pending = nil
+            if let token = p.reservation { ledger.release(p.ref, reservation: token) }
+            DebugLog.log("autopass", "búfer recolocado tras «\(p.ref)»: ni se confirma ni cuenta como fallo")
+        }
+        cancelCommand()
+    }
+
     /// La vista conserva esta limpieza hasta comprobar que ha terminado el proceso de la conexión anterior.
     public func connectionCleanup() -> (@Sendable () -> Void)? {
         cancelCommand()
