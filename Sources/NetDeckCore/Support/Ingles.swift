@@ -1782,6 +1782,8 @@ enum Ingles {
             "Each one in its own tab (subfolders included).",
         "Grupos":
             "Groups",
+        "Abrir todas":
+            "Open all",
         "Abrir las %@ (si son varias, en la vista dividida)":
             "Open all %@ (several go into the split view)",
         "Cada equipo en su pestaña por el salto (tal como está, sin guardar)":

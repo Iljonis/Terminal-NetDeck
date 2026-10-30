@@ -454,17 +454,20 @@ struct NewButton: View {
                     .presentationBackground(SwiftUI.Color(t.bar.opaque))
             }
             .onAppear {                                       // (capturas: NETDECK_SNAPSHOT_ACTION=nuevo)
-                if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_ACTION"] == "nuevo" { open = true }
+                if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_ACTION"]?.hasPrefix("nuevo") == true { open = true }
             }
     }
 }
 
 /// El menú «+»: conectar, terminal local, sesiones nuevas, listas, las ★ favoritas / la de inicio y los grupos (abre
-/// todas las de una carpeta de un clic). Se cierra al elegir o con Esc (lo hace el propio panel).
+/// todas las de una carpeta de un clic; con el ratón encima, un submenú con sus sesiones y «Abrir todas»). Se cierra al elegir o con Esc (lo hace el propio panel).
 struct NewMenu: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
     let close: () -> Void
+    /// El grupo con el submenú abierto (al pasar el ratón) y el turno de ratón (cierres que ya no tocan).
+    @Stored private var submenu: String?
+    @Stored private var hoverTurn = 0
 
     var body: some View {
         let favs = model.favorites.compactMap(model.sessions.profile(named:))
@@ -498,10 +501,18 @@ struct NewMenu: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 1) {
                         ForEach(folders, id: \.path) { f in
-                            item(L(nombre: f.name), icon: "folder.fill", key: "\(f.count)", indent: f.depth) {
+                            item(L(nombre: f.name), icon: "folder.fill", key: "\(f.count) ›", indent: f.depth) {
                                 Task { await model.openGroup(f.path) }
                             }
                             .help(L("Abrir las \(f.count) (si son varias, en la vista dividida)"))
+                            .onHover { hovering(f.path, $0) }
+                            .popover(isPresented: Binding(get: { submenu == f.path },
+                                                          set: { if !$0, submenu == f.path { submenu = nil } }),
+                                     arrowEdge: .trailing) {
+                                groupMenu(f.path, count: f.count)
+                                    .onHover { hovering(f.path, $0) }
+                                    .presentationBackground(SwiftUI.Color(t.bar.opaque))
+                            }
                         }
                     }
                 }
@@ -513,6 +524,51 @@ struct NewMenu: View {
         .font(t.ui(12))
         .background(SwiftUI.Color(t.bar.opaque))
         .overlay(alignment: .top) { Rectangle().fill(SwiftUI.Color(t.accent)).frame(height: 2).opacity(t.neon ? 0.8 : 0) }
+        .onAppear {                                           // (capturas: NETDECK_SNAPSHOT_ACTION=nuevo:<grupo>)
+            let action = ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_ACTION"] ?? ""
+            guard action.hasPrefix("nuevo:") else { return }
+            Task { try? await Task.sleep(for: .milliseconds(400)); submenu = String(action.dropFirst(6)) }
+        }
+    }
+
+    /// Ratón sobre un grupo o su submenú: lo abre; al salir de los dos se cierra tras un momento (lo justo para pasar
+    /// de la fila al submenú sin que se cierre por el camino).
+    private func hovering(_ path: String, _ inside: Bool) {
+        hoverTurn += 1
+        if inside { submenu = path; return }
+        let turn = hoverTurn
+        Task {
+            try? await Task.sleep(for: .milliseconds(350))
+            if hoverTurn == turn, submenu == path { submenu = nil }
+        }
+    }
+
+    /// Submenú de un grupo: «Abrir todas» y sus sesiones (también las de sus subcarpetas), cada una de un clic.
+    private func groupMenu(_ path: String, count: Int) -> some View {
+        let ps = model.profiles(inGroup: path)
+        return VStack(alignment: .leading, spacing: 1) {
+            heading(L(nombre: GroupTree.components(path).last ?? path))
+            item(L("Abrir todas"), icon: "rectangle.stack.fill", key: "\(count)") {
+                Task { await model.openGroup(path) }
+            }
+            .help(L("Abrir las \(count) (si son varias, en la vista dividida)"))
+            divider
+            ScrollView {
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(ps, id: \.name) { p in
+                        let fav = model.favorites.contains(p.name)
+                        item(p.name, icon: fav ? "star.fill" : p.transport.icon(jump: !p.proxyJump.isEmpty),
+                             key: p.user.map { "\($0)@\(p.endpoint.host)" } ?? p.endpoint.host,
+                             tint: fav ? t.warning : nil) { model.open(p) }
+                    }
+                }
+            }
+            .frame(height: min(CGFloat(ps.count), 12.5) * 27)
+        }
+        .padding(6)
+        .frame(minWidth: 250)
+        .font(t.ui(12))
+        .background(SwiftUI.Color(t.bar.opaque))
     }
 
     private var divider: some View {
