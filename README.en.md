@@ -9,10 +9,10 @@ and 51 themes. Native, fast and in your language.
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v0.9.8](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.8)** · macOS 15 or later ·
+Current version: **[v0.9.9](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.9)** · macOS 15 or later ·
 open source (MIT)
 
-[![Version](https://img.shields.io/badge/version-v0.9.8-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.8)
+[![Version](https://img.shields.io/badge/version-v0.9.9-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.9)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,15 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - **SFTP/FTP browser** with atomic copies, built-in MD5 verification and server-to-server transfers.
 - **Multi-tab** with split view, MultiExec and safe paste; **51 themes** with WCAG contrast.
 - **Sessions with jump hosts** on top of your `ssh_config`, passwords only in the macOS Keychain.
+
+### New in 0.9.9
+
+- **Group submenus in “+”:** hover a folder to see its sessions (subfolders included) and open one with a click, or
+  **Open all** to open them together as before.
+- **More reliable autopass:** copes with a full scrollback, `clear`, the alternate screen of tmux, screen, less or vi
+  and dropped connections without losing or repeating the password; a lone Escape no longer eats the next key.
+- **Askpass and Keychain:** Enter saves, it always tells you whether it was saved, and a Keychain error is no longer
+  taken as “not there”. The SFTP browser says in the status bar when it saved the password.
 
 ### New in 0.9.8
 

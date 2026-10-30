@@ -9,10 +9,10 @@ y 51 temas. Nativo, rápido y en tu idioma.
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.9.8](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.8)** · macOS 15 o posterior ·
+Versión actual: **[v0.9.9](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.9)** · macOS 15 o posterior ·
 código abierto (MIT)
 
-[![Versión](https://img.shields.io/badge/versión-v0.9.8-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.8)
+[![Versión](https://img.shields.io/badge/versión-v0.9.9-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.9)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,15 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - **Explorador SFTP/FTP** con copias atómicas, verificación MD5 integrada y envío de servidor a servidor.
 - **Multipestaña** con vista dividida, MultiExec y pegado seguro; **51 temas** con contraste WCAG.
 - **Sesiones con saltos** sobre tu `ssh_config` y contraseñas sólo en el Llavero de macOS.
+
+### Novedades de 0.9.9
+
+- **Grupos con submenú en «+»:** al pasar el ratón por una carpeta salen sus sesiones (también las de subcarpetas)
+  para abrir una de un clic, y **Abrir todas** para abrirlas juntas como antes.
+- **Autopass más fiable:** aguanta el historial lleno, `clear`, la pantalla alternativa de tmux, screen, less o vi y
+  los cortes de conexión sin perder ni repetir la contraseña; un Esc ya no se come la tecla siguiente.
+- **Askpass y Llavero:** Intro guarda, siempre dice si quedó guardada y un error del Llavero ya no se toma por «no
+  está». El explorador SFTP avisa en la barra si guardó la contraseña.
 
 ### Novedades de 0.9.8
 
