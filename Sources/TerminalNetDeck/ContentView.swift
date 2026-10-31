@@ -932,7 +932,7 @@ struct MainArea: View {
             SplitArea(split: sp)
         } else if let s = model.current {
             VStack(spacing: 0) {
-                SessionContent(session: s, focused: true, inset: 8, sidePanel: true)
+                SessionContent(session: s, focused: !model.showSettings, inset: 8, sidePanel: true)
                     .id(s.id)
                     .overlay(alignment: .topLeading) {
                         // (con el explorador lateral a la vista, el ● REC va a la izquierda: a la derecha estaría encima de él)

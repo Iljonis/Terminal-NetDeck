@@ -62,7 +62,7 @@ struct SplitPane: View {
         let edge = multi ? t.warning : (selected ? t.accent : t.panel)
         VStack(spacing: 0) {
             header(selected: selected, excluded: excluded, multi: multi)
-            SessionContent(session: session, focused: selected, inset: 6)
+            SessionContent(session: session, focused: selected && !model.showSettings, inset: 6)
                 .overlay(alignment: .topTrailing) {
                     if let e = model.notices[session.id] { PasswordNotice(session: session, event: e).padding(10) }
                     else if let o = model.typedOffers[session.id] { TypedOfferNotice(session: session, offer: o).padding(10) }

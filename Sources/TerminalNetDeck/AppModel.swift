@@ -104,8 +104,20 @@ final class AppModel {
     /// En cuántas ventanas estaban.
     var lastOpenWindows: Int { core.lastOpen.windows.count }
     var editorFocus: EditorFocus?
-    /// Ajustes dentro de la ventana (en pantalla completa no se van a otro escritorio) y con el tema.
-    var showSettings = false
+    /// Ajustes dentro de la ventana (en pantalla completa no se van a otro escritorio) y con el tema. Es una capa
+    /// encima del terminal, no otra ventana: al abrirse le quita el teclado (lo tecleado no llega al equipo ni a
+    /// MultiExec; los campos de Ajustes lo toman al pulsarlos) y al cerrarse vuelve a la pestaña elegida
+    /// (`MainArea`/`SplitArea`: `focused` sólo sin Ajustes).
+    var showSettings = false {
+        didSet {
+            guard showSettings != oldValue, let w = window else { return }
+            if showSettings {
+                if w.firstResponder is NetDeckTerminalView { w.makeFirstResponder(nil) }
+            } else if let v = current?.view, v.window === w {
+                w.makeFirstResponder(v)
+            }
+        }
+    }
     /// Hay una hoja, Ajustes o el asistente abiertos: los atajos que cambian de hoja o actúan sobre las pestañas se
     /// apagan (⌘K sustituiría el gestor con sus cambios; ⌘W cerraría la pestaña a la que va el botón que rellenas).
     var modalOpen: Bool { sheet != nil || showSettings || showSetup || core.renamingCredential }
@@ -1291,6 +1303,12 @@ final class AppModel {
 
     /// Lo que teclea (o pega) el usuario en una pestaña. true = ya atendido.
     private func userInput(_ bytes: [UInt8], in s: TerminalSession) -> Bool {
+        // (con Ajustes abierto, lo tecleado no va al equipo ni a MultiExec. Teclas sólo le llegan si tiene el teclado:
+        // si no, son las respuestas del propio terminal al equipo —posición del cursor, atributos— y siguen)
+        if showSettings, let w = s.view.window, w.firstResponder === s.view {
+            w.makeFirstResponder(nil)
+            return true
+        }
         if AbortKey.isAbort(bytes) { s.cancelPasswordContext() }
         if s.passwords.offer != nil, SecretPrompt.asks(s.cursorLine) { s.cancelPasswordContext() }
         // (si el usuario empieza a contestar durante la lectura automática, ésta ya no puede mezclar su secreto)
