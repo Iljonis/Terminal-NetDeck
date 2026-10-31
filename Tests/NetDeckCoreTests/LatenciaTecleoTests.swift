@@ -66,4 +66,15 @@ import Testing
         filas.update(lineas, screenRows: 5, cursor: lineas.count - 1)
         #expect(filas.base == base && filas.resyncs == resyncs)
     }
+
+    @Test func cuentaLoQuePuedeDesplazarLaPantalla() {
+        #expect(BufferRows.scrolls(in: Array("a".utf8)) == 0)
+        #expect(BufferRows.scrolls(in: Array("core-01#\r\n".utf8)) == 1)
+        #expect(BufferRows.scrolls(in: [11, 12]) == 2)
+        #expect(BufferRows.scrolls(in: [0x1B, 0x44, 0x1B, 0x45]) == 2)           // ESC D, ESC E
+        #expect(BufferRows.scrolls(in: Array("\u{1b}[3S".utf8)) == 1)            // subir 3
+        // (el eco de zsh con colores y movimientos del cursor no cuenta)
+        #expect(BufferRows.scrolls(in: Array("\u{1b}[32ma\u{1b}[0m\u{1b}[1D\u{1b}[K".utf8)) == 0)
+        #expect(BufferRows.scrolls(in: [0x1B, 0x1B, 0x44]) == 1)
+    }
 }

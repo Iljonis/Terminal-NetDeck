@@ -12,11 +12,13 @@ final class OutputCounter: @unchecked Sendable {
     private var scheduled = false
 
     var value: Int { lock.withLock { n } }
-    /// Saltos de línea (LF, VT, FF) que han llegado: con uno, la pantalla ha podido desplazarse aunque se vea igual.
+    /// Lo que ha podido desplazar la pantalla (`BufferRows.scrolls`): con uno, aunque se vea igual. Se cuenta después
+    /// de pasarlo al terminal: una lectura de en medio ve la pantalla nueva con la cuenta de antes y la siguiente lo
+    /// lee todo (el lado seguro).
     var lineFeeds: Int { lock.withLock { feeds } }
 
     func countLineFeeds<S: Sequence>(_ bytes: S) where S.Element == UInt8 {
-        let k = bytes.reduce(0) { $0 + ((10...12).contains($1) ? 1 : 0) }
+        let k = BufferRows.scrolls(in: bytes)
         if k > 0 { lock.withLock { feeds += k } }
     }
 
@@ -54,17 +56,17 @@ final class OutputPipe: LocalProcessDelegate, @unchecked Sendable {
 
     func receive(_ slice: ArraySlice<UInt8>) {
         sink?(slice)
-        counter.countLineFeeds(slice)
         let out = highlighter.process(slice)
         view?.feed(byteArray: out[...])
+        counter.countLineFeeds(slice)
         if counter.bump() { onOutput() }
     }
 
     /// Texto propio de la app (avisos «[NetDeck] …»): sin resaltar ni registrar.
     func say(_ text: String) {
         queue.async { [weak self] in
-            self?.counter.countLineFeeds(text.utf8)
             self?.view?.feed(text: text)
+            self?.counter.countLineFeeds(text.utf8)
             if self?.counter.bump() == true { self?.onOutput() }
         }
     }
@@ -959,7 +961,7 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         let rev = pipe.counter.value
         if let c = cache, c.rev == rev { return (c.lines, c.cursor, c.base) }
         // (el eco de una tecla sólo cambia la línea del cursor: se lee la pantalla, no el historial entero. Con un salto
-        // de línea, no: con el historial lleno y la pantalla de líneas iguales —Intro sostenido en «core-01#»— se vería
+        // de línea (o ESC D, ESC E, CSI S), no: con el historial lleno y la pantalla de líneas iguales —Intro sostenido en «core-01#»— se vería
         // igual aunque una fila haya pasado al historial. Se lee antes de mirar la pantalla: lo que llegue después es de
         // la próxima lectura)
         let feeds = pipe.counter.lineFeeds

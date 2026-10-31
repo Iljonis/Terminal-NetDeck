@@ -74,6 +74,28 @@ public struct BufferRows: Sendable {
         return true
     }
 
+    /// Cuántas cosas de un trozo de salida pueden desplazar la pantalla: LF, VT, FF, ESC D (IND), ESC E (NEL) y
+    /// CSI … S (subir). Con alguna, `applyCursorLineEdit` no basta aunque la pantalla se vea igual. Una secuencia
+    /// partida entre dos trozos no cuenta (sólo engaña con el historial lleno y la pantalla de filas iguales). El salto
+    /// al llegar al final de la última fila tampoco: sin un byte que lo diga, cambia la fila del cursor o las de encima.
+    public static func scrolls<S: Sequence>(in bytes: S) -> Int where S.Element == UInt8 {
+        var n = 0, escape = false, csi = false
+        for b in bytes {
+            if csi {
+                if (0x40...0x7E).contains(b) { csi = false; if b == 0x53 { n += 1 } }   // (la letra final; «S»)
+                continue
+            }
+            if escape {
+                escape = false
+                if b == 0x44 || b == 0x45 { n += 1 }       // ESC D, ESC E
+                else if b == 0x5B { csi = true }           // ESC [
+                if b != 0x1B { continue }
+            }
+            if b == 0x1B { escape = true } else if (10...12).contains(b) { n += 1 }
+        }
+        return n
+    }
+
     /// La primera fila absoluta que se puede leer desde `row` (lo de antes del último `resync`, no).
     public func first(from row: Int) -> Int { max(row, resync) }
 
