@@ -392,10 +392,9 @@ enum SnapshotDrags {
         let expectedFirst = WindowPlacement.restored(firstFrame, screens: NSScreen.screens.map(\.visibleFrame))
         // (su centro debe seguir en una pantalla: fuera de ella la app deja el marco que elija macOS)
         let frame = CGRect(x: min(left.maxX + 30, screen.maxX - 980), y: left.minY + 20, width: 980, height: 560)
+        // (más baja que el mínimo: crece hacia abajo y, junto al Dock, sube para no quedar debajo)
         let minimum = core.attachedWindows.first?.window?.minSize ?? .zero
-        let want = CGRect(x: frame.minX, y: frame.maxY - max(frame.height, minimum.height),
-                          width: max(frame.width, minimum.width), height: max(frame.height, minimum.height))
-        let expected = WindowPlacement.restored(want, screens: NSScreen.screens.map(\.visibleFrame))
+        let expected = WindowPlacement.restored(frame, minimum: minimum, screens: NSScreen.screens.map(\.visibleFrame))
         core.lastOpen = OpenWindows(windows: [
             .init(tabs: [ConnectionRoute(title: "core-01", target: Endpoint(user: "tu.usuario", host: "192.0.2.11"))], frame: firstFrame),
             .init(tabs: [ConnectionRoute(title: "pe-02", target: Endpoint(user: "tu.usuario", host: "198.51.100.2")),

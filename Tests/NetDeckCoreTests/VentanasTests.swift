@@ -62,6 +62,20 @@ import Testing
         #expect(WindowPlacement.restored(.zero, screens: [left]) == nil)
     }
 
+    @Test func marcoGuardadoConSuMinimoNoQuedaBajoElDock() {
+        // (pantalla de 1024 px de la CI: la ventana guardada era más baja que su mínimo; al crecer hasta él, por abajo,
+        // quedaba en y 8, bajo el Dock; con el mínimo aplicado antes de encajarla, sube hasta el borde)
+        let ci = CGRect(x: 0, y: 60, width: 1024, height: 677)
+        let fit = WindowPlacement.restored(CGRect(x: 44, y: 80, width: 980, height: 560), minimum: CGSize(width: 980, height: 632),
+                                           screens: [ci])
+        #expect(fit == CGRect(x: 44, y: 60, width: 980, height: 632))
+        // (más grande que el mínimo: se queda como estaba)
+        let big = CGRect(x: 44, y: 80, width: 980, height: 640)
+        #expect(WindowPlacement.restored(big, minimum: CGSize(width: 960, height: 632), screens: [ci]) == big)
+        // (su pantalla ya no está: nil, como sin mínimo)
+        #expect(WindowPlacement.restored(CGRect(x: 3000, y: 80, width: 980, height: 560), minimum: .zero, screens: [ci]) == nil)
+    }
+
     @Test func nombrePropioHastaOtroEquipo() {
         var r = TabRename()
         r.set("  Agregación Madrid ", on: "core-01")

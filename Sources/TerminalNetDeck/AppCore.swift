@@ -205,6 +205,9 @@ final class AppCore {
         }
     }
 
+    /// El tamaño mínimo del contenido de cada ventana: el de `.frame(minWidth:minHeight:)` en App.swift.
+    static let minimumContent = CGSize(width: 960, height: 600)
+
     /// El marco guardado: respeta el mínimo y su pantalla, y espera a la NSWindow si aún no se ha pintado.
     private func restoreFrame(_ f: CGRect, into m: AppModel) {
         guard let w = m.window else {
@@ -213,9 +216,13 @@ final class AppCore {
         }
         guard !w.styleMask.contains(.fullScreen) else { return }
         // (el borde de arriba queda donde estaba; si su pantalla ya no está, donde la ponga macOS)
-        let size = CGSize(width: max(f.width, w.minSize.width), height: max(f.height, w.minSize.height))
-        let want = CGRect(x: f.minX, y: f.maxY - size.height, width: size.width, height: size.height)
-        if let fit = WindowPlacement.restored(want, screens: NSScreen.screens.map(\.visibleFrame)) {
+        // El mínimo, el de la vista más la barra de título: una ventana recién enganchada aún puede no tener el
+        // `minSize` que le pone SwiftUI; si se encajase con uno menor, al recibirlo crecería hacia abajo, bajo el Dock.
+        // (`frameRect(forContentRect:)` no sirve: con fullSizeContentView no suma la barra de título)
+        let bar = max(0, w.frame.height - w.contentLayoutRect.height)
+        let minimum = CGSize(width: max(Self.minimumContent.width, w.minSize.width),
+                             height: max(Self.minimumContent.height + bar, w.minSize.height))
+        if let fit = WindowPlacement.restored(f, minimum: minimum, screens: NSScreen.screens.map(\.visibleFrame)) {
             w.setFrame(fit, display: true)
         }
     }

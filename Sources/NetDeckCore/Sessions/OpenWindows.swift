@@ -70,6 +70,15 @@ public enum WindowPlacement {
         return fit(frame, in: screen)
     }
 
+    /// Un marco guardado con el tamaño mínimo de la ventana (`minimum`, el marco entero, con la barra de título) ya
+    /// aplicado: crece hacia abajo desde el borde de arriba y después se encaja en su pantalla. Si se encajase antes,
+    /// la ventana crecería después hasta su mínimo y podría quedar bajo el Dock.
+    public static func restored(_ frame: CGRect, minimum: CGSize, screens: [CGRect]) -> CGRect? {
+        let size = CGSize(width: max(frame.width, minimum.width), height: max(frame.height, minimum.height))
+        return restored(CGRect(x: frame.minX, y: frame.maxY - size.height, width: size.width, height: size.height),
+                        screens: screens)
+    }
+
     /// Dentro de `screen`: si es más grande, se encoge; si se sale, se mete.
     public static func fit(_ r: CGRect, in screen: CGRect) -> CGRect {
         let w = min(r.width, screen.width), h = min(r.height, screen.height)
