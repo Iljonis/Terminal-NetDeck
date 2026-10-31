@@ -42,7 +42,7 @@ struct WindowRoot: View {
             .environment(model)
             .environment(\.theme, model.uiTheme)
             .preferredColorScheme(model.themes.current.isLight ? .light : .dark)
-            .frame(minWidth: 960, minHeight: 600)
+            .frame(minWidth: AppCore.minimumContent.width, minHeight: AppCore.minimumContent.height)
             .navigationTitle(model.current?.tabTitle ?? "Terminal NetDeck")
             // (en ventana, las pestañas comparten la barra de título; en pantalla completa, macOS gestiona el
             // espacio de su barra y la de la app queda en el mismo flujo que el buscador y el terminal)
