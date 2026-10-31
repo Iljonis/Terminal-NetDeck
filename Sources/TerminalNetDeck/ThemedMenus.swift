@@ -336,10 +336,10 @@ struct ThemedPicker<Value: Hashable>: View {
 
 // MARK: - avisos (en vez de NSAlert)
 
-/// Aviso modal con la temática (como `NSAlert.runModal`: devuelve el número del botón pulsado, 0 el primero; Esc = el
-/// último). `field`: con un campo de texto (su valor queda en `text`). Siempre con `await`: se abre en la vuelta
-/// siguiente del bucle principal (`MainTurn`), nunca dentro de la acción de un botón, donde el aviso no recibía los
-/// clics y la app se quedaba colgada (Borrar en el explorador, 0.8.5).
+/// Aviso modal con la temática (como `NSAlert.runModal`: devuelve el número del botón pulsado, 0 el primero; Intro = el
+/// primero y Esc = el último, salvo si es el destructivo: `AlertKeys`). `field`: con un campo de texto (su valor queda
+/// en `text`). Siempre con `await`: se abre en la vuelta siguiente del bucle principal (`MainTurn`), nunca dentro de la
+/// acción de un botón, donde el aviso no recibía los clics y la app se quedaba colgada (Borrar en el explorador, 0.8.5).
 @MainActor
 enum ThemedAlert {
     struct Result: Sendable {
@@ -410,6 +410,8 @@ enum ThemedAlert {
         @Bindable var box: AlertBox
         let done: (Int) -> Void
         @FocusState private var focused: Bool
+        /// (ni Intro ni Esc pulsan el destructivo)
+        private var keys: (enter: Int?, escape: Int?) { AlertKeys.shortcuts(buttons: buttons.count, destructive: destructive) }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 12) {
@@ -438,14 +440,14 @@ enum ThemedAlert {
                     .background(RoundedRectangle(cornerRadius: t.corner ?? 5).fill(SwiftUI.Color(t.background.opaque)))
                     .overlay(RoundedRectangle(cornerRadius: t.corner ?? 5).strokeBorder(SwiftUI.Color(t.accent).opacity(focused ? 0.8 : 0.3)))
                     .focused($focused)
-                    .onSubmit { done(0) }
+                    .onSubmit { if let k = keys.enter { done(k) } }
                 }
                 HStack(spacing: 8) {
                     Spacer()
                     ForEach(Array(buttons.enumerated()).reversed(), id: \.offset) { i, b in
                         NeonButton(title: b, icon: i == 0 ? (destructive == 0 ? "trash" : "checkmark") : "xmark",
                                    tint: i == destructive ? t.bad : (i == 0 ? t.accent : t.dim), active: i == 0) { done(i) }
-                            .keyboardShortcut(i == 0 ? .defaultAction : (i == buttons.count - 1 ? .cancelAction : nil))
+                            .keyboardShortcut(i == keys.enter ? .defaultAction : (i == keys.escape ? .cancelAction : nil))
                     }
                 }
             }
