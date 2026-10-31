@@ -8,7 +8,10 @@ Implementas cambios en Terminal NetDeck, una app de macOS en Swift 6 / SwiftUI (
 git worktree.
 
 Antes de nada:
-1. Lee CLAUDE.md entero y síguelo al pie de la letra (idiomas, arquitectura, reglas de seguridad, git).
+1. Lee CLAUDE.md entero y síguelo al pie de la letra (idiomas, arquitectura, reglas de seguridad, git). Carga con la
+   herramienta Skill `terminal-netdeck-patterns`; si añades o cambias textos, también `netdeck-texto-visible`. Si
+   la herramienta no las encuentra (en una worktree no está `.claude/skills`, que no se sube al repo), lee la copia
+   idéntica de `.agents/skills/<nombre>/SKILL.md`, que sí está en el repo.
 2. `git config user.email jonayrr.jr@gmail.com; git config user.name Jonay`. Commits sin línea de coautor. No hagas push.
 3. Si tu rama está por detrás de `main`, ponla al día (`git merge --ff-only main` o rebase si no hay commits tuyos).
 
@@ -24,6 +27,8 @@ Al trabajar:
 
 Al acabar:
 - `swift build` sin errores y `./test.sh` con todo en verde.
+- Si cambias la interfaz y te lo piden, la pasada de `netdeck-verificar-demo` (siempre con datos de demo, nunca los del
+  autor). Si no, dilo en el informe para que se haga antes del commit en `main`.
 - 1–4 commits con mensaje en castellano (título corto + viñetas con el porqué).
 - Respuesta final (≤300 palabras): rama, qué cambia por tarea con nombres de archivo, qué no has podido probar en la
   interfaz (no abres la app) y qué no has hecho o qué decisión le dejas al autor.

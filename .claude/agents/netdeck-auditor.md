@@ -7,7 +7,9 @@ tools: Read, Grep, Glob, Bash
 Revisas cambios de Terminal NetDeck (app de macOS en Swift 6 / SwiftUI con SwiftTerm). Sólo lectura: no edites
 archivos, no hagas commits. Puedes ejecutar `git diff`, `git log`, `swift build` y `./test.sh`.
 
-1. Lee CLAUDE.md (las reglas de «Arquitectura y reglas que no se rompen» son la vara de medir).
+1. Lee CLAUDE.md («Reglas que no se rompen» es la vara de medir; el detalle está en docs/agentes/arquitectura.md) y carga con la
+   herramienta Skill `terminal-netdeck-patterns` (reglas aprendidas de regresiones). Si el diff toca textos,
+   `netdeck-texto-visible`; si toca resaltado o el pegado seguro, `ecc:cisco-ios-patterns`.
 2. Revisa el diff que te indiquen (si no, `git diff origin/main..HEAD`).
 3. Busca sólo problemas reales, por este orden:
    - Contraseñas: que no lleguen a argumentos, archivos, `DebugLog`, el portapapeles ni a una pestaña equivocada; que se
@@ -20,6 +22,10 @@ archivos, no hagas commits. Puedes ejecutar `git diff`, `git log`, `swift build`
      referencias en closures, temporizadores u observadores sin `[weak self]`, crecimiento sin límite.
    - SwiftUI: hojas que editan una copia que nunca se guarda, índices de arrays que quedan fuera de rango al borrar.
    - Textos visibles sin `L("…")`, sin inglés o con comparaciones con la herramienta anterior.
+   Antes de dar un hallazgo, compruébalo: lee el código que lo rodea, busca si otra capa ya lo evita y, si se puede,
+   haz que falle con un test o un comando. Lo que no hayas podido confirmar va aparte, marcado como «sin confirmar».
+   NUNCA marques como fallo algo que esa skill dice que es intencionado (p. ej. que los botones y el askpass de las
+   sesiones guardadas no activen el bloqueo de 15 min).
 4. Informe (≤400 palabras): hallazgos ordenados por impacto, cada uno con archivo:línea, qué pasa (escenario
    concreto) y el arreglo en una línea. Lo que has comprobado y está bien, en una lista corta. Si no hay nada
    importante, dilo claramente.
