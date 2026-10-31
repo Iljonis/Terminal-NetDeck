@@ -368,8 +368,8 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     /// Consola serie: el puerto abierto por la app (sin proceso).
     @ObservationIgnored private var serialPort: SerialPort?
     @ObservationIgnored private var environment: [String: String] = [:]
-    /// La última lectura del búfer: sus líneas, el índice del cursor en ellas y la fila absoluta de la primera.
-    @ObservationIgnored private var cache: (rev: Int, lines: [String], cursor: Int, base: Int)?
+    /// La última lectura del búfer: sus líneas, el índice del cursor en ellas, la fila absoluta de la primera y el tamaño.
+    @ObservationIgnored private var cache: (rev: Int, lines: [String], cursor: Int, base: Int, cols: Int, rows: Int)?
     /// Filas absolutas que no retroceden con el historial lleno (`BufferRows`).
     @ObservationIgnored private var bufferRows = BufferRows()
     /// ¿En la pantalla alternativa? (`BufferRows.alternateEvidence`: sólo cambia con pruebas)
@@ -948,6 +948,19 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     private func snapshot() -> (lines: [String], cursor: Int, base: Int) {
         let rev = pipe.counter.value
         if let c = cache, c.rev == rev { return (c.lines, c.cursor, c.base) }
+        // (el eco de una tecla sólo cambia la línea del cursor: se lee la pantalla, no el historial entero)
+        let screen = view.terminalStateSnapshot()
+        if var c = cache, c.cols == screen.dimensions.cols, c.rows == screen.dimensions.rows {
+            cache = nil                                    // (así las líneas se cambian sin copiarlas)
+            var rows = Array(repeating: "", count: screen.dimensions.rows), seen = 0
+            for r in screen.visibleRows where rows.indices.contains(r.row) { rows[r.row] = r.text; seen += 1 }
+            if seen == rows.count, BufferRows.applyCursorLineEdit(&c.lines, cursor: c.cursor, screen: rows,
+                                                                  screenCursor: screen.cursor.row, viewportRow: screen.viewportRow) {
+                c.rev = rev
+                cache = c
+                return (c.lines, c.cursor, c.base)
+            }
+        }
         var lines = String(decoding: view.getBufferAsData(), as: UTF8.self).components(separatedBy: "\n")
         if lines.last == "" { lines.removeLast() }
         let st = view.terminalStateSnapshot()
@@ -962,7 +975,7 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         alternate = BufferRows.alternateEvidence(active: lines, alternate: alt, screenRows: st.dimensions.rows) ?? alternate
         bufferRows.update(lines, screenRows: st.dimensions.rows, cursor: cursor,
                           layout: [st.dimensions.cols, st.dimensions.rows, alternate ? 1 : 0])
-        cache = (rev, lines, cursor, bufferRows.base)
+        cache = (rev, lines, cursor, bufferRows.base, st.dimensions.cols, st.dimensions.rows)
         return (lines, cursor, bufferRows.base)
     }
 

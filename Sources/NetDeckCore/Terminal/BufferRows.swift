@@ -55,6 +55,25 @@ public struct BufferRows: Sendable {
         return true
     }
 
+    /// Lo que deja un eco al teclear (o mover el cursor por la línea): sólo cambia la fila del cursor. Leer el búfer
+    /// entero en el hilo principal costaba 10-40 ms por tecla con 2.500-10.000 líneas de historial (y bloquea al
+    /// terminal mientras tanto); la pantalla sola, menos de 1 ms. Con la última lectura entera (`lines`, el índice de su
+    /// cursor) y la pantalla de ahora (`screen`, la fila del cursor en ella y la primera fila que se ve): si se ve el final,
+    /// el cursor sigue en la misma fila y las demás filas de la pantalla no han cambiado, nada ha pasado al historial y
+    /// basta con cambiar la línea del cursor (true). Si no (salto de línea, desplazamiento, otra pantalla, historial a la
+    /// vista, otro tamaño), false: hay que leerlo entero. Las filas absolutas (`base`) no cambian.
+    public static func applyCursorLineEdit(_ lines: inout [String], cursor: Int, screen: [String], screenCursor: Int,
+                                           viewportRow: Int) -> Bool {
+        let top = lines.count - screen.count
+        guard !screen.isEmpty, top >= 0, viewportRow == top, screen.indices.contains(screenCursor),
+              cursor == top + screenCursor else { return false }
+        for i in screen.indices where i != screenCursor {
+            guard screen[i] == lines[top + i] else { return false }
+        }
+        lines[cursor] = screen[screenCursor]
+        return true
+    }
+
     /// La primera fila absoluta que se puede leer desde `row` (lo de antes del último `resync`, no).
     public func first(from row: Int) -> Int { max(row, resync) }
 
