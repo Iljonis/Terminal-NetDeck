@@ -2170,6 +2170,12 @@ enum Ingles {
         "✗ La otra ventana tiene algo abierto (pegado, Ajustes…): ciérralo antes de llevarle la pestaña": "✗ The other window has something open (paste, Settings…): close it before moving the tab there",
         "«%@» queda fuera de MultiExec en esta ventana: inclúyela con clic derecho si quieres": "“%@” stays out of MultiExec in this window: right-click to include it if you want",
         "¿Cerrar la ventana y salir de Terminal NetDeck?": "Close the window and quit Terminal NetDeck?",
+        "¿Salir de Terminal NetDeck?": "Quit Terminal NetDeck?",
+        "Se corta la conexión abierta; al volver a abrir la app podrás reabrir las pestañas.":
+            "The open connection is closed; when you open the app again you can reopen the tabs.",
+        "Se cortan las %@ conexiones abiertas; al volver a abrir la app podrás reabrir las pestañas.":
+            "The %@ open connections are closed; when you open the app again you can reopen the tabs.",
+        "Salir": "Quit",
         "Se cortan sus %@ conexiones; al volver a abrir la app podrás reabrir sus pestañas.": "Its %@ connections are closed; when you open the app again you can reopen its tabs.",
         "la contraseña está vacía": "the password is empty",
         "%@%@ está vacía: escríbela o pulsa Esc para cancelar%@\n%@ %@'s password: ":

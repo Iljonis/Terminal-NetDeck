@@ -232,11 +232,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
-    /// Antes de que se cierre ninguna ventana: se guardan las pestañas de todas (cada una en la suya) y las que se
-    /// cierran al salir ya no cortan nada por su cuenta.
+    /// Sale sin preguntar: la actualización que la vuelve a abrir, el asistente del .dmg o la última ventana, que ya
+    /// ha preguntado al cerrarse (`AppModel.askToCloseWindow`).
+    @MainActor static var quitWithoutAsking = false
+    @MainActor private static var askingQuit = false
+
+    /// ⌘Q (o el Dock, o apagar el Mac): con conexiones a equipos abiertas en cualquier ventana, se pregunta una vez
+    /// para toda la app, como el botón rojo (`AppModel.askToCloseWindow`). Ni en las capturas ni al actualizar. Antes de
+    /// que se cierre ninguna ventana: se guardan las pestañas de todas (cada una en la suya) y las que se cierran al
+    /// salir ya no cortan nada por su cuenta.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        MainActor.assumeIsolated { AppCore.shared.willTerminate() }
-        return .terminateNow
+        MainActor.assumeIsolated {
+            let core = AppCore.shared
+            let live = core.allTabs.filter { !$0.exited && $0.route.asksBeforeQuit }.count
+            guard live > 0, !Self.quitWithoutAsking, ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil else {
+                core.willTerminate()
+                return .terminateNow
+            }
+            guard !Self.askingQuit else { return .terminateCancel }          // (un segundo ⌘Q con la pregunta abierta)
+            Self.askingQuit = true
+            // (con `.terminateLater` el bucle va en el modo de los paneles hasta la respuesta: el aviso, en ese modo)
+            RunLoop.main.perform(inModes: [.modalPanel]) {
+                MainActor.assumeIsolated {
+                    let core = AppCore.shared
+                    let ok = ThemedAlert.confirmNow(
+                        L("¿Salir de Terminal NetDeck?"),
+                        message: live == 1 ? L("Se corta la conexión abierta; al volver a abrir la app podrás reabrir las pestañas.")
+                                           : L("Se cortan las \(live) conexiones abiertas; al volver a abrir la app podrás reabrir las pestañas."),
+                        ok: L("Salir"), destructive: true, over: core.front?.window)
+                    AppDelegate.askingQuit = false
+                    if ok { core.willTerminate() }
+                    NSApp.reply(toApplicationShouldTerminate: ok)
+                }
+            }
+            return .terminateLater
+        }
     }
 
     /// El Dock: «Nueva ventana» (macOS añade debajo la lista de las abiertas).

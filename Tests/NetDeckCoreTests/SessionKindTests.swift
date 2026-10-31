@@ -80,13 +80,14 @@ private let kinds = """
     @Test @MainActor func ordenDeCadaTipo() throws {
         #expect(try route("core-01").command.executable == "/usr/bin/ssh")
         #expect(try route("core-01").command.arguments == ["--", "core-01"])
+        #expect(try route("core-01").asksBeforeQuit && route("olt-01").asksBeforeQuit)       // (⌘Q pregunta)
         let telnet = try route("olt-01").command
         #expect(telnet.executable == "/usr/bin/ssh" && telnet.arguments == ["-t", "--", "tu.usuario@192.0.2.1", "telnet", "192.0.2.21"])
 
         // sftp: el mismo alias que ssh (saltos, puerto y usuario del ssh_config), askpass sí, MultiExec no
         let sftp = try route("ficheros-01")
         #expect(sftp.command.executable == "/usr/bin/sftp" && sftp.command.arguments == ["--", "ficheros-01"])
-        #expect(sftp.usesPasswords && !sftp.acceptsMultiExec && !sftp.isLocal)
+        #expect(sftp.usesPasswords && !sftp.acceptsMultiExec && !sftp.isLocal && !sftp.asksBeforeQuit)
         var direct = ConnectionRoute(title: "x", target: Endpoint(user: "tu.usuario", host: "192.0.2.30", port: 2222),
                                      transport: .sftp)
         #expect(direct.command.arguments == ["-P", "2222", "--", "tu.usuario@192.0.2.30"])
@@ -98,7 +99,7 @@ private let kinds = """
         let ftp = try route("ftp-01")
         #expect(ftp.ftpURL?.absoluteString == "ftp://tu.usuario@192.0.2.40:2121")
         #expect(ftp.command.executable == "/usr/bin/false" && ftp.launchProblem() != nil)
-        #expect(!ftp.usesPasswords && !ftp.acceptsMultiExec)
+        #expect(!ftp.usesPasswords && !ftp.acceptsMultiExec && !ftp.asksBeforeQuit)
         #expect(ConnectionRoute(title: "f", target: Endpoint(host: "192.0.2.40", port: 21), transport: .ftp).ftpURL?
             .absoluteString == "ftp://192.0.2.40")
         #expect(ConnectionRoute(title: "f", target: Endpoint(host: "a;b"), transport: .ftp).ftpURL == nil)
@@ -106,13 +107,13 @@ private let kinds = """
         // local: la shell de login, sin contraseñas ni MultiExec
         let local = try route("mac")
         #expect(local.isLocal && local.command.arguments == ["-l"] && local.title == "mac" && local.sessionName == "mac")
-        #expect(!local.usesPasswords && !local.acceptsMultiExec)
+        #expect(!local.usesPasswords && !local.acceptsMultiExec && !local.asksBeforeQuit)
 
         // serie: screen con velocidad y bits de datos
         let serie = try route("consola-01")
         #expect(serie.command.executable == "/usr/bin/false")        // (el puerto lo abre la app: SerialPort)
         #expect(serie.serial == SerialLine(device: "/dev/cu.usbserial-0001", speed: 115200))
-        #expect(!serie.usesPasswords && !serie.acceptsMultiExec && !serie.isLoopback)
+        #expect(!serie.usesPasswords && !serie.acceptsMultiExec && !serie.isLoopback && serie.asksBeforeQuit)
     }
 
     @Test func serieComprobadaAlAbrir() {

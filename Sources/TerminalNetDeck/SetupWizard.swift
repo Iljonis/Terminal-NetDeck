@@ -144,7 +144,10 @@ final class SetupWizard {
         let cfg = NSWorkspace.OpenConfiguration()
         cfg.createsNewApplicationInstance = true
         NSWorkspace.shared.openApplication(at: installedApp, configuration: cfg) { _, _ in
-            Task { @MainActor in NSApp.terminate(nil) }
+            Task { @MainActor in
+                AppDelegate.quitWithoutAsking = true
+                NSApp.terminate(nil)
+            }
         }
     }
 }

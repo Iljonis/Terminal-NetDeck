@@ -97,6 +97,10 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     /// MultiExec sólo escribe en equipos (ssh/telnet): ni en el Mac, ni en el prompt de sftp, ni en una consola serie.
     public var acceptsMultiExec: Bool { !isLocal && (transport == .ssh || transport == .telnet) }
 
+    /// ⌘Q pregunta antes de cortarla (abierta): una conexión a un equipo (ssh, telnet o una consola serie). La shell
+    /// del Mac y los exploradores SFTP/FTP no.
+    public var asksBeforeQuit: Bool { !isLocal && (transport == .ssh || transport == .telnet || transport == .serial) }
+
     /// Askpass y contraseñas automáticas: sólo lo que pide la contraseña de un equipo (ssh, telnet y sftp, que es ssh).
     public var usesPasswords: Bool { !isLocal && transport != .serial && transport != .ftp }
 

@@ -1798,6 +1798,8 @@ final class AppModel {
                                   : L("Se cortan sus conexiones; las de las otras ventanas siguen abiertas."),
                     ok: L("Cerrar la ventana"), destructive: true, over: w) else { return }
             }
+            // (la última cierra la app con sus pestañas aún abiertas: ya se ha preguntado aquí, la salida no repite)
+            if core.attachedWindows.count <= 1 { AppDelegate.quitWithoutAsking = true }
             w.close()
         }
     }

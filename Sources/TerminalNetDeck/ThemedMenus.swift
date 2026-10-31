@@ -360,7 +360,13 @@ enum ThemedAlert {
         await run(title, message: message, buttons: [ok, cancel], destructive: destructive ? 0 : nil, over: over).button == 0
     }
 
-    /// El aviso de verdad, al momento (sólo desde `run`, ya fuera de cualquier acción).
+    /// Sí/no al momento, sin `MainTurn`: para ⌘Q, que con `.terminateLater` deja el bucle en el modo de los paneles
+    /// (allí no llega `MainTurn`). Sólo ya fuera de cualquier acción (`AppDelegate.applicationShouldTerminate`).
+    static func confirmNow(_ title: String, message: String, ok: String, destructive: Bool, over: NSWindow?) -> Bool {
+        present(title, message: message, buttons: [ok, L("Cancelar")], destructive: destructive ? 0 : nil, field: nil, over: over).button == 0
+    }
+
+    /// El aviso de verdad, al momento (sólo desde `run` y `confirmNow`, ya fuera de cualquier acción).
     private static func present(_ title: String, message: String, buttons: [String], destructive: Int?,
                                 field: (placeholder: String, value: String, secure: Bool)?, over: NSWindow?) -> Result {
         let theme = AppCore.shared.uiTheme

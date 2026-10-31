@@ -30,6 +30,7 @@ enum Updater {
                 try DataBackup.standard.snapshotBeforeInstall(reason: "actualizar-\(r.version)")
                 try relaunch(replacing: current, with: new)
                 DebugLog.log("actualizaciones", "instalando la \(r.version)")
+                AppDelegate.quitWithoutAsking = true            // (el ayudante espera a que salga: sin preguntar)
                 NSApp.terminate(nil)
             } catch {
                 ErrorLog.error("actualizaciones", "no se ha podido instalar la \(r.version): \(error.localizedDescription)")
