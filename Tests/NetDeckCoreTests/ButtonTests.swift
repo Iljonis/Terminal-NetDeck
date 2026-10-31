@@ -30,6 +30,21 @@ import Testing
         #expect(ButtonFile(text: out.render()).buttons.map(\.mode) == [.clave, .pass])
     }
 
+    /// Los espacios de la contraseña escrita en el botón son suyos: se guardan y se leen tal cual.
+    @Test func claveConEspaciosIdaYVuelta() throws {
+        var f = ButtonFile()
+        f.buttons = [CommandButton(group: "Accesos", mode: .clave, name: "VM BB", command: " a b ", hotkey: "F7"),
+                     CommandButton(group: "Accesos", mode: .run, name: "Versión", command: "show version")]
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("botones.txt")
+        try f.save(to: url)
+        let back = try ButtonFile(contentsOf: url)
+        #expect(back.problems.isEmpty)
+        #expect(back.buttons.map(\.command) == [" a b ", "show version"])
+        #expect(back.buttons == f.buttons)
+    }
+
     @Test func leeComoNetDeck() {
         let f = ButtonFile(text: Self.text)
         #expect(f.header == ["# mis botones", "#  Formato: Grupo :: modo :: Nombre :: comando"])

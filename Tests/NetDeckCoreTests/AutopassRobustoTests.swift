@@ -197,6 +197,24 @@ import Testing
         #expect(io.sent == ["secreto-demo\r"] && ledger.isBlocked(ref))
     }
 
+    /// Sin poder guardar las marcas (carpeta sin permiso de escritura) un fallo no bloquearía 15 min: la por defecto no
+    /// se escribe sola (no hay reserva que sea suya).
+    @Test func sinPoderGuardarLasMarcasNoSeEscribeSola() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: dir.path)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dir.path)
+            try? FileManager.default.removeItem(at: dir)
+        }
+        let ledger = CredentialLedger(storage: DirectoryLedgerStorage(dir))
+        let a = automation(MemoryCredentialStore([ref: "secreto-demo"]), ledger: ledger)
+        defer { a.cancelCommand() }
+        let io = FilaFija("tu.usuario@core-01's password:")
+        #expect(await a.observe(io, gate: AutomationGate()) != .typed(ref))
+        #expect(io.sent.isEmpty && ledger.state(of: ref) == nil)
+    }
+
     @Test func sinSalirDeLaPeticionNoEsUnaRepregunta() async {
         let ledger = CredentialLedger(), a = automation(MemoryCredentialStore([ref: "secreto-demo"]), ledger: ledger)
         defer { a.cancelCommand() }

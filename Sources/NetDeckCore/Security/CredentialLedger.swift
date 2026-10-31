@@ -217,6 +217,8 @@ public final class DirectoryLedgerStorage: LedgerStorage, @unchecked Sendable {
     private let threadLock = NSRecursiveLock()
     private var depth = 0
     private var lockFD: Int32 = -1
+    /// Ya se ha apuntado un fallo al escribir (con la carpeta rota fallarían todas: una línea basta).
+    private var reported = false
 
     public init(_ dir: URL) {
         self.dir = dir
@@ -236,15 +238,27 @@ public final class DirectoryLedgerStorage: LedgerStorage, @unchecked Sendable {
         }
     }
 
+    /// Si no se puede escribir, al registro de errores (sólo el estado, nunca la contraseña ni su nombre). Sin la marca
+    /// «probando» no se escribe sola ninguna: el autopass y las listas comprueban que la reserva es suya (`owns`) justo
+    /// antes de escribirla, así que con la carpeta rota no hay intentos sin bloqueo de 15 min.
     public func write(_ ref: CredentialRef, _ s: CredentialLedger.State?) {
         let url = file(ref)
-        guard let s else { try? FileManager.default.removeItem(at: url); return }
+        guard let s else {
+            do { try FileManager.default.removeItem(at: url) } catch CocoaError.fileNoSuchFile {} catch {
+                report("no se ha podido quitar una marca", error)
+            }
+            return
+        }
         let text: String = switch s {
         case .probing(let d, let owner, let token): "probando\t\(d.timeIntervalSince1970)\t\(owner)\t\(token?.uuidString ?? "")"
         case .failed(let d): "fallo\t\(d.timeIntervalSince1970)"
         case .confirmed(let d): "valida\t\(d.timeIntervalSince1970)"
         }
-        try? SafeFile.write(text, to: url)                     // (0600: sólo tú; nunca un secreto)
+        do {
+            try SafeFile.write(text, to: url)                  // (0600: sólo tú; nunca un secreto)
+        } catch {
+            report("no se ha podido guardar la marca «\(text.prefix { $0 != "\t" })»", error)
+        }
     }
 
     /// Al lado de la marca («….restablecida» con la hora): una marca nueva no la borra.
@@ -254,7 +268,9 @@ public final class DirectoryLedgerStorage: LedgerStorage, @unchecked Sendable {
     }
 
     public func noteReset(_ ref: CredentialRef, at date: Date) {
-        try? SafeFile.write("\(date.timeIntervalSince1970)", to: resetFile(ref))
+        do { try SafeFile.write("\(date.timeIntervalSince1970)", to: resetFile(ref)) } catch {
+            report("no se ha podido apuntar el restablecimiento", error)
+        }
     }
 
     public func locked<T>(_ body: () throws -> T) rethrows -> T {
@@ -274,6 +290,14 @@ public final class DirectoryLedgerStorage: LedgerStorage, @unchecked Sendable {
             }
         }
         return try body()
+    }
+
+    private func report(_ what: String, _ error: Error) {
+        threadLock.lock()
+        defer { threadLock.unlock() }
+        guard !reported else { return }
+        reported = true
+        ErrorLog.error("contraseñas", "\(what) en \(AppPaths.tilde(dir.path)) (marcas del bloqueo de 15 min: sin ellas, la por defecto no se escribe sola): \(error.localizedDescription)")
     }
 
     private func file(_ ref: CredentialRef) -> URL {

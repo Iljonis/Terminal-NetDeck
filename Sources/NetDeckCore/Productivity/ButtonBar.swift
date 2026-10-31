@@ -131,7 +131,12 @@ public struct ButtonFile: Sendable {
                 problems.append(L("línea \(n + 1): modo «\(modeText)» (usa run, type, pass, clave, login o sesion)"))
                 continue
             }
-            command = mode == .type ? String(command.drop { $0 == " " }) : command.trimmingCharacters(in: .whitespaces)
+            // (la contraseña escrita en el botón, tal cual: sus espacios del principio y del final también son suyos)
+            switch mode {
+            case .clave: break
+            case .type: command = String(command.drop { $0 == " " })
+            default: command = command.trimmingCharacters(in: .whitespaces)
+            }
             var hotkey: String?
             if let k = Self.key.group(1, in: name), let r = Self.key.range(in: name) {
                 name = String(name[..<r.lowerBound]).trimmingCharacters(in: .whitespaces)
