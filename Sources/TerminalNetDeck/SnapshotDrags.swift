@@ -72,13 +72,8 @@ enum SnapshotDrags {
             try? await Task.sleep(for: .milliseconds(900))
             check(abs(w.frame.width - before.width) <= 2, "rellenar: vuelta al tamaño de antes")
         }
-        w.toggleFullScreen(nil)
-        for _ in 0..<50 {
-            if w.styleMask.contains(.fullScreen) { break }
-            try? await Task.sleep(for: .milliseconds(100))
-        }
-        try? await Task.sleep(for: .seconds(1))
-        check(w.styleMask.contains(.fullScreen), "pantalla completa: activada")
+        let entered = await setFullScreen(w, true)
+        check(entered == nil && w.styleMask.contains(.fullScreen), "pantalla completa: activada" + (entered.map { " — \($0)" } ?? ""))
         await suite(model, w, label: "pantalla completa")
         // (los marcos SwiftUI parten de arriba; los de AppKit en la ventana, de abajo: se comparan en ese espacio)
         if let s = model.current, let content = w.contentView, let bar = frames["barra-superior"] {
@@ -96,13 +91,8 @@ enum SnapshotDrags {
         } else {
             check(false, "pantalla completa: faltan marcos para comprobar barra y terminal")
         }
-        w.toggleFullScreen(nil)
-        for _ in 0..<50 {
-            if !w.styleMask.contains(.fullScreen) { break }
-            try? await Task.sleep(for: .milliseconds(100))
-        }
-        try? await Task.sleep(for: .seconds(1))
-        check(!w.styleMask.contains(.fullScreen), "pantalla completa: vuelta a ventana")
+        let exited = await setFullScreen(w, false)
+        check(exited == nil && !w.styleMask.contains(.fullScreen), "pantalla completa: vuelta a ventana" + (exited.map { " — \($0)" } ?? ""))
         // (muchas pestañas: estrechas y con la tira desplazada hasta la última)
         let wide = model.tabs.count
         for i in 0..<24 { model.open(ConnectionRoute(title: "sw-\(i)", target: Endpoint(user: "tu.usuario", host: "192.0.2.\(100 + i)"))) }
@@ -420,9 +410,7 @@ enum SnapshotDrags {
     /// A pantalla completa: «Mover a una ventana nueva» también (la nueva sale aparte y la conexión sigue).
     private static func fullScreenMove(_ model: AppModel, _ w: NSWindow, _ s: TerminalSession) async {
         let core = model.core
-        w.toggleFullScreen(nil)
-        guard await until({ w.styleMask.contains(.fullScreen) }) else { check(false, "ventana nueva: no entra en pantalla completa"); return }
-        try? await Task.sleep(for: .seconds(1))
+        if let why = await setFullScreen(w, true) { check(false, "ventana nueva: no entra en pantalla completa — \(why)"); return }
         let n = core.attachedWindows.count
         guard model.tabs.count > 1, model.tabs.contains(where: { $0 === s }), !s.exited else {
             check(false, "ventana nueva: sin la shell local viva que mover")
@@ -442,9 +430,32 @@ enum SnapshotDrags {
             let back = await until { !core.attachedWindows.contains { $0 === c } && model.tabs.contains { $0 === s } }
             check(back && cw.isVisible == false, "cerrar ventana: la de pantalla completa recupera la pestaña y la otra se cierra")
         }
+        if let why = await setFullScreen(w, false) { check(false, "ventana nueva: no sale de pantalla completa — \(why)") }
+    }
+
+    /// Si ha llegado el aviso de fin de la transición a pantalla completa que se espera (`setFullScreen`).
+    private static var fullScreenDone = false
+
+    /// Entra (`on`) o sale de pantalla completa y espera a que macOS acabe la transición: nil si acaba; si no, el
+    /// motivo. `styleMask` ya cambia nada más pedirla (la animación y el cambio de escritorio siguen después) y un
+    /// segundo `toggleFullScreen` durante la animación se ignora sin avisar: sólo didEnter/didExit dicen que ha acabado
+    /// (si macOS no puede, sólo lo dice al delegado, que es de SwiftUI: se nota porque no llega el aviso).
+    /// (30 s es un tope, no una espera: lo normal es ~1 s; en la CI el cambio de escritorio va más lento.)
+    private static func setFullScreen(_ w: NSWindow, _ on: Bool) async -> String? {
+        guard w.styleMask.contains(.fullScreen) != on else { return nil }
+        let done = on ? NSWindow.didEnterFullScreenNotification : NSWindow.didExitFullScreenNotification
+        fullScreenDone = false
+        let watch = NotificationCenter.default.addObserver(forName: done, object: w, queue: .main) { _ in
+            MainActor.assumeIsolated { fullScreenDone = true }
+        }
+        defer { NotificationCenter.default.removeObserver(watch) }
         w.toggleFullScreen(nil)
-        _ = await until { !w.styleMask.contains(.fullScreen) }
-        try? await Task.sleep(for: .seconds(1))
+        let start = ContinuousClock.now
+        while !fullScreenDone, ContinuousClock.now - start < .seconds(30) {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return fullScreenDone ? nil
+            : "sin \(done.rawValue) en 30 s (styleMask: \(w.styleMask.contains(.fullScreen) ? "pantalla completa" : "ventana"))"
     }
 
     /// Arrastra desde `p` (en `w`, de arriba a la izquierda) hasta `target` (pantalla), como el ratón de verdad: los
