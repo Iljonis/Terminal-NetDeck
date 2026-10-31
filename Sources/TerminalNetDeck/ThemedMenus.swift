@@ -395,7 +395,7 @@ enum ThemedAlert {
         }
         NSApp.runModal(for: panel)
         panel.orderOut(nil)
-        return Result(button: box.button ?? buttons.count - 1, text: box.text)
+        return Result(button: box.button ?? AlertKeys.closed(buttons: buttons.count, destructive: destructive), text: box.text)
     }
 
 

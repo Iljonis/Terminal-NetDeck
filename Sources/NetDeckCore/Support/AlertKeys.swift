@@ -13,4 +13,12 @@ public enum AlertKeys {
         guard last == destructive else { return (enter, last) }
         return enter == 0 ? (nil, 0) : (enter, nil)
     }
+
+    /// Lo que cuenta si el aviso se cierra sin pulsar ningún botón: el último, salvo que sea el destructivo; entonces,
+    /// el primero que no lo sea («Cancelar» en el de la clave del equipo cambiada).
+    public static func closed(buttons: Int, destructive: Int?) -> Int {
+        let last = max(0, buttons - 1)
+        guard last == destructive else { return last }
+        return (0..<buttons).first { $0 != destructive } ?? last
+    }
 }

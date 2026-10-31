@@ -17,4 +17,11 @@ struct AvisosTests {
         #expect(AlertKeys.shortcuts(buttons: 2, destructive: 1) == (nil, 0))
         #expect(AlertKeys.shortcuts(buttons: 0, destructive: nil) == (nil, nil))
     }
+
+    @Test func cerrarSinPulsarNuncaEsElDestructivo() {
+        #expect(AlertKeys.closed(buttons: 2, destructive: nil) == 1)
+        #expect(AlertKeys.closed(buttons: 2, destructive: 0) == 1)          // «Sobrescribir · Cancelar»
+        #expect(AlertKeys.closed(buttons: 2, destructive: 1) == 0)          // «Cancelar · Aceptar y Actualizar Clave»
+        #expect(AlertKeys.closed(buttons: 3, destructive: 1) == 2)
+    }
 }
