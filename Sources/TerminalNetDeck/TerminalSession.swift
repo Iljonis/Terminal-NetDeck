@@ -8,9 +8,17 @@ import SwiftTerm
 final class OutputCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var n = 0
+    private var feeds = 0
     private var scheduled = false
 
     var value: Int { lock.withLock { n } }
+    /// Saltos de línea (LF, VT, FF) que han llegado: con uno, la pantalla ha podido desplazarse aunque se vea igual.
+    var lineFeeds: Int { lock.withLock { feeds } }
+
+    func countLineFeeds<S: Sequence>(_ bytes: S) where S.Element == UInt8 {
+        let k = bytes.reduce(0) { $0 + ((10...12).contains($1) ? 1 : 0) }
+        if k > 0 { lock.withLock { feeds += k } }
+    }
 
     /// true si hay que avisar al hilo principal (uno por tanda).
     func bump() -> Bool {
@@ -46,6 +54,7 @@ final class OutputPipe: LocalProcessDelegate, @unchecked Sendable {
 
     func receive(_ slice: ArraySlice<UInt8>) {
         sink?(slice)
+        counter.countLineFeeds(slice)
         let out = highlighter.process(slice)
         view?.feed(byteArray: out[...])
         if counter.bump() { onOutput() }
@@ -54,6 +63,7 @@ final class OutputPipe: LocalProcessDelegate, @unchecked Sendable {
     /// Texto propio de la app (avisos «[NetDeck] …»): sin resaltar ni registrar.
     func say(_ text: String) {
         queue.async { [weak self] in
+            self?.counter.countLineFeeds(text.utf8)
             self?.view?.feed(text: text)
             if self?.counter.bump() == true { self?.onOutput() }
         }
@@ -369,7 +379,7 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     @ObservationIgnored private var serialPort: SerialPort?
     @ObservationIgnored private var environment: [String: String] = [:]
     /// La última lectura del búfer: sus líneas, el índice del cursor en ellas, la fila absoluta de la primera y el tamaño.
-    @ObservationIgnored private var cache: (rev: Int, lines: [String], cursor: Int, base: Int, cols: Int, rows: Int)?
+    @ObservationIgnored private var cache: (rev: Int, lines: [String], cursor: Int, base: Int, cols: Int, rows: Int, feeds: Int)?
     /// Filas absolutas que no retroceden con el historial lleno (`BufferRows`).
     @ObservationIgnored private var bufferRows = BufferRows()
     /// ¿En la pantalla alternativa? (`BufferRows.alternateEvidence`: sólo cambia con pruebas)
@@ -948,9 +958,13 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     private func snapshot() -> (lines: [String], cursor: Int, base: Int) {
         let rev = pipe.counter.value
         if let c = cache, c.rev == rev { return (c.lines, c.cursor, c.base) }
-        // (el eco de una tecla sólo cambia la línea del cursor: se lee la pantalla, no el historial entero)
+        // (el eco de una tecla sólo cambia la línea del cursor: se lee la pantalla, no el historial entero. Con un salto
+        // de línea, no: con el historial lleno y la pantalla de líneas iguales —Intro sostenido en «core-01#»— se vería
+        // igual aunque una fila haya pasado al historial. Se lee antes de mirar la pantalla: lo que llegue después es de
+        // la próxima lectura)
+        let feeds = pipe.counter.lineFeeds
         let screen = view.terminalStateSnapshot()
-        if var c = cache, c.cols == screen.dimensions.cols, c.rows == screen.dimensions.rows {
+        if var c = cache, c.feeds == feeds, c.cols == screen.dimensions.cols, c.rows == screen.dimensions.rows {
             cache = nil                                    // (así las líneas se cambian sin copiarlas)
             var rows = Array(repeating: "", count: screen.dimensions.rows), seen = 0
             for r in screen.visibleRows where rows.indices.contains(r.row) { rows[r.row] = r.text; seen += 1 }
@@ -975,7 +989,7 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         alternate = BufferRows.alternateEvidence(active: lines, alternate: alt, screenRows: st.dimensions.rows) ?? alternate
         bufferRows.update(lines, screenRows: st.dimensions.rows, cursor: cursor,
                           layout: [st.dimensions.cols, st.dimensions.rows, alternate ? 1 : 0])
-        cache = (rev, lines, cursor, bufferRows.base, st.dimensions.cols, st.dimensions.rows)
+        cache = (rev, lines, cursor, bufferRows.base, st.dimensions.cols, st.dimensions.rows, feeds)
         return (lines, cursor, bufferRows.base)
     }
 
