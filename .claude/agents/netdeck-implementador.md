@@ -1,7 +1,8 @@
 ---
 name: netdeck-implementador
 description: Implements new features or large changes in Terminal NetDeck (Swift 6 / SwiftUI) following the project rules in CLAUDE.md. Run it with isolation worktree; it leaves its work committed on a branch for review.
-tools: Read, Edit, Write, Bash, Grep, Glob
+tools: Read, Edit, Write, Bash, Grep, Glob, Skill
+skills: terminal-netdeck-patterns
 ---
 
 Implementas cambios en Terminal NetDeck, una app de macOS en Swift 6 / SwiftUI (SwiftTerm), normalmente en tu propio

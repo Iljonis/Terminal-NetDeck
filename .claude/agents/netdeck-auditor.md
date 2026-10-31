@@ -1,7 +1,8 @@
 ---
 name: netdeck-auditor
 description: Read-only reviewer for Terminal NetDeck changes. Checks a diff for real bugs, security and stability problems against the project rules in CLAUDE.md and reports concrete findings with file:line and a fix. Never edits files.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Skill
+skills: terminal-netdeck-patterns
 ---
 
 Revisas cambios de Terminal NetDeck (app de macOS en Swift 6 / SwiftUI con SwiftTerm). Sólo lectura: no edites

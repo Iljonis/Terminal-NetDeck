@@ -11,6 +11,9 @@ ECC (plugin) se usan para auditorías de sólo lectura.
 |---|---|---|
 | `netdeck-implementador` | Funciones nuevas o cambios grandes | En `isolation: worktree`. Deja su trabajo en una rama con commits; luego se revisa y se fusiona a `main` |
 | `netdeck-auditor` | Revisar un cambio: errores, seguridad y estabilidad con las reglas de la raíz | Sólo lectura; informe con archivo:línea y arreglo |
+| `netdeck-revisor-ui` | Interfaz: SwiftUI, puente con AppKit, accesibilidad, macOS Tahoe y Liquid Glass (skills `swiftui-pro`, `appkit-swiftui-bridge`, `ui-review-tahoe`) | Sólo lectura; puede hacer capturas de demo |
+| `netdeck-revisor-red` | Resaltado, órdenes peligrosas del pegado y MultiExec, detección de prompts, con salidas reales de cada fabricante (skills de red de ECC) | Sólo lectura; prueba las reglas en un banco temporal |
+| `netdeck-depurador` | Fallos, tests inestables y casos de demo que fallan: reproducir, demostrar la causa y arreglar con un test (skill `systematic-debugging`) | En `isolation: worktree` si va a arreglar; «sólo investigar» si no |
 | `ecc:security-reviewer` | Secretos, datos personales, Llavero, inyección de órdenes, actualizaciones, scripts | Sólo lectura, antes de cada versión |
 | `ecc:code-reviewer` | Errores reales en el diff (`git diff <base>..HEAD`) | Sólo lectura |
 | `ecc:silent-failure-hunter` | Errores tragados, pérdida de datos, procesos bloqueados | Sólo lectura |
@@ -27,7 +30,8 @@ Cómo se trabaja con ellos:
 4. Tras fusionar, `swift build` y `./test.sh` en verde. Si hay interfaz nueva, una captura con un `NETDECK_HOME` de
    ejemplo.
 5. Una pasada de `netdeck-auditor` o de los agentes de ECC. Se arreglan los hallazgos reales y se descartan, con su
-   motivo, los que no lo son.
+   motivo, los que no lo son. Con Claude, al recibir esos informes (o los de Codex), la skill `receiving-code-review`:
+   cada hallazgo se comprueba en el código antes de aplicarlo.
 
 ## Skills
 Las del proyecto están en `.agents/skills/` (Codex, en el repo) y, con el mismo contenido, en `.claude/skills/`
