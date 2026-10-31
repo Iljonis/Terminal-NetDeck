@@ -9,10 +9,10 @@ y 51 temas. Nativo, rápido y en tu idioma.
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.9.9](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.9)** · macOS 15 o posterior ·
+Versión actual: **[v0.9.10](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.10)** · macOS 15 o posterior ·
 código abierto (MIT)
 
-[![Versión](https://img.shields.io/badge/versión-v0.9.9-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.9)
+[![Versión](https://img.shields.io/badge/versión-v0.9.10-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.10)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,16 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - **Explorador SFTP/FTP** con copias atómicas, verificación MD5 integrada y envío de servidor a servidor.
 - **Multipestaña** con vista dividida, MultiExec y pegado seguro; **51 temas** con contraste WCAG.
 - **Sesiones con saltos** sobre tu `ssh_config` y contraseñas sólo en el Llavero de macOS.
+
+### Novedades de 0.9.10
+
+- **Escribir va fluido:** cada tecla ya no relee todo el historial del terminal; con 2.500 líneas el eco pasa de
+  16–30 ms a unos 3 ms, y con 10.000 o más la diferencia es aún mayor.
+- **Más seguro al salir y en los avisos:** ⌘Q pregunta si hay conexiones abiertas; Intro ya no pulsa «Sobrescribir»
+  ni «Salir», y Esc ya no acepta una clave de equipo cambiada.
+- **Ajustes:** con Ajustes abierto, lo que tecleas ya no llega al equipo de debajo (ni a MultiExec).
+- **Ventanas y botones:** las ventanas reabiertas no quedan debajo del Dock y la contraseña de un botón guarda sus
+  espacios tal cual.
 
 ### Novedades de 0.9.9
 
