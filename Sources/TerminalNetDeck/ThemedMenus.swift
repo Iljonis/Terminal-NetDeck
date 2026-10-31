@@ -451,8 +451,10 @@ enum ThemedAlert {
                 HStack(spacing: 8) {
                     Spacer()
                     ForEach(Array(buttons.enumerated()).reversed(), id: \.offset) { i, b in
-                        NeonButton(title: b, icon: i == 0 ? (destructive == 0 ? "trash" : "checkmark") : "xmark",
-                                   tint: i == destructive ? t.bad : (i == 0 ? t.accent : t.dim), active: i == 0) { done(i) }
+                        // (el icono y el resalte, por lo que hace el botón: el que pulsa Intro va resaltado; el
+                        // destructivo, con el aviso, nunca como el de por defecto)
+                        NeonButton(title: b, icon: i == destructive ? "exclamationmark.triangle" : (i == keys.enter ? "checkmark" : "xmark"),
+                                   tint: i == destructive ? t.bad : (i == keys.enter ? t.accent : t.dim), active: i == keys.enter) { done(i) }
                             .keyboardShortcut(i == keys.enter ? .defaultAction : (i == keys.escape ? .cancelAction : nil))
                     }
                 }

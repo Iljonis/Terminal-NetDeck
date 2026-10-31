@@ -13,8 +13,8 @@ struct AvisosTests {
         #expect(AlertKeys.shortcuts(buttons: 3, destructive: 0) == (nil, 2))
         // «Añadir · Sustituir · Cancelar»: el del medio no lleva atajo
         #expect(AlertKeys.shortcuts(buttons: 3, destructive: 1) == (0, 2))
-        // «Cancelar · Aceptar y Actualizar Clave»: Intro cancela y Esc ya no acepta la clave nueva
-        #expect(AlertKeys.shortcuts(buttons: 2, destructive: 1) == (0, nil))
+        // «Cancelar · Aceptar y Actualizar Clave»: Esc cancela (ya no acepta la clave nueva) e Intro no hace nada
+        #expect(AlertKeys.shortcuts(buttons: 2, destructive: 1) == (nil, 0))
         #expect(AlertKeys.shortcuts(buttons: 0, destructive: nil) == (nil, nil))
     }
 }

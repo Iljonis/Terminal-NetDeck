@@ -255,6 +255,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             RunLoop.main.perform(inModes: [.modalPanel]) {
                 MainActor.assumeIsolated {
                     let core = AppCore.shared
+                    NSApp.activate()                         // (desde el Dock con la app detrás: el aviso, con el teclado)
                     let ok = ThemedAlert.confirmNow(
                         L("¿Salir de Terminal NetDeck?"),
                         message: live == 1 ? L("Se corta la conexión abierta; al volver a abrir la app podrás reabrir las pestañas.")
