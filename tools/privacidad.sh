@@ -164,8 +164,15 @@ if [ $binario = 1 ]; then
     aviso "falta dist/Terminal-NetDeck.dmg (./install.sh --dmg): no se puede comprobar"
   else
     m=$(mktemp -d)
-    if ! hdiutil attach -nobrowse -readonly -mountpoint "$m" dist/Terminal-NetDeck.dmg >/dev/null 2>&1; then
-      aviso "dist/Terminal-NetDeck.dmg no se puede montar: no se puede comprobar"
+    montado=0
+    for intento in 1 2 3; do   # (hdiutil falla a veces con «Resource busy», sobre todo en los Mac de GitHub)
+      if error_montaje=$(hdiutil attach -nobrowse -readonly -mountpoint "$m" dist/Terminal-NetDeck.dmg 2>&1 >/dev/null); then
+        montado=1; break
+      fi
+      [ $intento = 3 ] || sleep 2
+    done
+    if [ $montado = 0 ]; then
+      aviso "dist/Terminal-NetDeck.dmg no se puede montar ($(printf "%s" "${error_montaje:-sin motivo}" | tail -1)): no se puede comprobar"
     elif [ ! -d "$m/Terminal NetDeck.app" ]; then
       aviso "dist/Terminal-NetDeck.dmg no lleva «Terminal NetDeck.app»"
       hdiutil detach "$m" >/dev/null 2>&1

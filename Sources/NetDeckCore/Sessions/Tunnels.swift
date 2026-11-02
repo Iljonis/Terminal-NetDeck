@@ -604,6 +604,8 @@ public final class TunnelProcess: @unchecked Sendable {
     }
 
     public var exited: Bool { lock.withLock { status != nil } }
+    /// Recoge el proceso si ya ha salido, sin esperar al aviso de salida (con la máquina cargada puede tardar segundos).
+    func reapIfExited() -> Bool { reap(); return exited }
     public var exitStatus: Int32? { lock.withLock { status } }
     public var errorOutput: String { lock.withLock { String(decoding: output, as: UTF8.self) } }
     public var outputTruncated: Bool { lock.withLock { truncated } }
@@ -621,10 +623,10 @@ public final class TunnelProcess: @unchecked Sendable {
         await Task.detached { [self] in
             signal(SIGTERM)
             let deadline = Date().addingTimeInterval(grace)
-            while !exited, Date() < deadline { try? await Task.sleep(for: .milliseconds(20)) }
+            while !reapIfExited(), Date() < deadline { try? await Task.sleep(for: .milliseconds(20)) }
             if !exited { signal(SIGKILL) }
             let end = Date().addingTimeInterval(2)
-            while !exited, Date() < end { try? await Task.sleep(for: .milliseconds(20)) }
+            while !reapIfExited(), Date() < end { try? await Task.sleep(for: .milliseconds(20)) }
         }.value
     }
 }
@@ -794,10 +796,10 @@ public final class TunnelManager {
         guard !all.isEmpty else { return }
         for run in all.values { run.stopping = true; run.process.signal(SIGTERM) }
         let deadline = Date().addingTimeInterval(wait)
-        while all.values.contains(where: { !$0.process.exited }), Date() < deadline { usleep(20_000) }
+        while all.values.contains(where: { !$0.process.reapIfExited() }), Date() < deadline { usleep(20_000) }
         all.values.filter { !$0.process.exited }.forEach { $0.process.signal(SIGKILL) }
         let end = Date().addingTimeInterval(2)
-        while all.values.contains(where: { !$0.process.exited }), Date() < end { usleep(20_000) }
+        while all.values.contains(where: { !$0.process.reapIfExited() }), Date() < end { usleep(20_000) }
         for (id, run) in all { finish(id, run, .stopped) }
         DebugLog.log("tuneles", "parados al salir: \(all.count)")
     }
