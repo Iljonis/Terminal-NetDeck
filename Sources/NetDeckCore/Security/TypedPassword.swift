@@ -15,6 +15,12 @@ public struct TypedPassword: Sendable {
             guard let a = account, let at = a.lastIndex(of: "@"), at != a.startIndex else { return nil }
             return String(a[..<at])
         }
+
+        /// ¿Es el login de ese equipo? Un ssh lanzado desde él pide la de otro equipo: ésa no se ofrece guardar.
+        public func isLogin(of target: Endpoint) -> Bool {
+            guard let a = account?.lowercased(), a.hasSuffix("@\(target.host.lowercased())") else { return false }
+            return target.user.map { a.hasPrefix("\($0.lowercased())@") } ?? true
+        }
     }
 
     private var buffer: [UInt8] = []

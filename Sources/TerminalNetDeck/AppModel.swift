@@ -1096,7 +1096,10 @@ final class AppModel {
         case .typed(let r): status = L("🔑 «\(r)» escrita en \(s.title)"); notices[s.id] = nil
         case .confirmed: notices[s.id] = nil
         case .cancelled: status = L("⎋ Contraseña cancelada"); notices[s.id] = nil
-        case .failed(let r): status = L("🔑 «\(r)» no ha valido: bloqueada 15 min en todas las pestañas"); notices[s.id] = e
+        case .failed(let r):
+            status = L("🔑 «\(r)» no ha valido: bloqueada 15 min en todas las pestañas")
+            notices[s.id] = e
+            core.refreshBlocked()
         case .rejected(let r): status = L("🔑 «\(r)» no ha valido: escríbela tú"); notices[s.id] = e
         case .manual(.keychainUnavailable):
             status = L("🔑 No se ha podido leer el Llavero (¿bloqueado?): escribe tú la contraseña en \(s.title) o elígela en 🔑")
@@ -1136,14 +1139,16 @@ final class AppModel {
     /// Has escrito tú la contraseña y ha entrado: «¿guardarla?», como aviso de la pestaña (sin quitarte el teclado).
     /// Nunca en una captura.
     func offerToSave(_ c: TypedPassword.Candidate, from s: TerminalSession) {
-        guard settings.offerSaveTyped, ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil, typedSave == nil,
-              typedOffered.insert(s.id).inserted else { return }
-        // (a la sesión sólo si es su propio login: no la de un equipo al que has saltado desde ella)
-        let t = s.route.target, own = c.account.map { a in
-            a.lowercased().hasSuffix("@\(t.host.lowercased())") && (t.user.map { a.hasPrefix("\($0)@") } ?? true)
-        } ?? false
+        guard settings.offerSaveTyped, ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil, typedSave == nil else { return }
+        // Sólo el login de la propia sesión: un ssh/telnet que lanzas desde ella (ssh admin@… a otro equipo) no es una
+        // sesión y no se ofrece guardar (sus contraseñas van por la regla de usuario de Ajustes → Contraseñas).
+        guard !s.route.isLocal, c.isLogin(of: s.route.target) else {
+            DebugLog.log("contraseña", "«\(s.title)»: escrita en un salto, no se ofrece guardarla")
+            return
+        }
+        guard typedOffered.insert(s.id).inserted else { return }
         let offer = TypedOffer(account: c.account ?? s.title,
-                               save: TypedSave(name: c.user ?? s.title, secret: c.secret, session: own ? s.route.sessionName : nil))
+                               save: TypedSave(name: c.user ?? s.title, secret: c.secret, session: s.route.sessionName))
         showTypedOffer(offer, in: s)
     }
 
@@ -1180,6 +1185,18 @@ final class AppModel {
         f.sessions[i].credential = name
         if let err = await saveSessions(f) { return "✗ \(err)" }
         return L("asignada a la sesión «\(session)»")
+    }
+
+    /// «Desbloquear» (barra de estado, Ajustes → Contraseñas): vuelve a escribirse sola; los avisos de su bloqueo, fuera.
+    func unlockCredential(_ ref: CredentialRef) {
+        ledger.reset(ref)
+        core.blockedCredentials.removeAll { $0 == ref }
+        core.refreshBlocked()
+        keychainRevision += 1
+        for w in core.windows {
+            w.notices = w.notices.filter { $0.value != .failed(ref) && $0.value != .manual(.recentlyFailed(ref)) }
+        }
+        status = L("🔑 «\(ref.account)» desbloqueada: vuelve a escribirse sola")
     }
 
     func dismissPasswordNotice(in s: TerminalSession) {

@@ -143,3 +143,49 @@ import Testing
         #expect(second.beginProbe(ref) == .go)
     }
 }
+
+/// El botón «Desbloquear» de la barra de estado: qué contraseñas enseña y cuándo deja de enseñarlas.
+@Suite struct DesbloquearTests {
+    @Test func sóloSalenLasBloqueadasYSeVanAlDesbloquearlas() {
+        let ad = CredentialRef.named("AD"), otra = CredentialRef.named("Red principal")
+        let ledger = CredentialLedger()
+        ledger.markFailed(ad)
+        ledger.confirm(otra)
+        #expect(ledger.blocked(among: [ad, otra]) == [ad])
+        ledger.reset(ad)
+        #expect(ledger.blocked(among: [ad, otra]).isEmpty)
+    }
+
+    @Test func sinPulsarNadaSeVaAlAcabarLos15Minutos() {
+        final class Reloj: @unchecked Sendable { var now = Date(timeIntervalSince1970: 0) }
+        let reloj = Reloj(), ad = CredentialRef.named("AD")
+        let ledger = CredentialLedger(now: { reloj.now })
+        ledger.markFailed(ad)
+        reloj.now = Date(timeIntervalSince1970: 14 * 60)
+        #expect(ledger.blocked(among: [ad]) == [ad])
+        reloj.now = Date(timeIntervalSince1970: 16 * 60)
+        #expect(ledger.blocked(among: [ad]).isEmpty)
+    }
+}
+
+/// «¿Guardar la que has escrito?» sólo en el login del propio equipo de la pestaña, nunca en un salto desde él.
+@Suite struct OfertaGuardarTests {
+    private func candidata(_ cuenta: String?) -> TypedPassword.Candidate {
+        .init(secret: "ejemplo", account: cuenta, row: 0, at: Date())
+    }
+
+    @Test func elLoginDeLaSesiónSí() {
+        #expect(candidata("tu.usuario@bastion").isLogin(of: Endpoint(user: "tu.usuario", host: "bastion")))
+        #expect(candidata("Tu.Usuario@BASTION").isLogin(of: Endpoint(user: "tu.usuario", host: "bastion")))
+        #expect(candidata("tu.usuario@bastion").isLogin(of: Endpoint(user: nil, host: "bastion")))
+    }
+
+    @Test func unSshLanzadoDesdeLaSesiónNo() {
+        let bastion = Endpoint(user: "tu.usuario", host: "bastion")
+        #expect(!candidata("tu.usuario@core-01").isLogin(of: bastion))
+        #expect(!candidata("admin@192.0.2.11").isLogin(of: bastion))
+        #expect(!candidata("admin@bastion").isLogin(of: bastion))
+        #expect(!candidata("tu.usuario@otro-bastion").isLogin(of: bastion))
+        #expect(!candidata(nil).isLogin(of: bastion))
+    }
+}

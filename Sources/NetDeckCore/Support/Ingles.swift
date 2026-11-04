@@ -722,6 +722,10 @@ enum Ingles {
             "named",
         "usuario@equipo":
             "user@device",
+        "🔒 «%@» · Desbloquear": "🔒 “%@” · Unlock",
+        "🔑 «%@» desbloqueada: vuelve a escribirse sola": "🔑 “%@” unlocked: it is typed automatically again",
+        "Un equipo la ha rechazado: no se escribe sola durante 15 min. Clic para que vuelva a escribirse sola.":
+            "A device rejected it: it is not typed automatically for 15 min. Click to have it typed automatically again.",
         "Desbloquear":
             "Unlock",
         "Con nombre":
@@ -2238,8 +2242,8 @@ enum Ingles {
             "Stored only in the macOS Keychain. Pick them by name in sessions, groups, buttons and lists.",
         "Ofrecer guardar la que escribo yo": "Offer to save the ones I type",
         "Al conectar": "When connecting",
-        "Sólo la del mismo usuario que piden. Si escribes tú una y entra, te pregunta si la guardas. Los códigos de un solo uso, siempre a mano.":
-            "Only the one for the exact user asked. If you type one yourself and it works, you are asked whether to save it. One-time codes are always typed by hand.",
+        "Sólo la del mismo usuario que piden. Si escribes tú la de una sesión y entra, te pregunta si la guardas (no la de un ssh que lanzas desde ella). Los códigos de un solo uso, siempre a mano.":
+            "Only the one for the exact user asked. If you type a session's password yourself and it works, you are asked whether to save it (not for an ssh you start from inside it). One-time codes are always typed by hand.",
         "Sin usar": "Unused",
         "Cambiar…": "Change…",
         "Cambiar el nombre o la contraseña": "Change the name or the password",

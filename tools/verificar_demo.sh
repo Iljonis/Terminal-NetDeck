@@ -155,6 +155,8 @@ caso ajustes-contrasenas   es neo-tokyo     settings:contraseñas
 caso ajustes-credencial    es neo-tokyo     settings:credencial
 caso password-selector     es neo-tokyo     password-selector
 caso password-selector-en  en papel         password-selector
+caso credencial-bloqueada     es neo-tokyo credencial-bloqueada
+caso credencial-bloqueada-en  en papel     credencial-bloqueada
 caso ajustes-terminal      es neo-tokyo     settings:terminal
 caso ajustes-temas         es neo-tokyo     settings:temas
 caso ajustes-resaltado     es neo-tokyo     settings:resaltado

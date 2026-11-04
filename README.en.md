@@ -226,8 +226,8 @@ name is never overwritten. Older per-user-and-device entries still work, folded 
 
 In **Sessions → Password**, pick one by name, the group's, or **New…** to create it right there; **For the whole
 group** assigns it to every session in the group. **Uses:** shows the one that will be used; click **Save** to keep
-the assignment. Each jump host uses its own session's credential. If you type the password yourself and get in, the
-app offers to save it (you can turn this off in Settings → Passwords).
+the assignment. Each jump host uses its own session's credential. If you type the session's password yourself and get
+in, the app offers to save it (you can turn this off in Settings → Passwords).
 
 Select the **Default credential** in Passwords together with its **Exact user**: it is a fallback for devices opened
 from a session. Choosing **None (ask)** or clearing the user disables it. A saved session's initial login uses its

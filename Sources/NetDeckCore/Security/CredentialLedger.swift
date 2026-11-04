@@ -49,6 +49,9 @@ public final class CredentialLedger: @unchecked Sendable {
         return false
     }
 
+    /// Las que siguen bloqueadas (lee los archivos de las marcas: fuera del hilo principal).
+    public func blocked(among refs: [CredentialRef]) -> [CredentialRef] { refs.filter(isBlocked) }
+
     /// ¿Se puede escribir ya? `.go` la deja «probando» (los demás esperan); `.wait`: otro la está probando.
     public func beginProbe(_ ref: CredentialRef) -> Probe { reserveProbe(ref).result }
 

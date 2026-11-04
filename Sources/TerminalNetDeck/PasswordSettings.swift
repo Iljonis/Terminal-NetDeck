@@ -57,7 +57,7 @@ struct PasswordSettings: View {
                     o.append((PasswordAutomation.Mode.off, L("Nada")))
                 }
             } header: { Text(L("Al conectar")) } footer: {
-                Text(L("Sólo la del mismo usuario que piden. Si escribes tú una y entra, te pregunta si la guardas. Los códigos de un solo uso, siempre a mano."))
+                Text(L("Sólo la del mismo usuario que piden. Si escribes tú la de una sesión y entra, te pregunta si la guardas (no la de un ssh que lanzas desde ella). Los códigos de un solo uso, siempre a mano."))
                     .font(t.ui(11))
             }
             Section {
@@ -113,7 +113,7 @@ struct PasswordSettings: View {
             }
             Spacer()
             if model.ledger.isBlocked(ref) {
-                Button(L("Desbloquear")) { model.ledger.reset(ref); model.keychainRevision += 1 }
+                Button(L("Desbloquear")) { model.unlockCredential(ref) }
             } else if case .probing = model.ledger.state(of: ref) {
                 Button(L("Restablecer pendiente")) { model.ledger.reset(ref); model.keychainRevision += 1 }
                     .help(L("Úsalo sólo si el login pendiente ya terminó. No cambia la contraseña guardada."))

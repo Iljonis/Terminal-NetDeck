@@ -117,6 +117,10 @@ extension ContentView {
                 if let event = await passwords.observe(s, gate: s.gate) { model.notices[s.id] = event }
             }
         }
+        if a == "credencial-bloqueada" {             // (en el NETDECK_HOME temporal: el botón de la barra de estado)
+            model.ledger.markFailed(.named("AD"))
+            model.core.refreshBlocked()
+        }
         if a.hasPrefix("tab:") { model.quickConnect(String(a.dropFirst(4))) }
         if a.hasPrefix("tab:") || a == "terminal" {
             // (y el texto de la pestaña, para comprobar que la salida llega al terminal)
@@ -1182,6 +1186,14 @@ struct StatusBar: View {
             }
             if model.multiExecOn {
                 Tag(text: L("MULTIEXEC ×\(model.multiExecTargets.count)"), color: t.warning)
+            }
+            ForEach(model.core.blockedCredentials, id: \.self) { ref in
+                Button { model.unlockCredential(ref) } label: {
+                    Tag(text: L("🔒 «\(ref.account)» · Desbloquear"), color: t.warning)
+                }
+                .buttonStyle(.plain)
+                .focusable(false)
+                .help(L("Un equipo la ha rechazado: no se escribe sola durante 15 min. Clic para que vuelva a escribirse sola."))
             }
             Tag(text: L("🔑 SESIÓN \(model.settings.sessionAutoPassword ? "AUTO" : "MANUAL") · EQUIPOS \(modeText)"), color: t.accent2)
             Text(model.themes.current.name.uppercased()).tracking(1.5).foregroundStyle(SwiftUI.Color(t.dim))

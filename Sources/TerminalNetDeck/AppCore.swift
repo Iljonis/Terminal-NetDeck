@@ -29,6 +29,9 @@ final class AppCore {
     /// Para refrescar lo que depende del Llavero.
     var keychainRevision = 0 { didSet { refreshKeychain() } }
     var keychainAccounts: [CredentialRef] = []
+    /// Las bloqueadas ahora mismo (el botón «Desbloquear» de la barra de estado).
+    var blockedCredentials: [CredentialRef] = []
+    @ObservationIgnored private var blockedLoadID = UUID()
     var keychainLoading = false
     var keychainError: String?
     var editingCredential = false
@@ -112,6 +115,24 @@ final class AppCore {
         tunnelRunner.onChange = { [weak self] id, state in self?.front?.tunnelChanged(id, state) }
         watchMenus()
         refreshKeychain()
+        // (las marcas también cambian sin aviso: una lista de equipos que falla, el fin de los 15 min)
+        Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(5))
+                self?.refreshBlocked()
+            }
+        }
+    }
+
+    /// Mira las marcas fuera del hilo principal; una lectura anterior que acabe después no pisa a la última.
+    func refreshBlocked() {
+        let id = UUID(), refs = keychainAccounts, ledger = ledger
+        blockedLoadID = id
+        Task { [weak self] in
+            let blocked = await Task.detached { ledger.blocked(among: refs) }.value
+            guard let self, self.blockedLoadID == id, self.blockedCredentials != blocked else { return }
+            self.blockedCredentials = blocked
+        }
     }
 
     /// Listar también puede esperar a macOS: las vistas sólo leen esta copia, compartida entre ventanas.
@@ -126,6 +147,7 @@ final class AppCore {
                 self.keychainAccounts = entries
                 self.keychainError = nil
                 self.keychainLoading = false
+                self.refreshBlocked()
             } catch {
                 guard let self, self.keychainLoadID == id else { return }
                 self.keychainError = error.localizedDescription

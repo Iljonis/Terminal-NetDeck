@@ -233,8 +233,8 @@ nombre existente no se sobrescribe. Las antiguas de usuario y equipo siguen func
 
 En **Sesiones → Contraseña**, elige una por su nombre, la del grupo o **Nueva…** para crearla ahí mismo; **Para todo
 el grupo** la asigna a todas las del grupo. La indicación **Usa:** muestra la que se usará; pulsa **Guardar** para
-conservar la asignación. Cada salto usa la de su propia sesión. Si escribes tú la contraseña y entras, la app te
-ofrece guardarla (se puede desactivar en Ajustes → Contraseñas).
+conservar la asignación. Cada salto usa la de su propia sesión. Si escribes tú la contraseña de la sesión y entras,
+la app te ofrece guardarla (se puede desactivar en Ajustes → Contraseñas).
 
 La **Credencial predeterminada** se elige en Contraseñas junto con su **Usuario exacto**: actúa como alternativa para
 los equipos abiertos desde una sesión. Dejarla en **Ninguna (preguntar)** o vaciar el usuario la desactiva. El login
