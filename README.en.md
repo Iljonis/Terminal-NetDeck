@@ -9,10 +9,10 @@ and 51 themes. Native, fast and in your language.
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v0.9.10](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.10)** · macOS 15 or later ·
+Current version: **[v0.9.11](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.11)** · macOS 15 or later ·
 open source (MIT)
 
-[![Version](https://img.shields.io/badge/version-v0.9.10-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.10)
+[![Version](https://img.shields.io/badge/version-v0.9.11-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.11)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,17 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - **SFTP/FTP browser** with atomic copies, built-in MD5 verification and server-to-server transfers.
 - **Multi-tab** with split view, MultiExec and safe paste; **51 themes** with WCAG contrast.
 - **Sessions with jump hosts** on top of your `ssh_config`, passwords only in the macOS Keychain.
+
+### New in 0.9.11
+
+- **One-click unlock:** if the default password gets locked, **🔒 “…” · Unlock** shows in the bottom bar, next to
+  `SESSION · DEVICES`. No more trips to Settings.
+- **A device without your user no longer locks you out:** if the password got in less than 5 minutes ago and another
+  device rejects it, it isn't locked: for that attempt you type it, use a button or paste it, and the next `ssh` types
+  it automatically again. Device lists still lock on the first rejection.
+- **No questions on hops:** it no longer offers to save the password of an `ssh` you start from inside a session.
+- **Password notices go away on their own:** the ones at the top right disappear after 20 seconds, without interrupting
+  the login. The “suggest” mode selector stays while the password is being asked for.
 
 ### New in 0.9.10
 
@@ -215,7 +226,9 @@ cd Terminal-NetDeck
 - **And the right device:** a server that prints a fake `admin@core-01's password:` doesn't get core-01's password;
   only that tab's destination and jump hosts count.
 - **If the default credential, typed automatically, fails, it is not typed automatically again for 15 minutes** in any
-  tab, so your Active Directory account doesn't get locked out. Saved sessions' passwords are not locked (if one
+  tab, so your Active Directory account doesn't get locked out (unless it got in less than 5 minutes ago: then the
+  rejection comes from that device, and you type it just that once). You can unlock it with one click in the bottom
+  bar. Saved sessions' passwords are not locked (if one
   doesn't work, you are asked for it), and whatever you choose — 🔑 menu or a button — is always typed.
 - **The Keychain never freezes the app:** it's read in the background, with a 10-second limit.
 - 🔑 menu to type any of them by hand, even at odd prompts the app doesn't recognise.

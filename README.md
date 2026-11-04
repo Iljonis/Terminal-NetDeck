@@ -9,10 +9,10 @@ y 51 temas. Nativo, rápido y en tu idioma.
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.9.10](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.10)** · macOS 15 o posterior ·
+Versión actual: **[v0.9.11](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.11)** · macOS 15 o posterior ·
 código abierto (MIT)
 
-[![Versión](https://img.shields.io/badge/versión-v0.9.10-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.10)
+[![Versión](https://img.shields.io/badge/versión-v0.9.11-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.11)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,17 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - **Explorador SFTP/FTP** con copias atómicas, verificación MD5 integrada y envío de servidor a servidor.
 - **Multipestaña** con vista dividida, MultiExec y pegado seguro; **51 temas** con contraste WCAG.
 - **Sesiones con saltos** sobre tu `ssh_config` y contraseñas sólo en el Llavero de macOS.
+
+### Novedades de 0.9.11
+
+- **Desbloquear a mano de un clic:** si la contraseña por defecto queda bloqueada, sale **🔒 «…» · Desbloquear** en la
+  barra de abajo, junto a `SESIÓN · EQUIPOS`. Ya no hace falta ir a Ajustes.
+- **Un equipo sin tu usuario ya no te bloquea:** si la contraseña ha entrado hace menos de 5 minutos y otro equipo la
+  rechaza, no se bloquea: en ese intento la escribes tú, con un botón o pegándola, y en el siguiente `ssh` vuelve a
+  escribirse sola. Las listas de equipos siguen bloqueando al primer rechazo.
+- **Sin preguntas en los saltos:** ya no ofrece guardar la contraseña de un `ssh` que lanzas desde dentro de una sesión.
+- **Los avisos de contraseña se van solos:** los de arriba a la derecha desaparecen a los 20 segundos, sin cortar el
+  login. El selector del modo «sugerir» se queda mientras la pidan.
 
 ### Novedades de 0.9.10
 
@@ -222,7 +233,8 @@ cd Terminal-NetDeck
 - **Y del equipo correcto:** un servidor que escriba en pantalla un `admin@core-01's password:` falso no se lleva la
   contraseña de core-01; sólo cuentan el destino y los saltos de esa pestaña.
 - **Si la credencial por defecto, escrita sola, falla, no se vuelve a escribir sola en 15 minutos** en ninguna pestaña,
-  para no bloquear tu cuenta de Active Directory. Las de las sesiones no se bloquean (si una no vale, te la pide), y
+  para no bloquear tu cuenta de Active Directory (salvo si ha entrado hace menos de 5 minutos: entonces el rechazo es
+  de ese equipo, y la escribes tú sólo esa vez). Se puede desbloquear con un clic en la barra de abajo. Las de las sesiones no se bloquean (si una no vale, te la pide), y
   lo que eliges tú —menú 🔑 o un botón— se escribe siempre.
 - **El Llavero nunca congela la app:** se consulta en segundo plano y con un tope de 10 segundos.
 - Menú 🔑 para escribir cualquiera a mano, también en prompts raros que la app no reconoce.
