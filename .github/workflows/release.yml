@@ -35,7 +35,7 @@ jobs:
         run: tools/test_ssh_local.sh
       - name: Informes y capturas del paquete
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: qa-paquete
           # (repo público: sólo capturas e informes; los .log pueden llevar rutas del runner)
