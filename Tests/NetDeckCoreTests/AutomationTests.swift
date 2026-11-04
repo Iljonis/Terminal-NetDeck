@@ -205,6 +205,36 @@ import Testing
         #expect(io.sent.count == 1)
     }
 
+    /// Acaba de entrar en otro equipo y éste la rechaza (no tiene ese usuario): no se bloquea ni se repite en esta
+    /// orden; la escribes tú, y en la siguiente orden vuelve a escribirse sola.
+    @Test func siAcabaDeEntrarElRechazoNoLaBloquea() async {
+        let io = FakeTerminal(["tu.usuario@192.0.2.1's password:"]) { _ in ["Permission denied, please try again.", "tu.usuario@192.0.2.1's password:"] }
+        let ledger = CredentialLedger(), gate = AutomationGate()
+        ledger.confirm(.named("AD"))
+        let a = make(io, MemoryCredentialStore([.named("AD"): "pw"]), ledger, default: .init(name: "AD", user: "tu.usuario"))
+        a.beginCommand("ssh 192.0.2.1")
+        #expect(await a.observe(io, gate: gate) == .typed(.named("AD")))
+        #expect(await a.observe(io, gate: gate) == .rejected(.named("AD")))
+        #expect(!ledger.isBlocked(.named("AD")))
+        #expect(await a.observe(io, gate: gate) == nil)
+        #expect(io.sent == ["pw\r"])
+        a.beginCommand("ssh 192.0.2.2")
+        io.screen += ["tu.usuario@192.0.2.2's password:"]
+        #expect(await a.observe(io, gate: gate) == .typed(.named("AD")))
+    }
+
+    @Test func pasadoElPlazoElRechazoSíLaBloquea() async {
+        let io = FakeTerminal(["tu.usuario@192.0.2.1's password:"]) { _ in ["Permission denied, please try again.", "tu.usuario@192.0.2.1's password:"] }
+        let ledger = CredentialLedger(), gate = AutomationGate()
+        ledger.confirm(.named("AD"))
+        ledger.confirmGrace = 0
+        let a = make(io, MemoryCredentialStore([.named("AD"): "pw"]), ledger, default: .init(name: "AD", user: "tu.usuario"))
+        a.beginCommand("ssh 192.0.2.1")
+        #expect(await a.observe(io, gate: gate) == .typed(.named("AD")))
+        #expect(await a.observe(io, gate: gate) == .failed(.named("AD")))
+        #expect(ledger.isBlocked(.named("AD")))
+    }
+
     /// La por defecto escrita sola tras «ssh …» en una sesión: si no vale, bloqueada 15 min (la única que se bloquea);
     /// la siguiente orden ya no la escribe sola, pero un botón o el menú 🔑 sí.
     @Test func laPorDefectoSiFallaSeBloquea() async {

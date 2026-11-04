@@ -176,7 +176,7 @@ import Testing
 
     @Test func elLoginDeLaSesiónSí() {
         #expect(candidata("tu.usuario@bastion").isLogin(of: Endpoint(user: "tu.usuario", host: "bastion")))
-        #expect(candidata("Tu.Usuario@BASTION").isLogin(of: Endpoint(user: "tu.usuario", host: "bastion")))
+        #expect(candidata("tu.usuario@BASTION").isLogin(of: Endpoint(user: "tu.usuario", host: "bastion")))
         #expect(candidata("tu.usuario@bastion").isLogin(of: Endpoint(user: nil, host: "bastion")))
     }
 
@@ -185,7 +185,42 @@ import Testing
         #expect(!candidata("tu.usuario@core-01").isLogin(of: bastion))
         #expect(!candidata("admin@192.0.2.11").isLogin(of: bastion))
         #expect(!candidata("admin@bastion").isLogin(of: bastion))
+        #expect(!candidata("Tu.Usuario@bastion").isLogin(of: bastion))
         #expect(!candidata("tu.usuario@otro-bastion").isLogin(of: bastion))
         #expect(!candidata(nil).isLogin(of: bastion))
+    }
+}
+
+/// Ha entrado hace poco: un rechazo no la bloquea (`CredentialLedger.confirmGrace`).
+@Suite struct HaEntradoHacePocoTests {
+    private final class Reloj: @unchecked Sendable { var now = Date(timeIntervalSince1970: 1000) }
+    private let ad = CredentialRef.named("AD")
+
+    @Test func valeCincoMinutosYElRechazoNoAlargaElPlazo() {
+        let reloj = Reloj(), ledger = CredentialLedger(now: { reloj.now })
+        #expect(!ledger.confirmedRecently(ad))
+        ledger.confirm(ad)
+        #expect(ledger.reserveProbe(ad).result == .go)              // («probando» no borra cuándo entró)
+        reloj.now = Date(timeIntervalSince1970: 1000 + 299)
+        #expect(ledger.confirmedRecently(ad))
+        ledger.release(ad)                                          // (lo que hace un rechazo dentro del plazo)
+        reloj.now = Date(timeIntervalSince1970: 1000 + 301)
+        #expect(!ledger.confirmedRecently(ad))
+    }
+
+    @Test func restablecerlaLoAnula() {
+        let reloj = Reloj(), ledger = CredentialLedger(now: { reloj.now })
+        ledger.confirm(ad)
+        ledger.reset(ad)
+        #expect(!ledger.confirmedRecently(ad))
+    }
+
+    /// El askpass es otro proceso: lo que confirma tiene que verse en la app.
+    @Test func seVeEntreProcesos() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        CredentialLedger(storage: DirectoryLedgerStorage(dir)).confirm(ad)
+        #expect(CredentialLedger(storage: DirectoryLedgerStorage(dir)).confirmedRecently(ad))
     }
 }

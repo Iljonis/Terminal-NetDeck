@@ -3,7 +3,7 @@ import Foundation
 /// La contraseña de un equipo abierto DESDE una sesión: sólo una orden enviada por la persona arma la detección.
 /// Decide con `CredentialPolicy`, espera un instante (Esc la cancela) y comprueba otra vez antes de escribir. El
 /// login inicial de la sesión no pasa por aquí. Sólo el rechazo de la por defecto escrita sola la bloquea 15 min en
-/// todas las pestañas; lo que eliges tú (menú 🔑, botones, el aviso) y las de la sesión o del equipo, nunca.
+/// todas las pestañas, y no si acaba de entrar en otro equipo; lo que eliges tú (menú 🔑, botones, el aviso) y las de la sesión o del equipo, nunca.
 @MainActor
 public final class PasswordAutomation {
     public enum Mode: String, Sendable, CaseIterable {
@@ -445,15 +445,18 @@ public final class PasswordAutomation {
     }
 
     /// No ha valido: sólo la por defecto escrita sola queda bloqueada (`.failed`); las demás sueltan su reserva y no
-    /// se vuelven a escribir solas en esta orden (`.rejected`: la escribes tú).
+    /// se vuelven a escribir solas en esta orden (`.rejected`: la escribes tú). Tampoco se bloquea si la por defecto
+    /// acaba de entrar en otro equipo: la contraseña es buena y lo probable es que éste no tenga ese usuario.
     private func rejected(_ p: Pending) -> Event {
-        if p.blocks {
+        let blocks = p.blocks && !ledger.confirmedRecently(p.ref)
+        if p.blocks, !blocks { DebugLog.log("autopass", "«\(p.ref)» rechazada, pero ha entrado hace poco: no se bloquea") }
+        if blocks {
             if let token = p.reservation { ledger.markFailed(p.ref, reservation: token) } else { ledger.markFailed(p.ref) }
         } else if let token = p.reservation {
             ledger.release(p.ref, reservation: token)
         }
         cancelCommand()
-        return p.blocks ? .failed(p.ref) : .rejected(p.ref)
+        return blocks ? .failed(p.ref) : .rejected(p.ref)
     }
 
     /// (aparte: con el cierre dentro de observe, el compilador de Swift 6.3 se cae en ClosureLifetimeFixup)

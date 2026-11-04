@@ -4,8 +4,8 @@ import Foundation
 
 /// Estado de cada contraseña entre todas las pestañas y el askpass, para no bloquear cuentas AD:
 ///  · probando: alguien la acaba de escribir; los demás esperan a ver si vale (TACACS/RADIUS lentos)
-///  · fallo: la por defecto, escrita sola tras un ssh/telnet en una sesión, no ha valido; no se vuelve a escribir sola
-///    durante `blockWindow` (15 min). Las de las sesiones y lo que eliges tú (menú 🔑, botones, el aviso) no se
+///  · fallo: la por defecto, escrita sola tras un ssh/telnet en una sesión, no ha valido (y no había entrado en los
+///    últimos `confirmGrace`, 5 min); no se vuelve a escribir sola durante `blockWindow` (15 min). Las de las sesiones y lo que eliges tú (menú 🔑, botones, el aviso) no se
 ///    bloquean ni respetan este bloqueo (las listas de equipos, `JumpBatch`, sí)
 ///  · confirmada: ha entrado; los demás pueden usarla ya
 public final class CredentialLedger: @unchecked Sendable {
@@ -23,6 +23,8 @@ public final class CredentialLedger: @unchecked Sendable {
     /// Una reserva de la app (listas, login anidado) dura lo que su proceso y, como mucho, esto: un login cuyo final no
     /// se reconoce (un «# @prompt» propio, un banner…) no deja la contraseña pendiente horas en las demás pestañas.
     public var reservationLimit: TimeInterval = 120
+    /// Si ha entrado hace menos de esto, un rechazo es cosa de ese equipo (no tiene ese usuario), no de la contraseña.
+    public var confirmGrace: TimeInterval = 5 * 60
     private let storage: LedgerStorage
     private let now: @Sendable () -> Date
     private let processID: Int32
@@ -51,6 +53,16 @@ public final class CredentialLedger: @unchecked Sendable {
 
     /// Las que siguen bloqueadas (lee los archivos de las marcas: fuera del hilo principal).
     public func blocked(among refs: [CredentialRef]) -> [CredentialRef] { refs.filter(isBlocked) }
+
+    /// ¿Ha entrado hace poco? Un rechazo no alarga el plazo y restablecerla (cambiarla, desbloquearla) lo anula.
+    public func confirmedRecently(_ ref: CredentialRef) -> Bool {
+        storage.locked {
+            guard let confirmed = storage.lastConfirmed(ref) else { return false }
+            if let r = storage.lastReset(ref), r >= confirmed { return false }
+            let age = now().timeIntervalSince(confirmed)
+            return age >= 0 && age < confirmGrace
+        }
+    }
 
     /// ¿Se puede escribir ya? `.go` la deja «probando» (los demás esperan); `.wait`: otro la está probando.
     public func beginProbe(_ ref: CredentialRef) -> Probe { reserveProbe(ref).result }
@@ -126,14 +138,14 @@ public final class CredentialLedger: @unchecked Sendable {
     public func confirm(_ ref: CredentialRef) {
         storage.locked {
             if case .failed = current(ref) { return }
-            storage.write(ref, .confirmed(at: now()))
+            writeConfirmed(ref)
         }
     }
 
     public func confirm(_ ref: CredentialRef, reservation token: UUID) {
         storage.locked {
             guard case .probing(_, _, let currentToken) = current(ref), currentToken == token else { return }
-            storage.write(ref, .confirmed(at: now()))
+            writeConfirmed(ref)
         }
     }
 
@@ -142,7 +154,7 @@ public final class CredentialLedger: @unchecked Sendable {
         storage.locked {
             switch current(ref) {
             case .failed, .probing: return
-            case .confirmed, nil: storage.write(ref, .confirmed(at: now()))
+            case .confirmed, nil: writeConfirmed(ref)
             }
         }
     }
@@ -165,6 +177,13 @@ public final class CredentialLedger: @unchecked Sendable {
             storage.write(ref, nil)
             storage.noteReset(ref, at: now())
         }
+    }
+
+    /// (la hora aparte: la marca «confirmada» la pisa el siguiente «probando», y justo entonces hace falta)
+    private func writeConfirmed(_ ref: CredentialRef) {
+        let date = now()
+        storage.write(ref, .confirmed(at: date))
+        storage.noteConfirmed(ref, at: date)
     }
 
     private func current(_ ref: CredentialRef) -> State? {
@@ -196,6 +215,9 @@ public protocol LedgerStorage: AnyObject, Sendable {
     /// El último «restablecer» de esa contraseña (sólo la hora, nunca un secreto); sobrevive a los cambios de estado.
     func lastReset(_ ref: CredentialRef) -> Date?
     func noteReset(_ ref: CredentialRef, at date: Date)
+    /// La última vez que ha entrado (sólo la hora); sobrevive a los cambios de estado.
+    func lastConfirmed(_ ref: CredentialRef) -> Date?
+    func noteConfirmed(_ ref: CredentialRef, at date: Date)
     func locked<T>(_ body: () throws -> T) rethrows -> T
 }
 
@@ -203,6 +225,7 @@ public final class MemoryLedgerStorage: LedgerStorage, @unchecked Sendable {
     private let lock = NSRecursiveLock()
     private var states: [CredentialRef: CredentialLedger.State] = [:]
     private var resets: [CredentialRef: Date] = [:]
+    private var confirmations: [CredentialRef: Date] = [:]
 
     public init() {}
 
@@ -210,6 +233,8 @@ public final class MemoryLedgerStorage: LedgerStorage, @unchecked Sendable {
     public func write(_ ref: CredentialRef, _ s: CredentialLedger.State?) { states[ref] = s }
     public func lastReset(_ ref: CredentialRef) -> Date? { resets[ref] }
     public func noteReset(_ ref: CredentialRef, at date: Date) { resets[ref] = date }
+    public func lastConfirmed(_ ref: CredentialRef) -> Date? { confirmations[ref] }
+    public func noteConfirmed(_ ref: CredentialRef, at date: Date) { confirmations[ref] = date }
     public func locked<T>(_ body: () throws -> T) rethrows -> T { lock.lock(); defer { lock.unlock() }; return try body() }
 }
 
@@ -276,6 +301,18 @@ public final class DirectoryLedgerStorage: LedgerStorage, @unchecked Sendable {
         }
     }
 
+    /// Igual, en «….confirmada». Si no se puede escribir, ante la duda el rechazo bloquea.
+    public func lastConfirmed(_ ref: CredentialRef) -> Date? {
+        guard let text = try? String(contentsOf: confirmedFile(ref), encoding: .utf8), let ts = TimeInterval(text.trimmed) else { return nil }
+        return Date(timeIntervalSince1970: ts)
+    }
+
+    public func noteConfirmed(_ ref: CredentialRef, at date: Date) {
+        do { try SafeFile.write("\(date.timeIntervalSince1970)", to: confirmedFile(ref)) } catch {
+            report("no se ha podido apuntar cuándo ha entrado", error)
+        }
+    }
+
     public func locked<T>(_ body: () throws -> T) rethrows -> T {
         threadLock.lock()
         defer { threadLock.unlock() }
@@ -309,4 +346,5 @@ public final class DirectoryLedgerStorage: LedgerStorage, @unchecked Sendable {
     }
 
     private func resetFile(_ ref: CredentialRef) -> URL { file(ref).appendingPathExtension("restablecida") }
+    private func confirmedFile(_ ref: CredentialRef) -> URL { file(ref).appendingPathExtension("confirmada") }
 }

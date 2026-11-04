@@ -28,7 +28,8 @@ metadata:
 
 ## NUNCA (cada punto costó una regresión o una petición expresa del autor)
 - **Bloqueo de 15 min:** sólo lo activa la contraseña por defecto que se escribe sola al hacer ssh/telnet desde una
-  sesión, y las listas de equipos (para proteger la cuenta AD). Nunca lo actives desde el askpass de sesiones
+  sesión (salvo si ha entrado hace menos de 5 min: el rechazo es de ese equipo, sin ese usuario), y las listas de
+  equipos (para proteger la cuenta AD). Nunca lo actives desde el askpass de sesiones
   guardadas, las contraseñas de salto, los botones o el menú 🔑: el autor quiere que esos caminos funcionen siempre.
 - **Credenciales:** al estilo de SecureCRT: una lista de contraseñas con nombre y el mismo selector, con «Nueva…»,
   en todas partes. Nunca hagas pantallas de credenciales complejas. Los botones pueden llevar la contraseña escrita en

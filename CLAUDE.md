@@ -21,8 +21,9 @@ si cambias uno, cambia el otro.
 - **Contraseñas:** sólo en el Llavero (`KeychainStore` vía `/usr/bin/security`, el secreto por stdin, nunca en
   argumentos ni en `DebugLog`), con lecturas fuera del hilo principal y la regla de usuario estricta
   (`CredentialPolicy`). El bloqueo de 15 min en todas las pestañas (`CredentialLedger`) sólo lo activan un fallo de la
-  contraseña por defecto escrita sola (ssh/telnet desde una sesión) y las listas de equipos. Nunca lo activan el askpass
-  de las sesiones guardadas, las contraseñas de salto, los botones ni el menú 🔑.
+  contraseña por defecto escrita sola (ssh/telnet desde una sesión, salvo si ha entrado hace menos de 5 min) y las
+  listas de equipos. Nunca lo activan el askpass de las sesiones guardadas, las contraseñas de salto, los botones ni el
+  menú 🔑.
 - **MultiExec y pegado:** sólo a pestañas ssh/telnet (`route.isLocal` y los tipos sftp/serie/ftp quedan fuera). El
   pegado seguro se para ante errores, paginadores, órdenes peligrosas sin confirmar o un prompt de contraseña.
 - **Ventanas:** un `AppCore` común y un `AppModel` por ventana. Lo que afecta a todas las pestañas va por

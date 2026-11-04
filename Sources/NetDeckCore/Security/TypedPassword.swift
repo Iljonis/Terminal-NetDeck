@@ -17,9 +17,11 @@ public struct TypedPassword: Sendable {
         }
 
         /// ¿Es el login de ese equipo? Un ssh lanzado desde él pide la de otro equipo: ésa no se ofrece guardar.
+        /// (el equipo da igual en mayúsculas; el usuario, exacto: «Admin» no es «admin»)
         public func isLogin(of target: Endpoint) -> Bool {
-            guard let a = account?.lowercased(), a.hasSuffix("@\(target.host.lowercased())") else { return false }
-            return target.user.map { a.hasPrefix("\($0.lowercased())@") } ?? true
+            guard let a = account, let at = a.lastIndex(of: "@"),
+                  a[a.index(after: at)...].lowercased() == target.host.lowercased() else { return false }
+            return target.user.map { $0 == a[..<at] } ?? true
         }
     }
 
