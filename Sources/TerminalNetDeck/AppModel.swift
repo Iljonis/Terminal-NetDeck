@@ -163,7 +163,7 @@ final class AppModel {
         let account: String
         let save: TypedSave
         /// Cuándo se olvida (viaja con la pestaña si pasa a otra ventana).
-        let expires = Date().addingTimeInterval(120)
+        let expires = Date().addingTimeInterval(20)
     }
     /// Pestañas a las que ya se ha preguntado (una vez por pestaña: los saltos no vuelven a preguntar).
     @ObservationIgnored private var typedOffered: Set<TerminalSession.ID> = []
@@ -1189,7 +1189,8 @@ final class AppModel {
 
     /// «Desbloquear» (barra de estado, Ajustes → Contraseñas): vuelve a escribirse sola; los avisos de su bloqueo, fuera.
     func unlockCredential(_ ref: CredentialRef) {
-        ledger.reset(ref)
+        // (el botón puede ir hasta 5 s por detrás: si ya caducó y otra pestaña la está probando, no se le quita la reserva)
+        if ledger.isBlocked(ref) { ledger.reset(ref) }
         core.blockedCredentials.removeAll { $0 == ref }
         core.refreshBlocked()
         keychainRevision += 1

@@ -588,7 +588,7 @@ import Testing
                 let m = runner()
                 defer { m.stopAll(wait: 0) }
                 m.start(t, executable: exe, arguments: try arguments(t, config: cfg.path), environment: env)
-                #expect(await until { if case .failed = m.state(t.id) { true } else { false } })
+                #expect(await until(30) { if case .failed = m.state(t.id) { true } else { false } })   // (varios ssh -G: con la máquina cargada, 5 s no bastan)
                 guard case .failed(let why) = m.state(t.id) else { continue }
                 #expect(why.contains("reenvíos heredados"), "\(scope): \(forward): \(why)")
                 #expect(!FileManager.default.fileExists(atPath: marker.path))

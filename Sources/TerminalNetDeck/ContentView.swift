@@ -1065,6 +1065,13 @@ struct PasswordNotice: View {
             }
         } else {
             panel { Text(text).font(t.ui(12)).foregroundStyle(SwiftUI.Color(t.text)).fixedSize(horizontal: false, vertical: true) }
+                // (se va solo a los 20 s de verse, también en una pestaña que estaba detrás; sólo el aviso: a diferencia
+                // de la ✕, no cancela el login en curso. El selector de arriba espera: es una pregunta, no un mensaje)
+                .task(id: event) {
+                    try? await Task.sleep(for: .seconds(20))
+                    guard !Task.isCancelled, model.notices[session.id] == event else { return }
+                    model.notices[session.id] = nil
+                }
         }
     }
 
