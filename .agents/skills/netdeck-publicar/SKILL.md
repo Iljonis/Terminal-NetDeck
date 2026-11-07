@@ -14,9 +14,12 @@ V=1.2.3; A=$(grep -E '^VERSION=' install.sh | cut -d= -f2)    # nueva y actual
 sed -i '' "s/^VERSION=.*/VERSION=$V/" install.sh
 grep -rnE "v?[0-9]+\.[0-9]+\.[0-9]+" README*.md install.sh docs tools | grep -F "$A"   # lo que queda por cambiar
 ```
-- `README.md`: «Versión actual» (enlace y badge) y una sección «Novedades de X.Y.Z» arriba de la anterior.
-- `README.en.md`: «Current version», badge y «What's new in X.Y.Z», con el mismo contenido.
-- Cuando el último `grep` ya no saca nada de la versión anterior (salvo las secciones de novedades antiguas), está.
+- `README.md`: «Versión actual» (enlace) y la sección «Novedades de X.Y.Z», que sustituye a la de la anterior (el
+  badge de versión se actualiza solo con la Release).
+- `README.en.md`: «Current version» y «New in X.Y.Z», con el mismo contenido.
+- `CHANGELOG.md` (en inglés, Keep a Changelog): `[Unreleased]` pasa a `[X.Y.Z] - AAAA-MM-DD` y, al final, el enlace
+  `[X.Y.Z]: …/compare/vANTERIOR...vX.Y.Z` (y `[Unreleased]` desde `vX.Y.Z`).
+- Cuando el último `grep` ya no saca nada de la versión anterior (salvo el CHANGELOG), está.
 
 ## 2. Comprobaciones antes del tag
 
