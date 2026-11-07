@@ -254,8 +254,6 @@ enum Ingles {
             "Can't read %@: %@",
         "falta o está mal el color «%@» (formato #rrggbb)":
             "color “%@” is missing or wrong (format #rrggbb)",
-        "SSH nativo: pendiente (fase 2); se usa /usr/bin/ssh":
-            "Native SSH: pending (phase 2); using /usr/bin/ssh",
         "Conectar / Salto…":
             "Connect / Jump…",
         "Sesiones…":
@@ -712,16 +710,8 @@ enum Ingles {
             "Suggest it (one click)",
         "Nada":
             "Nothing",
-        "Contraseña por defecto":
-            "Default password",
-        "Es del usuario":
-            "Belongs to user",
         "Por defecto":
             "Default",
-        "con nombre":
-            "named",
-        "usuario@equipo":
-            "user@device",
         "🔒 «%@» · Desbloquear": "🔒 “%@” · Unlock",
         "🔑 «%@» desbloqueada: vuelve a escribirse sola": "🔑 “%@” unlocked: it is typed automatically again",
         "Un equipo la ha rechazado: no se escribe sola durante 15 min. Clic para que vuelva a escribirse sola.":
@@ -730,10 +720,6 @@ enum Ingles {
             "Unlock",
         "Con nombre":
             "Named",
-        "tu.usuario@192.0.2.1":
-            "your.user@192.0.2.1",
-        "Llavero":
-            "Keychain",
         "Guardada ✓ (%@)":
             "Saved ✓ (%@)",
         "¿Borrar «%@» del Llavero?":
@@ -1026,8 +1012,6 @@ enum Ingles {
             "(manual)",
         "%@ equipos · una sola pestaña prueba la contraseña a la vez; si falla, no se escribe en las demás":
             "%@ devices · only one tab tries the password at a time; if it fails, it isn't typed in the others",
-        "Buscar sesión, equipo o IP":
-            "Search session, device or IP",
         "Gestionar sesiones y grupos":
             "Manage sessions and groups",
         "Importar de SecureCRT, MobaXterm, PuTTY, CSV…":
@@ -1656,8 +1640,6 @@ enum Ingles {
             "Show hidden files (.something)",
         "No arranca %@: %@":
             "%@ doesn't start: %@",
-        "No contesta (15 s)":
-            "No answer (15 s)",
         "No existe":
             "Doesn't exist",
         "No se ha podido conectar":
@@ -1958,7 +1940,6 @@ enum Ingles {
         "✓ «%@» abierta: los cambios sin guardar siguen aquí": "✓ “%@” opened: the unsaved changes are still here",
         "Espera a que terminen de guardarse": "Wait until saving finishes",
         "«%@» es una carpeta o un enlace en el destino: no se sustituye ni se toca": "“%@” is a folder or a link at the destination: it isn't replaced or touched",
-        "No se ha podido poner «%@» ni devolver el de antes: el anterior está en «%@» y el nuevo en «%@»": "Couldn't put “%@” in place or bring back the previous one: the previous one is at “%@” and the new one at “%@”",
         "✗ No se graba «%@»: no se puede escribir en %@ (%@)": "✗ “%@” isn't being logged: can't write to %@ (%@)",
         "✗ Se ha dejado de grabar «%@»: %@": "✗ Logging of “%@” has stopped: %@",
         "Cerrar la pestaña": "Close the tab",
@@ -1973,7 +1954,6 @@ enum Ingles {
         "más de %@ caracteres": "more than %@ characters",
         "saltos de línea o caracteres de control": "line breaks or control characters",
         "no es una expresión regular válida": "not a valid regular expression",
-        "cuantificadores anidados, como «(a+)+» (pueden bloquear la app)": "nested quantifiers, like “(a+)+” (they can freeze the app)",
         "«%@»: «@%@» va en la sección Perfil, no en las notas": "“%@”: “@%@” belongs in the Profile section, not in the notes",
         "«%@»: %@": "“%@”: %@",
         "Heredar (%@)": "Inherit (%@)",
@@ -2010,7 +1990,6 @@ enum Ingles {
         "✗ «%@» guardado en el Mac pero sin conexión: se subirá al reconectar el explorador": "✗ “%@” saved on the Mac but there's no connection: it will be uploaded when the browser reconnects",
         "Subiendo «%@»…": "Uploading “%@”…",
         "✓ «%@» guardado en el servidor (MD5 comprobado)": "✓ “%@” saved on the server (MD5 verified)",
-        "✗ No se ha podido subir «%@»: %@. El servidor sigue como estaba; tu copia está en %@": "✗ Couldn't upload “%@”: %@. The server is unchanged; your copy is in %@",
         "«%@» ya no está en el servidor.": "“%@” is no longer on the server.",
         "«%@» ha cambiado en el servidor desde que lo abriste (otro tamaño u otro MD5).": "“%@” has changed on the server since you opened it (different size or MD5).",
         "⚠️ «%@» ha cambiado en el servidor": "⚠️ “%@” has changed on the server",
@@ -2021,7 +2000,6 @@ enum Ingles {
         "✓ Guardado como «%@» junto al original (que no se ha tocado)": "✓ Saved as “%@” next to the original (left untouched)",
         "✗ No se ha podido guardar la copia de «%@»: %@": "✗ Couldn't save the copy of “%@”: %@",
         "«%@» no se ha subido: el servidor y tu copia siguen como estaban": "“%@” hasn't been uploaded: the server and your copy are unchanged",
-        "✗ Quedan cambios sin subir en %@": "✗ Changes not uploaded remain in %@",
         "Mostrar/ocultar el explorador SFTP": "Show/hide the SFTP browser",
         "Explorador SFTP al lado del terminal ssh: mismo equipo, usuario y saltos (⇧⌘B)": "SFTP browser next to the ssh terminal: same host, user and jumps (⇧⌘B)",
         "Ocultar el explorador SFTP": "Hide the SFTP browser",
