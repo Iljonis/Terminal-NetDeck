@@ -576,6 +576,16 @@ struct TerminalSettings: View {
                 Text(L("Selección rectangular: mantén ⌥ y arrastra para elegir sólo unas columnas (p. ej. las IP de un «show ip interface brief»); ⌘C la copia."))
                     .font(t.ui(11)).foregroundStyle(.secondary)
             }
+            Section(L("Pegar")) {
+                Toggle(L("Revisar antes de pegar"), isOn: $s.pasteReview)
+                ThemedPicker(L("Si tiene más de"), selection: $s.pasteReviewLines) { o in
+                    if !PasteReview.thresholds.contains(s.pasteReviewLines) { o.append((s.pasteReviewLines, L("\(String(s.pasteReviewLines)) líneas"))) }
+                    for n in PasteReview.thresholds { o.append((n, n == 1 ? L("1 línea") : L("\(String(n)) líneas"))) }
+                }
+                .disabled(!s.pasteReview)
+                Text(L("Con ⌘V, «Pegar» o el clic derecho, sale una ventana con el texto si pasa de ese número de líneas o lleva órdenes peligrosas (reload, clear ip bgp…). Sólo pregunta: al aceptar se pega entero y de golpe. Apagado, nunca sale, ni con órdenes peligrosas."))
+                    .font(t.ui(11)).foregroundStyle(.secondary)
+            }
         }
         .formStyle(.themed)
         .onChange(of: s.scrollback) { model.applyScrollback() }

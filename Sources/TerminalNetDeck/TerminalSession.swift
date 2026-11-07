@@ -226,6 +226,22 @@ final class NetDeckTerminalView: TerminalView {
         super.setFrameSize(newSize)
     }
 
+    /// Antes de pegar (⌘V, «Pegar», clic derecho): la app mira si hay que revisarlo (`AppModel.reviewPaste`). true = lo
+    /// atiende ella con la ventana de revisión; false, se pega como siempre.
+    var onPaste: ((String) -> Bool)?
+
+    override func paste(_ sender: Any) {
+        if let text = NSPasteboard.general.string(forType: .string), onPaste?(text) == true { return }
+        super.paste(sender)
+    }
+
+    /// Lo revisado y aceptado, entero y de golpe por el mismo camino que ⌘V (entre corchetes si el equipo lo pide). Si el
+    /// portapapeles ha cambiado desde la revisión, va lo revisado, no lo nuevo.
+    func pasteReviewed(_ text: String, changeCount: Int) {
+        let pb = NSPasteboard.general
+        if pb.changeCount == changeCount, pb.string(forType: .string) == text { super.paste(self) } else { pasteText(text) }
+    }
+
     /// Pegar con clic derecho: por `paste(_:)`, el mismo camino que ⌘V (pegado entre corchetes y lo que haga la app
     /// con lo tecleado: MultiExec, Esc…). Con ⌃/⌥, o si el programa del equipo sigue al ratón, como siempre.
     override func rightMouseDown(with event: NSEvent) {

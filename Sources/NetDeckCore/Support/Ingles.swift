@@ -984,6 +984,41 @@ enum Ingles {
             "To all tabs (MultiExec)",
         "Enviar %@ líneas":
             "Send %@ lines",
+        "¿Pegar 1 línea?":
+            "Paste 1 line?",
+        "¿Pegar %@ líneas?":
+            "Paste %@ lines?",
+        "En %@ pestañas a la vez (MultiExec)":
+            "In %@ tabs at once (MultiExec)",
+        "⚠ Lleva %@ orden(es) peligrosa(s): revísalas antes de pegar":
+            "⚠ Contains %@ dangerous command(s): review them before pasting",
+        "Se pega entero y de golpe, como siempre. «Pegado seguro…» lo envía línea a línea esperando al equipo.":
+            "Pasted in one go, as usual. “Safe Paste…” sends it line by line, waiting for the device.",
+        "⎋ Cierra lo que está abierto para revisar y pegar ese texto": "⎋ Close what is open to review and paste that text",
+        "⚠ Ahora va a %@ pestaña(s): no se ha pegado. Revísalo y vuelve a pulsar «Pegar».":
+            "⚠ It now goes to %@ tab(s): nothing was pasted. Review it and press “Paste” again.",
+        "Texto que se va a pegar":
+            "Text to be pasted",
+        "Revisar antes de pegar":
+            "Review before pasting",
+        "Si tiene más de":
+            "If it has more than",
+        "1 línea":
+            "1 line",
+        "Con ⌘V, «Pegar» o el clic derecho, sale una ventana con el texto si pasa de ese número de líneas o lleva órdenes peligrosas (reload, clear ip bgp…). Sólo pregunta: al aceptar se pega entero y de golpe. Apagado, nunca sale, ni con órdenes peligrosas.":
+            "With ⌘V, “Paste” or right-click, a window shows the text if it has more than that number of lines or contains dangerous commands (reload, clear ip bgp…). It only asks: when accepted, it's pasted in one go. Off, it never shows, not even with dangerous commands.",
+        "¿Enviar «%@» a %@ pestañas a la vez?":
+            "Send “%@” to %@ tabs at once?",
+        "Es una orden peligrosa y MultiExec la escribe en todas las pestañas en las que estás tecleando.":
+            "It's a dangerous command and MultiExec types it in every tab you're typing in.",
+        "Enviar a todas":
+            "Send to all",
+        "⎋ «%@» no se ha enviado: sigue escrita (bórrala, o vuelve a pulsar Intro para confirmarla)":
+            "⎋ “%@” not sent: it's still typed (delete it, or press Return again to confirm it)",
+        "Enviar igualmente":
+            "Send anyway",
+        "⎋ Botón «%@»: no se ha enviado":
+            "⎋ Button “%@”: not sent",
         "Usuario en los equipos":
             "User on the devices",
         "(a mano)":

@@ -236,10 +236,11 @@ struct NeonButton: View {
     let icon: String
     var tint: RGB?
     var active = false
+    var role: ButtonRole?
     var action: () -> Void
 
     var body: some View {
-        Button(action: action) { NeonLabel(title: title, icon: icon, tint: tint, active: active) }
+        Button(role: role, action: action) { NeonLabel(title: title, icon: icon, tint: tint, active: active) }
             .buttonStyle(.plain)
     }
 }

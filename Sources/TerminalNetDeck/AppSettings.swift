@@ -114,6 +114,10 @@ final class AppSettings {
     static let pasteOnRightClickKey = "pasteOnRightClick"
     var copyOnSelect: Bool { didSet { d.set(copyOnSelect, forKey: Self.copyOnSelectKey) } }
     var pasteOnRightClick: Bool { didSet { d.set(pasteOnRightClick, forKey: Self.pasteOnRightClickKey) } }
+    /// Revisar antes de pegar (⌘V, «Pegar», clic derecho) si pasa de `pasteReviewLines` líneas o lleva órdenes
+    /// peligrosas (`PasteReview`). Encendido de serie, con 3.
+    var pasteReview: Bool { didSet { d.set(pasteReview, forKey: "pasteReview") } }
+    var pasteReviewLines: Int { didSet { d.set(pasteReviewLines, forKey: "pasteReviewLines") } }
 
     /// Líneas que guarda cada terminal para volver atrás (Ajustes → Terminal); también a las pestañas abiertas.
     var scrollback: Int { didSet { d.set(scrollback, forKey: TerminalHistory.key) } }
@@ -124,6 +128,8 @@ final class AppSettings {
         shareJump = d.object(forKey: Self.shareJumpKey) as? Bool ?? true
         copyOnSelect = d.bool(forKey: Self.copyOnSelectKey)
         pasteOnRightClick = d.bool(forKey: Self.pasteOnRightClickKey)
+        pasteReview = d.object(forKey: "pasteReview") as? Bool ?? true
+        pasteReviewLines = max(1, d.object(forKey: "pasteReviewLines") as? Int ?? PasteReview.defaultThreshold)
         autoUpdateCheck = d.object(forKey: "autoUpdateCheck") as? Bool ?? true
         verifyTransfers = d.object(forKey: "verifyTransfers") as? Bool ?? true
         startupSession = d.string(forKey: "startupSession") ?? ""

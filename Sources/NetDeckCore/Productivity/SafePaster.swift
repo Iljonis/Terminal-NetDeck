@@ -4,17 +4,55 @@ import Foundation
 public enum PasteRules {
     public static let errors = Pattern(#"^\s*(?:error:|% ?invalid|% ?incomplete|% ?ambiguous|% ?unknown command|% ?unrecognized|syntax error|unknown command|bad command name|unrecognized command|invalid input|wrong parameter|failure:)"#)
     public static let pager = Pattern(#"(-+ ?more ?-+|--more--|press any key|<--- more --->|\(more\)|\[more\])\s*$"#)
-    public static let dangerous = Pattern(#"\b(reload|reboot|reset|delete|erase|format|undo|shutdown|clear|rollback|request system|write erase|kill)\b"#)
+    /// Órdenes que reinician, borran, sustituyen la configuración o cortan el acceso (`DangerousCommands`).
+    public static let dangerous = DangerousCommands()
 
-    /// Las líneas a enviar (sin vacías ni finales de línea de Windows).
-    public static func lines(of text: String) -> [String] {
-        text.components(separatedBy: "\n")
-            .map { $0.hasSuffix("\r") ? String($0.dropLast()) : $0 }
-            .filter { !$0.trimmed.isEmpty }
+    /// Las líneas a enviar (sin vacías). Se corta por LF, CRLF y también por un CR solo: en el equipo es un Intro.
+    public static func lines(of text: String) -> [String] { rows(of: text).filter { !$0.trimmed.isEmpty } }
+
+    /// Las líneas tal como llegarían al equipo, también las vacías («\r\n» es un solo `Character`).
+    public static func rows(of text: String) -> [String] {
+        text.split(omittingEmptySubsequences: false) { $0 == "\n" || $0 == "\r" || $0 == "\r\n" }.map(String.init)
     }
 
     /// Las peligrosas (para pedir confirmación ANTES de empezar).
     public static func dangerousLines(in text: String) -> [String] { lines(of: text).filter(dangerous.matches) }
+}
+
+/// ¿Sale la ventana de revisión al pegar (⌘V, «Pegar», clic derecho)? Como el aviso de pegado de varias líneas de
+/// iTerm2, `multiLinePasteWarning` de Windows Terminal o `clipboard-paste-protection` de Ghostty: sólo pregunta; al
+/// aceptar se pega entero y de golpe. Con más de `threshold` líneas no vacías o alguna orden peligrosa. Apagada, nunca
+/// (ni con peligrosas: es criterio del usuario). Si la pestaña pide un secreto, tampoco: lo pegado es la contraseña
+/// («Delete!2024») y no se enseña ni se cuenta.
+public struct PasteReview: Equatable, Sendable {
+    public static let defaultThreshold = 3
+    /// Las que se ofrecen en Ajustes.
+    public static let thresholds = [1, 2, 3, 5, 10, 20, 50]
+
+    /// Las líneas tal como se ven (también las vacías).
+    public let rows: [String]
+    /// Las peligrosas (índices de `rows`), miradas antes de enseñar la ventana.
+    public let dangerous: [Int]
+    /// Las no vacías.
+    public let count: Int
+
+    /// Las líneas del texto tal como llegarían al equipo: también con CR solo (un CR también es un Intro).
+    public static func lines(of text: String) -> [String] { PasteRules.rows(of: text) }
+
+    /// La revisión de `text`, o nil si se pega sin preguntar.
+    public static func review(_ text: String, enabled: Bool, threshold: Int = defaultThreshold,
+                              secretPrompt: Bool = false) -> PasteReview? {
+        guard enabled, !secretPrompt else { return nil }
+        let rows = lines(of: text)
+        let full = rows.indices.filter { !rows[$0].trimmed.isEmpty }
+        let dangerous = full.filter { PasteRules.dangerous.matches(rows[$0]) }
+        guard full.count > max(0, threshold) || !dangerous.isEmpty else { return nil }
+        return PasteReview(rows: rows, dangerous: dangerous, count: full.count)
+    }
+
+    public static func needed(_ text: String, enabled: Bool, threshold: Int = defaultThreshold, secretPrompt: Bool = false) -> Bool {
+        review(text, enabled: enabled, threshold: threshold, secretPrompt: secretPrompt) != nil
+    }
 }
 
 public struct PasteReport: Equatable, Sendable {

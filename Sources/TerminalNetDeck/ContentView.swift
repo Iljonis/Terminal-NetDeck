@@ -68,6 +68,7 @@ struct ContentView: View {
                 switch sheet {
                 case .connect: ConnectSheet()
                 case .paste: PasteSheet()
+                case .pasteReview: PasteReviewSheet(paste: model.pendingPaste)
                 case .list: ListSheet()
                 case .sessions: SessionEditor()
                 case .fill: ButtonFillSheet()

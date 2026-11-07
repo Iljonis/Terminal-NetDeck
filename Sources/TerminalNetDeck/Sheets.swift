@@ -86,6 +86,186 @@ struct PasteSheet: View {
         }
         .padding()
         .frame(width: 560)
+        .onAppear {
+            // (desde la revisión del pegado: su texto, y a todas si iba con MultiExec)
+            guard let d = model.pasteDraft else { return }
+            model.pasteDraft = nil
+            text = d.text
+            toAll = d.toAll
+        }
+    }
+}
+
+/// Revisar antes de pegar (⌘V, «Pegar», clic derecho; Ajustes → Terminal → Pegar): el texto entero, las peligrosas con ⚠
+/// y a dónde va. Sólo pregunta: «Pegar» lo pega entero y de golpe, como siempre; «Cancelar» (Esc), nada. Intro pega sólo
+/// sin peligrosas: con alguna, hace falta el clic (como `AlertKeys`). Es una hoja: le quita el teclado al terminal, así
+/// que ni ese Intro ni ese Esc llegan al equipo ni a MultiExec (y hasta que lo toma, `AppModel.userInput` lo descarta).
+struct PasteReviewSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.theme) private var t
+    /// Lo que se revisa, ya mirado (`AppModel.reviewPaste`): copiado al abrir, para que al cerrar, con
+    /// `model.pendingPaste` ya vacío, la hoja no se quede en blanco; al día si cambia a cuántas pestañas va.
+    @Stored private var p: AppModel.PendingPaste?
+    init(paste: AppModel.PendingPaste?) {
+        _p = Stored(initialValue: paste)
+    }
+
+    var body: some View {
+        let r = p?.review
+        let count = r?.count ?? 0, dangerous = r?.dangerous.count ?? 0
+        let tabs = p?.tabs ?? 1
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: dangerous == 0 ? "doc.on.clipboard" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(SwiftUI.Color(dangerous == 0 ? t.accent : t.warning))
+                    .accessibilityHidden(true)
+                Text(count == 1 ? L("¿Pegar 1 línea?") : L("¿Pegar \(String(count)) líneas?")).font(t.ui(14, .bold))
+                Spacer()
+                Text(p.map { $0.tabs > 1 ? L("En \(String($0.tabs)) pestañas a la vez (MultiExec)") : L("En «\($0.tabTitle)»") } ?? "")
+                    .font(t.ui(12)).foregroundStyle(SwiftUI.Color(tabs > 1 ? t.warning : t.dim))
+                    .lineLimit(1).truncationMode(.middle)
+            }
+            PastedText(review: r, font: Fonts.terminal(family: Fonts.firstInstalled(t.fonts), size: 12),
+                       color: NSColor(t.text), warning: NSColor(t.warning),
+                       onReturn: dangerous == 0 ? { model.acceptPaste() } : nil,
+                       onEscape: { model.closePasteReview() })
+                .themedEditor()
+                .frame(height: min(360, max(120, CGFloat(r?.rows.count ?? 0) * 15 + 16)))
+            if dangerous > 0 {
+                Text(L("⚠ Lleva \(String(dangerous)) orden(es) peligrosa(s): revísalas antes de pegar"))
+                    .font(t.ui(12, .bold)).foregroundStyle(SwiftUI.Color(t.warning))
+            }
+            if p?.moved == true {
+                Text(L("⚠ Ahora va a \(String(tabs)) pestaña(s): no se ha pegado. Revísalo y vuelve a pulsar «Pegar»."))
+                    .font(t.ui(12, .bold)).foregroundStyle(SwiftUI.Color(t.warning))
+            }
+            Text(L("Se pega entero y de golpe, como siempre. «Pegado seguro…» lo envía línea a línea esperando al equipo."))
+                .font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
+            HStack(spacing: 8) {
+                NeonButton(title: L("Pegado seguro…"), icon: "list.bullet", tint: t.dim) { model.safePastePending() }
+                    .help(L("Una a una, esperando al equipo. Se para si da error, si pagina o con Esc."))
+                Spacer()
+                NeonButton(title: L("Cancelar"), icon: "xmark", tint: t.dim) { model.closePasteReview() }
+                    .keyboardShortcut(.cancelAction)
+                // (con peligrosas, Intro no pega: el botón es destructivo y sin atajo, como en `ThemedAlert`)
+                if dangerous > 0 {
+                    NeonButton(title: L("Pegar"), icon: "exclamationmark.triangle", tint: t.bad, role: .destructive) { model.acceptPaste() }
+                } else {
+                    NeonButton(title: L("Pegar"), icon: "checkmark", tint: t.accent, active: true) { model.acceptPaste() }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+        }
+        .padding()
+        .frame(width: 620)
+        .onChange(of: model.pendingPaste) { _, n in if let n { p = n } }
+        .onDisappear { if model.sheet != .pasteReview, model.pendingPaste != nil { model.closePasteReview() } }
+    }
+}
+
+/// El texto pegado, de sólo lectura (`NSTextView`): se puede seleccionar, copiar (⌘C) y buscar (⌘F), y VoiceOver lo lee
+/// entero. Sin ajuste de línea; las peligrosas, con ⚠ y en el color de aviso. Se monta una vez (una configuración
+/// entera puede tener miles de líneas) y sólo se rehace si cambia el texto.
+private struct PastedText: NSViewRepresentable {
+    let review: PasteReview?
+    let font: NSFont
+    let color: NSColor
+    let warning: NSColor
+    /// Intro y Esc con el texto seleccionado: los de los botones (nil = Intro no hace nada, como en la hoja).
+    let onReturn: (() -> Void)?
+    let onEscape: () -> Void
+
+    final class Coordinator { var shown: PasteReview? }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scroll = NSScrollView()
+        scroll.drawsBackground = false
+        scroll.borderType = .noBorder
+        scroll.hasVerticalScroller = true
+        scroll.hasHorizontalScroller = true
+        scroll.autohidesScrollers = true
+        let v = ReadOnlyTextView(frame: .zero)
+        v.isEditable = false
+        v.isSelectable = true
+        v.drawsBackground = false
+        v.usesFindBar = true
+        v.isIncrementalSearchingEnabled = true
+        v.textContainerInset = NSSize(width: 2, height: 4)
+        // (sin ajuste de línea: cada una entera, con barra horizontal)
+        v.isHorizontallyResizable = true
+        v.isVerticallyResizable = true
+        v.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        v.autoresizingMask = [.width, .height]
+        v.textContainer?.widthTracksTextView = false
+        v.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        v.setAccessibilityLabel(L("Texto que se va a pegar"))
+        scroll.documentView = v
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        guard let v = scroll.documentView as? ReadOnlyTextView else { return }
+        v.onReturn = onReturn
+        v.onEscape = onEscape
+        guard context.coordinator.shown != review else { return }
+        context.coordinator.shown = review
+        v.textStorage?.setAttributedString(attributed())
+    }
+
+    private func attributed() -> NSAttributedString {
+        let out = NSMutableAttributedString()
+        guard let review else { return out }
+        let normal: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
+        let bad: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: warning]
+        let dangerous = Set(review.dangerous)
+        for (i, row) in review.rows.enumerated() {
+            let d = dangerous.contains(i)
+            out.append(NSAttributedString(string: (d ? "⚠ " : "  ") + row + (i < review.rows.count - 1 ? "\n" : ""),
+                                          attributes: d ? bad : normal))
+        }
+        return out
+    }
+}
+
+/// El `NSTextView` de `PastedText`: no toma el teclado al abrir la hoja (sólo con un clic en él o con ⌘F), e Intro y Esc
+/// no se los queda (un texto de sólo lectura pitaría y Esc sería «completar»): van a los botones.
+private final class ReadOnlyTextView: NSTextView {
+    var onReturn: (() -> Void)?
+    var onEscape: (() -> Void)?
+    private var wantsFocus = false
+
+    override var acceptsFirstResponder: Bool {
+        guard window?.firstResponder !== self, !wantsFocus else { return true }
+        guard let e = NSApp.currentEvent, e.type == .leftMouseDown, e.window === window else { return false }
+        return true
+    }
+
+    override func keyDown(with e: NSEvent) {
+        let mods = e.modifierFlags.intersection([.command, .option, .control, .shift])
+        switch (e.keyCode, mods.isEmpty) {
+        case (36, true), (76, true): onReturn?()                     // Intro y el del teclado numérico
+        case (53, true): onEscape?()                                 // Esc
+        default: super.keyDown(with: e)
+        }
+    }
+
+    /// ⌘F y ⌘G desde cualquier sitio de la hoja (el «Buscar» del menú es el de la salida del terminal y está apagado).
+    override func performKeyEquivalent(with e: NSEvent) -> Bool {
+        let mods = e.modifierFlags.intersection([.command, .option, .control, .shift])
+        let action: NSTextFinder.Action? = switch (e.charactersIgnoringModifiers?.lowercased(), mods) {
+        case ("f", [.command]): .showFindInterface
+        case ("g", [.command]): .nextMatch
+        case ("g", [.command, .shift]): .previousMatch
+        default: nil
+        }
+        guard let action, e.window === window else { return super.performKeyEquivalent(with: e) }
+        wantsFocus = true
+        window?.makeFirstResponder(self)
+        let item = NSMenuItem()
+        item.tag = action.rawValue
+        performTextFinderAction(item)
+        return true
     }
 }
 

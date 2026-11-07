@@ -8,7 +8,7 @@ import Observation
 @MainActor @Observable
 final class AppModel {
     enum Sheet: String, Identifiable {
-        case connect, paste, list, sessions, fill, logs, macros, tunnels, workspaces
+        case connect, paste, pasteReview, list, sessions, fill, logs, macros, tunnels, workspaces
         var id: String { rawValue }
     }
 
@@ -145,6 +145,10 @@ final class AppModel {
     }
     /// Botón con huecos esperando a que los rellenes.
     var pendingButton: CommandButton?
+    /// Lo que espera en la ventana de revisión del pegado (`PasteReviewSheet`; una por ventana).
+    var pendingPaste: PendingPaste?
+    /// El texto con el que se abre «Pegado seguro…» desde la revisión, y si iba a todas (lo recoge `PasteSheet`).
+    @ObservationIgnored var pasteDraft: (text: String, toAll: Bool)?
     /// Sugerencia o elección manual pendiente en cada pestaña.
     var notices: [TerminalSession.ID: PasswordAutomation.Event] = [:]
     /// «Guardar la que has escrito»: la hoja de credencial nueva ya con ella puesta.
@@ -849,6 +853,10 @@ final class AppModel {
         s.onTypedPassword = { [weak self] s, c in self?.offerToSave(c, from: s) }
         s.offerTypedPassword = { [weak self] in self?.settings.offerSaveTyped ?? false }
         s.onInput = { [weak self] s, bytes in self?.userInput(bytes, in: s) ?? false }
+        s.view.onPaste = { [weak self, weak s] text in
+            guard let self, let s else { return false }
+            return self.reviewPaste(text, in: s)
+        }
         s.onReconnect = { [weak self] s in self?.reconnect(s) }
         s.onCloseRequest = { [weak self] s in self?.close(s) }
         s.confirmHop = { [weak self] s, r in await self?.confirmHop(s, r) ?? false }
@@ -1327,6 +1335,12 @@ final class AppModel {
             w.makeFirstResponder(nil)
             return true
         }
+        // (mientras se revisa un pegado o se pregunta por una orden peligrosa, lo tecleado en la pestaña no va al equipo
+        // ni a MultiExec: la hoja o el aviso tardan un instante en quitarle el teclado. Sólo lo que llega por teclado,
+        // con su ventana delante; las respuestas automáticas del terminal, como con Ajustes, siguen)
+        if pendingPaste != nil || confirmingEnter == s.id, let w = s.view.window, w.isKeyWindow, w.firstResponder === s.view {
+            return true
+        }
         if AbortKey.isAbort(bytes) { s.cancelPasswordContext() }
         if s.passwords.offer != nil, SecretPrompt.asks(s.cursorLine) { s.cancelPasswordContext() }
         // (si el usuario empieza a contestar durante la lectura automática, ésta ya no puede mezclar su secreto)
@@ -1349,6 +1363,10 @@ final class AppModel {
             runButton(b)
             return true
         }
+        if multiExecOn, let d = multiExec.dangerousEnter(bytes, from: s) {
+            confirmDangerousEnter(d.command, tabs: d.tabs, bytes: bytes, from: s)
+            return true                                               // (el Intro, sólo si se confirma)
+        }
         if recording == s.id { recorder?.feed(bytes, from: s) }      // (sólo lo tecleado; nunca lo que escribe la app)
         guard multiExecOn else { return false }
         let sent = multiExec.broadcast(bytes, from: s)
@@ -1356,6 +1374,114 @@ final class AppModel {
             DebugLog.log("multiexec", "Intro desde «\(s.title)» → \(multiExecTargets.map(\.title).joined(separator: ", "))")
         }
         return sent
+    }
+
+    /// La pestaña desde la que se está preguntando por un Intro de MultiExec con una orden peligrosa.
+    @ObservationIgnored private var confirmingEnter: TerminalSession.ID?
+
+    /// MultiExec: Intro en una orden peligrosa que iría a varias pestañas (`MultiExecGroup.dangerousEnter`). Se pregunta
+    /// con la orden y a cuántas va (Intro no confirma: el botón es destructivo); si se cancela, el Intro no sale y la
+    /// línea sigue escrita.
+    private func confirmDangerousEnter(_ cmd: String, tabs n: Int, bytes: [UInt8], from s: TerminalSession) {
+        confirmingEnter = s.id
+        DebugLog.log("multiexec", "Intro con una orden peligrosa desde «\(s.title)» a \(n) pestañas: se pregunta")
+        Task {
+            let ok = await ThemedAlert.confirm(L("¿Enviar «\(cmd)» a \(n) pestañas a la vez?"),
+                                               message: L("Es una orden peligrosa y MultiExec la escribe en todas las pestañas en las que estás tecleando."),
+                                               ok: L("Enviar a todas"), destructive: true, over: window)
+            confirmingEnter = nil
+            if s.view.window === window { window?.makeFirstResponder(s.view) }
+            guard ok else { status = L("⎋ «\(cmd)» no se ha enviado: sigue escrita (bórrala, o vuelve a pulsar Intro para confirmarla)"); return }
+            // (puede haber cambiado mientras: sin MultiExec o con la pestaña cerrada no se envía a nadie)
+            guard multiExecOn, tabs.contains(where: { $0 === s }), !s.exited else { return }
+            if recording == s.id { recorder?.feed(bytes, from: s) }
+            if multiExec.broadcast(bytes, from: s) {
+                DebugLog.log("multiexec", "Intro confirmado desde «\(s.title)» → \(n) pestañas")
+            }
+        }
+    }
+
+    // MARK: - revisar antes de pegar (⌘V, «Pegar», clic derecho)
+
+    struct PendingPaste: Equatable {
+        let text: String
+        /// Sus líneas y las peligrosas, miradas antes de enseñar la hoja (no se puede aceptar antes de ver el ⚠).
+        let review: PasteReview
+        let tab: TerminalSession.ID
+        let tabTitle: String
+        /// El del portapapeles al revisarlo (si cambia, se pega lo revisado, no lo nuevo).
+        let changeCount: Int
+        /// A cuántas pestañas va (1 = ésta; más, con MultiExec).
+        var tabs: Int
+        /// Ha cambiado a cuántas pestañas va desde que se abrió: «Pegar» no pegó y la hoja lo avisa.
+        var moved = false
+    }
+
+    /// A cuántas pestañas iría ahora lo pegado en `s`.
+    private func pasteReach(_ s: TerminalSession) -> Int { multiExecOn ? multiExec.reach(from: s) : 1 }
+
+    /// Antes de pegar en `s` (`NetDeckTerminalView.paste`): true = sale la ventana de revisión (`PasteReview`); false,
+    /// se pega como siempre. Si la pestaña pide un secreto, no: lo pegado es la contraseña y no se enseña.
+    func reviewPaste(_ text: String, in s: TerminalSession) -> Bool {
+        // (con una secuencia en marcha, lo descarta `userInput` como siempre)
+        guard !automationReservation.contains(s.id), !s.exited else { return false }
+        let secret = SecretPrompt.asks(s.cursorLine) || (multiExecOn && multiExec.awaitingAuth(s))
+        guard let r = PasteReview.review(text, enabled: settings.pasteReview, threshold: settings.pasteReviewLines,
+                                         secretPrompt: secret) else { return false }
+        // Con algo abierto (también el renombrado de una credencial en otra ventana) no cabe la hoja: no se pega sin
+        // revisar, se avisa.
+        if modalOpen {
+            status = L("⎋ Cierra lo que está abierto para revisar y pegar ese texto")
+            return true
+        }
+        let n = pasteReach(s)
+        pendingPaste = PendingPaste(text: text, review: r, tab: s.id, tabTitle: s.tabTitle,
+                                    changeCount: NSPasteboard.general.changeCount, tabs: n)
+        DebugLog.log("pegar", "revisión antes de pegar en «\(s.title)» (\(n) pestañas)")      // (nunca el texto)
+        // (hasta que la hoja tome el teclado, nada tecleado llega al equipo: se lo quita ya al terminal)
+        if let w = s.view.window, w.firstResponder === s.view { w.makeFirstResponder(nil) }
+        sheet = .pasteReview
+        return true
+    }
+
+    /// «Pegar» en la revisión: entero y de golpe, por el mismo camino que ⌘V. Si mientras tanto ha cambiado a cuántas
+    /// pestañas iría (MultiExec), no se pega: la hoja se queda con el número nuevo.
+    func acceptPaste() {
+        guard var p = pendingPaste else { return }
+        guard let s = tab(p.tab), !s.exited else { closePasteReview(); return }
+        let n = pasteReach(s)
+        guard n == p.tabs else {
+            p.tabs = n
+            p.moved = true
+            pendingPaste = p
+            DebugLog.log("pegar", "revisión: ahora va a \(n) pestañas; se vuelve a preguntar")
+            return
+        }
+        pendingPaste = nil
+        sheet = nil
+        DispatchQueue.main.async {
+            s.view.window?.makeFirstResponder(s.view)
+            s.view.pasteReviewed(p.text, changeCount: p.changeCount)
+        }
+    }
+
+    /// «Cancelar» (o cerrar) la revisión: nada se pega y el teclado vuelve al terminal.
+    func closePasteReview() {
+        let s = pendingPaste.flatMap { tab($0.tab) }
+        pendingPaste = nil
+        if sheet == .pasteReview { sheet = nil }
+        guard let s else { return }
+        DispatchQueue.main.async { if s.view.window === self.window { self.window?.makeFirstResponder(s.view) } }
+    }
+
+    /// «Pegado seguro…» en la revisión: el mismo texto, línea a línea.
+    func safePastePending() {
+        guard let p = pendingPaste else { return }
+        pendingPaste = nil
+        pasteDraft = (p.text, p.tabs > 1)
+        // (el teclado, de vuelta a su terminal en la ventana: al cerrar «Pegado seguro…» sigue ahí)
+        if let s = tab(p.tab), s.view.window === window { window?.makeFirstResponder(s.view) }
+        sheet = .paste
     }
 
     // MARK: - túneles
@@ -1583,8 +1709,7 @@ final class AppModel {
             return
         }
         let cmd = values.map(b.filled) ?? b.command
-        // (con MultiExec, no a las que se están autenticando: lo escrito iría como contraseña)
-        let targets = multiExecOn ? multiExecTargets.filter(multiExec.accepts) : (current.map { [$0] } ?? []).filter(macroAccepts)
+        let targets = buttonTargets()
         if b.mode != .session, targets.contains(where: { automationReservation.contains($0.id) }) {
             status = L("⏳ La pestaña ya tiene una secuencia en marcha; pulsa Esc para cortarla"); return
         }
@@ -1607,11 +1732,32 @@ final class AppModel {
             targets.forEach { $0.send(cmd) }
         case .run:
             let lines = cmd.components(separatedBy: " ;; ").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-            if lines.count == 1 {
-                targets.forEach { $0.sendLine(lines[0]) }
-            } else {
-                Task { await paste(lines.joined(separator: "\n"), allowDangerous: true, toAll: multiExecOn) }
+            let dangerous = lines.filter(PasteRules.dangerous.matches)
+            guard dangerous.isEmpty else {
+                // (cada pulsación pregunta; también en las pestañas locales, donde los botones funcionan a propósito)
+                Task {
+                    let names = targets.map(\.title).joined(separator: ", ")
+                    guard await ThemedAlert.confirm(L("«\(b.name)» lleva órdenes peligrosas"),
+                                                    message: dangerous.prefix(5).joined(separator: "\n") + L("\n\nEn: \(names)"),
+                                                    ok: L("Enviar igualmente"), destructive: true, over: window) else {
+                        status = L("⎋ Botón «\(b.name)»: no se ha enviado")
+                        current?.view.window?.makeFirstResponder(current?.view)
+                        return
+                    }
+                    // (tras el aviso pueden haberse cerrado o haber empezado a autenticarse: se vuelve a mirar)
+                    let live = buttonTargets()
+                    guard !live.isEmpty, !live.contains(where: { automationReservation.contains($0.id) }) else {
+                        status = L("✗ Botón «\(b.name)»: ninguna pestaña puede recibirlo ahora")
+                        current?.view.window?.makeFirstResponder(current?.view)
+                        return
+                    }
+                    run(lines, in: live)
+                    status = "▶ \(b.name)" + (live.count > 1 ? " ×\(live.count)" : "")
+                    current?.view.window?.makeFirstResponder(current?.view)
+                }
+                return
             }
+            run(lines, in: targets)
         case .pass:
             guard let s = current else { return }
             // (lo que no es una del Llavero no se enseña ni se registra: puede ser la contraseña escrita a la vista)
@@ -1661,6 +1807,21 @@ final class AppModel {
         }
         if b.mode != .session { status = "▶ \(b.name)" + (targets.count > 1 ? " ×\(targets.count)" : "") }
         current?.view.window?.makeFirstResponder(current?.view)
+    }
+
+    /// A quién va un botón: la pestaña activa o, con MultiExec, las que aceptan lo repartido (no las que se están
+    /// autenticando: lo escrito iría como contraseña).
+    private func buttonTargets() -> [TerminalSession] {
+        multiExecOn ? multiExecTargets.filter(multiExec.accepts) : (current.map { [$0] } ?? []).filter(macroAccepts)
+    }
+
+    /// Las órdenes de un botón `.run`: una sola, tal cual; varias, con el pegado seguro (ya confirmadas).
+    private func run(_ lines: [String], in targets: [TerminalSession]) {
+        if lines.count == 1 {
+            targets.forEach { $0.sendLine(lines[0]) }
+        } else {
+            Task { await paste(lines.joined(separator: "\n"), allowDangerous: true, toAll: multiExecOn) }
+        }
     }
 
     /// Pestañas con un botón de login en marcha.
