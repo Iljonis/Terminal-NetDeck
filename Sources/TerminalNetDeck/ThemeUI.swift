@@ -145,7 +145,7 @@ final class ThemeStore {
 }
 
 /// Lo que trae la app: dentro del .app (Contents/Resources/…) o, con «swift run», la carpeta del proyecto.
-enum AppResources {
+nonisolated enum AppResources {
     static func directory(_ name: String) -> URL? {
         let fm = FileManager.default
         if let r = Bundle.main.resourceURL?.appendingPathComponent(name), fm.fileExists(atPath: r.path) { return r }
@@ -261,7 +261,7 @@ struct NeonLine: View {
 }
 
 /// Pestaña con la esquina superior derecha cortada (chaflán) o, en los temas de sistema, redondeada.
-struct ChamferShape: Shape {
+nonisolated struct ChamferShape: Shape {
     var cut: CGFloat = 9
     var radius: CGFloat?
 

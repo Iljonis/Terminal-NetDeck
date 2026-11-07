@@ -185,9 +185,9 @@ extension ContentView {
                 guard n.count == 4 else { return }
                 try? await Task.sleep(for: .milliseconds(800))
                 let v = s.view
-                func drag(_ a: (Int, Int), _ b: (Int, Int), option: Bool) {
+                @MainActor func drag(_ a: (Int, Int), _ b: (Int, Int), option: Bool) {   // (las funciones locales de un cierre no heredan su actor)
                     let flags: NSEvent.ModifierFlags = option ? .option : []
-                    func ev(_ type: NSEvent.EventType, _ c: (Int, Int)) -> NSEvent? {
+                    @MainActor func ev(_ type: NSEvent.EventType, _ c: (Int, Int)) -> NSEvent? {
                         NSEvent.mouseEvent(with: type, location: v.convert(v.point(ofCell: c.0, c.1), to: nil), modifierFlags: flags,
                                            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: v.window?.windowNumber ?? 0,
                                            context: nil, eventNumber: 0, clickCount: 1, pressure: 1)
@@ -723,7 +723,7 @@ struct TabChip: View {
     /// El que le toca en la barra (todas igual de anchas); el título se corta por el centro si no cabe.
     var width: CGFloat = TopBar.tabMax
     /// El espacio de coordenadas de la fila y a quién decirle dónde está la ✕ (ahí no empieza el arrastre).
-    var dragSpace: AnyHashable = 0
+    let dragSpace: UUID
     var onCloseFrame: (CGRect?) -> Void = { _ in }
     @Stored private var hover = false
 
@@ -760,7 +760,7 @@ struct TabChip: View {
                 .buttonStyle(TabCloseStyle(color: selected ? t.onTab : t.accent2, corner: t.neon ? 3 : 5))
                 .help(L("Cerrar la pestaña"))
                 .accessibilityLabel(L("Cerrar «\(session.tabTitle)»"))
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(dragSpace)) } action: { onCloseFrame($0) }
+                .onGeometryChange(for: CGRect.self) { [dragSpace] in $0.frame(in: .named(dragSpace)) } action: { onCloseFrame($0) }
                 .onDisappear { onCloseFrame(nil) }
                 .snapshotFrame("x:\(session.id)")
             }

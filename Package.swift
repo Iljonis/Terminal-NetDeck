@@ -3,9 +3,11 @@
 import PackageDescription
 
 // Concurrencia de Swift 6.2 («approachable concurrency»): las funciones async sin actor corren en el de quien las
-// llama (SE-0461). Lo que deba ir fuera del principal (copias, MD5, edición remota) lleva `@concurrent`.
+// llama (SE-0461) y los tipos @MainActor pueden cumplir protocolos sin actor sólo en el principal (SE-0470). Lo que
+// deba ir fuera del principal (copias, MD5, edición remota) lleva `@concurrent`.
 let concurrencia62: [SwiftSetting] = [
     .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+    .enableUpcomingFeature("InferIsolatedConformances"),
 ]
 
 let package = Package(
@@ -22,11 +24,11 @@ let package = Package(
     targets: [
         // Lógica sin interfaz: sesiones y saltos, Llavero y regla de usuario, Esc, pegado seguro, MultiExec, listas
         .target(name: "NetDeckCore", swiftSettings: concurrencia62),
-        // La app (SwiftUI)
+        // La app (SwiftUI): todo en el hilo principal salvo lo que se marque nonisolated o @concurrent (SE-0466)
         .executableTarget(name: "TerminalNetDeck", dependencies: [
             "NetDeckCore",
             .product(name: "SwiftTerm", package: "SwiftTerm"),
-        ], swiftSettings: concurrencia62),
+        ], swiftSettings: concurrencia62 + [.defaultIsolation(MainActor.self)]),
         .testTarget(name: "NetDeckCoreTests", dependencies: ["NetDeckCore"], swiftSettings: concurrencia62),
     ]
 )

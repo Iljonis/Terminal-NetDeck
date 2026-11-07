@@ -123,7 +123,7 @@ public struct SSHConfigParser: Sendable {
 
     /// «Clave valor», «Clave=valor», «Clave = "valor"» → ("clave", "valor").
     static func option(_ line: String) -> (String, String)? {
-        guard var (key, value) = directive(line) else { return nil }
+        guard case (let key, var value)? = directive(line) else { return nil }
         if value.count >= 2, value.hasPrefix("\""), value.hasSuffix("\"") { value = String(value.dropFirst().dropLast()) }
         return (key, value)
     }

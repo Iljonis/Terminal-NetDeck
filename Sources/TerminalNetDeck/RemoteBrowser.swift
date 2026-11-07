@@ -565,7 +565,7 @@ final class TransferJob: Identifiable {
 
 /// Refresca el destino entre archivo y archivo, como mucho cada `TransferCenter.showEvery` (las copias de muchos
 /// archivos pequeños no se pasan el rato listando).
-private final class ShowCopied: @unchecked Sendable {
+nonisolated private final class ShowCopied: @unchecked Sendable {
     private let clock = ContinuousClock()
     private var last: ContinuousClock.Instant
     private let show: @MainActor () -> Void
@@ -603,11 +603,11 @@ final class TransferCenter {
         let job = TransferJob(title: entries.count == 1 ? entries[0].name : L("\(entries.count) elementos"),
                               from: src.label, to: "\(dst.label):\(dir)")
         let verify = verify()
+        let shown = ShowCopied { [weak self] in self?.showCopied?(dst, dir) }   // (aquí: la copia no retiene `self`)
         run(job, destination: (dst, dir)) { job in
             let items = try await Self.plan(entries, in: src)
             await MainActor.run { job.total = items.compactMap(\.size).reduce(0, +) }
             let origin = SourceGuard.remote(src, to: dst)                       // (el origen, de sólo lectura)
-            let shown = ShowCopied { [weak self] in self?.showCopied?(dst, dir) }
             for it in items {
                 try Task.checkCancellation()
                 guard RemoteOps.isSafeRelative(it.relative) else { continue }  // (nombres del origen que saldrían de `dir`)
@@ -664,11 +664,11 @@ final class TransferCenter {
         let job = TransferJob(title: urls.count == 1 ? urls[0].lastPathComponent : L("\(urls.count) elementos"),
                               from: L("Este Mac"), to: "\(dst.label):\(dir)")
         let verify = verify()
+        let shown = ShowCopied { [weak self] in self?.showCopied?(dst, dir) }
         run(job, destination: (dst, dir)) { job in
             let items = try Self.localPlan(urls)
             await MainActor.run { job.total = items.compactMap(\.size).reduce(0, +) }
             let origin = SourceGuard.local(to: dst)                             // (SFTP al propio Mac: misma carpeta)
-            let shown = ShowCopied { [weak self] in self?.showCopied?(dst, dir) }
             for it in items {
                 try Task.checkCancellation()
                 guard RemoteOps.isSafeRelative(it.relative) else { continue }
