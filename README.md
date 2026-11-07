@@ -9,10 +9,10 @@ y 51 temas. Nativo, rápido y en tu idioma.
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.9.11](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.11)** · macOS 15 o posterior ·
+Versión actual: **[v0.9.12](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.12)** · macOS 15 o posterior ·
 código abierto (MIT)
 
-[![Versión](https://img.shields.io/badge/versión-v0.9.11-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.11)
+[![Versión](https://img.shields.io/badge/versión-v0.9.12-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.12)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,23 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - **Explorador SFTP/FTP** con copias atómicas, verificación MD5 integrada y envío de servidor a servidor.
 - **Multipestaña** con vista dividida, MultiExec y pegado seguro; **51 temas** con contraste WCAG.
 - **Sesiones con saltos** sobre tu `ssh_config` y contraseñas sólo en el Llavero de macOS.
+
+### Novedades de 0.9.12
+
+- **Revisar antes de pegar:** al pegar más de 3 líneas (o algo con órdenes peligrosas) sale una ventana con el texto
+  para revisarlo. **Intro** pega y **Esc** cancela; se pega entero y de golpe, como siempre, así que una configuración
+  completa entra sin límites. Se desactiva o se cambia el número de líneas en **Ajustes → Terminal → Pegar**. Si el
+  equipo pide una contraseña, no sale la ventana.
+- **MultiExec y botones más seguros:** un `reload`, `clear ip bgp *` o `write erase` tecleado con MultiExec pregunta
+  antes de enviarse a varias pestañas, y los botones con órdenes peligrosas piden confirmación.
+- **Órdenes peligrosas mejor detectadas:** se miran al principio de la orden y sin el prompt, con abreviaturas de IOS
+  (`reloa`, `wr er`, `shu`) y órdenes de Junos, Huawei, Nokia SR-OS y Linux. `show`, `no shutdown`, `clear counters`
+  o `clear ip bgp * soft` ya no preguntan.
+- **Resaltado más fino:** contadores de errores de IOS en rojo sólo si no son 0, estados BGP `Active`/`Idle` en rojo,
+  paradas intencionadas (`administratively down`, `Idle (Admin)`) en gris, syslog de IOS-XR y Huawei, más tipos de
+  interfaz y menos falsos positivos. La regla de interfaces es hasta 5 veces más rápida.
+- **Los colores dicen su nombre real:** en Ajustes y en el editor de reglas, cada color muestra el nombre del color
+  que se ve en el tema (si cambias «cyan» a verde, pone «verde»), con su muestra al lado.
 
 ### Novedades de 0.9.11
 

@@ -9,10 +9,10 @@ and 51 themes. Native, fast and in your language.
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v0.9.11](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.11)** · macOS 15 or later ·
+Current version: **[v0.9.12](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.12)** · macOS 15 or later ·
 open source (MIT)
 
-[![Version](https://img.shields.io/badge/version-v0.9.11-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.11)
+[![Version](https://img.shields.io/badge/version-v0.9.12-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.12)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,23 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - **SFTP/FTP browser** with atomic copies, built-in MD5 verification and server-to-server transfers.
 - **Multi-tab** with split view, MultiExec and safe paste; **51 themes** with WCAG contrast.
 - **Sessions with jump hosts** on top of your `ssh_config`, passwords only in the macOS Keychain.
+
+### New in 0.9.12
+
+- **Review before pasting:** pasting more than 3 lines (or anything with dangerous commands) opens a window to review
+  the text. **Return** pastes and **Esc** cancels; it is pasted whole and in one go, as usual, so a full configuration
+  goes in without limits. Turn it off or change the number of lines in **Settings → Terminal → Paste**. It does not
+  show up while the device is asking for a password.
+- **Safer MultiExec and buttons:** a `reload`, `clear ip bgp *` or `write erase` typed with MultiExec asks before it
+  goes to several tabs, and buttons with dangerous commands ask for confirmation.
+- **Better dangerous-command detection:** commands are checked from their start and without the prompt, including IOS
+  abbreviations (`reloa`, `wr er`, `shu`) and Junos, Huawei, Nokia SR-OS and Linux commands. `show`, `no shutdown`,
+  `clear counters` and `clear ip bgp * soft` no longer ask.
+- **Finer highlighting:** IOS error counters in red only when not 0, BGP `Active`/`Idle` states in red, intentional
+  shutdowns (`administratively down`, `Idle (Admin)`) in grey, IOS-XR and Huawei syslog, more interface types and
+  fewer false positives. The interface rule is up to 5 times faster.
+- **Colours show their real name:** in Settings and in the rule editor each colour shows the name of the colour you
+  actually see in the theme (change «cyan» to green and it says «green»), with its swatch next to it.
 
 ### New in 0.9.11
 
