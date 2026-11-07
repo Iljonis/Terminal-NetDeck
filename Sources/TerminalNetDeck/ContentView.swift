@@ -288,6 +288,15 @@ extension ContentView {
             if a == "tuneles:iniciar" { model.tunnels.tunnels.forEach(model.startTunnel) }
             model.sheet = .tunnels
         }
+        if a == "pegar" {                            // «pegar»: la revisión antes de pegar, 5 líneas con un «reload» (⚠)
+            let s = model.open(ConnectionRoute.local(shell: "/bin/sh"))
+            Task { @MainActor in                     // (sin tocar el portapapeles: el texto va directo a la revisión)
+                for _ in 0..<40 where s.revision == 0 { try? await Task.sleep(for: .milliseconds(50)) }
+                try? await Task.sleep(for: .milliseconds(300))
+                _ = model.reviewPaste("interface GigabitEthernet0/0/1\n description enlace a core-01\n"
+                                      + " ip address 192.0.2.1 255.255.255.0\n no shutdown\nreload\n", in: s)
+            }
+        }
         if a == "sesion-nueva" { model.editSessions(.new(group: nil, kind: .telnet)) }
         if a.hasPrefix("settings") { model.openSettings(a.split(separator: ":").dropFirst().first.map(String.init) ?? "contraseñas") }
         if a.hasPrefix("split") {                    // «split»: 3 pestañas en 1 + 2 con MultiExec

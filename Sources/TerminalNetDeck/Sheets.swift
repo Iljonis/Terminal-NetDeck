@@ -164,7 +164,8 @@ struct PasteReviewSheet: View {
 }
 
 /// El texto pegado, de sólo lectura (`NSTextView`): se puede seleccionar, copiar (⌘C) y buscar (⌘F), y VoiceOver lo lee
-/// entero. Sin ajuste de línea; las peligrosas, con ⚠ y en el color de aviso, y los caracteres de control, a la vista.
+/// entero. Sin ajuste de línea; las peligrosas, en el color de aviso y con ⚠ en una columna aparte (`WarningRuler`,
+/// fuera del texto: ⌘C copia las líneas tal cual, sin marcas ni sangría), y los caracteres de control, a la vista.
 /// Se monta una vez (una configuración entera puede tener miles de líneas) y sólo se rehace si cambia el texto.
 private struct PastedText: NSViewRepresentable {
     let review: PasteReview?
@@ -201,6 +202,11 @@ private struct PastedText: NSViewRepresentable {
         v.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         v.setAccessibilityLabel(L("Texto que se va a pegar"))
         scroll.documentView = v
+        let ruler = WarningRuler(scrollView: scroll, orientation: .verticalRuler)
+        ruler.clientView = v
+        scroll.verticalRulerView = ruler
+        scroll.hasVerticalRuler = true
+        scroll.rulersVisible = true
         return scroll
     }
 
@@ -210,22 +216,78 @@ private struct PastedText: NSViewRepresentable {
         v.onEscape = onEscape
         guard context.coordinator.shown != review else { return }
         context.coordinator.shown = review
-        v.textStorage?.setAttributedString(attributed())
+        let (text, marks) = attributed()
+        v.textStorage?.setAttributedString(text)
+        if let ruler = scroll.verticalRulerView as? WarningRuler {
+            ruler.marks = marks
+            ruler.color = warning
+            ruler.needsDisplay = true
+        }
+        // (VoiceOver: sin el ⚠ en el texto, qué líneas son)
+        let lines = review?.dangerous.map { String($0 + 1) }.joined(separator: ", ") ?? ""
+        v.setAccessibilityHelp(lines.isEmpty ? nil : L("Órdenes peligrosas en las líneas \(lines)"))
     }
 
-    private func attributed() -> NSAttributedString {
+    /// El texto y dónde empieza cada línea peligrosa (para su ⚠ en la regla).
+    private func attributed() -> (NSAttributedString, [Int]) {
         let out = NSMutableAttributedString()
-        guard let review else { return out }
+        guard let review else { return (out, []) }
         let normal: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
         let bad: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: warning]
         let dangerous = Set(review.dangerous)
+        var marks: [Int] = []
         for (i, row) in review.rows.enumerated() {
             let d = dangerous.contains(i)
+            if d { marks.append(out.length) }
             // (los caracteres de control, a la vista: «ls␈␈reboot» no es lo que parece)
-            out.append(NSAttributedString(string: (d ? "⚠ " : "  ") + PasteRules.visible(row) + (i < review.rows.count - 1 ? "\n" : ""),
+            out.append(NSAttributedString(string: PasteRules.visible(row) + (i < review.rows.count - 1 ? "\n" : ""),
                                           attributes: d ? bad : normal))
         }
-        return out
+        return (out, marks)
+    }
+}
+
+/// La columna de los ⚠ de `PastedText`, a la izquierda y quieta al desplazarse en horizontal: una regla de la vista y
+/// no una sangría en el texto, para que lo que se copia sea lo pegado.
+private final class WarningRuler: NSRulerView {
+    /// Dónde empieza (en el texto) cada línea peligrosa.
+    var marks: [Int] = []
+    var color = NSColor.systemOrange
+
+    override init(scrollView: NSScrollView?, orientation: NSRulerView.Orientation) {
+        super.init(scrollView: scrollView, orientation: orientation)
+        ruleThickness = 18
+        reservedThicknessForMarkers = 0
+        reservedThicknessForAccessoryView = 0
+        // (al desplazarse en vertical, los ⚠ con sus líneas)
+        if let clip = scrollView?.contentView {
+            clip.postsBoundsChangedNotifications = true
+            NotificationCenter.default.addObserver(self, selector: #selector(scrolled), name: NSView.boundsDidChangeNotification, object: clip)
+        }
+        setAccessibilityElement(false)
+    }
+
+    required init(coder: NSCoder) { fatalError("init(coder:) no se usa") }
+
+    @objc private func scrolled() { needsDisplay = true }
+
+    override var isOpaque: Bool { false }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let v = clientView as? NSTextView, let lm = v.layoutManager, let tc = v.textContainer else { return }
+        let length = v.textStorage?.length ?? 0
+        let font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        let mark = NSAttributedString(string: "⚠", attributes: [.font: font, .foregroundColor: color])
+        let size = mark.size()
+        lm.ensureLayout(for: tc)
+        for start in marks where start < length {
+            let glyph = lm.glyphIndexForCharacter(at: start)
+            var line = lm.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+            line.origin.y += v.textContainerOrigin.y
+            let r = convert(line, from: v)
+            guard r.intersects(dirtyRect) else { continue }
+            mark.draw(at: NSPoint(x: (bounds.width - size.width) / 2, y: r.midY - size.height / 2))
+        }
     }
 }
 
@@ -301,7 +363,7 @@ struct ListSheet: View {
                 CredentialEditorSheet(ref: nil, namedOnly: true) { ref, result in credential = ref.account; message = result }
             }
             .onAppear {
-                if embedded { model.settingsLeave = (token, { await confirmLeave() }) }
+                if embedded { model.settingsLeave = (token, { dirty }, { await confirmLeave() }) }
                 guard !loaded else { return }
                 loaded = true
                 load()

@@ -123,8 +123,9 @@ final class AppModel {
     var modalOpen: Bool { sheet != nil || showSettings || showSetup || core.renamingCredential }
     var settingsTab = "contraseñas"
     /// La sección de Ajustes abierta con cambios sin guardar (Sesiones, Listas) pregunta antes de cambiar de sección o
-    /// cerrar (`true`: se puede salir). `owner`: la vista que lo puso (sólo ella lo quita).
-    @ObservationIgnored var settingsLeave: (owner: UUID, check: @MainActor () async -> Bool)?
+    /// cerrar (`true`: se puede salir). `owner`: la vista que lo puso (sólo ella lo quita). `pending`: al momento y sin
+    /// preguntar, si hay algo que preguntar (para ⌘Q: `AppDelegate.applicationShouldTerminate`).
+    @ObservationIgnored var settingsLeave: (owner: UUID, pending: @MainActor () -> Bool, check: @MainActor () async -> Bool)?
     /// ★ favoritas y ↻ recientes: los mismos archivos que NetDeck (~/.config/netdeck/favoritas, recientes).
     var favorites: [String] {
         get { core.favorites }
@@ -606,40 +607,33 @@ final class AppModel {
     private static var recentsFile: URL { AppPaths.netdeck.appendingPathComponent("recientes") }
 
     func loadFavorites() {
-        favorites = ((try? String(contentsOf: Self.favoritesFile, encoding: .utf8)) ?? "")
-            .components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        var seen = Set<String>()
-        recents = ((try? String(contentsOf: Self.recentsFile, encoding: .utf8)) ?? "")
-            .components(separatedBy: .newlines).reversed()
-            .compactMap { $0.split(separator: "\t").last.map(String.init) }
-            .filter { !$0.isEmpty && seen.insert($0).inserted }
-            .prefix(10).map { $0 }
+        do { favorites = try SessionLists.loadFavorites(Self.favoritesFile) } catch {
+            // (no se pisa al marcar otra: `saveFavorites` hace la copia y falla igual)
+            ErrorLog.error("favoritas", "no se pueden leer: \(error.localizedDescription)")
+        }
+        recents = SessionLists.recents(((try? SafeFile.read(Self.recentsFile)) ?? nil) ?? "")
     }
 
     func toggleFavorite(_ name: String) {
         if favorites.contains(name) { favorites.removeAll { $0 == name } } else { favorites.append(name) }
         AppPaths.ensure(AppPaths.netdeck)
         do {
-            try SafeFile.write(favorites.joined(separator: "\n") + (favorites.isEmpty ? "" : "\n"), to: Self.favoritesFile)
+            try SessionLists.saveFavorites(favorites, to: Self.favoritesFile)
         } catch {
             ErrorLog.error("favoritas", "no se han podido guardar: \(error.localizedDescription)")
+            status = L("✗ No se han podido guardar las favoritas: \(error.localizedDescription)")
         }
     }
 
     private func noteRecent(_ name: String) {
         recents.removeAll { $0 == name }
         recents.insert(name, at: 0)
-        if recents.count > 10 { recents.removeLast() }
+        if recents.count > SessionLists.recentShown { recents.removeLast() }
         // (las capturas de desarrollo no tocan tus recientes, como tampoco tus pestañas)
         guard ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil else { return }
         AppPaths.ensure(AppPaths.netdeck)
-        let line = "\(Int(Date().timeIntervalSince1970))\t\(name)\n"
-        if let h = try? FileHandle(forWritingTo: Self.recentsFile) {
-            _ = try? h.seekToEnd()
-            try? h.write(contentsOf: Data(line.utf8))
-            try? h.close()
-        } else {
-            try? line.write(to: Self.recentsFile, atomically: true, encoding: .utf8)
+        do { try SessionLists.noteRecent(name, in: Self.recentsFile) } catch {
+            ErrorLog.error("recientes", "no se han podido guardar: \(error.localizedDescription)")
         }
     }
 
@@ -1054,6 +1048,13 @@ final class AppModel {
         guard !ids.isEmpty else { return }
         let i = ids.firstIndex { $0 == selection } ?? 0
         selection = ids[(i + step + ids.count) % ids.count]
+        current?.view.window?.makeFirstResponder(current?.view)
+    }
+
+    /// ⌘1…⌘9: la pestaña de ese número en la barra (⌘9, la última), como al elegirla con un clic.
+    func selectTab(number n: Int) {
+        guard let i = TabShortcut.index(n, count: tabs.count) else { return }
+        show(tabs[i])
         current?.view.window?.makeFirstResponder(current?.view)
     }
 

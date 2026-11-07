@@ -30,7 +30,7 @@ struct LogSearchSheet: View {
                 Button(L("Buscar"), action: search).keyboardShortcut(.defaultAction)
                 if searching { ProgressView().controlSize(.small) }
             }
-            Text(L("\(hits.count)\(hits.count >= 500 ? "+" : "") líneas en \(AppPaths.tilde(model.settings.logPath))"))
+            Text(L("\(hits.count)\(hits.count >= Self.maxHits ? "+" : "") líneas en \(AppPaths.tilde(model.settings.logPath))"))
                 .font(.caption).foregroundStyle(.secondary)
             HSplitView {
                 List(hits, selection: $selected) { h in
@@ -108,18 +108,30 @@ struct LogSearchSheet: View {
                 p.standardOutput = pipe
                 p.standardError = FileHandle.nullDevice
                 guard (try? p.run()) != nil else { continue }
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                p.waitUntilExit()
-                for l in String(decoding: data, as: UTF8.self).split(separator: "\n") {
+                // (a trozos y con tope: con 500 aciertos o al cerrar la hoja se para grep; nunca su salida entera en
+                // memoria, ni una línea enorme de un registro)
+                var lines = LineSplitter(maxLine: Self.maxLine)
+                func add(_ l: String) {
                     let parts = l.split(separator: ":", maxSplits: 2, omittingEmptySubsequences: false)
-                    guard parts.count == 3, let n = Int(parts[1]) else { continue }
+                    guard parts.count == 3, let n = Int(parts[1]) else { return }
                     out.append(Hit(file: URL(fileURLWithPath: String(parts[0])), line: n, text: String(parts[2])))
-                    if out.count >= 500 { return out }
                 }
+                let h = pipe.fileHandleForReading
+                while out.count < Self.maxHits, !Task.isCancelled, case let d = h.availableData, !d.isEmpty {
+                    for l in lines.feed(d) where out.count < Self.maxHits { add(l) }
+                }
+                if out.count < Self.maxHits, !Task.isCancelled { lines.finish().forEach(add) }
+                if p.isRunning { p.terminate() }
+                p.waitUntilExit()
+                if out.count >= Self.maxHits || Task.isCancelled { return out }
             }
         }
         return out
     }
+
+    /// Los aciertos que se enseñan como mucho, y el largo (en bytes) de cada línea.
+    nonisolated static let maxHits = 500
+    nonisolated static let maxLine = 4096
 
     /// Una MAC en cualquier formato → la expresión que encaja con todos.
     nonisolated static func macPattern(_ q: String) -> String? {

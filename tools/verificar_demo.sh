@@ -158,6 +158,9 @@ caso password-selector-en  en papel         password-selector
 caso credencial-bloqueada     es neo-tokyo credencial-bloqueada
 caso credencial-bloqueada-en  en papel     credencial-bloqueada
 caso ajustes-terminal      es neo-tokyo     settings:terminal
+caso ajustes-pegar         en papel         settings:terminal:pegar
+caso pegar-revision        es neo-tokyo     pegar
+caso pegar-revision-en     en papel         pegar
 caso ajustes-temas         es neo-tokyo     settings:temas
 caso ajustes-resaltado     es neo-tokyo     settings:resaltado
 caso ajustes-botones       es neo-tokyo     settings:botones

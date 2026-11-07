@@ -139,6 +139,13 @@ struct NetDeckCommands: Commands {
             Divider()
             Button(L("Pestaña siguiente")) { onFront { $0.selectNext(1) } }.keyboardShortcut("]", modifiers: [.command, .shift]).disabled(modal)
             Button(L("Pestaña anterior")) { onFront { $0.selectNext(-1) } }.keyboardShortcut("[", modifiers: [.command, .shift]).disabled(modal)
+            Menu(L("Ir a la pestaña")) {
+                ForEach(1...9, id: \.self) { n in
+                    Button(n == 9 ? L("Última pestaña") : L("Pestaña \(String(n))")) { onFront { $0.selectTab(number: n) } }
+                        .keyboardShortcut(KeyEquivalent(Character(String(n))))
+                        .disabled(modal || TabShortcut.index(n, count: model?.tabs.count ?? 0) == nil)
+                }
+            }
             Button(L("Mostrar/ocultar sesiones")) { core.settings.sidebarVisible.toggle() }
                 .keyboardShortcut("s", modifiers: [.command, .control])
             Divider()
@@ -244,6 +251,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         MainActor.assumeIsolated {
             let core = AppCore.shared
+            // (Ajustes con cambios sin guardar: su aviso es async y no cabe en `.terminateLater`, que deja el bucle en
+            // el modo de los paneles. Se cancela esta salida, se pregunta como al cerrar Ajustes y, si se guarda o se
+            // descarta, se vuelve a salir: con Ajustes ya cerrados, sigue por las conexiones abiertas)
+            if !Self.quitWithoutAsking, ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil,
+               let m = core.attachedWindows.first(where: { $0.showSettings && $0.settingsLeave?.pending() == true }),
+               let leave = m.settingsLeave {
+                guard !Self.askingQuit else { return .terminateCancel }
+                Self.askingQuit = true
+                m.window?.makeKeyAndOrderFront(nil)
+                NSApp.activate()
+                Task { @MainActor in
+                    let ok = await leave.check()
+                    AppDelegate.askingQuit = false
+                    guard ok else { return }
+                    m.showSettings = false
+                    NSApp.terminate(nil)
+                }
+                return .terminateCancel
+            }
             let live = core.allTabs.filter { !$0.exited && $0.route.asksBeforeQuit }.count
             guard live > 0, !Self.quitWithoutAsking, ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT"] == nil else {
                 core.willTerminate()
