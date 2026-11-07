@@ -1,0 +1,92 @@
+name: "🐞 Error · Bug report"
+description: "Algo no funciona como debería · Something doesn't work as it should"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Sin datos reales, por favor.** Usa `192.0.2.x`, `198.51.100.x`, `203.0.113.x`, `tu.usuario`, `core-01` o `bastion`; nunca IPs, equipos, usuarios ni contraseñas de verdad. ¿Es de seguridad? No lo publiques aquí: [Report a vulnerability](https://github.com/Iljonis/Terminal-NetDeck/security/advisories/new).
+
+        **No real data, please.** Use `192.0.2.x`, `198.51.100.x`, `203.0.113.x`, `tu.usuario`, `core-01` or `bastion`; never real IPs, hosts, users or passwords. Security issue? Don't post it here: [Report a vulnerability](https://github.com/Iljonis/Terminal-NetDeck/security/advisories/new).
+  - type: input
+    id: version
+    attributes:
+      label: "Versión de Terminal NetDeck · Terminal NetDeck version"
+      description: "Ajustes → General → Actualizaciones · Settings → General → Updates"
+      placeholder: "0.9.12"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: "Versión de macOS · macOS version"
+      placeholder: "macOS 26.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: mac
+    attributes:
+      label: "Mac"
+      options:
+        - "Apple silicon (M1, M2…)"
+        - "Intel (compilada desde el código · built from source)"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: "¿Dónde? · Where?"
+      options:
+        - "SSH / Telnet / terminal"
+        - "Contraseñas, Llavero, autopass · Passwords, Keychain, autopass"
+        - "Saltos, bastión, túneles · Jump hosts, bastion, tunnels"
+        - "Explorador SFTP/FTP · SFTP/FTP browser"
+        - "MultiExec, pegado, botones, listas · MultiExec, paste, buttons, lists"
+        - "Resaltado · Highlighting"
+        - "Temas, fuentes · Themes, fonts"
+        - "Pestañas, ventanas · Tabs, windows"
+        - "Gestor de sesiones, importar · Session manager, import"
+        - "Consola serie · Serial console"
+        - "Instalación, actualizaciones · Install, updates"
+        - "Otro · Other"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: "¿Qué ha pasado? · What happened?"
+      description: "Y qué esperabas que pasara · And what you expected instead"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Pasos para reproducirlo · Steps to reproduce"
+      placeholder: |
+        1. ⌘K → tu.usuario@192.0.2.11
+        2. …
+    validations:
+      required: true
+  - type: textarea
+    id: equipo
+    attributes:
+      label: "Equipo remoto (si aplica) · Remote device (if relevant)"
+      description: "Fabricante y sistema, p. ej. Cisco IOS-XE 17.x, Junos 23.x, Nokia SR-OS · Vendor and OS"
+  - type: textarea
+    id: log
+    attributes:
+      label: "Registro de errores · Error log"
+      description: "Ayuda → Abrir el registro de errores (no lleva contraseñas, pero revisa que no haya IPs ni nombres reales) · Help → Open the error log (it has no passwords, but check for real IPs or names)"
+      render: shell
+  - type: textarea
+    id: captura
+    attributes:
+      label: "Capturas · Screenshots"
+      description: "Opcional, sin datos reales · Optional, without real data"
+  - type: checkboxes
+    id: datos
+    attributes:
+      label: "Comprobación · Check"
+      options:
+        - label: "He quitado los datos reales (IPs, equipos, usuarios, contraseñas) · I removed real data (IPs, hosts, users, passwords)"
+          required: true

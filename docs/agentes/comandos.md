@@ -28,6 +28,9 @@ Léelo cuando vayas a ejecutar algo más que `swift build` / `./test.sh`, o a ha
   `explorador:vista`, `pestañas:N`, `terminal`, `pegar` (la revisión antes de pegar) o `settings:terminal:pegar`
   (Ajustes → Terminal, abajo). `NETDECK_HOME` cambia la carpeta personal: nunca captures con tus
   datos reales (sesiones, recientes, pestañas).
+- La imagen social de GitHub (1280 × 640, Settings → Social preview) sale de la portada en inglés:
+  `swift tools/imagen_social.swift` → `docs/capturas/social-preview.png`. `tools/capturas.sh` la rehace con la
+  portada; si cambia, el autor la vuelve a subir.
 - Explorador sin ssh ni red: `NETDECK_SFTP_SERVER=/usr/libexec/sftp-server NETDECK_SFTP_DIR=<carpeta>`.
 - Con `NETDECK_SNAPSHOT`, la terminal local arranca `/bin/sh` sin login y con un prompt de ejemplo
   (`TerminalSession.launch`): una de login enseñaría tu usuario y el nombre del Mac. La demo de espacios falla si

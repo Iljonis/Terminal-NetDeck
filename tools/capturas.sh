@@ -55,6 +55,11 @@ captura explorador     es explorador:vista
 
 [ "$fallos" = 0 ] || exit 1
 
+# (la imagen social de GitHub, de la portada en inglés: el autor la sube en Settings → Social preview)
+if [ -z "${SOLO:-}" ] || [[ portada-en == *"$SOLO"* ]]; then
+  swift tools/imagen_social.swift "$OUT/portada-en.png" "$OUT/social-preview.png" || exit 1
+fi
+
 # (la barra de pestañas, sola: la terminal no sale en estas capturas)
 [ -z "${SOLO:-}" ] || [[ pestanas == *"$SOLO"* ]] || exit 0
 swift tools/recortar.swift "$OUT/pestanas.png" "$OUT/pestanas.png" 72 && echo "✓ $OUT/pestanas.png (barra)"

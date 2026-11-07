@@ -1,0 +1,42 @@
+name: "✨ Idea · Feature request"
+description: "Propón una función o una mejora · Suggest a feature or an improvement"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por la idea. Mira antes la [hoja de ruta](https://github.com/Iljonis/Terminal-NetDeck#hoja-de-ruta-hacia-la-100) y los [issues abiertos](https://github.com/Iljonis/Terminal-NetDeck/issues). Ejemplos sólo con `192.0.2.x`, `tu.usuario`, `core-01`.
+
+        Thanks for the idea. Please check the [roadmap](https://github.com/Iljonis/Terminal-NetDeck/blob/main/README.en.md#roadmap-to-100) and [open issues](https://github.com/Iljonis/Terminal-NetDeck/issues) first. Examples only with `192.0.2.x`, `tu.usuario`, `core-01`.
+  - type: textarea
+    id: problema
+    attributes:
+      label: "¿Qué problema resuelve? · What problem does it solve?"
+      description: "Cuéntalo con un caso de tu día a día · Describe it with a real-life case"
+      placeholder: "Cuando abro 20 switches detrás de bastion… · When I open 20 switches behind bastion…"
+    validations:
+      required: true
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: "¿Cómo te gustaría que funcionara? · How would you like it to work?"
+    validations:
+      required: true
+  - type: textarea
+    id: ahora
+    attributes:
+      label: "¿Cómo lo haces ahora? · How do you do it today?"
+      description: "Otra app (SecureCRT, MobaXterm, iTerm2…), un script o a mano · Another app, a script or by hand"
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Área · Area"
+      options:
+        - "Sesiones, saltos · Sessions, jump hosts"
+        - "Contraseñas · Passwords"
+        - "MultiExec, pegado, botones, macros · MultiExec, paste, buttons, macros"
+        - "SFTP/FTP"
+        - "Resaltado, temas · Highlighting, themes"
+        - "Pestañas, ventanas · Tabs, windows"
+        - "Accesibilidad · Accessibility"
+        - "Otro · Other"
