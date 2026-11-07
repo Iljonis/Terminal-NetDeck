@@ -1,0 +1,8 @@
+# Botón «Sponsor» de GitHub: desactivado. Si el autor lo quiere, quita el «#» de la plataforma que use (y nada más):
+# GitHub muestra el botón en el repositorio en cuanto hay una línea activa.
+# Sponsor button on GitHub: disabled. To turn it on, uncomment the platform you use.
+#
+# github: [Iljonis]
+# ko_fi: tu_usuario
+# buy_me_a_coffee: tu_usuario
+# custom: ["https://example.com/donar"]
