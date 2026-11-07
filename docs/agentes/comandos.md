@@ -25,7 +25,8 @@ Léelo cuando vayas a ejecutar algo más que `swift build` / `./test.sh`, o a ha
 - Las del README se hacen con `tools/capturas.sh`. A mano: `NETDECK_HOME=<carpeta temporal con tools/demo>`
   `NETDECK_SNAPSHOT=/ruta.png` y, si hace falta, `NETDECK_SNAPSHOT_ACTION=` con uno de estos valores:
   `settings:general`, `settings:botones`, `tab:usuario@equipo`, `setup:0`, `sesion-nueva`, `explorador`,
-  `explorador:vista`, `pestañas:N` o `terminal`. `NETDECK_HOME` cambia la carpeta personal: nunca captures con tus
+  `explorador:vista`, `pestañas:N`, `terminal`, `pegar` (la revisión antes de pegar) o `settings:terminal:pegar`
+  (Ajustes → Terminal, abajo). `NETDECK_HOME` cambia la carpeta personal: nunca captures con tus
   datos reales (sesiones, recientes, pestañas).
 - Explorador sin ssh ni red: `NETDECK_SFTP_SERVER=/usr/libexec/sftp-server NETDECK_SFTP_DIR=<carpeta>`.
 - Con `NETDECK_SNAPSHOT`, la terminal local arranca `/bin/sh` sin login y con un prompt de ejemplo

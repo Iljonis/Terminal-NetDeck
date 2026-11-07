@@ -986,6 +986,7 @@ enum Ingles {
         "⎋ Cierra lo que está abierto para revisar y pegar ese texto": "⎋ Close what is open to review and paste that text",
         "⚠ Ahora va a %@ pestaña(s): no se ha pegado. Revísalo y vuelve a pulsar «Pegar».":
             "⚠ It now goes to %@ tab(s): nothing was pasted. Review it and press “Paste” again.",
+        "Órdenes peligrosas en las líneas %@": "Dangerous commands on lines %@",
         "Texto que se va a pegar":
             "Text to be pasted",
         "Revisar antes de pegar":

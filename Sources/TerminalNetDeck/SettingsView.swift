@@ -588,6 +588,9 @@ struct TerminalSettings: View {
             }
         }
         .formStyle(.themed)
+        // (capturas: «settings:terminal:pegar», con la sección Pegar, la última, a la vista)
+        .defaultScrollAnchor(ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_ACTION"] == "settings:terminal:pegar" ? .bottom : nil,
+                            for: .initialOffset)
         .onChange(of: s.scrollback) { model.applyScrollback() }
     }
 }
