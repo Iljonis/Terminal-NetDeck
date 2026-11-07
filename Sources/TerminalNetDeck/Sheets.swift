@@ -301,7 +301,7 @@ struct ListSheet: View {
                 CredentialEditorSheet(ref: nil, namedOnly: true) { ref, result in credential = ref.account; message = result }
             }
             .onAppear {
-                if embedded { model.settingsLeave = (token, { await confirmLeave() }) }
+                if embedded { model.settingsLeave = (token, { dirty }, { await confirmLeave() }) }
                 guard !loaded else { return }
                 loaded = true
                 load()

@@ -111,10 +111,10 @@ struct SFTPSidePanelView: View {
         }
         .frame(width: 6)
         .contentShape(Rectangle())
-        .onHover { inside in
-            hover = inside
-            if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
-        }
+        .onHover { hover = $0 }
+        // (el cursor, de SwiftUI: con push/pop en onHover se quedaba pegado si el panel se cerraba con el ratón encima
+        // o si salía y entraba sin emparejar)
+        .pointerStyle(.columnResize)
         .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
             .onChanged { v in
                 let start = dragStart ?? SFTPPanelLayout.clamp(panel.width, available: Double(available))

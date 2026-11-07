@@ -304,7 +304,24 @@ public struct ButtonFile: Sendable {
         return out
     }
 
+    /// Un botón por línea: un salto de línea en el grupo, el nombre o la orden (p. ej. una contraseña pegada con su
+    /// Intro) lo partiría en líneas mal escritas, y un trozo de la contraseña quedaría suelto en el archivo.
+    public struct LineBreak: LocalizedError, Equatable {
+        public let button: String
+        public var errorDescription: String? {
+            L("«\(button)» lleva un salto de línea: en botones.txt cada botón va en una sola línea (varias órdenes, con « ;; »)")
+        }
+    }
+
+    /// El primer botón con un salto de línea (también \r, \r\n o U+2028), si lo hay.
+    public var lineBreak: LineBreak? {
+        buttons.first { [$0.group, $0.name, $0.command, $0.hotkey ?? ""].contains { $0.contains(where: \.isNewline) } }
+            .map { LineBreak(button: $0.name.filter { !$0.isNewline }) }
+    }
+
+    /// Si algún botón lleva un salto de línea, error y no se toca el archivo (`lineBreak`).
     public func save(to url: URL = ButtonFile.defaultURL) throws {
+        if let lineBreak { throw lineBreak }
         _ = AppPaths.ensure(url.deletingLastPathComponent())    // (0700: puede llevar contraseñas escritas en botones)
         try SafeFile.backup(url)                         // (si no se puede leer o copiar, no se toca)
         try SafeFile.write(render(), to: url)

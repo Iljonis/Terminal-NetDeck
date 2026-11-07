@@ -434,10 +434,10 @@ struct ButtonEditor: View {
                     setMode(id, .clave, command: nil)
                 }
             } else {
-                // (una línea: un salto de línea pegado rompería botones.txt)
+                // (una línea: un salto de línea pegado rompería botones.txt; «\r\n» es un solo carácter, de ahí `isNewline`)
                 LabeledContent(L("Contraseña")) {
                     SecureField("", text: Binding(get: { file.buttons[i].command },
-                                                  set: { file.buttons[i].command = $0.filter { $0 != "\n" && $0 != "\r" } }))
+                                                  set: { file.buttons[i].command = $0.filter { !$0.isNewline } }))
                         .frame(maxWidth: 380)
                 }
                 HStack {

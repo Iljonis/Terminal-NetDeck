@@ -292,6 +292,9 @@ enum Ingles {
             "Next Tab",
         "Pestaña anterior":
             "Previous Tab",
+        "Ir a la pestaña": "Go to Tab",
+        "Pestaña %@": "Tab %@",
+        "Última pestaña": "Last Tab",
         "Mostrar/ocultar sesiones":
             "Show/Hide Sessions",
         "Cancelar lo automático (Esc)":
@@ -1999,6 +2002,9 @@ enum Ingles {
         "✗ Sin conexión: no se ha guardado la copia de «%@»": "✗ No connection: the copy of “%@” hasn't been saved",
         "✓ Guardado como «%@» junto al original (que no se ha tocado)": "✓ Saved as “%@” next to the original (left untouched)",
         "✗ No se ha podido guardar la copia de «%@»: %@": "✗ Couldn't save the copy of “%@”: %@",
+        "✗ No se han podido guardar las favoritas: %@": "✗ Couldn't save the favorites: %@",
+        "«%@» lleva un salto de línea: en botones.txt cada botón va en una sola línea (varias órdenes, con « ;; »)":
+            "“%@” contains a line break: in botones.txt each button goes on a single line (several commands, with “ ;; ”)",
         "«%@» no se ha subido: el servidor y tu copia siguen como estaban": "“%@” hasn't been uploaded: the server and your copy are unchanged",
         "Mostrar/ocultar el explorador SFTP": "Show/hide the SFTP browser",
         "Explorador SFTP al lado del terminal ssh: mismo equipo, usuario y saltos (⇧⌘B)": "SFTP browser next to the ssh terminal: same host, user and jumps (⇧⌘B)",

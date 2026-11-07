@@ -323,7 +323,8 @@ struct ThemedPicker<Value: Hashable>: View {
                 ThemedMenuPanel(close: { open = false }) {
                     ForEach(Array(options.enumerated()), id: \.offset) { _, o in
                         Button { selection = o.value } label: {
-                            Label(o.label, systemImage: o.value == selection ? "checkmark" : "")
+                            // (la marca siempre, a la vista o no: un `systemImage` vacío no es un símbolo y avisa)
+                            Label { Text(o.label) } icon: { Image(systemName: "checkmark").opacity(o.value == selection ? 1 : 0) }
                         }
                     }
                 }

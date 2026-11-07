@@ -60,7 +60,7 @@ struct SessionEditor: View {
         .frame(maxWidth: embedded ? .infinity : nil, maxHeight: embedded ? .infinity : nil)
         .background(SwiftUI.Color(t.background))
         .onAppear {
-            if embedded { model.settingsLeave = (token, { await confirmLeave() }) }
+            if embedded { model.settingsLeave = (token, { dirty || gate.blocks(.close) != nil }, { await confirmLeave() }) }
             guard !loaded else { return }
             loaded = true
             load()
