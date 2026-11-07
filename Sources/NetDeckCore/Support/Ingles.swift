@@ -1836,16 +1836,31 @@ enum Ingles {
             "Drop to move to %@",
         "✗ Carpeta de destino no válida":
             "✗ Invalid destination folder",
-        "Elegir el color «%@»":
-            "Choose the “%@” color",
+        "Elegir el color de «f.%@»":
+            "Choose the color of “f.%@”",
+        "«f.%@»: %@": "“f.%@”: %@",
         "Volver al color del tema":
             "Back to the theme color",
         "Colores del resaltado (tema «%@»)":
             "Highlight colors (theme “%@”)",
         "Volver a los del tema":
             "Back to the theme ones",
-        "Sólo cambian el texto que colorea el resaltado en el terminal, y sólo con este tema: la interfaz y los demás temas siguen igual. Las reglas dicen el nombre («f.green»); aquí eliges qué verde es.":
-            "Only the text the highlighting colors in the terminal changes, and only with this theme: the interface and the other themes stay as they are. Rules say the name (“f.green”); here you choose which green it is.",
+        "Sólo cambian el texto que colorea el resaltado en el terminal, y sólo con este tema: la interfaz y los demás temas siguen igual. Las reglas piden el hueco («f.green»): aquí eliges su color, y el nombre de al lado dice el que se ve.":
+            "Only the text the highlighting colors in the terminal changes, and only with this theme: the interface and the other themes stay as they are. Rules ask for the slot (“f.green”): here you choose its color, and the name next to it says the one you see.",
+        "rojo": "red",
+        "naranja": "orange",
+        "amarillo": "yellow",
+        "verde": "green",
+        "cian": "cyan",
+        "azul": "blue",
+        "morado": "purple",
+        "magenta": "magenta",
+        "rosa": "pink",
+        "blanco": "white",
+        "gris": "gray",
+        "negro": "black",
+        "%@ claro": "light %@",
+        "%@ oscuro": "dark %@",
         "Añadir las nuevas de serie (%@)":
             "Add the new built-in ones (%@)",
         "✓ Añadidas: %@":

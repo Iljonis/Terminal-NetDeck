@@ -233,6 +233,75 @@ public struct HighlightConfig: Sendable {
     }
 }
 
+/// El tono que se ve de un color: los selectores del resaltado lo nombran así y no por su hueco («f.cyan»), que según
+/// el tema puede ser rosa (como los huecos ANSI con nombre fijo de iTerm2 o Windows Terminal, más su muestra).
+public enum Tono: Sendable, CaseIterable {
+    case rojo, naranja, amarillo, verde, cian, azul, morado, magenta, rosa, blanco, gris, negro
+
+    public var nombre: String {
+        switch self {
+        case .rojo: L("rojo")
+        case .naranja: L("naranja")
+        case .amarillo: L("amarillo")
+        case .verde: L("verde")
+        case .cian: L("cian")
+        case .azul: L("azul")
+        case .morado: L("morado")
+        case .magenta: L("magenta")
+        case .rosa: L("rosa")
+        case .blanco: L("blanco")
+        case .gris: L("gris")
+        case .negro: L("negro")
+        }
+    }
+}
+
+extension RGB {
+    /// Su tono (por el matiz HSL; casi sin color, blanco, gris o negro) y si es claro (1), oscuro (-1) o ninguno (0).
+    public var tono: (tono: Tono, luz: Int) {
+        let mx = max(r, g, b) / 255, mn = min(r, g, b) / 255
+        let c = mx - mn, l = (mx + mn) / 2
+        let s = c == 0 ? 0 : c / (1 - abs(2 * l - 1))
+        if l < 0.12 { return (.negro, 0) }
+        // (casi sin color: los lilas apagados, #b9b9dc o #7a5f9a, ya no; un blanco con un toque, #e6e3ff, sí)
+        if c < 0.10 || s < 0.15 || (l > 0.9 && c < 0.15) {
+            return l > 0.85 ? (.blanco, 0) : l < 0.2 ? (.negro, 0) : (.gris, l > 0.7 ? 1 : l < 0.3 ? -1 : 0)
+        }
+        let (rr, gg, bb) = (r / 255, g / 255, b / 255)
+        var h = mx == rr ? 60 * (gg - bb) / c : mx == gg ? 60 * ((bb - rr) / c + 2) : 60 * ((rr - gg) / c + 4)
+        if h < 0 { h += 360 }
+        let t: Tono = switch h {
+        case ..<12: .rojo
+        case ..<40: .naranja
+        case ..<70: .amarillo
+        case ..<165: .verde
+        case ..<200: .cian
+        case ..<255: .azul
+        case ..<285: .morado
+        case ..<330: .magenta
+        case ..<345: .rosa
+        default: .rojo
+        }
+        // (un amarillo apagado y oscuro se ve verde oliva, #859900 o #b8bb26; un rojo muy claro, rosa, #ffc0cb)
+        if t == .amarillo, h >= 55, l < 0.45 { return (.verde, l < 0.25 ? -1 : 0) }
+        if t == .rojo || t == .rosa, l > 0.75 { return (.rosa, l > 0.8 ? 1 : 0) }
+        return (t, l > 0.8 ? 1 : l < 0.25 ? -1 : 0)
+    }
+
+    /// «verde», «rosa claro», «azul oscuro»…: el nombre del color que se ve.
+    public var nombre: String {
+        let (t, luz) = tono
+        let base = t.nombre
+        return luz > 0 ? L("\(base) claro") : luz < 0 ? L("\(base) oscuro") : base
+    }
+
+    /// Contraste WCAG con `o` (1…21; menos de 3, mal para leer).
+    public func contraste(_ o: RGB) -> Double {
+        let (a, b) = (luminance, o.luminance)
+        return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+    }
+}
+
 extension Theme {
     /// La paleta del resaltado sacada del tema (el mismo reparto que hace «tema» en NetDeck).
     public var highlightPalette: [String: RGB] {

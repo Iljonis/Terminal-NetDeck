@@ -84,9 +84,18 @@ rules:
   color: f.red bold
 
 # ── ERRORES Y CONTADORES ────────────────────────────────────────────────────
+# (nombre delante: Junos «Input errors: 12», Huawei «CRC: 3», ifconfig «RX errors 3», ethtool «rx_crc_errors: 12»;
+#  sin «:», un solo espacio: con dos, el número es del contador siguiente, como en NX-OS «0 CRC  5 no buffer»; salvo si
+#  detrás sólo quedan números, las columnas de Junos «CRC/Align errors   5   0»)
 - description: Contador de errores distinto de cero
-  regex: (?i)\b(input errors|output errors|errors?|crc|drops?|dropped|discards?|collisions|overruns?|runts|giants|frame|ignored|aborts?|resets?|flaps?)(\s*[:=]?\s*)([1-9][\d,]*)\b
+  regex: (?i)\b(input errors|output errors|errors?|crc|drops?|dropped|discards?|collisions|overruns?|runts|giants|frame|ignored|aborts?|resets?|flaps?|carrier transitions|[rt]x_\w{0,40}?(?:errors?|crc|drops?|dropped|discards?|missed)\w{0,40}+)(\s*[:=]\s*|[ \t]|[ \t]{2,}(?=[1-9][\d,]*(?:[ \t]+[\d,]+)*[ \t\r]*$))([1-9][\d,]*)\b
   color: {1: f.orange, 3: f.red bold}
+  exclusive: true
+# (número delante: IOS «12 input errors, 10 CRC», NX-OS «5 no buffer», IOS-XR «12 total input drops»; no el de «dropped 3
+#  overruns» ni «4 output buffers swapped out»)
+- description: Contador de errores distinto de cero (número delante, IOS)
+  regex: (?i)(?=[1-9])(?<![a-z:=] )(?<![\w.,/:-])([1-9](?:[\d,]*\d)?) ((?:input |output |late |short |bad etype |bad proto |if down |unknown protocol |interface |output buffer |lost |no |total input |total output )?(?:errors?|crc|frame|overruns?|underruns?|ignored|aborts?|runts|giants|throttles|collisions?|babbles?|carrier(?: transitions)?|buffer|resets|failures|drops?|discards?|watchdog|parity))\b
+  color: {1: f.red bold, 2: f.orange}
   exclusive: true
 - description: Errores de Linux
   regex: (?i)permission denied|no such file or directory|command not found|connection refused|connection timed out|no route to host|host is unreachable|network is unreachable|name or service not known|segmentation fault|out of memory|killed process|traceback \(most recent call last\)|read-only file system|no space left on device|authentication failed|access denied
@@ -102,6 +111,10 @@ rules:
 - description: Syslog Cisco informativo (%FAC-5..7-MSG)
   regex: '%[A-Z0-9_]+-[5-7]-[A-Z0-9_]+'
   color: f.cyan
+  exclusive: true
+- description: Syslog IOS-XR y Huawei (%FAC-SUB-0..7-MSG · %%01MOD/0..7/MSG)
+  regex: '(%[A-Z0-9_]+-[A-Z0-9_]+-[0-3]-[A-Z0-9_]+|%%\d\d[A-Z0-9_]+/[0-3]/[A-Za-z0-9_]+(?:\([a-z]\))?)|(%[A-Z0-9_]+-[A-Z0-9_]+-4-[A-Z0-9_]+|%%\d\d[A-Z0-9_]+/4/[A-Za-z0-9_]+(?:\([a-z]\))?)|(%[A-Z0-9_]+-[A-Z0-9_]+-[5-7]-[A-Z0-9_]+|%%\d\d[A-Z0-9_]+/[5-7]/[A-Za-z0-9_]+(?:\([a-z]\))?)'
+  color: {1: f.red bold, 2: f.orange bold, 3: f.cyan}
   exclusive: true
 - description: Alarmas Nokia SR-OS (CRITICAL · MAJOR · MINOR · WARNING · CLEARED)
   regex: \b(CRITICAL|MAJOR|FLAG_NOK)\b|\b(MINOR|WARNING|INDETERMINATE)\b|\b(CLEARED|FLAG_OK)\b
@@ -126,14 +139,25 @@ rules:
   regex: inactive \(dead\)|disabled;|activating \([\w-]+\)|deactivating
   color: f.orange bold
   exclusive: true
+# (una parada a propósito no es una avería: «apagado», no rojo; la línea «shutdown» de la configuración, también)
+- description: Parada intencionada (administratively down · admin down · Idle (Admin) · *down)
+  regex: (?im)\badministratively down\b|\badmin[ -]?down\b|\b(?:Idle|Shut) \(Admin\)|\*down\b(?<![\w*^]\*down)|^[ \t]*shutdown[ \t\r]*$
+  color: f.dim bold
+  exclusive: true
+# (columna de estado de «show ip bgp summary» de IOS, Junos, Huawei y Nokia, y «BGP state = …» o «State: … Flags:»)
+- description: BGP sin sesión (Active · Idle · Connect)
+  regex: (?m)^[ \t]*(?:\d{1,3}(?:\.\d{1,3}){3}|[0-9A-Fa-f]{0,4}(?::[0-9A-Fa-f]{0,4}){2,7}|\d+)[ \t](?:.*[ \t])?(Active|Idle|Connect|OpenSent|OpenConfirm)(?:[ \t]*\((?:PfxCt|NoNeg|NoNem)\))?(?:[ \t]+\d+)?[ \t\r]*$|\bBGP (?:current )?state\s*[=:]\s*(Active|Idle|Connect|OpenSent|OpenConfirm)\b|\bState: (Active|Idle|Connect|OpenSent|OpenConfirm)(?=\s+Flags:)
+  color: {1: f.red bold, 2: f.red bold, 3: f.red bold}
+# (no: «Up/Down» de las cabeceras, «exec-timeout 10», «timeout 5», «Dead Time», «dead-interval», dead:beef::1, «no
+#  shutdown», «0 lost carrier», «0 input error», «0 if down drop»; ni lo que dice una «description»)
 - description: Estados malos
-  regex: (?i)\b(down|\*down|\^down|admin-?down|disconnected|error|disabled|err-?disabled|notconnect|not ?present|absent|failed|failure|fail|unreachable|timeout|timed out|denied|rejected?|shutdown|offline|los|lof|idle|connect|opensent|openconfirm|invalid|no light|exited|unhealthy|dead|blocking|blk|discarding|unselected|isolated|lost|critical|major)\b
+  regex: (?i)\b(down(?<!up/down)(?! drop)|\^down|disconnected|error(?<!\b0 input error|\b0 output error)(?!:[ \t]*none\b)|disabled|err-?disabled|not ?connect(?:ed)?|not ok|not ?present|absent|failed|failure|fail|unreachable|timeout(?<![\w-]timeout)(?![ \t]*[:=]?[ \t]*\d)|timed out|denied|rejected?|shutdown(?<!no shutdown|undo shutdown)|offline|los|lof|idle|connect|opensent|openconfirm|invalid|no light|exited|unhealthy|dead(?<![\w:-]dead|pri\s{1,8}dead)(?![\w:-]|[ -]?(?:time|interval|timer)\b|[ \t]+\d)|blocking|blk|discarding|unselected|isolated|lost(?! carrier)|critical|major)\b(?<!description.{1,200})
   color: f.red bold
 - description: Avisos
-  regex: (?i)\b(warn(ing)?|minor|flap(ping)?|degraded|loss|retrans\w*|half|half-duplex|mismatch|2way|exstart|exchange|loading|init|learning|lrn|standby|suspended|pending|restarting|paused|time_wait|close_wait|syn_sent|syn_recv|fin_wait\d?)\b
+  regex: (?i)\b(warn(ing)?|minor|flap(ping)?|degraded|loss|retrans\w*|half|half-duplex|mismatch|2way|exstart|exchange|loading|init|learning|lrn|standby|suspended|pending|restarting|paused|time_wait|close_wait|syn_sent|syn_recv|fin_wait\d?)\b(?<!description.{1,200})
   color: f.orange bold
 - description: Estados buenos
-  regex: (?i)\b(up|established|establ|estab|connected|enabled?|online|ok|success(ful)?|normal|forwarding|fwd|full|full-duplex|present|running|reachable|active-up|healthy|listen|bndl|selected|synced|in sync|master|primary)\b
+  regex: (?i)\b(up(?!/d(?:own|wn)\b)|established|establ|estab|connected|enabled?|online|ok(?!\?)|success(ful)?|normal|forwarding|fwd|full|full-duplex|present|running|reachable|active-up|healthy|listen|bndl|selected|synced|in sync|master|primary)\b(?<!description.{1,200})
   color: f.green bold
 
 # ── DIRECCIONES ─────────────────────────────────────────────────────────────
@@ -159,8 +183,9 @@ rules:
   color: f.magenta bold
 
 # ── INTERFACES (Juniper, Huawei, Cisco, HPE, Dell, UfiSpace, Edge-Core, Linux) ─
+# (agrupada por la primera letra: así cada posición sólo prueba una rama, no las 40)
 - description: Interfaces
-  regex: (?i)\b((xe|ge|et|mge|ae|irb|lo|em|fxp|me|gr|st|ps)-?\d+(/\d+)*(\.\d+)?|(x|xx|25|40|50|100|400)?gigabitethernet\s?\d+(/\d+)*(\.\d+)?|(ten|twenty ?five|forty|hundred|fourhundred)gig(abit)?(ethernet|e)?\s?\d+(/\d+)*(\.\d+)?|(gi|te|tw|fo|hu|xg|ge|fa|eth|xge|mge|25ge|100ge|10ge|40ge)\d+(/\d+)+(\.\d+)?|eth-trunk\s?\d+(\.\d+)?|vlanif\s?\d+|vlan\s?\d+|bundle-ether\s?\d+(\.\d+)?|loopback\s?\d+|port-channel\s?\d+|po\d+|bridge-aggregation\s?\d+|ethernet\s?\d+(/\d+)+|phy-eth\s?\d+(/\d+)+|eth\s?\d+/\s?\d+|trunk\s+\d+|eth\d+(\.\d+)?|ens\d+\w*|enp\w+|eno\d+|bond\d+|vmbr\d+|veth\w+|docker\d+|br-\w+|tun\d+|tap\d+|wg\d+|wwan\d+|mobile\d*)\b
+  regex: (?i)\b(?:(?:25|40|50|100|400)gigabitethernet\s?\d+(?:/\d+)*(?:\.\d+)?|(?:400|100|25|10|40|50)ge\d+(?:/\d+)+(?:\.\d+)?|ae-?\d+(?:/\d+)*(?:\.\d+)?|b(?:[dv]i\d+|e\d+(?:\.\d+)?|undle-ether\s?\d+(?:\.\d+)?|ridge-aggregation\s?\d+|ond\d+|r-\w+)|docker\d+|e(?:[tm]-?\d+(?:/\d+)*(?:\.\d+)?|th\d+(?:/\d+)+(?:\.\d+)?|th-trunk\s?\d+(?:\.\d+)?|thernet\s?\d+(?:/\d+)+(?:\.\d+)?|th\s?\d+/\s?\d+|th\d+(?:\.\d+)?|ns\d+\w*|np\w+|no\d+)|f(?:astethernet\s?\d+(?:/\d+)+(?:\.\d+)?|xp-?\d+(?:/\d+)*(?:\.\d+)?|o(?:rty|urhundred)gig(?:abit)?(?:ethernet|e)?\s?\d+(?:/\d+)*(?:\.\d+)?|[oa]\d+(?:/\d+)+(?:\.\d+)?)|g(?:[er]-?\d+(?:/\d+)*(?:\.\d+)?|igabitethernet\s?\d+(?:/\d+)*(?:\.\d+)?|[ie]\d+(?:/\d+)+(?:\.\d+)?)|hu(?:ndredgig(?:abit)?(?:ethernet|e)?\s?\d+(?:/\d+)*(?:\.\d+)?|\d+(?:/\d+)+(?:\.\d+)?)|irb(?:-?\d+(?:/\d+)*)?(?:\.\d+)?|lo(?:-?\d+(?:/\d+)*(?:\.\d+)?|opback\s?\d+)|m(?:g?e-?\d+(?:/\d+)*(?:\.\d+)?|ge\d+(?:/\d+)+(?:\.\d+)?|eth\d+(?:/\d+)+|gmt\d+|anagement\d+|obile\d*)|p(?:s-?\d+(?:/\d+)*(?:\.\d+)?|ort-channel\s?\d+|o\d+|hy-eth\s?\d+(?:/\d+)+)|nve\d+|reth\d+(?:\.\d+)?|st-?\d+(?:/\d+)*(?:\.\d+)?|t(?:(?:en|wenty ?five)gig(?:abit)?(?:ethernet|e)?\s?\d+(?:/\d+)*(?:\.\d+)?|we?\d+(?:/\d+)+(?:\.\d+)?|e\d+(?:/\d+)+(?:\.\d+)?|unnel\d+|runk\s+\d+|un\d+|ap\d+)|v(?:l\d+|lanif\s?\d+|lan\s?\d+|mbr\d+|eth\w+)|w(?:g|wan)\d+|x(?:e-?\d+(?:/\d+)*(?:\.\d+)?|x?gigabitethernet\s?\d+(?:/\d+)*(?:\.\d+)?|ge?\d+(?:/\d+)+(?:\.\d+)?))\b
   color: f.yellow bold
 
 - description: Puertos Nokia SR-OS (1/1/1 · 1/1/c1/1 · esat-1/1/1 · lag-10)

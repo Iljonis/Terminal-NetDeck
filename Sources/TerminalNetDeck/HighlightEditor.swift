@@ -274,19 +274,25 @@ struct HighlightRuleEditor: View {
             ThemedMenu {
                 Button(L("Ninguno")) { value.wrappedValue = nil }
                 MenuDivider()
+                // (el color que se ve con este tema y, detrás, el hueco que se guarda en la regla: «rosa  f.cyan»)
                 ForEach(HighlightStyle.colorNames, id: \.self) { n in
                     Button { value.wrappedValue = n } label: {
-                        Label { Text(n) } icon: { Image(nsImage: Self.swatch(palette[n])) }
+                        Label {
+                            Text(verbatim: palette[n]?.nombre ?? n)
+                                + Text(verbatim: "  f.\(n)").font(.caption.monospaced()).foregroundStyle(.secondary)
+                        } icon: { Image(nsImage: Self.swatch(palette[n])) }
                     }
                 }
             } label: {
                 HStack(spacing: 4) {
                     Image(nsImage: Self.swatch(value.wrappedValue.flatMap { palette[$0] ?? RGB(hex: $0) }))
-                    Text(value.wrappedValue ?? "—").font(.caption.monospaced())
+                    Text(verbatim: shortName(value.wrappedValue, palette)).font(.caption.monospaced())
+                        .lineLimit(1).frame(maxWidth: 80, alignment: .leading)
                 }
             }
             .fixedSize()
-            .help(title)
+            .help(value.wrappedValue.map { "\(title): \(fullName($0, palette))" } ?? title)
+            .accessibilityLabel(value.wrappedValue.map { "\(title): \(fullName($0, palette))" } ?? title)
             ColorPicker(title, selection: Binding(
                 get: { SwiftUI.Color(value.wrappedValue.flatMap { palette[$0] ?? RGB(hex: $0) } ?? RGB(128, 128, 128)) },
                 set: { c in
@@ -297,6 +303,19 @@ struct HighlightRuleEditor: View {
                 .labelsHidden()
                 .help(L("\(title): otro color (#rrggbb)"))
         }
+    }
+
+    /// Lo que se ve cerrado: el nombre del color («rosa»), con el hueco si otro da el mismo nombre («cian f.dim»).
+    private func shortName(_ v: String?, _ palette: [String: RGB]) -> String {
+        guard let v else { return "—" }
+        guard let c = palette[v] else { return v }
+        let twice = HighlightStyle.colorNames.filter { palette[$0]?.nombre == c.nombre }.count > 1
+        return twice ? "\(c.nombre) f.\(v)" : c.nombre
+    }
+
+    /// «rosa, f.cyan» o «#ff0000» (para la ayuda y VoiceOver).
+    private func fullName(_ v: String, _ palette: [String: RGB]) -> String {
+        palette[v].map { "\($0.nombre), f.\(v)" } ?? v
     }
 
     /// Muestra de color para los menús (en macOS, los menús sólo pintan imágenes).

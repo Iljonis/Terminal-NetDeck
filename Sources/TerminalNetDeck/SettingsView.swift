@@ -360,7 +360,8 @@ struct HighlightSettings: View {
 }
 
 /// Ajustes → Resaltado: qué tono es cada color con nombre del resaltado («green», «red»…) con el tema actual. Las
-/// reglas siguen diciendo el nombre; sólo cambia el texto que colorean en el terminal, y sólo con este tema.
+/// reglas siguen diciendo el nombre del hueco («f.cyan»); aquí se ve su muestra y el nombre del color que lleva de
+/// verdad, que con cada tema puede ser otro (como los huecos ANSI de iTerm2: nombre fijo y su muestra al lado).
 struct HighlightColorsSection: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
@@ -370,11 +371,14 @@ struct HighlightColorsSection: View {
         let palette = model.highlightPalette(for: th)
         let mine = model.settings.highlightColors[th.id] ?? [:]
         Section {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12, alignment: .leading)], alignment: .leading, spacing: 8) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 12, alignment: .leading)], alignment: .leading, spacing: 8) {
                 ForEach(HighlightStyle.colorNames, id: \.self) { n in
+                    let c = palette[n] ?? th.text
+                    // (el que no se lee sobre el fondo, como «dark», con la letra del tema y un borde en la muestra)
+                    let legible = c.contraste(th.background) >= 3
                     HStack(spacing: 6) {
                         ColorPicker(n, selection: Binding(
-                            get: { SwiftUI.Color(palette[n] ?? th.text) },
+                            get: { SwiftUI.Color(c) },
                             set: { c in
                                 guard let s = NSColor(c).usingColorSpace(.sRGB) else { return }
                                 // (un color fuera de sRGB, de P3, da componentes fuera de 0…1: «#rrggbb» no los cabe)
@@ -382,15 +386,26 @@ struct HighlightColorsSection: View {
                                 model.setHighlightColor(n, RGB(v(s.redComponent), v(s.greenComponent), v(s.blueComponent)))
                             }), supportsOpacity: false)
                             .labelsHidden()
-                            .help(L("Elegir el color «\(n)»"))
-                        // (el nombre, en su color y sobre el fondo del terminal: así se ve si se lee)
-                        Text(n).font(.callout.monospaced().bold())
-                            .foregroundStyle(SwiftUI.Color(palette[n] ?? th.text))
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(SwiftUI.Color(th.background)))
+                            .help(L("Elegir el color de «f.\(n)»"))
+                            .accessibilityLabel(L("«f.\(n)»: \(c.nombre)"))
+                        // (el nombre del color que lleva, en ese color y sobre el fondo del terminal: así se ve si se
+                        //  lee; debajo, el hueco con el que lo piden las reglas)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(c.nombre).font(.callout.monospaced().bold())
+                                .foregroundStyle(SwiftUI.Color(legible ? c : th.text))
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(RoundedRectangle(cornerRadius: 4).fill(SwiftUI.Color(th.background)))
+                                .overlay {
+                                    if !legible { RoundedRectangle(cornerRadius: 4).strokeBorder(SwiftUI.Color(th.dim)) }
+                                }
+                            Text(verbatim: "f.\(n)").font(.caption.monospaced()).foregroundStyle(.secondary)
+                                .padding(.leading, 6)
+                        }
+                        .accessibilityHidden(true)
                         if mine[n] != nil {
                             Button { model.setHighlightColor(n, nil) } label: { Image(systemName: "arrow.uturn.backward") }
                                 .buttonStyle(.borderless).help(L("Volver al color del tema"))
+                                .accessibilityLabel(L("Volver al color del tema"))
                         }
                     }
                 }
@@ -406,7 +421,7 @@ struct HighlightColorsSection: View {
                 .disabled(mine.isEmpty)
             }
         } footer: {
-            Text(L("Sólo cambian el texto que colorea el resaltado en el terminal, y sólo con este tema: la interfaz y los demás temas siguen igual. Las reglas dicen el nombre («f.green»); aquí eliges qué verde es."))
+            Text(L("Sólo cambian el texto que colorea el resaltado en el terminal, y sólo con este tema: la interfaz y los demás temas siguen igual. Las reglas piden el hueco («f.green»): aquí eliges su color, y el nombre de al lado dice el que se ve."))
                 .font(t.ui(11))
         }
     }
