@@ -1,6 +1,12 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.2
 // Terminal NetDeck: terminal nativo de macOS para ingenieros de red.
 import PackageDescription
+
+// Concurrencia de Swift 6.2 («approachable concurrency»): las funciones async sin actor corren en el de quien las
+// llama (SE-0461). Lo que deba ir fuera del principal (copias, MD5, edición remota) lleva `@concurrent`.
+let concurrencia62: [SwiftSetting] = [
+    .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+]
 
 let package = Package(
     name: "TerminalNetDeck",
@@ -15,12 +21,12 @@ let package = Package(
     ],
     targets: [
         // Lógica sin interfaz: sesiones y saltos, Llavero y regla de usuario, Esc, pegado seguro, MultiExec, listas
-        .target(name: "NetDeckCore"),
+        .target(name: "NetDeckCore", swiftSettings: concurrencia62),
         // La app (SwiftUI)
         .executableTarget(name: "TerminalNetDeck", dependencies: [
             "NetDeckCore",
             .product(name: "SwiftTerm", package: "SwiftTerm"),
-        ]),
-        .testTarget(name: "NetDeckCoreTests", dependencies: ["NetDeckCore"]),
+        ], swiftSettings: concurrencia62),
+        .testTarget(name: "NetDeckCoreTests", dependencies: ["NetDeckCore"], swiftSettings: concurrencia62),
     ]
 )

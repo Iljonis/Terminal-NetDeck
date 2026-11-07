@@ -686,8 +686,10 @@ final class TransferCenter {
         }
     }
 
+    /// `@concurrent`: la copia (planes, lecturas locales, MD5) fuera del hilo principal; sin él, con
+    /// `NonisolatedNonsendingByDefault` correría en el actor de quien la lanza (aquí, el principal).
     private func run(_ job: TransferJob, destination: (fs: any RemoteFileSystem, dir: String)?,
-                     _ body: @escaping @Sendable (TransferJob) async throws -> Void) {
+                     _ body: @escaping @Sendable @concurrent (TransferJob) async throws -> Void) {
         jobs.insert(job, at: 0)
         // (como mucho 30: fuera las acabadas más antiguas; sin leer `jobs` mientras se cambia)
         var extra = jobs.count - 30
