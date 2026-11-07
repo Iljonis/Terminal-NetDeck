@@ -1319,7 +1319,7 @@ final class AppModel {
         case .deviceError(let l, let out): L("✗ error en la línea \(l): \(out)")
         case .pager(let l): L("✗ paginador en la línea \(l) (falta «terminal length 0»)")
         case .timeout(let l): L("✗ sin prompt tras la línea \(l)")
-        case .dangerousNotConfirmed(let l, let c): L("✗ línea \(l) peligrosa sin confirmar: \(c)")
+        case .dangerousNotConfirmed(let l, let c): L("✗ línea \(l) peligrosa sin confirmar: \(SecretMask.masked(PasteRules.visible(c)))")
         case .passwordPrompt(0): L("🔑 piden contraseña: no pego nada ahí")
         case .passwordPrompt(let l): L("🔑 piden contraseña tras la línea \(l): paro (la siguiente iría como contraseña)")
         }
@@ -1363,7 +1363,9 @@ final class AppModel {
             runButton(b)
             return true
         }
-        if multiExecOn, let d = multiExec.dangerousEnter(bytes, from: s) {
+        // (un bloque que acaba en Intro también, salvo el de un pegado: ése lo mira su revisión, o el usuario la ha
+        // apagado y es su criterio)
+        if multiExecOn, bytes.count == 1 || bytes == [13, 10] || !s.view.pasting, let d = multiExec.dangerousEnter(bytes, from: s) {
             confirmDangerousEnter(d.command, tabs: d.tabs, bytes: bytes, from: s)
             return true                                               // (el Intro, sólo si se confirma)
         }
@@ -1380,10 +1382,12 @@ final class AppModel {
     @ObservationIgnored private var confirmingEnter: TerminalSession.ID?
 
     /// MultiExec: Intro en una orden peligrosa que iría a varias pestañas (`MultiExecGroup.dangerousEnter`). Se pregunta
-    /// con la orden y a cuántas va (Intro no confirma: el botón es destructivo); si se cancela, el Intro no sale y la
-    /// línea sigue escrita.
-    private func confirmDangerousEnter(_ cmd: String, tabs n: Int, bytes: [UInt8], from s: TerminalSession) {
+    /// con la orden (sin sus secretos, `SecretMask`) y a cuántas va (Intro no confirma: el botón es destructivo); si se
+    /// cancela, el Intro no sale y la línea sigue escrita (un bloque que acababa en Intro, entero fuera).
+    private func confirmDangerousEnter(_ command: String, tabs n: Int, bytes: [UInt8], from s: TerminalSession) {
         confirmingEnter = s.id
+        let cmd = SecretMask.masked(command)
+        let enter = bytes == [13] || bytes == [10] || bytes == [13, 10]      // (si no, un bloque: no se queda escrito)
         DebugLog.log("multiexec", "Intro con una orden peligrosa desde «\(s.title)» a \(n) pestañas: se pregunta")
         Task {
             let ok = await ThemedAlert.confirm(L("¿Enviar «\(cmd)» a \(n) pestañas a la vez?"),
@@ -1391,7 +1395,11 @@ final class AppModel {
                                                ok: L("Enviar a todas"), destructive: true, over: window)
             confirmingEnter = nil
             if s.view.window === window { window?.makeFirstResponder(s.view) }
-            guard ok else { status = L("⎋ «\(cmd)» no se ha enviado: sigue escrita (bórrala, o vuelve a pulsar Intro para confirmarla)"); return }
+            guard ok else {
+                status = enter ? L("⎋ «\(cmd)» no se ha enviado: sigue escrita (bórrala, o vuelve a pulsar Intro para confirmarla)")
+                               : L("⎋ «\(cmd)» no se ha enviado")
+                return
+            }
             // (puede haber cambiado mientras: sin MultiExec o con la pestaña cerrada no se envía a nadie)
             guard multiExecOn, tabs.contains(where: { $0 === s }), !s.exited else { return }
             if recording == s.id { recorder?.feed(bytes, from: s) }
@@ -1611,7 +1619,7 @@ final class AppModel {
                                                  message: L("\(m.lines.count) órdenes en \(names)"), ok: L("Reproducir"))) { return }
         let dangerous = m.dangerousLines
         if !dangerous.isEmpty, !(await ThemedAlert.confirm(L("«\(m.name)» lleva órdenes peligrosas"),
-                                                          message: dangerous.prefix(5).joined(separator: "\n") + L("\n\nEn: \(names)"),
+                                                          message: dangerous.prefix(5).map { SecretMask.masked(PasteRules.visible($0)) }.joined(separator: "\n") + L("\n\nEn: \(names)"),
                                                           ok: L("Reproducir igualmente"), destructive: true)) {
             status = L("⎋ «\(m.name)» no se ha reproducido")
             return
@@ -1649,7 +1657,7 @@ final class AppModel {
         case .deviceError(let n, let out): L("✗ error en el paso \(n): \(out)")
         case .pager(let n): L("✗ paginador en el paso \(n) (falta «terminal length 0»)")
         case .timeout(let n): L("✗ sin respuesta a tiempo en el paso \(n)")
-        case .dangerousNotConfirmed(let n, let c): L("✗ paso \(n) peligroso sin confirmar: \(c)")
+        case .dangerousNotConfirmed(let n, let c): L("✗ paso \(n) peligroso sin confirmar: \(SecretMask.masked(PasteRules.visible(c)))")
         case .secretPrompt(let n): L("🔑 piden contraseña en el paso \(n): paro (no escribo nada ahí)")
         case .invalid(let p): L("✗ macro no válida: \(p)")
         }
@@ -1738,7 +1746,7 @@ final class AppModel {
                 Task {
                     let names = targets.map(\.title).joined(separator: ", ")
                     guard await ThemedAlert.confirm(L("«\(b.name)» lleva órdenes peligrosas"),
-                                                    message: dangerous.prefix(5).joined(separator: "\n") + L("\n\nEn: \(names)"),
+                                                    message: dangerous.prefix(5).map { SecretMask.masked(PasteRules.visible($0)) }.joined(separator: "\n") + L("\n\nEn: \(names)"),
                                                     ok: L("Enviar igualmente"), destructive: true, over: window) else {
                         status = L("⎋ Botón «\(b.name)»: no se ha enviado")
                         current?.view.window?.makeFirstResponder(current?.view)

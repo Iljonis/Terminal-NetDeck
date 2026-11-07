@@ -17,13 +17,34 @@ public enum PasteRules {
 
     /// Las peligrosas (para pedir confirmación ANTES de empezar).
     public static func dangerousLines(in text: String) -> [String] { lines(of: text).filter(dangerous.matches) }
+
+    /// Con los caracteres de control a la vista, para enseñarlos (la revisión del pegado, los avisos): «␈», «␡», «␛»,
+    /// «^U» y los demás C0 como «^X»; los C1, «<9B>». TAB, CR y LF, tal cual.
+    public static func visible(_ s: String) -> String {
+        guard s.unicodeScalars.contains(where: { ($0.value < 0x20 && !"\t\r\n".unicodeScalars.contains($0)) || (0x7F...0x9F).contains($0.value) }) else { return s }
+        var out = ""
+        for u in s.unicodeScalars {
+            switch u.value {
+            case 0x09, 0x0A, 0x0D: out.unicodeScalars.append(u)
+            case 0x08: out += "␈"
+            case 0x1B: out += "␛"
+            case 0x7F: out += "␡"
+            case 0x00...0x1F: out += "^" + String(UnicodeScalar(UInt8(u.value + 0x40)))
+            case 0x80...0x9F: out += String(format: "<%02X>", u.value)
+            default: out.unicodeScalars.append(u)
+            }
+        }
+        return out
+    }
 }
 
 /// ¿Sale la ventana de revisión al pegar (⌘V, «Pegar», clic derecho)? Como el aviso de pegado de varias líneas de
 /// iTerm2, `multiLinePasteWarning` de Windows Terminal o `clipboard-paste-protection` de Ghostty: sólo pregunta; al
 /// aceptar se pega entero y de golpe. Con más de `threshold` líneas no vacías o alguna orden peligrosa. Apagada, nunca
 /// (ni con peligrosas: es criterio del usuario). Si la pestaña pide un secreto, tampoco: lo pegado es la contraseña
-/// («Delete!2024») y no se enseña ni se cuenta.
+/// («Delete!2024») y no se enseña ni se cuenta. Una línea con caracteres de control es peligrosa
+/// (`DangerousCommands.erased`): también la que lleva un «ESC[201~» que cerraría antes de tiempo el pegado entre corchetes
+/// y haría que el resto se ejecutase como tecleado.
 public struct PasteReview: Equatable, Sendable {
     public static let defaultThreshold = 3
     /// Las que se ofrecen en Ajustes.

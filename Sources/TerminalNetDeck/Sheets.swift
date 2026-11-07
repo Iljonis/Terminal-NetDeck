@@ -164,8 +164,8 @@ struct PasteReviewSheet: View {
 }
 
 /// El texto pegado, de sólo lectura (`NSTextView`): se puede seleccionar, copiar (⌘C) y buscar (⌘F), y VoiceOver lo lee
-/// entero. Sin ajuste de línea; las peligrosas, con ⚠ y en el color de aviso. Se monta una vez (una configuración
-/// entera puede tener miles de líneas) y sólo se rehace si cambia el texto.
+/// entero. Sin ajuste de línea; las peligrosas, con ⚠ y en el color de aviso, y los caracteres de control, a la vista.
+/// Se monta una vez (una configuración entera puede tener miles de líneas) y sólo se rehace si cambia el texto.
 private struct PastedText: NSViewRepresentable {
     let review: PasteReview?
     let font: NSFont
@@ -221,7 +221,8 @@ private struct PastedText: NSViewRepresentable {
         let dangerous = Set(review.dangerous)
         for (i, row) in review.rows.enumerated() {
             let d = dangerous.contains(i)
-            out.append(NSAttributedString(string: (d ? "⚠ " : "  ") + row + (i < review.rows.count - 1 ? "\n" : ""),
+            // (los caracteres de control, a la vista: «ls␈␈reboot» no es lo que parece)
+            out.append(NSAttributedString(string: (d ? "⚠ " : "  ") + PasteRules.visible(row) + (i < review.rows.count - 1 ? "\n" : ""),
                                           attributes: d ? bad : normal))
         }
         return out

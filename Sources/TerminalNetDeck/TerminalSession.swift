@@ -232,14 +232,28 @@ final class NetDeckTerminalView: TerminalView {
 
     override func paste(_ sender: Any) {
         if let text = NSPasteboard.general.string(forType: .string), onPaste?(text) == true { return }
-        super.paste(sender)
+        markingPaste { super.paste(sender) }
     }
 
     /// Lo revisado y aceptado, entero y de golpe por el mismo camino que ⌘V (entre corchetes si el equipo lo pide). Si el
     /// portapapeles ha cambiado desde la revisión, va lo revisado, no lo nuevo.
     func pasteReviewed(_ text: String, changeCount: Int) {
         let pb = NSPasteboard.general
-        if pb.changeCount == changeCount, pb.string(forType: .string) == text { super.paste(self) } else { pasteText(text) }
+        markingPaste {
+            if pb.changeCount == changeCount, pb.string(forType: .string) == text { super.paste(self) } else { pasteText(text) }
+        }
+    }
+
+    /// Lo que llega ahora al delegado viene de un pegado (`AppModel.userInput`: su Intro no pregunta en MultiExec).
+    /// SwiftTerm se lo pasa en una vuelta posterior del hilo principal (`DispatchQueue.main.async`), así que la marca se
+    /// quita en la siguiente.
+    var pasting: Bool { pastes > 0 }
+    private var pastes = 0
+
+    private func markingPaste(_ paste: () -> Void) {
+        pastes += 1
+        paste()
+        DispatchQueue.main.async { [weak self] in self?.pastes -= 1 }
     }
 
     /// Pegar con clic derecho: por `paste(_:)`, el mismo camino que ⌘V (pegado entre corchetes y lo que haga la app

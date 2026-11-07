@@ -70,10 +70,44 @@ import Testing
         a.screen = ["core-01#"]; b.screen = ["--More--"]
         teclea("reload", a, b, g)
         #expect(g.dangerousEnter([13], from: a) == nil)
-        // un Intro dentro de un pegado no es la tecla Intro (lo revisa la ventana de pegado)
+    }
+
+    /// Un bloque que acaba en Intro (dictado, un método de entrada, Servicios) también pregunta: la línea en curso más el
+    /// bloque. (El de un pegado ⌘V no llega aquí: `AppModel.userInput` lo deja a la revisión del pegado.)
+    @Test func unBloqueQueAcabaEnIntroTambienPregunta() {
+        let (a, b, g) = grupo()
+        #expect(g.dangerousEnter(Array("reboot\r".utf8), from: a)?.command == "reboot")
+        #expect(g.dangerousEnter(Array("reboot\r".utf8), from: a)?.tabs == 2)
+        #expect(a.sent.isEmpty && b.sent.isEmpty)
+        // con la orden a medias: lo de la línea más lo del bloque
         let (c, d, h) = grupo()
         teclea("rel", c, d, h)
-        #expect(h.dangerousEnter(Array("oad\r".utf8), from: c) == nil)
+        #expect(h.dangerousEnter(Array("oad\r".utf8), from: c)?.command == "reload")
+        let (e, f, k) = grupo()
+        teclea("rel", e, f, k, eco: false)
+        #expect(k.dangerousEnter(Array("oad\n".utf8), from: e)?.command == "reload")
+        // cada línea del bloque cuenta, también con caracteres de control
+        let (m, n, o) = grupo()
+        #expect(o.dangerousEnter(Array("show clock\rwrite erase\r".utf8), from: m)?.command == "write erase")
+        #expect(o.dangerousEnter(Array("x\u{15}reboot\r".utf8), from: m)?.command == "x^Ureboot")
+        // lo que no es peligroso, lo que no acaba en Intro y un Ctrl+C, no
+        #expect(o.dangerousEnter(Array("show clock\r".utf8), from: m) == nil)
+        #expect(o.dangerousEnter(Array("reboot".utf8), from: m) == nil)
+        #expect(o.dangerousEnter(Array("reboot\u{03}\r".utf8), from: m) == nil)
+        // confirmado, el bloque se reparte entero a las dos
+        #expect(o.broadcast(Array("reboot\r".utf8), from: m))
+        #expect(m.sent.last == "reboot\r" && n.sent.last == "reboot\r")
+    }
+
+    @Test func unBloqueSoloAUnaOFueraDelPromptNoPregunta() {
+        let (a, b, g) = grupo()
+        b.screen = ["--More--"]
+        #expect(g.dangerousEnter(Array("reboot\r".utf8), from: a) == nil)
+        a.screen = ["Delete flash:x? [confirm]"]; b.screen = ["core-02#"]
+        #expect(g.dangerousEnter(Array("reboot\r".utf8), from: a) == nil)
+        g.isActive = false
+        a.screen = ["core-01#"]
+        #expect(g.dangerousEnter(Array("reboot\r".utf8), from: a) == nil)
     }
 
     @Test func noSeMiraLoQueSeTecleaEnUnaContrasena() {

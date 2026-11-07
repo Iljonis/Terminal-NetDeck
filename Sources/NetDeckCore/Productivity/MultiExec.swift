@@ -91,15 +91,32 @@ public final class MultiExecGroup {
 
     /// Este Intro repartiría una orden peligrosa (`PasteRules.dangerous`) a varias pestañas: cuál y a cuántas, para
     /// confirmarlo antes; nil si no. La orden es la línea del cursor de `origin` sin el prompt en el que empezó (con lo
-    /// que haya dejado el historial o el tabulador) o, si el eco aún no ha llegado, lo tecleado.
+    /// que haya dejado el historial o el tabulador) o, si el eco aún no ha llegado, lo tecleado. También un bloque que
+    /// acaba en Intro («reboot\r» del dictado, un método de entrada o Servicios): la línea en curso más el bloque, cada
+    /// línea suya. El pegado (⌘V) no pasa por aquí: lo mira su revisión, o el usuario la ha apagado (`AppModel.userInput`).
     public func dangerousEnter(_ bytes: [UInt8], from origin: TerminalIO) -> (command: String, tabs: Int)? {
         let id = ObjectIdentifier(origin)
-        guard bytes == [13] || bytes == [10] || bytes == [13, 10], lineTargets[id] != nil, let start = lineStarts[id] else { return nil }
+        let enter = bytes == [13] || bytes == [10] || bytes == [13, 10]
+        let block = !enter && (bytes.last == 13 || bytes.last == 10) && !bytes.contains(3)
+        guard enter || block else { return nil }
+        let start = lineStarts[id]
+        // (un Intro solo, de una línea que se está repartiendo; un bloque puede empezarla: va si `origin` está en su prompt)
+        guard block || (lineTargets[id] != nil && start != nil) else { return nil }
         let tabs = reach(from: origin)
         guard tabs > 1 else { return nil }
-        let line = origin.cursorLine, prompt = start.prompt.replacingOccurrences(of: #"\s+$"#, with: "", options: .regularExpression)
-        var candidates = [!prompt.isEmpty && line.hasPrefix(prompt) ? String(line.dropFirst(prompt.count)) : line]
-        if start.exact { candidates.append(String(decoding: start.typed, as: UTF8.self)) }
+        let line = origin.cursorLine
+        var candidates: [String]
+        if let start, lineTargets[id] != nil {
+            let prompt = start.prompt.replacingOccurrences(of: #"\s+$"#, with: "", options: .regularExpression)
+            candidates = [!prompt.isEmpty && line.hasPrefix(prompt) ? String(line.dropFirst(prompt.count)) : line]
+            if start.exact { candidates.append(String(decoding: start.typed, as: UTF8.self)) }
+        } else {
+            candidates = ["", line]                       // (en el prompt: el bloque solo, o con el prompt delante)
+        }
+        if block {
+            let text = String(decoding: bytes, as: UTF8.self)
+            candidates = candidates.flatMap { PasteRules.lines(of: $0 + text) }
+        }
         for c in candidates {
             if let cmd = DangerousCommands.command(in: c) { return (cmd, tabs) }
         }

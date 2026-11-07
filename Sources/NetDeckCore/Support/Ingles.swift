@@ -1015,6 +1015,7 @@ enum Ingles {
             "Send to all",
         "⎋ «%@» no se ha enviado: sigue escrita (bórrala, o vuelve a pulsar Intro para confirmarla)":
             "⎋ “%@” not sent: it's still typed (delete it, or press Return again to confirm it)",
+        "⎋ «%@» no se ha enviado": "⎋ “%@” not sent",
         "Enviar igualmente":
             "Send anyway",
         "⎋ Botón «%@»: no se ha enviado":
