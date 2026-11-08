@@ -24,7 +24,10 @@ struct ThemeGallery: View {
                     }
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 186), spacing: 12)], spacing: 12) {
                         ForEach(items, id: \.theme.id) { item in
-                            ThemeCard(theme: item.theme, active: item.theme.id == active, badge: badge(item.source))
+                            // (con sus colores a medida, si los tiene: se ve como queda y lo dice)
+                            let mine = model.themes.overrides[item.theme.id]
+                            ThemeCard(theme: ThemeOverrides.effective(item.theme, mine, solid: false),
+                                      active: item.theme.id == active, badge: badge(item.source, custom: mine != nil))
                                 .onTapGesture { select(item.theme.id) }
                                 .onHover { hover($0 ? item.theme.id : nil) }
                                 .pressable(item.theme.name, selected: item.theme.id == active) { select(item.theme.id) }
@@ -41,12 +44,14 @@ struct ThemeGallery: View {
         }
     }
 
-    private func badge(_ s: ThemeLibrary.Source) -> String? {
-        switch s {
+    private func badge(_ s: ThemeLibrary.Source, custom: Bool) -> String? {
+        let source: String? = switch s {
         case .imported: L("importado")
         case .netdeck: L("local")
         default: nil
         }
+        let all = [source, custom ? L("personalizado") : nil].compactMap(\.self)
+        return all.isEmpty ? nil : all.joined(separator: " · ")
     }
 }
 

@@ -20,6 +20,9 @@ final class AppSettings {
     var themeAuto: Bool { didSet { d.set(themeAuto, forKey: "themeAuto") } }
     var themeLight: String { didSet { d.set(themeLight, forKey: "themeLight") } }
     var themeDark: String { didSet { d.set(themeDark, forKey: "themeDark") } }
+    /// Colores a medida, por tema (id del tema → clave del .tema → «#rrggbb», `ThemeOverrides`): una capa encima del
+    /// tema para la interfaz y el terminal; el .tema no se toca.
+    var themeOverrides: [String: [String: String]] { didSet { d.set(themeOverrides, forKey: "themeOverrides") } }
     /// "" = la oficial del tema.
     var fontFamily: String { didSet { d.set(fontFamily, forKey: "fontFamily") } }
     /// 0 = el del tema.
@@ -154,6 +157,7 @@ final class AppSettings {
         themeAuto = d.object(forKey: "themeAuto") as? Bool ?? false
         themeLight = themes.light
         themeDark = themes.dark
+        themeOverrides = d.dictionary(forKey: "themeOverrides") as? [String: [String: String]] ?? [:]
         fontFamily = d.string(forKey: "fontFamily") ?? ""
         fontSize = d.object(forKey: "fontSize") as? Double ?? 0
         sshConfigPath = d.string(forKey: "sshConfigPath") ?? SessionManager.defaultConfigURL.path
