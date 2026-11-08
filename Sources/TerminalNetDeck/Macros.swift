@@ -151,8 +151,8 @@ struct MacroSheet: View {
                 TextField("", value: step.seconds, format: .number).frame(width: 52)
                 Text("s").font(t.ui(10)).foregroundStyle(SwiftUI.Color(t.dim))
             }
-            IconButton(icon: "chevron.up") { move(i, -1) }.disabled(i == 0).help(L("Subir"))
-            IconButton(icon: "chevron.down") { move(i, 1) }.disabled(i == draft.steps.count - 1).help(L("Bajar"))
+            IconButton(icon: "chevron.up") { move(i, -1) }.help(L("Subir")).disabled(i == 0)
+            IconButton(icon: "chevron.down") { move(i, 1) }.help(L("Bajar")).disabled(i == draft.steps.count - 1)
             IconButton(icon: "minus") { draft.steps.remove(at: i) }.help(L("Quitar"))
         }
         .padding(.vertical, 3).padding(.horizontal, 6)
@@ -337,7 +337,8 @@ struct MacroMenu: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        IconMenu(icon: model.recording == nil ? "record.circle" : "record.circle.fill", active: model.recording != nil || model.macroRunning) {
+        IconMenu(icon: model.recording == nil ? "record.circle" : "record.circle.fill", active: model.recording != nil || model.macroRunning,
+                 label: L("Macros")) {
             if model.recording != nil {
                 Button(L("■ Parar la grabación")) { model.stopRecording() }
             } else {

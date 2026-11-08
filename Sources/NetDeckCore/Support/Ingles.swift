@@ -2328,5 +2328,21 @@ enum Ingles {
         "la contraseña es demasiado larga (más de %@ bytes)": "the password is too long (more than %@ bytes)",
         "🔑 Guardada en el Llavero: «%@»": "🔑 Saved in the Keychain: “%@”",
         "🔑 No se ha podido guardar en el Llavero «%@»": "🔑 Couldn't save “%@” in the Keychain",
+        // accesibilidad (VoiceOver)
+        "conectada": "connected",
+        "pide contraseña": "asking for a password",
+        "sin conexión": "not connected",
+        "cerrada": "closed",
+        "con salida nueva": "with new output",
+        "en la vista dividida": "in the split view",
+        "Pantalla dividida": "Split screen",
+        "%@ paneles": "%@ panes",
+        "Escribir una contraseña": "Type a password",
+        "Macros": "Macros",
+        "desplegado": "expanded",
+        "plegado": "collapsed",
+        "desplegado, %@ sesiones": "expanded, %@ sessions",
+        "plegado, %@ sesiones": "collapsed, %@ sessions",
+        "favorita": "favorite",
 ]
 }
