@@ -168,24 +168,27 @@ struct RemoteBrowserView: View {
         HStack(spacing: 6) {
             RemoteModeSwitch(session: session)
             NeonLine(vertical: true, color: t.panel).frame(height: 20).padding(.horizontal, 2)
-            IconButton(icon: "chevron.left") { browser.goBack() }.help(L("Atrás")).disabled(browser.back.isEmpty)
-            IconButton(icon: "chevron.right") { browser.goForward() }.help(L("Adelante")).disabled(browser.forward.isEmpty)
-            IconButton(icon: "arrow.up") { browser.goUp() }.help(L("Carpeta de arriba")).disabled(!connected || browser.path == "/")
-            IconButton(icon: "house.fill") { browser.open(browser.home) }.help(L("Tu carpeta de inicio")).disabled(!connected)
-            IconButton(icon: "arrow.clockwise") { connected ? browser.refresh() : browser.reconnect() }
-                .help(connected ? L("Actualizar") : L("Reconectar"))
+            IconButton(icon: "chevron.left", help: L("Atrás")) { browser.goBack() }.disabled(browser.back.isEmpty)
+            IconButton(icon: "chevron.right", help: L("Adelante")) { browser.goForward() }.disabled(browser.forward.isEmpty)
+            IconButton(icon: "arrow.up",
+                       help: L("Carpeta de arriba")) { browser.goUp() }.disabled(!connected || browser.path == "/")
+            IconButton(icon: "house.fill",
+                       help: L("Tu carpeta de inicio")) { browser.open(browser.home) }.disabled(!connected)
+            IconButton(icon: "arrow.clockwise",
+                       help: connected ? L("Actualizar") : L("Reconectar")) { connected ? browser.refresh() : browser.reconnect() }
             NeonLine(vertical: true, color: t.panel).frame(height: 20).padding(.horizontal, 2)
-            IconButton(icon: "folder.badge.plus") { newFolder() }.help(L("Nueva carpeta")).disabled(!connected)
-            IconButton(icon: "square.and.arrow.up") { upload() }.help(L("Subir archivos o carpetas del Mac")).disabled(!connected)
-            IconButton(icon: "square.and.arrow.down") { download(sel) }.help(L("Descargar al Mac")).disabled(sel.isEmpty)
+            IconButton(icon: "folder.badge.plus", help: L("Nueva carpeta")) { newFolder() }.disabled(!connected)
+            IconButton(icon: "square.and.arrow.up",
+                       help: L("Subir archivos o carpetas del Mac")) { upload() }.disabled(!connected)
+            IconButton(icon: "square.and.arrow.down", help: L("Descargar al Mac")) { download(sel) }.disabled(sel.isEmpty)
             SendToMenu(browser: browser, entries: sel)
-            IconButton(icon: "pencil") { if let e = sel.first { rename(e) } }.help(L("Renombrar")).disabled(sel.count != 1)
+            IconButton(icon: "pencil", help: L("Renombrar")) { if let e = sel.first { rename(e) } }.disabled(sel.count != 1)
             editButton(sel)
-            IconButton(icon: "trash", tint: t.bad) { delete(sel) }.help(L("Borrar")).disabled(sel.isEmpty)
+            IconButton(icon: "trash", tint: t.bad, help: L("Borrar")) { delete(sel) }.disabled(sel.isEmpty)
             Spacer(minLength: 8)
             SearchField(text: $browser.filter, prompt: L("Filtrar")).frame(maxWidth: 200)
-            IconButton(icon: browser.showHidden ? "eye.fill" : "eye.slash", active: browser.showHidden) { browser.showHidden.toggle() }
-                .help(L("Mostrar los archivos ocultos (.algo)"))
+            IconButton(icon: browser.showHidden ? "eye.fill" : "eye.slash", active: browser.showHidden,
+                       help: L("Mostrar los archivos ocultos (.algo)")) { browser.showHidden.toggle() }
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
         .background(SwiftUI.Color(t.bar))
@@ -194,16 +197,19 @@ struct RemoteBrowserView: View {
     /// La del panel lateral: lo de cada día a la vista y el resto en «⋯».
     private func compactToolbar(connected: Bool, sel: [RemoteEntry]) -> some View {
         HStack(spacing: 3) {
-            IconButton(icon: "chevron.left") { browser.goBack() }.help(L("Atrás")).disabled(browser.back.isEmpty)
-            IconButton(icon: "arrow.up") { browser.goUp() }.help(L("Carpeta de arriba")).disabled(!connected || browser.path == "/")
-            IconButton(icon: "house.fill") { browser.open(browser.home) }.help(L("Tu carpeta de inicio")).disabled(!connected)
-            IconButton(icon: "arrow.clockwise") { connected ? browser.refresh() : (onRetry ?? browser.reconnect)() }
-                .help(connected ? L("Actualizar") : L("Reconectar"))
-            IconButton(icon: "square.and.arrow.up") { upload() }.help(L("Subir archivos o carpetas del Mac")).disabled(!connected)
-            IconButton(icon: "square.and.arrow.down") { download(sel) }.help(L("Descargar al Mac")).disabled(sel.isEmpty)
+            IconButton(icon: "chevron.left", help: L("Atrás")) { browser.goBack() }.disabled(browser.back.isEmpty)
+            IconButton(icon: "arrow.up",
+                       help: L("Carpeta de arriba")) { browser.goUp() }.disabled(!connected || browser.path == "/")
+            IconButton(icon: "house.fill",
+                       help: L("Tu carpeta de inicio")) { browser.open(browser.home) }.disabled(!connected)
+            IconButton(icon: "arrow.clockwise",
+                       help: connected ? L("Actualizar") : L("Reconectar")) { connected ? browser.refresh() : (onRetry ?? browser.reconnect)() }
+            IconButton(icon: "square.and.arrow.up",
+                       help: L("Subir archivos o carpetas del Mac")) { upload() }.disabled(!connected)
+            IconButton(icon: "square.and.arrow.down", help: L("Descargar al Mac")) { download(sel) }.disabled(sel.isEmpty)
             editButton(sel)
-            IconButton(icon: "trash", tint: t.bad) { delete(sel) }.help(L("Borrar")).disabled(sel.isEmpty)
-            IconMenu(icon: "ellipsis") {
+            IconButton(icon: "trash", tint: t.bad, help: L("Borrar")) { delete(sel) }.disabled(sel.isEmpty)
+            IconMenu(icon: "ellipsis", help: L("Más")) {
                 Button { newFolder() } label: { Label(L("Nueva carpeta…"), systemImage: "folder.badge.plus") }.disabled(!connected)
                 Button { if let e = sel.first { rename(e) } } label: { Label(L("Renombrar…"), systemImage: "pencil") }.disabled(sel.count != 1)
                 Button { browser.showHidden.toggle() } label: {
@@ -212,9 +218,8 @@ struct RemoteBrowserView: View {
                 MenuDivider()
                 SendToItems(browser: browser, entries: sel)
             }
-            .help(L("Más"))
             Spacer(minLength: 2)
-            IconButton(icon: "sidebar.right") { onClose?() }.help(L("Ocultar el explorador (⇧⌘B)"))
+            IconButton(icon: "sidebar.right", help: L("Ocultar el explorador (⇧⌘B)")) { onClose?() }
         }
         .padding(.horizontal, 6).padding(.vertical, 6)
         .background(SwiftUI.Color(t.bar))
@@ -223,8 +228,8 @@ struct RemoteBrowserView: View {
     /// «Editar»: un archivo de texto en tu editor; al guardarlo se sube (si el servidor no lo ha cambiado entretanto).
     private func editButton(_ sel: [RemoteEntry]) -> some View {
         let one = sel.count == 1 ? sel[0] : nil
-        return IconButton(icon: "square.and.pencil") { if let one { browser.edits?.edit(one) } }
-            .help(L("Editar en tu editor de texto: al guardar se sube al servidor"))
+        return IconButton(icon: "square.and.pencil",
+                          help: L("Editar en tu editor de texto: al guardar se sube al servidor")) { if let one { browser.edits?.edit(one) } }
             .disabled(!(one.map(RemoteEdits.canEdit) ?? false) || browser.state != .connected)
     }
 
@@ -256,12 +261,11 @@ struct RemoteBrowserView: View {
                     }
                 }
                 Spacer(minLength: 4)
-                IconButton(icon: "character.cursor.ibeam") { editingPath = browser.path }.help(L("Escribir la ruta"))
-                IconButton(icon: "doc.on.doc") {
+                IconButton(icon: "character.cursor.ibeam", help: L("Escribir la ruta")) { editingPath = browser.path }
+                IconButton(icon: "doc.on.doc", help: L("Copiar la ruta")) {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(browser.path, forType: .string)
                 }
-                .help(L("Copiar la ruta"))
             }
         }
         .padding(.horizontal, 10).frame(height: 32)
@@ -951,7 +955,7 @@ private struct TransferRow: View {
             Text(detail).font(t.mono(10.5)).foregroundStyle(SwiftUI.Color(color)).frame(width: 170, alignment: .trailing)
                 .lineLimit(1).truncationMode(.middle)
             if !job.finished {
-                IconButton(icon: "xmark", tint: t.bad) { job.cancel() }.help(L("Cancelar"))
+                IconButton(icon: "xmark", tint: t.bad, help: L("Cancelar")) { job.cancel() }
             }
         }
         .padding(.vertical, 3)

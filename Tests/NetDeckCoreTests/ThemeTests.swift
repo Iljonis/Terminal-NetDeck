@@ -37,6 +37,17 @@ import Testing
         #expect(Self.contrast(Theme.builtIn.text, Theme.builtIn.background) >= 4.5)
     }
 
+    /// El icono de un botón activo (túneles, vista dividida…) va con el fondo opaco sobre el acento: con el fondo tal
+    /// cual, en los de cristal se transparentaba y quedaba en 2,4:1. Al menos 3:1 en todo el catálogo, también sólido.
+    @Test func iconoActivoSobreElAcento() throws {
+        for t in try Self.catalogThemes() {
+            for s in [t, t.solid] {
+                let bg = s.background.opaque
+                #expect(Self.contrast(bg, s.accent.over(s.bar.over(bg))) >= 3, "\(t.id): icono activo")
+            }
+        }
+    }
+
     static func catalogThemes() throws -> [Theme] {
         try FileManager.default.contentsOfDirectory(at: catalog, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "tema" }.map(Theme.init(contentsOf:))

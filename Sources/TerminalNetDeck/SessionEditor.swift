@@ -110,11 +110,13 @@ struct SessionEditor: View {
             }
             NeonLine(color: t.panel)
             HStack(spacing: 6) {
-                IconButton(icon: "plus") { once { add(group: index.map { file.sessions[$0].group }) } }.help(L("Nueva sesión")).disabled(busy)
-                IconButton(icon: "plus.square.on.square") { once(duplicate) }.help(L("Duplicar")).disabled(busy || index == nil)
-                IconButton(icon: "trash") { once(delete) }.help(L("Borrar")).disabled(busy || index == nil)
-                IconButton(icon: "chevron.up") { move(-1) }.help(L("Subir (dentro de su grupo)")).disabled(index == nil)
-                IconButton(icon: "chevron.down") { move(1) }.help(L("Bajar (dentro de su grupo)")).disabled(index == nil)
+                IconButton(icon: "plus",
+                           help: L("Nueva sesión")) { once { add(group: index.map { file.sessions[$0].group }) } }.disabled(busy)
+                IconButton(icon: "plus.square.on.square",
+                           help: L("Duplicar")) { once(duplicate) }.disabled(busy || index == nil)
+                IconButton(icon: "trash", help: L("Borrar")) { once(delete) }.disabled(busy || index == nil)
+                IconButton(icon: "chevron.up", help: L("Subir (dentro de su grupo)")) { move(-1) }.disabled(index == nil)
+                IconButton(icon: "chevron.down", help: L("Bajar (dentro de su grupo)")) { move(1) }.disabled(index == nil)
                 Spacer()
                 ThemedMenu {
                     Button(L("Todas (JSON)…")) { export(groups: nil, csv: false) }
@@ -125,8 +127,9 @@ struct SessionEditor: View {
                     }
                 } label: { Image(systemName: "square.and.arrow.up") }.fixedSize()
                     .help(L("Exportar (sin contraseñas)"))
-                IconButton(icon: "square.and.arrow.down", tint: t.accent2) { importing = true }      // (en la columna estrecha, sin texto: cabe entero)
-                    .help(L("SecureCRT, MobaXterm, PuTTY, electerm, CSV, un ssh_config o un JSON exportado"))
+                // (en la columna estrecha, sin texto: cabe entero)
+                IconButton(icon: "square.and.arrow.down", tint: t.accent2,
+                           help: L("SecureCRT, MobaXterm, PuTTY, electerm, CSV, un ssh_config o un JSON exportado")) { importing = true }
             }
             .padding(8)
         }
@@ -326,7 +329,7 @@ struct SessionEditor: View {
                 if !cur.isEmpty, !ports.contains(cur) { o.append((cur, L("\(cur) (no conectado)"))) }
                 for x in ports { o.append((x, x)) }
             }
-            IconButton(icon: "arrow.clockwise") { ports = SerialLine.devices() }.help(L("Volver a buscar puertos"))
+            IconButton(icon: "arrow.clockwise", help: L("Volver a buscar puertos")) { ports = SerialLine.devices() }
         }
         LabeledContent(L("Ruta del puerto")) { TextField("", text: line.device, prompt: Text("/dev/cu.usbserial-0001")).frame(maxWidth: 380) }
         if !cur.isEmpty, !SerialLine.isValidDevice(cur) {

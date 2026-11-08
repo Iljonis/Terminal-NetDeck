@@ -43,7 +43,7 @@ struct ContentView: View {
         .themedControls()
         .disabled(model.core.renamingCredential)
         .overlay(alignment: .bottomTrailing) {
-            GlassGroup { StatusToast() }.padding(.trailing, 14).padding(.bottom, 34)
+            StatusToast().padding(.trailing, 14).padding(.bottom, 34)
                 .animation(.easeInOut(duration: 0.3), value: model.toast)
         }
         .overlay { if model.showSettings { SettingsOverlay().themedControls() } }
@@ -357,7 +357,7 @@ struct TopBar: View {
                         // arrastrar una pestaña la cambia de sitio (sólo el orden: la terminal y su proceso siguen igual)
                         ForEach(model.tabs) { s in
                             // (y soltada fuera de la ventana: a otra ventana de la app o a una nueva en esa pantalla)
-                            TabChip(session: s, width: each, dragSpace: drag.space) { drag.blocked[s.id] = $0 }
+                            TabChip(session: s, width: each, dragSpace: drag.space, lifted: drag.dragging == s.id) { drag.blocked[s.id] = $0 }
                                 .id(s.id)
                                 .reorderable(s.id, in: drag, order: { model.tabs.map(\.id) },
                                              move: { model.moveTab($0, to: $1) }, end: {}, tap: { model.show(s) },
@@ -380,28 +380,28 @@ struct TopBar: View {
             GlassGroup { HStack(spacing: Self.spacing) {
                 NewButton()
                     .help(L("Conectar, terminal local, sesión nueva o una favorita"))
-                IconButton(icon: "apple.terminal") { model.openLocal() }
-                    .help(L("Nueva terminal local: tu shell en este Mac (⌘T)"))
+                IconButton(icon: "apple.terminal",
+                           help: L("Nueva terminal local: tu shell en este Mac (⌘T)")) { model.openLocal() }
             } }
             .fixedSize()
             .layoutPriority(1)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { leftWidth = $0 }
             .snapshotFrame("crear")
             GlassGroup { HStack(spacing: Self.spacing) {
-                IconButton(icon: "doc.on.clipboard.fill") { model.sheet = .paste }
-                    .help(L("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)"))
+                IconButton(icon: "doc.on.clipboard.fill",
+                           help: L("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)")) { model.sheet = .paste }
                 MacroMenu()
                     .help(L("Macros: grabar, reproducir (en la pestaña o en MultiExec) y editar"))
                 IconButton(icon: "point.3.connected.trianglepath.dotted", active: model.tunnelRunner.activeCount > 0,
-                           badge: model.tunnelRunner.activeCount > 0 ? "\(model.tunnelRunner.activeCount)" : nil) { model.present(.tunnels) }
-                    .help(L("Túneles SSH: locales, remotos y SOCKS; iniciar, parar y su estado"))
-                IconMenu(icon: "rectangle.split.3x1.fill", active: model.split != nil) {
+                           badge: model.tunnelRunner.activeCount > 0 ? "\(model.tunnelRunner.activeCount)" : nil,
+                           help: L("Túneles SSH: locales, remotos y SOCKS; iniciar, parar y su estado")) { model.present(.tunnels) }
+                IconMenu(icon: "rectangle.split.3x1.fill", active: model.split != nil, help: L("Dividir la pantalla")) {
                     ForEach(Split.Layout.allCases) { l in Button(l.title) { model.makeSplit(l) } }
                     MenuDivider()
                     Button(L("Volver a pestañas sueltas")) { model.unsplit() }.disabled(model.split == nil)
                 }
-                .help(L("Dividir la pantalla"))
-                IconMenu(icon: "key.fill", label: L("Escribir una contraseña")) {
+                IconMenu(icon: "key.fill", label: L("Escribir una contraseña"),
+                         help: L("Escribir una contraseña del Llavero en la pestaña actual")) {
                     if let s = model.current {
                         MenuHeader(title: L("Escribir en «\(s.title)»"))
                         ForEach(model.keychainAccounts, id: \.self) { ref in
@@ -419,19 +419,17 @@ struct TopBar: View {
                     }
                     Button(L("Contraseñas y Llavero…")) { model.openSettings("contraseñas") }
                 }
-                .help(L("Escribir una contraseña del Llavero en la pestaña actual"))
                 IconButton(icon: "square.stack.3d.forward.dottedline.fill", tint: t.warning, active: model.multiExecOn,
-                           badge: model.multiExecOn ? "\(model.multiExecTargets.count)" : nil) { model.multiExecOn.toggle() }
-                    .help(L("MultiExec: lo que escribes va a la vez a los paneles (⇧⌘M). Clic derecho en un panel → excluirlo"))
-                IconButton(icon: "stop.circle.fill", tint: t.bad) { model.core.abortEverywhere() }
-                    .help(L("Corta cualquier secuencia automática (Esc o Ctrl+C en el terminal, ⌘.)"))
-                IconButton(icon: "sidebar.right", active: model.current?.sidePanel?.visible == true) { model.current.map(model.toggleSidePanel) }
-                    .help(L("Explorador SFTP al lado del terminal ssh: mismo equipo, usuario y saltos (⇧⌘B)"))
+                           badge: model.multiExecOn ? "\(model.multiExecTargets.count)" : nil,
+                           help: L("MultiExec: lo que escribes va a la vez a los paneles (⇧⌘M). Clic derecho en un panel → excluirlo")) { model.multiExecOn.toggle() }
+                IconButton(icon: "stop.circle.fill", tint: t.bad,
+                           help: L("Corta cualquier secuencia automática (Esc o Ctrl+C en el terminal, ⌘.)")) { model.core.abortEverywhere() }
+                IconButton(icon: "sidebar.right", active: model.current?.sidePanel?.visible == true,
+                           help: L("Explorador SFTP al lado del terminal ssh: mismo equipo, usuario y saltos (⇧⌘B)")) { model.current.map(model.toggleSidePanel) }
                     .disabled(!(model.current.map { SFTPPanel.offers($0.route) } ?? false) || model.showSplit)
-                IconButton(icon: "sidebar.left", active: model.settings.sidebarVisible) { model.settings.sidebarVisible.toggle() }
-                    .help(L("Mostrar/ocultar sesiones (⌃⌘S)"))
-                IconButton(icon: "gearshape.fill") { model.openSettings() }
-                    .help(L("Ajustes (⌘,)"))
+                IconButton(icon: "sidebar.left", active: model.settings.sidebarVisible,
+                           help: L("Mostrar/ocultar sesiones (⌃⌘S)")) { model.settings.sidebarVisible.toggle() }
+                IconButton(icon: "gearshape.fill", help: L("Ajustes (⌘,)")) { model.openSettings() }
             } }
             // (los botones de la derecha, siempre enteros y dentro de la ventana: las pestañas se encogen antes)
             .fixedSize()
@@ -678,8 +676,10 @@ struct IconButton: View {
     var tint: RGB?
     var active = false
     var badge: String?
-    /// Su nombre para VoiceOver (si no, el de su ayuda: `help(_:)`).
+    /// Su nombre para VoiceOver (si no, el de su ayuda).
     var label: String?
+    /// La ayuda al pasar el ratón; también da su nombre a VoiceOver (aquí y no con `.help`, que dependía del orden).
+    var help: String?
     var action: () -> Void
     @Stored private var hover = false
 
@@ -690,31 +690,34 @@ struct IconButton: View {
                 Image(systemName: icon).font(.system(size: 13, weight: .semibold))
                 if let badge { Text(badge).font(t.ui(11, .bold)) }
             }
-            .foregroundStyle(SwiftUI.Color(active ? t.background : (hover ? color : (tint ?? t.text))))
+            // (el fondo opaco: el de cristal es translúcido y sobre el acento quedaba en 2,4:1)
+            .foregroundStyle(SwiftUI.Color(active ? t.background.opaque : (hover ? color : (tint ?? t.text))))
             .padding(.horizontal, 7)
             .frame(minWidth: 30, minHeight: 26)
-            .netdeckGlass(RoundedRectangle(cornerRadius: t.corner ?? 6), tint: active ? color : nil, interactive: true,
+            .netdeckGlass(RoundedRectangle(cornerRadius: t.corner ?? 6), active: active, interactive: true,
                           fallback: SwiftUI.Color(active ? color : t.panel).opacity(active ? 1 : (hover ? 0.9 : 0.4)))
             .shadow(color: SwiftUI.Color(color).opacity(active ? 0.6 : 0), radius: t.glow(6))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
-        .iconAccessibility(label, value: badge, active: active)
-    }
-
-    /// La ayuda (al pasar el ratón) y, si no lleva `label`, su nombre para VoiceOver: lo de antes de los «:» o el
-    /// atajo («Ajustes (⌘,)» → «Ajustes»). La ayuda entera queda de pista.
-    func help(_ text: String) -> some View {
-        self.help(Text(text)).accessibilityLabel(label ?? AccessibilityText.label(fromHelp: text))
+        .iconAccessibility(label, help: help, value: badge, active: active)
     }
 }
 
 extension View {
-    /// Nombre (si lo hay), número del distintivo y si está encendido, para VoiceOver.
-    @ViewBuilder fileprivate func iconAccessibility(_ label: String?, value: String? = nil, active: Bool) -> some View {
+    /// La ayuda (al pasar el ratón), el nombre para VoiceOver (`label` o, si no, el de la ayuda: lo de antes de los «:»
+    /// o el atajo, «Ajustes (⌘,)» → «Ajustes»; la ayuda entera queda de pista), el número del distintivo y si está
+    /// encendido.
+    /// (sin ayuda, ninguna: una vacía taparía la de fuera, la de `NewButton` o `MacroMenu`)
+    @ViewBuilder fileprivate func iconAccessibility(_ label: String?, help: String?, value: String? = nil, active: Bool) -> some View {
         let v = accessibilityValue(value ?? "").accessibilityAddTraits(active ? .isSelected : [])
-        if let label { v.accessibilityLabel(label) } else { v }
+        let name = label ?? help.map(AccessibilityText.label(fromHelp:))
+        switch (help, name) {
+        case let (help?, name?): v.help(Text(help)).accessibilityLabel(name)
+        case let (nil, name?): v.accessibilityLabel(name)
+        default: v
+        }
     }
 }
 
@@ -723,29 +726,26 @@ struct IconMenu<Content: View>: View {
     @Environment(\.theme) private var t
     let icon: String
     var active = false
-    /// Su nombre para VoiceOver (si no, el de su ayuda: `help(_:)`).
+    /// Su nombre para VoiceOver (si no, el de su ayuda).
     var label: String?
+    /// Como en `IconButton`: la ayuda, que también le da nombre.
+    var help: String?
     @ViewBuilder var content: () -> Content
     @Stored private var hover = false
 
     var body: some View {
         ThemedMenu(content: content) {
             Image(systemName: icon).font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(SwiftUI.Color(active ? t.background : (hover ? t.accent : t.text)))
+                .foregroundStyle(SwiftUI.Color(active ? t.background.opaque : (hover ? t.accent : t.text)))
                 .padding(.horizontal, 7)
                 .frame(minWidth: 30, minHeight: 26)
-                .netdeckGlass(RoundedRectangle(cornerRadius: t.corner ?? 6), tint: active ? t.accent : nil, interactive: true,
+                .netdeckGlass(RoundedRectangle(cornerRadius: t.corner ?? 6), active: active, interactive: true,
                               fallback: SwiftUI.Color(active ? t.accent : t.panel).opacity(active ? 1 : (hover ? 0.9 : 0.4)))
                 .contentShape(Rectangle())
         }
         .fixedSize()
         .onHover { hover = $0 }
-        .iconAccessibility(label, active: active)
-    }
-
-    /// Como en `IconButton`: la ayuda también da su nombre a VoiceOver.
-    func help(_ text: String) -> some View {
-        self.help(Text(text)).accessibilityLabel(label ?? AccessibilityText.label(fromHelp: text))
+        .iconAccessibility(label, help: help, active: active)
     }
 }
 
@@ -760,6 +760,8 @@ struct TabChip: View {
     var width: CGFloat = TopBar.tabMax
     /// El espacio de coordenadas de la fila y a quién decirle dónde está la ✕ (ahí no empieza el arrastre).
     let dragSpace: UUID
+    /// La que se arrastra: sin cristal, que si no se funde con las que pisa.
+    var lifted = false
     var onCloseFrame: (CGRect?) -> Void = { _ in }
     @Stored private var hover = false
 
@@ -779,12 +781,12 @@ struct TabChip: View {
             Group {
                 // («Distinguir sin color»: el estado también por la forma)
                 if shapes {
-                    Image(systemName: status.symbol).font(.system(size: 8, weight: .bold)).foregroundStyle(SwiftUI.Color(status.color))
+                    Image(systemName: status.symbol).font(.system(size: 10, weight: .bold)).foregroundStyle(SwiftUI.Color(status.color))
                 } else {
                     Circle().fill(SwiftUI.Color(status.color))
                 }
             }
-            .frame(width: shapes ? 9 : 7, height: shapes ? 9 : 7)
+            .frame(width: shapes ? 11 : 7, height: shapes ? 11 : 7)
             .shadow(color: SwiftUI.Color(status.color).opacity(0.8), radius: t.glow(3))
             if inSplit { Image(systemName: "square.split.2x1").font(.system(size: 9)) }
             // (sólo el destino; el camino entero, en la ayuda)
@@ -812,7 +814,8 @@ struct TabChip: View {
         .padding(.leading, width < 130 ? 9 : 12)
         .padding(.trailing, max(0, (width < 130 ? 11 : 16) - (showsClose ? (Self.closeSize - 9) / 2 : 0)))
         .frame(width: width, height: 29)
-        .netdeckGlass(ChamferShape(radius: t.corner), tint: selected ? t.tab : nil, interactive: true,
+        // (cristal sólo en las demás, sin `interactive`: con muchas pestañas, cada una lo recalculaba con el ratón)
+        .netdeckGlass(ChamferShape(radius: t.corner), active: selected || lifted,
                       fallback: SwiftUI.Color(selected ? t.tab : t.panel).opacity(selected ? 1 : (hover ? 0.95 : 0.6)))
         .shadow(color: SwiftUI.Color(t.tab).opacity(selected ? 0.6 : 0), radius: t.glow(8))
         .contentShape(Rectangle())
@@ -956,10 +959,10 @@ struct SplitChip: View {
             Image(systemName: split.layout.icon).font(.system(size: 11, weight: .bold))
             Text(L("VISTA ×\(split.panes.count)")).font(t.ui(11, .bold)).tracking(1)
         }
-        .foregroundStyle(SwiftUI.Color(on ? t.background : t.accent))
+        .foregroundStyle(SwiftUI.Color(on ? t.background.opaque : t.accent))
         .padding(.horizontal, 11)
         .frame(height: 29)
-        .netdeckGlass(ChamferShape(radius: t.corner), tint: on ? t.accent : nil, interactive: true,
+        .netdeckGlass(ChamferShape(radius: t.corner), active: on, interactive: true,
                       fallback: SwiftUI.Color(on ? t.accent : t.panel).opacity(on ? 1 : 0.7))
         .shadow(color: SwiftUI.Color(t.accent).opacity(on ? 0.6 : 0), radius: t.glow(8))
         .contentShape(Rectangle())
@@ -1140,8 +1143,7 @@ struct PasswordNotice: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "key.fill").foregroundStyle(SwiftUI.Color(t.warning))
             VStack(alignment: .leading, spacing: 10, content: content).frame(maxWidth: .infinity, alignment: .leading)
-            IconButton(icon: "xmark") { model.dismissPasswordNotice(in: session) }
-                .help(L("Cerrar"))
+            IconButton(icon: "xmark", help: L("Cerrar")) { model.dismissPasswordNotice(in: session) }
         }
         .padding(12)
         .frame(maxWidth: 360)
@@ -1299,7 +1301,8 @@ struct StatusToast: View {
                 .lineLimit(2).truncationMode(.middle)
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .frame(maxWidth: 520, alignment: .trailing)
-                .netdeckGlass(RoundedRectangle(cornerRadius: t.corner ?? 8), fallback: SwiftUI.Color(t.bar.opaque))
+                // (opaco: flota sobre el terminal y con cristal no se leía)
+                .background(RoundedRectangle(cornerRadius: t.corner ?? 8).fill(SwiftUI.Color(t.bar.opaque)))
                 .overlay(RoundedRectangle(cornerRadius: t.corner ?? 8)
                     .strokeBorder(SwiftUI.Color(text.hasPrefix("✗") ? t.bad : t.accent2).opacity(0.7)))
                 .shadow(color: .black.opacity(0.3), radius: 6)

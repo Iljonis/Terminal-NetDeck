@@ -168,9 +168,9 @@ struct TunnelSheet: View {
             }
             NeonLine(color: t.panel)
             HStack(spacing: 6) {
-                IconButton(icon: "plus") { choose(nil) }.help(L("Nuevo")).disabled(busy)
-                IconButton(icon: "plus.square.on.square") { duplicate() }.help(L("Duplicar")).disabled(busy)
-                IconButton(icon: "trash") { act { await remove() } }.help(L("Borrar…")).disabled(busy || baseline == nil)
+                IconButton(icon: "plus", help: L("Nuevo")) { choose(nil) }.disabled(busy)
+                IconButton(icon: "plus.square.on.square", help: L("Duplicar")) { duplicate() }.disabled(busy)
+                IconButton(icon: "trash", help: L("Borrar…")) { act { await remove() } }.disabled(busy || baseline == nil)
                 Spacer()
             }
             .padding(8)
@@ -218,10 +218,10 @@ struct TunnelSheet: View {
             }
             Spacer(minLength: 0)
             if !unsaved {
-                IconButton(icon: s.isRunning ? "stop.fill" : "play.fill", tint: s.isRunning ? t.bad : t.good) {
+                IconButton(icon: s.isRunning ? "stop.fill" : "play.fill", tint: s.isRunning ? t.bad : t.good,
+                           help: s.isRunning ? L("Parar") : L("Iniciar")) {
                     if s.isRunning { model.stopTunnel(tu.id) } else { model.startTunnel(tu) }
                 }
-                .help(s.isRunning ? L("Parar") : L("Iniciar"))
                 .disabled(busy)
             }
         }

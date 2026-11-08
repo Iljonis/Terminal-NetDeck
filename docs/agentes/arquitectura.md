@@ -29,5 +29,7 @@ errores. Las reglas en corto están en la raíz (CLAUDE.md / AGENTS.md); aquí, 
   detalle, sin secretos.
 - **Accesibilidad y cristal:** con «Reducir transparencia» o «Aumentar contraste», `ThemeStore.current` da el tema
   opaco (`Theme.solid`): ventana, desenfoque y fondo del terminal sin transparencias. El Liquid Glass de macOS 26 sólo
-  va con `GlassGroup` + `netdeckGlass` (barra, pestañas, «+», aviso) y en los temas «cristal»; el terminal, nunca. Lo
-  que se pulsa con un gesto propio lleva `pressable` (VoiceOver y teclado) y los menús con tema, `menuKeyboard`.
+  va con `GlassGroup` + `netdeckGlass` (barra, pestañas, «+») y en los temas «cristal», sólo en lo inactivo: lo
+  elegido o encendido (`active`), el aviso y el terminal, opacos. Lo que se pulsa con un gesto propio lleva `pressable`
+  (VoiceOver y teclado), los menús con tema, `menuKeyboard`, y `IconButton`/`IconMenu`, la ayuda en `help:` (también
+  les da nombre para VoiceOver).

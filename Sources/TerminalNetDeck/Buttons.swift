@@ -53,8 +53,7 @@ struct ButtonBarView: View {
                 .coordinateSpace(.named(drag.space))
             }
             .keepsWindowStill(model, "botones")
-            IconButton(icon: "pencil") { model.openSettings("botones") }
-                .help(L("Editar los botones"))
+            IconButton(icon: "pencil", help: L("Editar los botones")) { model.openSettings("botones") }
         }
         .padding(.horizontal, 10)
         .frame(height: 32)

@@ -454,12 +454,14 @@ struct ListSheet: View {
             }
             NeonLine(color: t.panel)
             HStack(spacing: 6) {
-                IconButton(icon: "plus") { choose(nil) }.help(L("Nueva")).disabled(busy)
-                IconButton(icon: "plus.square.on.square") { act { await duplicate() } }.help(L("Duplicar")).disabled(busy || selected == nil)
-                IconButton(icon: "pencil") { act { await rename() } }.help(L("Renombrar…")).disabled(busy || selected == nil)
-                IconButton(icon: "trash") { act { await remove() } }.help(L("Borrar…")).disabled(busy || selected == nil)
+                IconButton(icon: "plus", help: L("Nueva")) { choose(nil) }.disabled(busy)
+                IconButton(icon: "plus.square.on.square",
+                           help: L("Duplicar")) { act { await duplicate() } }.disabled(busy || selected == nil)
+                IconButton(icon: "pencil",
+                           help: L("Renombrar…")) { act { await rename() } }.disabled(busy || selected == nil)
+                IconButton(icon: "trash", help: L("Borrar…")) { act { await remove() } }.disabled(busy || selected == nil)
                 Spacer()
-                IconButton(icon: "square.and.arrow.down") { importFile() }.help(L("Importar equipos de un .txt/.csv…"))
+                IconButton(icon: "square.and.arrow.down", help: L("Importar equipos de un .txt/.csv…")) { importFile() }
             }
             .padding(8)
         }

@@ -1,9 +1,10 @@
 import NetDeckCore
 import SwiftUI
 
-// Liquid Glass de macOS 26 en las piezas que flotan sobre la barra (botones de icono, pestañas, «VISTA», el aviso y el
-// menú «+»), sólo con los temas de cristal. El terminal nunca: su fondo sigue siendo el del tema. En macOS 15, con
-// otro tema o con «Reducir transparencia» / «Aumentar contraste», todo queda como antes (el fondo de siempre).
+// Liquid Glass de macOS 26 en las piezas que flotan sobre la barra (botones de icono, pestañas, «VISTA» y el menú «+»),
+// sólo con los temas de cristal. Lo elegido o activo va opaco (sobre cristal teñido no se leía) y el aviso también (flota
+// sobre el terminal). El terminal nunca: su fondo sigue siendo el del tema. En macOS 15, con otro tema o con «Reducir
+// transparencia» / «Aumentar contraste», todo queda como antes (el fondo de siempre).
 
 extension Theme {
     /// Cristal de verdad: macOS 26, un tema «cristal» y transparente (con Accesibilidad, `ThemeStore` ya lo da opaco).
@@ -45,10 +46,10 @@ struct GlassGroup<Content: View>: View {
 }
 
 extension View {
-    /// El fondo de una pieza: cristal dentro de un `GlassGroup` (`tint`, el color de la activa; `interactive`, que
-    /// responda al ratón) o, si no, `shape` relleno con `fallback`, el de siempre.
-    func netdeckGlass<S: Shape, F: ShapeStyle>(_ shape: S, tint: RGB? = nil, interactive: Bool = false, fallback: F) -> some View {
-        modifier(NetDeckGlass(shape: shape, tint: tint, interactive: interactive, fallback: fallback))
+    /// El fondo de una pieza: cristal dentro de un `GlassGroup` (`interactive`, que responda al ratón) o, si no, `shape`
+    /// relleno con `fallback`, el de siempre. La elegida o encendida (`active`), siempre con `fallback`, opaco.
+    func netdeckGlass<S: Shape, F: ShapeStyle>(_ shape: S, active: Bool = false, interactive: Bool = false, fallback: F) -> some View {
+        modifier(NetDeckGlass(shape: shape, active: active, interactive: interactive, fallback: fallback))
     }
 
     /// El fondo de un menú en un panel: con cristal, el del propio panel de macOS 26 (que ya es de cristal); si no,
@@ -59,22 +60,18 @@ extension View {
 private struct NetDeckGlass<S: Shape, F: ShapeStyle>: ViewModifier {
     @Environment(\.glassOn) private var on
     let shape: S
-    let tint: RGB?
+    let active: Bool
     let interactive: Bool
     let fallback: F
 
     func body(content: Content) -> some View {
         if #available(macOS 26, *), on {
-            content.glassEffect(glass, in: shape)
+            // (la misma vista al encenderse o apagarse: `.identity` es sin cristal, y debajo el relleno de siempre)
+            content.background(shape.fill(fallback).opacity(active ? 1 : 0))
+                .glassEffect(active ? .identity : interactive ? .regular.interactive() : .regular, in: shape)
         } else {
             content.background(shape.fill(fallback))
         }
-    }
-
-    @available(macOS 26, *)
-    private var glass: Glass {
-        let g = tint.map { Glass.regular.tint(SwiftUI.Color($0)) } ?? .regular
-        return interactive ? g.interactive() : g
     }
 }
 

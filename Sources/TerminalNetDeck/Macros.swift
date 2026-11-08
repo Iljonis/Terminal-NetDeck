@@ -57,11 +57,12 @@ struct MacroSheet: View {
             }
             NeonLine(color: t.panel)
             HStack(spacing: 6) {
-                IconButton(icon: "plus") { choose(nil) }.help(L("Nueva")).disabled(busy)
-                IconButton(icon: "plus.square.on.square") { duplicate() }.help(L("Duplicar")).disabled(busy)
-                IconButton(icon: "trash") { act { await remove() } }.help(L("Borrar…")).disabled(busy || baseline == nil)
+                IconButton(icon: "plus", help: L("Nueva")) { choose(nil) }.disabled(busy)
+                IconButton(icon: "plus.square.on.square", help: L("Duplicar")) { duplicate() }.disabled(busy)
+                IconButton(icon: "trash", help: L("Borrar…")) { act { await remove() } }.disabled(busy || baseline == nil)
                 Spacer()
-                IconButton(icon: model.recording == nil ? "record.circle" : "stop.circle.fill", active: model.recording != nil) {
+                IconButton(icon: model.recording == nil ? "record.circle" : "stop.circle.fill", active: model.recording != nil,
+                           help: model.recording == nil ? L("Grabar una macro en la pestaña activa") : L("Parar la grabación")) {
                     act {
                         if model.recording != nil {
                             model.stopRecording()
@@ -72,7 +73,6 @@ struct MacroSheet: View {
                         }
                     }
                 }
-                .help(model.recording == nil ? L("Grabar una macro en la pestaña activa") : L("Parar la grabación"))
             }
             .padding(8)
         }
@@ -151,9 +151,9 @@ struct MacroSheet: View {
                 TextField("", value: step.seconds, format: .number).frame(width: 52)
                 Text("s").font(t.ui(10)).foregroundStyle(SwiftUI.Color(t.dim))
             }
-            IconButton(icon: "chevron.up") { move(i, -1) }.help(L("Subir")).disabled(i == 0)
-            IconButton(icon: "chevron.down") { move(i, 1) }.help(L("Bajar")).disabled(i == draft.steps.count - 1)
-            IconButton(icon: "minus") { draft.steps.remove(at: i) }.help(L("Quitar"))
+            IconButton(icon: "chevron.up", help: L("Subir")) { move(i, -1) }.disabled(i == 0)
+            IconButton(icon: "chevron.down", help: L("Bajar")) { move(i, 1) }.disabled(i == draft.steps.count - 1)
+            IconButton(icon: "minus", help: L("Quitar")) { draft.steps.remove(at: i) }
         }
         .padding(.vertical, 3).padding(.horizontal, 6)
         .background(RoundedRectangle(cornerRadius: 6).fill(SwiftUI.Color(draft.steps[i].problem == nil ? t.panel : t.bad).opacity(0.25)))
