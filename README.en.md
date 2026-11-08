@@ -2,15 +2,16 @@
 
 # Terminal NetDeck
 
-**The native macOS SSH terminal for people who live among routers, switches and jump hosts.**
+**SSH client for macOS built for network engineers: SSH, Telnet, SFTP/FTP and serial console in one native app.**
 
-Sessions with jump hosts on top of your `ssh_config`, passwords only in the Keychain, MultiExec with safe paste, an
-SFTP/FTP browser and output highlighting for Cisco, Juniper, Huawei and Nokia. Free, open source, in English or Spanish.
+A free, open-source SecureCRT alternative for the Mac, and what you may be looking for if you want MobaXterm on macOS.
+Sessions with jump hosts on top of your own `ssh_config`, passwords only in the Keychain, MultiExec with safe paste, an
+SFTP browser with verified copies and output highlighting for Cisco, Juniper, Huawei and Nokia. In English or Spanish.
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
 Current version: **[v1.0.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.0.0)** · macOS 15 or later ·
-open source (MIT)
+Apple silicon · open source (MIT)
 
 [![Latest release](https://img.shields.io/github/v/release/Iljonis/Terminal-NetDeck?label=version&color=ff2e88)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/Iljonis/Terminal-NetDeck/total?label=downloads&color=5ce1f0)](https://github.com/Iljonis/Terminal-NetDeck/releases)
@@ -21,9 +22,10 @@ open source (MIT)
 
 [Español](README.md) · **English**
 
-![Terminal NetDeck, an SSH client for macOS: router and switch sessions grouped in folders, jump hosts and quick connect](docs/capturas/portada-en.png)
+![Terminal NetDeck with the Liquid Glass theme: an SSH client for macOS with router and switch sessions in folders, a hop through the bastion and Cisco router output highlighted in colour](docs/capturas/portada-liquid-glass-en.png)
 
 [What's new](#new-in-100) · [Features](#features-for-network-engineers) ·
+[Themes](#-85-themes-screen-filters-and-your-own-colours) ·
 [Comparison](#comparison-with-securecrt-mobaxterm-iterm2-and-royal-tsx) ·
 [Install](#installation--first-run-on-macos-15-sequoia) · [Getting started](#getting-started) · [FAQ](#faq) ·
 [Roadmap](#roadmap) · [Contributing](#contributing)
@@ -42,11 +44,38 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - When something goes wrong (a password fails, a server stops answering, a copy breaks off), the app stops, tells
   you, and keeps whatever copies may need recovering.
 
+**Who it's for:** network, systems and NOC engineers who work from a Mac with routers, switches, firewalls and Linux
+servers over SSH, Telnet or the console port.
+
+**What it isn't:** it doesn't do remote desktop (RDP, VNC), there's no Windows or Linux version, and it has no full
+scripting language: macros, buttons and device lists cover that ground.
+
+### Install in a minute
+
+1. Download [`Terminal-NetDeck.dmg`](https://github.com/Iljonis/Terminal-NetDeck/releases/latest) and drag the app to
+   **Applications**.
+2. Allow it once (it isn't notarized): `sudo xattr -cr "/Applications/Terminal NetDeck.app"`.
+3. Open it: the setup assistant configures sessions, theme, font, passwords and highlighting.
+
+Rather build it? `git clone https://github.com/Iljonis/Terminal-NetDeck.git && cd Terminal-NetDeck && ./install.sh`
+(macOS 15.6+ and Swift 6.2). Full details in [Installation](#installation--first-run-on-macos-15-sequoia).
+
 ## New in 1.0.0
 
 - **Liquid Glass by default:** new users get the Liquid Glass theme (and Liquid Glass Light in automatic mode), with
-  macOS 26 glass on the toolbar buttons, tabs and the «+» menu — never over the terminal text. The classic neon themes are
-  suggested separately in the setup assistant, and anyone already using the app keeps their theme, even if they never picked one.
+  macOS 26 glass on the toolbar buttons, tabs and the «+» menu — never over the terminal text. The classic neon themes
+  are suggested separately in the setup assistant, and anyone already using the app keeps their theme, even if they
+  never picked one.
+- **33 new themes, 85 in all:** ten «Neon Glass» themes that blend macOS 26 glass with neon, with a glow and glass
+  tinted in the theme's colour, plus five new families: Classic computers, Science fiction, Data centre, Nature (each
+  in light and dark) and Retro video games. [See which](#new-themes-in-100).
+- **Screen filters over the terminal:** CRT, LCD, phosphor and hologram, each with its intensity. Switch them or turn
+  them off from Settings and from the menu; each theme can bring its own, and they turn off with the Mac's
+  accessibility options.
+- **Your own colours in any theme:** a layer of changes on top of the theme, with a live preview, a contrast warning
+  and reset; save it as a new theme and export it to a `.tema` file.
+- **Fonts:** sizes from 8 to 36 shown at their real size, ⌘+ / ⌘- / ⌘0, line spacing, smoothing and a warning when the
+  theme's font is missing.
 - **Much faster with long scrollback:** each Return or burst of output now reads only the screen and what is new.
   With 100,000 lines of scrollback, a Return goes from ~250 ms to under 1 ms (Settings offers up to 10,000; for
   100,000, set `# @scrollback 100000` on the session).
@@ -56,6 +85,8 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - **Shortcuts and details:** ⌘1…⌘9 to jump to a tab, ⌘Q asks about unsaved Settings, favourites with a backup and a
   cap on recents.
 - **Under the hood:** Swift 6.2 (SFTP copies and MD5 always off the main thread) and SwiftTerm 1.99.3.
+
+Every change, release by release, is in the [CHANGELOG](CHANGELOG.md).
 
 ## Features for network engineers
 
@@ -128,6 +159,11 @@ name, the app keeps that entry and tells you. External files are not rewritten; 
   them to a `.txt` to hand to a colleague and **imports** theirs (merged with yours without duplicates, or replacing
   them). Passwords never travel: only the name they're saved under in the Keychain.
 
+<p align="center">
+  <img src="docs/capturas/multiexec.png" width="49%" alt="MultiExec in Terminal NetDeck: split view with three SSH sessions to switches and the same command typed into all of them at once">
+  <img src="docs/capturas/revisar-pegado.png" width="49%" alt="Review before pasting in Terminal NetDeck: five configuration lines with a reload flagged as a dangerous command before they are sent to the router">
+</p>
+
 ### 📂 Built-in SFTP and FTP client with atomic copies
 
 - **Next to the SSH terminal:** the SFTP browser opens beside it, with the same host, user and jump hosts (⇧⌘B).
@@ -139,7 +175,7 @@ name, the app keeps that entry and tells you. External files are not rewritten; 
 - **Server to server** ("Send to…"), SFTP ↔ SFTP or SFTP ↔ FTP, in memory and without touching the Mac's disk.
 - **Remote editing:** open a text file up to 5 MB in your editor; saving checks that nobody changed it on the server.
 
-![Terminal NetDeck SFTP browser in split view, with permissions, sizes and server-to-server copies](docs/capturas/explorador.png)
+![Terminal NetDeck SFTP browser next to the SSH terminal in split view, with configuration and firmware backups, permissions, sizes and server-to-server copies](docs/capturas/explorador.png)
 
 ### 🌈 Output highlighting for Cisco, Juniper, Huawei and Nokia
 
@@ -149,10 +185,22 @@ name, the app keeps that entry and tells you. External files are not rewritten; 
 - In the theme's colours and editable with a live preview. You can pick the shade of each highlight colour, per
   theme, without touching the interface; if you have your own rules, each release's new ones are added with one click.
 
-![Cisco and Juniper output highlighting in Terminal NetDeck: interfaces, IPs, BGP states and optical power in colour](docs/capturas/resaltado.png)
+![Terminal NetDeck highlighting rule editor with a live preview of Cisco and Juniper output: interfaces, IPs, BGP states and optical power in colour](docs/capturas/resaltado.png)
 
-### 🗂️ Tabs, split view and multiple windows
+### 🔌 Serial console, Telnet and local shell
 
+- **Session types:** SSH, Telnet, SFTP, FTP, local shell and serial console (speed, data bits, parity and stop bits
+  applied and checked, and BREAK from the Terminal menu).
+- **No locale warnings** on Linux servers: ssh doesn't send the Mac's language unless you turn it on.
+
+### 🗂️ Session manager, tabs and multiple windows
+
+- **Session manager** with folders (`Clients/Madrid/Core`), favourites, recents and a **Connect** button to try one
+  without saving.
+- **Import** from SecureCRT, MobaXterm, PuTTY, electerm, CSV or another `ssh_config`; **export** to JSON or CSV.
+  Never passwords.
+- **Per-session profiles:** theme, font, size, scrollback, keyboard and prompt as annotations in the `ssh_config`
+  itself (`# @tema`, `# @fuente`, `# @prompt`…); anything you leave out inherits from Settings.
 - Tabs share the window's width and, when they don't fit, scroll while keeping the active one in view.
 - The title is just the **destination device** (`core-02`, not `core-02 ⟵ bastion`); the full path shows on hover.
   If you hop from a session to another device, the tab shows it.
@@ -162,38 +210,56 @@ name, the app keeps that entry and tells you. External files are not rewritten; 
   another window's tab bar, without reconnecting. On quit each window is saved with its tabs and position.
 - **Workspaces:** save tab order, the SFTP panel and the split layout to open them all together again.
 
-![Terminal NetDeck tab bar with SSH sessions to routers and switches](docs/capturas/pestanas.png)
+![Terminal NetDeck tab bar with nine open SSH sessions to routers, switches and a bastion](docs/capturas/pestanas.png)
 
 ### 🧰 And also
 
-- **Session types:** SSH, Telnet, SFTP, FTP, local shell and serial console (speed, data bits, parity and stop bits
-  applied and checked, and BREAK from the Terminal menu).
-- **Session manager** with folders (`Clients/Madrid/Core`), favourites, recents and a **Connect** button to try one
-  without saving.
-- **Import** from SecureCRT, MobaXterm, PuTTY, electerm, CSV or another `ssh_config`; **export** to JSON or CSV.
-  Never passwords.
-- **Per-session profiles:** theme, font, size, scrollback, keyboard and prompt as annotations in the `ssh_config`
-  itself (`# @tema`, `# @fuente`, `# @prompt`…); anything you leave out inherits from Settings.
 - **Rectangular selection:** hold ⌥ and drag to copy just some columns (the IPs of a `show ip interface brief`,
   without the rest of the line).
 - **Configurable scrollback:** 2,500 lines per tab by default; 1,000, 5,000 or 10,000 in Settings → Terminal.
 - **Session logging** to clean text and **search** across all logs (IPs, MACs in any format…).
-- **No locale warnings** on Linux servers: ssh doesn't send the Mac's language unless you turn it on.
 - **Spanish (Spain) and English**, switched instantly in Settings → General → Language.
 
-![Terminal NetDeck terminal settings: configurable scrollback and rectangular selection](docs/capturas/ajustes-en.png)
+![Terminal NetDeck terminal settings in English: configurable scrollback and rectangular selection](docs/capturas/ajustes-en.png)
 
-### 🎨 52 themes for every shift
+### 🎨 85 themes, screen filters and your own colours
 
 From a 3 a.m. NOC shift to a presentation on a projector. Each one has its ANSI palette and font, can **follow the
-Mac's light or dark mode**, and **every theme passes a WCAG contrast test** (text ≥ 4.5:1). Want your own? Copy a
-`.tema` file from `Temas/`, change the colours and import it. There's also the original,
-**NetDeck Cyberpunk**, always there as a fallback.
+Mac's light or dark mode**, and **every theme passes a WCAG contrast test** (text ≥ 4.5:1). There's also the
+original, **NetDeck Cyberpunk**, always there as a fallback.
 
-![Gallery of 52 macOS terminal themes with live preview](docs/capturas/temas.png)
+- **Neon Glass:** macOS 26 glass with neon, with a glow and glass tinted in the theme's colour.
+- **Screen filters** over the terminal: CRT, LCD, phosphor and hologram, each with its intensity. Switch them or turn
+  them off from Settings and from the menu; each theme can bring its own, and they turn off with the Mac's
+  accessibility options.
+- **Your own colours in any theme:** change the ones you want in a layer on top of the theme, with a live preview and
+  a contrast warning; reset them, save them as a new theme or export them to a `.tema` file to share it.
+- **Fonts:** sizes from 8 to 36 shown at their real size, ⌘+ / ⌘- / ⌘0, line spacing, smoothing and a warning when the
+  theme's font is missing.
+- Rather start from scratch? Copy a `.tema` file from `Temas/`, change the colours and import it.
+
+<p align="center">
+  <img src="docs/capturas/neon-glass.png" width="49%" alt="Neon Glass theme «Neón Tokio» in Terminal NetDeck: macOS 26 glass tinted in the theme's colour with a neon glow over highlighted router output">
+  <img src="docs/capturas/filtro-crt.png" width="49%" alt="CRT screen filter on Terminal NetDeck's Terminal 3270 theme, applied to highlighted router output">
+</p>
+
+![Terminal NetDeck Settings → Themes: gallery of 85 macOS terminal themes with live preview](docs/capturas/temas.png)
+
+![Your own colours in Terminal NetDeck: a theme's colour editor with live preview, contrast warning and the reset, save as new theme and export .tema buttons](docs/capturas/colores.png)
+
+#### New themes in 1.0.0
+
+| Family | Themes |
+|---|---|
+| **Neon Glass** | Neón Tokio, Ámbar, Ácido, Ocaso, Corpo, Hielo, Unidad, Zaibatsu, Nocturna, Sección |
+| **Classic computers** | Terminal 3270, Comandante, Commodore, Workbench |
+| **Science fiction** | Puente de mando, Nostromo, Imperio, HAL |
+| **Data centre** | Rack, Fibra óptica, NORAD, Consola de rescate |
+| **Nature** (8 themes) | Aurora boreal light and dark, Desierto light and dark, Volcán light and dark, Arrecife light and dark |
+| **Retro video games** | Portátil verde, Laboratorio, Arcade |
 
 <details>
-<summary><b>See the full catalogue</b></summary>
+<summary><b>See the full catalogue: the 52 classic themes</b></summary>
 
 | Group | Theme | What it looks like |
 |---|---|---|
@@ -316,7 +382,7 @@ format and passwords only in the macOS Keychain. Updating only replaces the app:
 buttons and lists are first backed up to `~/Library/Application Support/Terminal NetDeck/copias/`, and if the sessions
 file or its `Include` were ever missing at launch, the app restores them on its own.
 
-![Terminal NetDeck setup assistant: ssh_config, Keychain passwords and theme](docs/capturas/asistente.png)
+![Terminal NetDeck setup assistant: import your ssh_config, save passwords in the Keychain and pick a theme](docs/capturas/asistente.png)
 
 ### Keeping it up to date
 
@@ -391,6 +457,7 @@ cd Terminal-NetDeck
 | ⌘1…⌘9 | Go to the tab with that number (⌘9, the last one) |
 | ⇧⌘B | SFTP browser next to the terminal |
 | ⌘F / ⇧⌘F | Find in the output / in all logs |
+| ⌘+ / ⌘- / ⌘0 | Make the text bigger, smaller or back to its size |
 | Esc or ⌘. | Stop any automated sequence |
 | ⌥ + drag | Rectangular selection (just those columns); ⌘C copies it |
 | ⌘, | Settings |
@@ -417,6 +484,16 @@ cd Terminal-NetDeck
 Found a security issue? Please don't open a public issue: see [SECURITY.md](SECURITY.md).
 
 ## FAQ
+
+<details>
+<summary><b>Is it a SecureCRT or MobaXterm alternative on the Mac?</b></summary>
+
+For day-to-day work with network devices, yes: sessions with folders and jump hosts, SSH, Telnet, serial console,
+SFTP/FTP, MultiExec, buttons and output highlighting. It has no remote desktop and no scripting language like
+SecureCRT's; the [comparison](#comparison-with-securecrt-mobaxterm-iterm2-and-royal-tsx) has the details. Your
+SecureCRT or MobaXterm sessions can be imported, without passwords.
+
+</details>
 
 <details>
 <summary><b>Is it free? Does it collect data?</b></summary>
@@ -462,6 +539,15 @@ Yes: in the session manager, **Import from SecureCRT, MobaXterm, PuTTY, CSV…**
 </details>
 
 <details>
+<summary><b>Can I make my own theme or turn off the CRT effect?</b></summary>
+
+Yes. Change the colours of any theme in Settings, with a live preview and a contrast warning, and save it as a new
+theme or export it to a `.tema` file. Screen filters are switched or turned off from Settings and from the menu, and
+they turn off with the Mac's accessibility options.
+
+</details>
+
+<details>
 <summary><b>Does it run on an Intel Mac? On Windows or Linux?</b></summary>
 
 The `.dmg` is for Apple silicon Macs with macOS 15 or later. On an Intel Mac you can build it from source with
@@ -488,6 +574,7 @@ source, `./desinstalar.sh --todo` also removes themes and settings (the Keychain
   keyboard use.
 - [x] **Liquid Glass** on macOS 26: glass on buttons, tabs and menus, never over the terminal text.
 - [x] **Performance:** less work per key and per line with long outputs and many open tabs.
+- [x] **Customisation:** 33 new themes, screen filters, your own colours in any theme and more control over the font.
 
 Missing something? [Suggest a feature](https://github.com/Iljonis/Terminal-NetDeck/issues/new/choose).
 
@@ -522,7 +609,12 @@ The code is written in Spanish (Spain) and the interface is translated into Engl
   form. Never with real data: use `192.0.2.x`, `tu.usuario` or `core-01`.
 - **Code:** read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 - **Security:** [SECURITY.md](SECURITY.md).
-- Does it save you time? A ⭐ helps other network engineers find it.
+
+Does it save you time day to day? A ⭐ on GitHub helps other network engineers find it.
+
+<a href="https://star-history.com/#Iljonis/Terminal-NetDeck&Date">
+  <img src="https://api.star-history.com/svg?repos=Iljonis/Terminal-NetDeck&type=Date" width="600" alt="Chart of Terminal NetDeck's GitHub stars over time">
+</a>
 
 ## License
 
@@ -533,8 +625,8 @@ also ships inside the app.
 ## Trademarks
 
 Cisco, Oracle, Juniper, Huawei, Nokia, DIGI, Ubuntu, Apple, macOS, Liquid Glass, Microsoft, Windows, SecureCRT,
-SecureFX, MobaXterm, iTerm2, Royal TS, Royal TSX, PuTTY and every other company, product, work or palette name
-mentioned in this project are trademarks of their respective owners. They are cited only to describe colour
+SecureFX, MobaXterm, iTerm2, Royal TS, Royal TSX, PuTTY, IBM, Commodore, Amiga and every other company, product, work
+or palette name mentioned in this project are trademarks of their respective owners. They are cited only to describe colour
 combinations, compatibility (for example, "inspired by", "style" or "import from") or to compare them. Terminal
 NetDeck is an independent project: it is not affiliated with, sponsored or endorsed by any of them, and it includes
 none of their logos or official assets.

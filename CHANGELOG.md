@@ -19,9 +19,23 @@ All notable changes to Terminal NetDeck are listed here. The format follows
   items stay opaque for contrast).
 - Accessibility: opaque themes with «Reduce transparency» / «Increase contrast», VoiceOver labels and button traits for
   tabs, sessions and folders, keyboard navigation in themed menus, status dot shapes with «Differentiate without colour».
+- 33 new themes (85 in all): ten «Neon Glass» themes that blend macOS 26 glass with neon, with a glow and glass
+  tinted in the theme's colour (Neón Tokio, Ámbar, Ácido, Ocaso, Corpo, Hielo, Unidad, Zaibatsu, Nocturna, Sección),
+  and five new families: Classic computers (Terminal 3270, Comandante, Commodore, Workbench), Science fiction (Puente
+  de mando, Nostromo, Imperio, HAL), Data centre (Rack, Fibra óptica, NORAD, Consola de rescate), Nature, each in light
+  and dark (Aurora boreal, Desierto, Volcán, Arrecife: 8 themes) and Retro video games (Portátil verde, Laboratorio, Arcade).
+- Screen filters over the terminal (CRT, LCD, phosphor, hologram) with an intensity setting, switched or turned off
+  from Settings and from the menu; each theme can bring its own, and they turn off with the Mac's accessibility
+  options.
+- Your own colours in any theme: a layer of changes with a live preview, a contrast warning, reset, save as a new theme
+  and export to a `.tema` file.
+- Fonts: sizes from 8 to 36 shown at their real size, ⌘+ / ⌘- / ⌘0, line spacing, smoothing and a warning when the
+  theme's font is missing.
 - ⌘1…⌘9 to jump to a tab; ⌘Q asks about unsaved Settings.
 - Demo cases for the paste review sheet, Settings → Paste and the Liquid Glass themes.
 - CHANGELOG, contributing guide, code of conduct, security policy, issue and PR templates, social preview image.
+- README rewritten for 1.0.0 in Spanish and English: what it is and who it's for, a one-minute install, the new themes
+  and filters, and an FAQ entry on using it as a SecureCRT or MobaXterm alternative.
 
 ### Changed
 - The terminal reads only the screen and new rows instead of the whole scrollback (Return with 100,000 lines:
