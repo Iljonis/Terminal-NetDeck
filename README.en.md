@@ -25,7 +25,7 @@ Apple silicon · open source (MIT)
 ![Terminal NetDeck with the Liquid Glass theme: an SSH client for macOS with router and switch sessions in folders, a hop through the bastion and Cisco router output highlighted in colour](docs/capturas/portada-liquid-glass-en.png)
 
 [What's new](#new-in-100) · [Features](#features-for-network-engineers) ·
-[Themes](#-over-80-themes-screen-filters-and-your-own-colours) ·
+[Themes](#-85-themes-screen-filters-and-your-own-colours) ·
 [Comparison](#comparison-with-securecrt-mobaxterm-iterm2-and-royal-tsx) ·
 [Install](#installation--first-run-on-macos-15-sequoia) · [Getting started](#getting-started) · [FAQ](#faq) ·
 [Roadmap](#roadmap) · [Contributing](#contributing)
@@ -66,9 +66,9 @@ Rather build it? `git clone https://github.com/Iljonis/Terminal-NetDeck.git && c
   macOS 26 glass on the toolbar buttons, tabs and the «+» menu — never over the terminal text. The classic neon themes
   are suggested separately in the setup assistant, and anyone already using the app keeps their theme, even if they
   never picked one.
-- **29 new themes, over 80 in all:** ten «Neon Glass» themes that blend macOS 26 glass with neon, with a glow and glass
-  tinted in the theme's colour, plus five new families: Classic computers, Science fiction, Data centre, Nature (light
-  and dark) and Retro video games. [See which](#new-themes-in-100).
+- **33 new themes, 85 in all:** ten «Neon Glass» themes that blend macOS 26 glass with neon, with a glow and glass
+  tinted in the theme's colour, plus five new families: Classic computers, Science fiction, Data centre, Nature (each
+  in light and dark) and Retro video games. [See which](#new-themes-in-100).
 - **Screen filters over the terminal:** CRT, LCD, phosphor and hologram, each with its intensity. Switch them or turn
   them off from Settings and from the menu; each theme can bring its own, and they turn off with the Mac's
   accessibility options.
@@ -222,7 +222,7 @@ name, the app keeps that entry and tells you. External files are not rewritten; 
 
 ![Terminal NetDeck terminal settings in English: configurable scrollback and rectangular selection](docs/capturas/ajustes-en.png)
 
-### 🎨 Over 80 themes, screen filters and your own colours
+### 🎨 85 themes, screen filters and your own colours
 
 From a 3 a.m. NOC shift to a presentation on a projector. Each one has its ANSI palette and font, can **follow the
 Mac's light or dark mode**, and **every theme passes a WCAG contrast test** (text ≥ 4.5:1). There's also the
@@ -243,7 +243,7 @@ original, **NetDeck Cyberpunk**, always there as a fallback.
   <img src="docs/capturas/filtro-crt.png" width="49%" alt="CRT screen filter on Terminal NetDeck's Terminal 3270 theme, applied to highlighted router output">
 </p>
 
-![Terminal NetDeck Settings → Themes: gallery of over 80 macOS terminal themes with live preview](docs/capturas/temas.png)
+![Terminal NetDeck Settings → Themes: gallery of 85 macOS terminal themes with live preview](docs/capturas/temas.png)
 
 ![Your own colours in Terminal NetDeck: a theme's colour editor with live preview, contrast warning and the reset, save as new theme and export .tema buttons](docs/capturas/colores.png)
 
@@ -255,7 +255,7 @@ original, **NetDeck Cyberpunk**, always there as a fallback.
 | **Classic computers** | Terminal 3270, Comandante, Commodore, Workbench |
 | **Science fiction** | Puente de mando, Nostromo, Imperio, HAL |
 | **Data centre** | Rack, Fibra óptica, NORAD, Consola de rescate |
-| **Nature** (light and dark) | Aurora boreal, Desierto, Volcán, Arrecife |
+| **Nature** (8 themes) | Aurora boreal light and dark, Desierto light and dark, Volcán light and dark, Arrecife light and dark |
 | **Retro video games** | Portátil verde, Laboratorio, Arcade |
 
 <details>
@@ -574,7 +574,7 @@ source, `./desinstalar.sh --todo` also removes themes and settings (the Keychain
   keyboard use.
 - [x] **Liquid Glass** on macOS 26: glass on buttons, tabs and menus, never over the terminal text.
 - [x] **Performance:** less work per key and per line with long outputs and many open tabs.
-- [x] **Customisation:** 29 new themes, screen filters, your own colours in any theme and more control over the font.
+- [x] **Customisation:** 33 new themes, screen filters, your own colours in any theme and more control over the font.
 
 Missing something? [Suggest a feature](https://github.com/Iljonis/Terminal-NetDeck/issues/new/choose).
 

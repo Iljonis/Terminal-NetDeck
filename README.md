@@ -25,7 +25,7 @@ Apple Silicon · código abierto (MIT)
 ![Terminal NetDeck con el tema Liquid Glass: cliente SSH para macOS con sesiones de routers y switches por carpetas, un salto por el bastión y la salida de un router Cisco resaltada en color](docs/capturas/portada-liquid-glass.png)
 
 [Novedades](#novedades-de-100) · [Funciones](#funciones-para-ingenieros-de-red) ·
-[Temas](#-más-de-80-temas-filtros-de-pantalla-y-colores-a-tu-gusto) ·
+[Temas](#-85-temas-filtros-de-pantalla-y-colores-a-tu-gusto) ·
 [Comparación](#comparación-con-securecrt-mobaxterm-iterm2-y-royal-tsx) ·
 [Instalación](#instalación-y-primer-uso-en-macos-15-sequoia) · [Primeros pasos](#primeros-pasos) ·
 [Preguntas](#preguntas-frecuentes) · [Hoja de ruta](#hoja-de-ruta) · [Contribuir](#contribuir)
@@ -66,9 +66,9 @@ scripting completo: para eso están las macros, los botones y las listas de equi
   el cristal de macOS 26 en los botones de la barra, las pestañas y el menú «+»; nunca sobre el texto del terminal.
   Los temas de neón de siempre se sugieren aparte en el asistente, y a quien ya usaba la app no se le cambia el tema,
   aunque nunca lo eligiera.
-- **29 temas nuevos, más de 80 en total:** diez «Neon Glass», que unen el cristal de macOS 26 con el neón, con brillo
+- **33 temas nuevos, 85 en total:** diez «Neon Glass», que unen el cristal de macOS 26 con el neón, con brillo
   y cristal teñido del color del tema, y cinco familias nuevas: Ordenadores clásicos, Ciencia ficción, Centro de
-  datos, Naturaleza (en claro y oscuro) y Videojuegos retro. [Ver cuáles](#temas-nuevos-en-100).
+  datos, Naturaleza (cada uno en claro y en oscuro) y Videojuegos retro. [Ver cuáles](#temas-nuevos-en-100).
 - **Filtros de pantalla sobre el terminal:** CRT, LCD, fósforo y holograma, con su intensidad. Se cambian o se apagan
   desde Ajustes y desde el menú, cada tema puede traer el suyo y se apagan con las opciones de accesibilidad del Mac.
 - **Colores a tu gusto en cualquier tema:** una capa de cambios encima del tema, con vista previa, aviso de contraste
@@ -222,7 +222,7 @@ siguen únicamente en el Llavero de macOS.
 
 ![Ajustes del terminal de Terminal NetDeck en inglés: historial configurable y selección rectangular](docs/capturas/ajustes-en.png)
 
-### 🎨 Más de 80 temas, filtros de pantalla y colores a tu gusto
+### 🎨 85 temas, filtros de pantalla y colores a tu gusto
 
 Desde un NOC de guardia a las tres de la mañana hasta una presentación con proyector. Todos tienen su paleta ANSI y su
 fuente, pueden **seguir al modo claro u oscuro del Mac**, y **todos pasan una prueba de contraste WCAG** (texto
@@ -242,7 +242,7 @@ fuente, pueden **seguir al modo claro u oscuro del Mac**, y **todos pasan una pr
   <img src="docs/capturas/filtro-crt.png" width="49%" alt="Filtro de pantalla CRT sobre el tema Terminal 3270 de Terminal NetDeck, aplicado a la salida resaltada de un router">
 </p>
 
-![Ajustes → Temas de Terminal NetDeck: galería de más de 80 temas de terminal para macOS con vista previa en vivo](docs/capturas/temas.png)
+![Ajustes → Temas de Terminal NetDeck: galería de 85 temas de terminal para macOS con vista previa en vivo](docs/capturas/temas.png)
 
 ![Colores a tu gusto en Terminal NetDeck: editor de colores de un tema con vista previa, aviso de contraste y los botones restablecer, guardar como tema nuevo y exportar .tema](docs/capturas/colores.png)
 
@@ -254,7 +254,7 @@ fuente, pueden **seguir al modo claro u oscuro del Mac**, y **todos pasan una pr
 | **Ordenadores clásicos** | Terminal 3270, Comandante, Commodore, Workbench |
 | **Ciencia ficción** | Puente de mando, Nostromo, Imperio, HAL |
 | **Centro de datos** | Rack, Fibra óptica, NORAD, Consola de rescate |
-| **Naturaleza** (en claro y oscuro) | Aurora boreal, Desierto, Volcán, Arrecife |
+| **Naturaleza** (8 temas) | Aurora boreal claro y oscuro, Desierto claro y oscuro, Volcán claro y oscuro, Arrecife claro y oscuro |
 | **Videojuegos retro** | Portátil verde, Laboratorio, Arcade |
 
 <details>
@@ -573,7 +573,7 @@ La 1.0.0 es la versión para trabajar en producción sin miedo. Lo que ha hecho 
   teclado.
 - [x] **Liquid Glass** en macOS 26: el cristal en botones, pestañas y menús, nunca sobre el texto del terminal.
 - [x] **Rendimiento:** menos trabajo por tecla y por línea con salidas largas y muchas pestañas abiertas.
-- [x] **Personalización:** 29 temas nuevos, filtros de pantalla, colores a tu gusto en cualquier tema y más control
+- [x] **Personalización:** 33 temas nuevos, filtros de pantalla, colores a tu gusto en cualquier tema y más control
   de la fuente.
 
 ¿Echas algo en falta? [Propón una función](https://github.com/Iljonis/Terminal-NetDeck/issues/new/choose).
