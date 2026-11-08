@@ -9,10 +9,10 @@ y 51 temas. Nativo, rápido y en tu idioma.
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.9.12](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.12)** · macOS 15 o posterior ·
+Versión actual: **[v0.9.13](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.13)** · macOS 15 o posterior ·
 código abierto (MIT)
 
-[![Versión](https://img.shields.io/badge/versión-v0.9.12-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.12)
+[![Versión](https://img.shields.io/badge/versión-v0.9.13-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.13)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,14 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - **Explorador SFTP/FTP** con copias atómicas, verificación MD5 integrada y envío de servidor a servidor.
 - **Multipestaña** con vista dividida, MultiExec y pegado seguro; **51 temas** con contraste WCAG.
 - **Sesiones con saltos** sobre tu `ssh_config` y contraseñas sólo en el Llavero de macOS.
+
+### Novedades de 0.9.13
+
+- **Actualizar ya no se atasca:** si GitHub no deja bajar el `.dmg` por su enlace normal (pasaba con la 0.9.12:
+  «504 Gateway Time-out»), «Actualizar ahora» lo baja por la API de GitHub. Se sigue comprobando igual (sha256
+  publicado, misma app, versión y firma) y, si no hay forma de bajarlo, el aviso lo dice claro en vez de «no coincide».
+- **Si vienes de la 0.9.11 o la 0.9.12** y «Actualizar ahora» falla, instala esta versión a mano una vez (descárgala
+  desde la página de la versión); a partir de aquí las actualizaciones vuelven a ir solas.
 
 ### Novedades de 0.9.12
 

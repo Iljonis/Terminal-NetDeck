@@ -9,10 +9,10 @@ and 51 themes. Native, fast and in your language.
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v0.9.12](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.12)** · macOS 15 or later ·
+Current version: **[v0.9.13](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.13)** · macOS 15 or later ·
 open source (MIT)
 
-[![Version](https://img.shields.io/badge/version-v0.9.12-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.12)
+[![Version](https://img.shields.io/badge/version-v0.9.13-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.13)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
@@ -41,6 +41,15 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - **SFTP/FTP browser** with atomic copies, built-in MD5 verification and server-to-server transfers.
 - **Multi-tab** with split view, MultiExec and safe paste; **51 themes** with WCAG contrast.
 - **Sessions with jump hosts** on top of your `ssh_config`, passwords only in the macOS Keychain.
+
+### New in 0.9.13
+
+- **Updating no longer gets stuck:** if GitHub will not serve the `.dmg` through its usual link (it happened with
+  0.9.12: «504 Gateway Time-out»), «Update now» downloads it through the GitHub API. It is checked the same way
+  (published sha256, same app, version and signature) and, if there is no way to download it, the notice says so
+  clearly instead of «does not match».
+- **If you come from 0.9.11 or 0.9.12** and «Update now» fails, install this version by hand once (download it from
+  the release page); from then on updates work on their own again.
 
 ### New in 0.9.12
 
