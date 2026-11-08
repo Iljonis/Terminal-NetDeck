@@ -38,5 +38,7 @@ Léelo cuando vayas a ejecutar algo más que `swift build` / `./test.sh`, o a ha
 - `terminal`: abre una pestaña local con `tools/demo/salida.txt` resaltada y deja `.txt` y `.resaltado.txt`.
   `NETDECK_SNAPSHOT_CLICK=x,y` hace un clic derecho sintético (el menú sale en `-1.png`). `NETDECK_SNAPSHOT_WAIT=s`
   espera antes de capturar. En el explorador, `NETDECK_SNAPSHOT_MD5=1` o `NETDECK_SNAPSHOT_DOWNLOAD=carpeta`.
+- Filtro de pantalla: `-screenFilter crt|lcd|fosforo|holograma|ninguno|auto` (y `-screenFilterIntensity 0.1…1`).
+  `FILTRO=lcd` lo pasa en `tools/capturas.sh` y `tools/verificar_demo.sh` (casos `filtro-lcd` y `filtro-crt`).
 - La imagen que hace la app no incluye lo que pinta SwiftTerm. `tools/verificar_demo.sh` usa `screencapture` si la
   Terminal tiene permiso de grabación de pantalla.

@@ -96,6 +96,8 @@ struct NetDeckCommands: Commands {
             Button(L("Actualizar desde el código…")) { core.front?.updateFromSource() }
                 .disabled(AppModel.sourceFolder == nil)
         }
+        // (Ver → Filtro de pantalla: CRT, LCD… encima del terminal; ⌥⌘F lo enciende y lo apaga)
+        CommandGroup(after: .toolbar) { ScreenFilterMenu(core: core, modal: modal) }
         CommandGroup(after: .textEditing) {
             Button(L("Buscar en la salida…")) { onFront { $0.current?.view.showFind() } }.keyboardShortcut("f").disabled(modal)
         }

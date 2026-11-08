@@ -585,6 +585,7 @@ struct TerminalSettings: View {
                 Text(L("Selección rectangular: mantén ⌥ y arrastra para elegir sólo unas columnas (p. ej. las IP de un «show ip interface brief»); ⌘C la copia."))
                     .font(t.ui(11)).foregroundStyle(.secondary)
             }
+            ScreenFilterSection()
             Section(L("Pegar")) {
                 Toggle(L("Revisar antes de pegar"), isOn: $s.pasteReview)
                 ThemedPicker(L("Si tiene más de"), selection: $s.pasteReviewLines) { o in

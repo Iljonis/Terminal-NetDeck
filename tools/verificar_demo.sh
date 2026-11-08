@@ -51,7 +51,8 @@ caso() {   # nombre idioma tema acción [clic x,y] [subcarpeta del explorador] [
   NETDECK_SNAPSHOT_CLICK="$clic" NETDECK_SNAPSHOT_BLOCK="${BLOQUE:-}" \
     "$bin" -idioma "$idioma" -themeID "$tema" -themeAuto NO -sshConfigPath "$casa/.ssh/config" -configured YES \
            -asistenteVisto YES -sidebarVisible YES -buttonBar arriba -highlightEnabled YES -highlightSource app \
-           -highlightDisabled '()' -highlightThemeColors YES >"$OUT/$nombre-proceso.log" 2>&1 &
+           -highlightDisabled '()' -highlightThemeColors YES ${FILTRO:+-screenFilter "$FILTRO" -screenFilterOn YES} \
+           >"$OUT/$nombre-proceso.log" 2>&1 &
   local pid=$!
   for _ in $(seq 1 60); do [ -s "$png" ] && break; sleep 0.25; done
   sleep 0.3
@@ -152,6 +153,11 @@ caso terminal-mobaxterm    es mobaxterm-net terminal
 caso terminal-neo-tokyo    es neo-tokyo     terminal
 caso terminal-papel        es papel         terminal
 BLOQUE=1,23,4,35 caso terminal-bloque es neo-tokyo terminal
+# (filtros de pantalla, forzados con FILTRO=…: el texto se tiene que leer igual y la selección, verse; el tema de cada
+# uno si ya está en el catálogo y, si no, uno parecido)
+tema_o() { [ -f "Temas/$1.tema" ] && echo "$1" || echo "$2"; }
+FILTRO=lcd caso filtro-lcd es "$(tema_o portatil-verde guardia-verde)" terminal
+FILTRO=crt caso filtro-crt es "$(tema_o terminal-3270 neo-tokyo)" terminal
 caso pestanas              es neo-tokyo     "pestañas:12"
 caso explorador            es mobaxterm-net explorador
 caso explorador-vista      es neo-tokyo     explorador:vista

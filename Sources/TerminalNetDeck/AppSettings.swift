@@ -33,6 +33,11 @@ final class AppSettings {
     var crtEffect: Bool { didSet { d.set(crtEffect, forKey: "crtEffect") } }
     /// Letra de la interfaz: "" = la del tema, "system" = la monoespaciada del sistema, o una familia.
     var uiFontFamily: String { didSet { d.set(uiFontFamily, forKey: "uiFontFamily") } }
+    /// Filtro de pantalla del terminal (1.0.0): «auto» (el del tema) o uno de `ScreenFilter`; encendido (⌥⌘F) y su
+    /// intensidad (0,1…1). Lo pintan todas las pestañas de todas las ventanas: `AppModel.applyScreenFilter`.
+    var screenFilter: String { didSet { d.set(screenFilter, forKey: "screenFilter") } }
+    var screenFilterOn: Bool { didSet { d.set(screenFilterOn, forKey: "screenFilterOn") } }
+    var screenFilterIntensity: Double { didSet { d.set(screenFilterIntensity, forKey: "screenFilterIntensity") } }
 
     enum HighlightSource: String, CaseIterable { case auto, netdeck, app, custom }
     /// Resaltado tipo ChromaTerm de la salida.
@@ -164,6 +169,11 @@ final class AppSettings {
         sidebarVisible = d.object(forKey: "sidebarVisible") as? Bool ?? true
         crtEffect = d.object(forKey: "crtEffect") as? Bool ?? true
         uiFontFamily = d.string(forKey: "uiFontFamily") ?? ""
+        screenFilter = d.string(forKey: "screenFilter") ?? ScreenFilter.automatic
+        // (con `bool`/`double`, también los que se fuerzan al arrancar: «-screenFilterIntensity 0.8» llega como texto)
+        screenFilterOn = d.object(forKey: "screenFilterOn") == nil || d.bool(forKey: "screenFilterOn")
+        screenFilterIntensity = d.object(forKey: "screenFilterIntensity") == nil ? ScreenFilter.defaultIntensity
+            : ScreenFilter.intensity(d.double(forKey: "screenFilterIntensity"))
         highlightEnabled = d.object(forKey: "highlightEnabled") as? Bool ?? true
         highlightSource = HighlightSource(rawValue: d.string(forKey: "highlightSource") ?? "") ?? .auto
         highlightThemeColors = d.object(forKey: "highlightThemeColors") as? Bool ?? true

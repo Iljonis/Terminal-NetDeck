@@ -114,6 +114,8 @@ public struct Theme: Identifiable, Hashable, Sendable {
     /// «selección» y «cursor» del terminal, si el tema (o sus colores a medida, `ThemeOverrides`) los fija.
     public var selectionColor: RGB?
     public var cursorColor: RGB?
+    /// «filtro = crt|lcd|fosforo|holograma»: el filtro de pantalla del tema (`ScreenFilter`); nil = sin filtro.
+    public var screenFilter: ScreenFilter?
 
     public var isTranslucent: Bool { background.a < 1 || material != nil }
     /// Fondo de lo que va encima del de la ventana: transparente en los temas de cristal (que no se acumule).
@@ -213,6 +215,7 @@ public struct Theme: Identifiable, Hashable, Sendable {
         highlightColors = Self.highlightColors(v["resaltado"] ?? "")
         selectionColor = (v["selección"] ?? v["seleccion"]).flatMap(RGB.init(hex:))
         cursorColor = v["cursor"].flatMap(RGB.init(hex:))
+        screenFilter = ScreenFilter(tema: v["filtro"])
         background = colors["fondo"]!
         text = colors["texto"]!
         bar = colors["barra"]!

@@ -123,7 +123,9 @@ extension Theme {
         if let glassTint { lines.append("tinte     = \(glassTint.temaHex)") }
         lines.append("fuentes   = \(fonts.joined(separator: ", "))")
         if !uiFonts.isEmpty { lines.append("fuente_interfaz = \(uiFonts.joined(separator: ", "))") }
-        lines += ["tamaño    = \(size)", ""]
+        lines.append("tamaño    = \(size)")
+        if let screenFilter, screenFilter != .none { lines.append("filtro    = \(screenFilter.rawValue)") }
+        lines.append("")
         let colores: [(String, RGB)] = [("fondo", background), ("texto", text), ("barra", bar), ("panel", panel),
             ("pestaña", tab), ("sobre_pestaña", onTab), ("acento", accent), ("acento2", accent2), ("bien", good),
             ("mal", bad), ("especial", special), ("apagado", dim)]
