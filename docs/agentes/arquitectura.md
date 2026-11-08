@@ -27,3 +27,7 @@ errores. Las reglas en corto están en la raíz (CLAUDE.md / AGENTS.md); aquí, 
   `~/Library/Logs/Terminal NetDeck/actualizar.log`.
 - **Errores:** `ErrorLog` escribe en `~/Library/Application Support/Terminal NetDeck/logs/error.log`, con nivel y
   detalle, sin secretos.
+- **Accesibilidad y cristal:** con «Reducir transparencia» o «Aumentar contraste», `ThemeStore.current` da el tema
+  opaco (`Theme.solid`): ventana, desenfoque y fondo del terminal sin transparencias. El Liquid Glass de macOS 26 sólo
+  va con `GlassGroup` + `netdeckGlass` (barra, pestañas, «+», aviso) y en los temas «cristal»; el terminal, nunca. Lo
+  que se pulsa con un gesto propio lleva `pressable` (VoiceOver y teclado) y los menús con tema, `menuKeyboard`.

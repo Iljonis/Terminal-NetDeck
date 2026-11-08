@@ -132,6 +132,19 @@ PY
 if [ -z "${SOLO:-}" ] || [[ pestanas-interaccion == *"$SOLO"* ]]; then
   NETDECK_QA_BIN="$BIN" tools/verificar_pestanas.sh "$OUT" || fallos=$((fallos + 1))
 fi
+# (y con el tema de cristal: en macOS 26 las pestañas y los botones llevan Liquid Glass, y se tienen que poder pulsar,
+# cerrar y arrastrar igual; los mismos puntos, que salen de los marcos de la barra)
+if [ -z "${SOLO:-}" ] || [[ pestanas-cristal == *"$SOLO"* ]]; then
+  TEMA=liquid-glass NOMBRE=pestanas-cristal NETDECK_QA_BIN="$BIN" tools/verificar_pestanas.sh "$OUT" || fallos=$((fallos + 1))
+fi
+# (Liquid Glass en macOS 26: barra, pestañas, el menú «+» y el aviso de cristal; el terminal, nunca)
+caso cristal-portada       es liquid-glass       ""
+caso cristal-claro-portada en liquid-glass-claro ""
+caso cristal-terminal      es liquid-glass       terminal
+caso cristal-claro-terminal es liquid-glass-claro terminal
+caso cristal-pestanas      es liquid-glass       "pestañas:12"
+caso cristal-nuevo         es liquid-glass       nuevo
+caso cristal-claro-nuevo   en liquid-glass-claro nuevo
 
 caso portada               es neo-tokyo     ""
 caso portada-en            en neo-tokyo     ""
