@@ -55,14 +55,21 @@ public struct BufferRows: Sendable {
     /// no casa (al salir de vi, `readFrom` es 0 y leer el historial entero eran 460 ms con 100.000 líneas, para nada).
     /// Cada una coge el lock de SwiftTerm por separado: si entre una y otra llega salida, la siguiente lectura vuelve a
     /// leer lo que ha cambiado.
-    public mutating func refresh(top: () -> Read?, rows: (Int?) -> Read?, screen: () -> Read?) {
+    /// false = no se ha podido leer (SwiftTerm sin contenido aún): quien llama no debe dar la lectura por hecha.
+    @discardableResult
+    public mutating func refresh(top: () -> Read?, rows: (Int?) -> Read?, screen: () -> Read?) -> Bool {
         let t = top()
         if let old = layout, old[2] == 1 || t.map({ $0.layout != old }) == true {
-            if let s = screen(), !merge(s) { restart(s) }
-            return
+            guard let s = screen() else { return false }
+            if !merge(s) { restart(s) }
+            return true
         }
-        guard let r = rows(readFrom) else { return }
-        if !merge(r, retainedTop: t?.first), let s = screen() { restart(s) }
+        guard let r = rows(readFrom) else { return false }
+        if !merge(r, retainedTop: t?.first) {
+            guard let s = screen() else { return false }
+            restart(s)
+        }
+        return true
     }
 
     /// Si casa con lo anterior (mismo tamaño y pantalla, la numeración no retrocede y lo que ya era historial sale

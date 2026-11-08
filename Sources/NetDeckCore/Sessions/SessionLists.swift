@@ -44,6 +44,8 @@ public enum SessionLists {
 
     /// Apunta `name` en «recientes» (de forma atómica, 0600). Si existe y no se puede leer, error y no se toca.
     public static func noteRecent(_ name: String, at date: Date = Date(), in url: URL) throws {
+        // (una línea por sesión, «segundos⇥nombre»: un nombre con tabulador o salto de línea la rompería)
+        guard !name.contains(where: { $0 == "\t" || $0.isNewline }) else { return }
         let old = try SafeFile.read(url) ?? ""
         try SafeFile.write(appending("\(Int(date.timeIntervalSince1970))\t\(name)", to: old), to: url)
     }

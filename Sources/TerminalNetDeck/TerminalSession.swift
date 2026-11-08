@@ -976,16 +976,14 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     /// Todo el búfer (historial + pantalla) como texto, el índice del cursor y la fila absoluta de la primera.
     private func snapshot() -> (lines: [String], cursor: Int, base: Int) {
         let rev = pipe.counter.value
-        if readRevision != rev {
-            readRevision = rev
-            readBuffer()
-        }
+        // (sólo se da por leída si la lectura ha salido: si no, la siguiente vuelve a intentarlo aunque no llegue salida)
+        if readRevision != rev, readBuffer() { readRevision = rev }
         return (bufferRows.lines, bufferRows.cursor, bufferRows.base)
     }
 
     /// Sólo lo que ha podido cambiar desde la lectura anterior (`BufferRows.refresh`): la pantalla y lo que ha pasado al
     /// historial, no el historial entero.
-    private func readBuffer() {
+    private func readBuffer() -> Bool {
         bufferRows.refresh(top: { Self.read(view.terminalContentSnapshot(region: .rows(0..<0))) },
                            rows: { Self.read(view.terminalContentSnapshot(region: $0.map { .rows($0..<Int.max) } ?? .all)) },
                            screen: { Self.read(view.terminalContentSnapshot(region: .history(maximumScrollbackRows: 0))) })
@@ -1022,6 +1020,7 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     }
 
     func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
+        readRevision = nil          // (otro tamaño: la próxima lectura recoloca aunque el equipo no haya escrito nada)
         pipe.setSize(cols: newCols, rows: newRows)
         var size = pipe.getWindowSize()
         _ = process?.updateWindowSize(&size)
