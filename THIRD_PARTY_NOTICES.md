@@ -10,9 +10,9 @@ this file also ships inside the app (`Contents/Resources`), as those licences re
 
 | Proyecto | Versión | Licencia | Origen |
 |---|---|---|---|
-| SwiftTerm | 1.99.0 | MIT | <https://github.com/migueldeicaza/SwiftTerm> |
+| SwiftTerm | 1.99.3 | MIT | <https://github.com/migueldeicaza/SwiftTerm> |
 | Swift Argument Parser | 1.8.2 | Apache-2.0 con excepción de runtime de Swift | <https://github.com/apple/swift-argument-parser> |
-| swift-png | 4.5.1 | Apache-2.0 | <https://github.com/tayloraswift/swift-png> |
+| swift-png | 4.5.2 | Apache-2.0 | <https://github.com/tayloraswift/swift-png> |
 | h | 1.0.1 | Apache-2.0 | <https://github.com/rarestype/h> |
 
 ## Paletas de color · Colour palettes
