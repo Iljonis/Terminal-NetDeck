@@ -26,25 +26,43 @@ extension EnvironmentValues {
         get { self[MenuKeysKey.self] }
         set { self[MenuKeysKey.self] = newValue }
     }
+
+    /// La fila de la opción ya elegida (en un desplegable): el menú se abre con ella resaltada y a la vista.
+    var menuChosen: Bool {
+        get { self[MenuChosenKey.self] }
+        set { self[MenuChosenKey.self] = newValue }
+    }
 }
 
 private struct MenuKeysKey: EnvironmentKey {
     static let defaultValue: MenuKeys? = nil
 }
 
+private struct MenuChosenKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 /// El teclado en un menú con la temática, como en los de macOS: ↑ ↓ recorren las filas, Intro o espacio la elegida y
 /// Esc lo cierra (eso ya lo hace el panel). Una sola fila resaltada, la del ratón o la de las flechas: cada fila se
-/// apunta con su altura en el menú (`space`) y lo que hace.
+/// apunta con su altura en el menú (`space`) y lo que hace. La de las flechas se desplaza a la vista (`shown`), y al
+/// abrirlo empieza en la ya elegida.
 @MainActor @Observable
 final class MenuKeys {
     nonisolated static let space = "menú"
     private(set) var lit: UUID?
+    /// La que hay que llevar a la vista (la de las flechas o, al abrirlo, la elegida); no la del ratón, que ya se ve.
+    private(set) var shown: UUID?
     @ObservationIgnored private var rows: [UUID: (y: CGFloat, enabled: Bool, run: () -> Void)] = [:]
+    @ObservationIgnored private var placed = false
 
-    /// `y` nil: donde ya estaba.
-    func register(_ id: UUID, y: CGFloat?, enabled: Bool, run: @escaping () -> Void) {
+    /// `y` nil: donde ya estaba. `chosen`: la opción elegida (sólo cuenta la primera vez).
+    func register(_ id: UUID, y: CGFloat?, enabled: Bool, chosen: Bool = false, run: @escaping () -> Void) {
         rows[id] = (y ?? rows[id]?.y ?? 0, enabled, run)
         if !enabled, lit == id { lit = nil }
+        if chosen, enabled, !placed {
+            placed = true
+            (lit, shown) = (id, id)
+        }
     }
 
     func remove(_ id: UUID) {
@@ -62,6 +80,7 @@ final class MenuKeys {
         guard !order.isEmpty else { return }
         let i = lit.flatMap(order.firstIndex(of:)).map { $0 + step } ?? (step > 0 ? 0 : order.count - 1)
         lit = order[(i + order.count) % order.count]
+        shown = lit
     }
 
     func activate() -> Bool {
@@ -75,9 +94,10 @@ extension View {
     /// Un menú que se recorre con el teclado (`MenuKeys`): se queda con el foco al abrirse.
     func menuKeyboard() -> some View { modifier(MenuKeyboard()) }
 
-    /// Una fila de un menú con teclado: se apunta en `MenuKeys` (si está en uno) y avisa del ratón.
-    func menuKey(_ id: UUID, enabled: Bool = true, hover: Binding<Bool>, run: @escaping () -> Void) -> some View {
-        modifier(MenuKeyRow(id: id, enabled: enabled, hover: hover, run: run))
+    /// Una fila de un menú con teclado: se apunta en `MenuKeys` (si está en uno) y avisa del ratón. `chosen`: la opción
+    /// ya elegida.
+    func menuKey(_ id: UUID, enabled: Bool = true, chosen: Bool = false, hover: Binding<Bool>, run: @escaping () -> Void) -> some View {
+        modifier(MenuKeyRow(id: id, enabled: enabled, chosen: chosen, hover: hover, run: run))
     }
 }
 
@@ -86,16 +106,20 @@ private struct MenuKeyboard: ViewModifier {
     @FocusState private var focused: Bool
 
     func body(content: Content) -> some View {
-        content
-            .coordinateSpace(.named(MenuKeys.space))
-            .environment(\.menuKeys, keys)
-            .focusable()
-            .focusEffectDisabled()
-            .focused($focused)
-            .onAppear { focused = true }
-            .onKeyPress(.downArrow) { keys.move(1); return .handled }
-            .onKeyPress(.upArrow) { keys.move(-1); return .handled }
-            .onKeyPress(keys: [.return, .space]) { _ in keys.activate() ? .handled : .ignored }
+        // (la fila de las flechas, a la vista: en un menú largo o en la lista de grupos de «+», se salía por abajo)
+        ScrollViewReader { proxy in
+            content
+                .coordinateSpace(.named(MenuKeys.space))
+                .environment(\.menuKeys, keys)
+                .focusable()
+                .focusEffectDisabled()
+                .focused($focused)
+                .onAppear { focused = true }
+                .onKeyPress(.downArrow) { keys.move(1); return .handled }
+                .onKeyPress(.upArrow) { keys.move(-1); return .handled }
+                .onKeyPress(keys: [.return, .space]) { _ in keys.activate() ? .handled : .ignored }
+                .onChange(of: keys.shown) { _, id in if let id { proxy.scrollTo(id) } }
+        }
     }
 }
 
@@ -103,13 +127,15 @@ private struct MenuKeyRow: ViewModifier {
     @Environment(\.menuKeys) private var keys
     let id: UUID
     let enabled: Bool
+    let chosen: Bool
     @Binding var hover: Bool
     let run: () -> Void
 
     func body(content: Content) -> some View {
         content
+            .id(id)                                             // (para `scrollTo`)
             .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(MenuKeys.space)).minY } action: {
-                keys?.register(id, y: $0, enabled: enabled, run: run)
+                keys?.register(id, y: $0, enabled: enabled, chosen: chosen, run: run)
             }
             .onChange(of: enabled) { keys?.register(id, y: nil, enabled: enabled, run: run) }
             .onDisappear { keys?.remove(id) }
@@ -130,6 +156,7 @@ struct ThemedMenuRowStyle: PrimitiveButtonStyle {
         @Environment(\.theme) private var t
         @Environment(\.isEnabled) private var enabled
         @Environment(\.menuClose) private var close
+        @Environment(\.menuChosen) private var chosen
         let configuration: Configuration
         @Stored private var hover = false
         @Stored private var id = UUID()
@@ -152,7 +179,7 @@ struct ThemedMenuRowStyle: PrimitiveButtonStyle {
             }
             .opacity(enabled ? 1 : 0.4)
             .contentShape(Rectangle())
-            .menuKey(id, enabled: enabled, hover: $hover, run: choose)
+            .menuKey(id, enabled: enabled, chosen: chosen, hover: $hover, run: choose)
             .onTapGesture(perform: choose)
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
@@ -439,6 +466,7 @@ struct ThemedPicker<Value: Hashable>: View {
                             // (la marca siempre, a la vista o no: un `systemImage` vacío no es un símbolo y avisa)
                             Label { Text(o.label) } icon: { Image(systemName: "checkmark").opacity(o.value == selection ? 1 : 0) }
                         }
+                        .environment(\.menuChosen, o.value == selection)
                     }
                 }
             }
