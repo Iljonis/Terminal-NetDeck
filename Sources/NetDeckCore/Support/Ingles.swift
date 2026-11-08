@@ -868,6 +868,8 @@ enum Ingles {
             "Native terminal for network engineers",
         "Dónde se instala la app":
             "Where the app is installed",
+        "¿PREFIERES NEÓN?": "PREFER NEON?",
+        "De serie va Liquid Glass. Estos son los de neón de NetDeck: clic para usar uno.": "Liquid Glass is the default. These are NetDeck's neon themes: click one to use it.",
         "Todos vienen con la app: pasa por encima para verlo, clic para usarlo (se cambia cuando quieras)":
             "All of them come with the app: hover to preview, click to use it (change it whenever you like)",
         "Aparte de los temas: se pueden cambiar cuando quieras en Ajustes → Fuentes":

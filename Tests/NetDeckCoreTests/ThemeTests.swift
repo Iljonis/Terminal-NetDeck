@@ -13,6 +13,21 @@ import Testing
         for f in files { _ = try Theme(contentsOf: f) }
     }
 
+    /// De serie (1.0.0) va Liquid Glass, con su versión clara para el modo automático: los dos vienen en el catálogo y
+    /// son de estilo cristal. Los de neón que sugiere el asistente empiezan por el de siempre y son todos de neón.
+    @Test func liquidGlassDeSerieYNeonSugeridos() throws {
+        let none = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let lib = ThemeLibrary(appDirectory: Self.catalog, importDirectory: none, netdeckDirectory: nil)
+        let all = lib.all().map(\.theme)
+        let dark = try #require(all.first { $0.id == Theme.defaultID })
+        let light = try #require(all.first { $0.id == Theme.defaultLightID })
+        #expect(dark.style == .glass && light.style == .glass)
+        let neon = Theme.neonSuggestions(in: all)
+        #expect(neon.first?.id == Theme.builtIn.id)
+        #expect(neon.count >= 4 && neon.allSatisfy { $0.style == .neon && $0.group == "Cyberpunk" })
+        #expect(!neon.contains { $0.id == Theme.defaultID })
+    }
+
     /// Contraste WCAG entre dos colores (1…21).
     static func contrast(_ a: RGB, _ b: RGB) -> Double {
         let (l1, l2) = (a.opaque.luminance, b.opaque.luminance)

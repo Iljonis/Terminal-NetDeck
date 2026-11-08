@@ -229,8 +229,20 @@ public struct Theme: Identifiable, Hashable, Sendable {
     }
 
     /// La de serie (siempre está, aunque no haya ninguna instalada): cyberpunk índigo, magenta y cian.
+    /// El de serie para quien empieza (desde 1.0.0): Liquid Glass, y su versión clara para el modo automático. Viene
+    /// con la app (Temas/); si faltara, se usa `builtIn`, que siempre está.
+    public static let defaultID = "liquid-glass"
+    public static let defaultLightID = "liquid-glass-claro"
+
+    /// Los de neón de NetDeck que el asistente sugiere aparte: el de siempre (`builtIn`) y los del grupo Cyberpunk con
+    /// estilo neón, en su orden.
+    public static func neonSuggestions(in themes: [Theme]) -> [Theme] {
+        themes.filter { $0.style == .neon && $0.group == "Cyberpunk" }
+            .sorted { ($0.id == builtIn.id ? 0 : 1, $0.order, $0.name) < ($1.id == builtIn.id ? 0 : 1, $1.order, $1.name) }
+    }
+
     public static let builtIn = try! Theme(id: "netdeck-cyberpunk", text: """
-        # NetDeck Cyberpunk — La de serie: índigo profundo, magenta y cian.
+        # NetDeck Cyberpunk — La original de NetDeck (y la de reserva si falta un tema): índigo profundo, magenta y cian.
         nombre    = NetDeck Cyberpunk
         grupo     = Cyberpunk
         orden     = 00

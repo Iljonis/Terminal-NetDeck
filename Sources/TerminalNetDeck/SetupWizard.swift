@@ -351,7 +351,31 @@ struct SetupContent: View {
         VStack(alignment: .leading, spacing: 16) {
             ThemePreview(theme: model.themes.theme(id: wizard.hovered ?? wizard.active) ?? .builtIn)
                 .frame(height: 230)
+            neonSuggestions
             ThemeGallery(active: wizard.active, select: { wizard.active = $0 }, hover: { wizard.hovered = $0 })
+        }
+    }
+
+    /// De serie va Liquid Glass; los de neón de NetDeck se sugieren aparte, arriba, para elegirlos de un clic.
+    @ViewBuilder private var neonSuggestions: some View {
+        let neon = Theme.neonSuggestions(in: model.themes.all.map(\.theme))
+        if !neon.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(L("¿PREFIERES NEÓN?")).font(t.ui(10, .bold)).tracking(2.5)
+                        .foregroundStyle(SwiftUI.Color(t.accent))
+                    Rectangle().fill(SwiftUI.Color(t.accent).opacity(0.25)).frame(height: 1)
+                }
+                Text(L("De serie va Liquid Glass. Estos son los de neón de NetDeck: clic para usar uno."))
+                    .font(t.ui(11)).foregroundStyle(SwiftUI.Color(t.dim))
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 186), spacing: 12)], spacing: 12) {
+                    ForEach(neon, id: \.id) { th in
+                        ThemeCard(theme: th, active: th.id == wizard.active, badge: nil)
+                            .onTapGesture { wizard.active = th.id }
+                            .onHover { wizard.hovered = $0 ? th.id : nil }
+                    }
+                }
+            }
         }
     }
 

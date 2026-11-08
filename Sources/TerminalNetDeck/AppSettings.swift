@@ -141,10 +141,10 @@ final class AppSettings {
         devicePasswordMode = PasswordAutomation.Mode(rawValue: d.string(forKey: "devicePasswordMode") ?? "") ?? .suggest
         defaultCredentialName = d.string(forKey: "defaultCredentialName") ?? ""
         defaultCredentialUser = d.string(forKey: "defaultCredentialUser") ?? AppPaths.userName
-        themeID = d.string(forKey: "themeID") ?? Theme.builtIn.id
+        themeID = d.string(forKey: "themeID") ?? Theme.defaultID
         themeAuto = d.object(forKey: "themeAuto") as? Bool ?? false
-        themeLight = d.string(forKey: "themeLight") ?? "papel"
-        themeDark = d.string(forKey: "themeDark") ?? (d.string(forKey: "themeID") ?? Theme.builtIn.id)
+        themeLight = d.string(forKey: "themeLight") ?? Theme.defaultLightID
+        themeDark = d.string(forKey: "themeDark") ?? (d.string(forKey: "themeID") ?? Theme.defaultID)
         fontFamily = d.string(forKey: "fontFamily") ?? ""
         fontSize = d.object(forKey: "fontSize") as? Double ?? 0
         sshConfigPath = d.string(forKey: "sshConfigPath") ?? SessionManager.defaultConfigURL.path
