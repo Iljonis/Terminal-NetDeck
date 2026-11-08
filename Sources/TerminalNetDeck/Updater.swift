@@ -23,7 +23,7 @@ enum Updater {
         let current = Bundle.main.bundleURL
         Task {
             do {
-                let (tmp, _) = try await URLSession.shared.download(from: dmg)
+                let tmp = try await download(r, fallback: dmg)
                 let new = try await Task.detached { try prepare(download: tmp, sha256: sha, bundleID: id, version: r.version) }.value
                 model.saveOpenTabs()
                 // (sesiones y demás: si no se pueden copiar, no se actualiza)
@@ -37,6 +37,26 @@ enum Updater {
                 model.status = L("✗ No se ha podido actualizar: \(error.localizedDescription)")
             }
         }
+    }
+
+    /// Baja el .dmg por github.com y, si no da un 200 (p. ej. «504 Gateway Time-out»), por la API de GitHub. Si
+    /// ninguno responde bien, lo dice tal cual en vez de comprobar el sha256 de una página de error.
+    private static func download(_ r: UpdateCheck.Release, fallback: URL) async throws -> URL {
+        var codes: [String] = []
+        for request in UpdateCheck.downloads(for: r) {
+            do {
+                let (tmp, response) = try await URLSession.shared.download(for: request)
+                if UpdateCheck.succeeded(response) { return tmp }
+                try? FileManager.default.removeItem(at: tmp)
+                let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+                codes.append(String(code))
+                DebugLog.log("actualizaciones", "descarga \(request.url?.host ?? "?"): HTTP \(code); se prueba la siguiente")
+            } catch {
+                codes.append(error.localizedDescription)
+                DebugLog.log("actualizaciones", "descarga \(request.url?.host ?? "?"): \(error.localizedDescription)")
+            }
+        }
+        throw Failure(L("GitHub no ha dejado bajar el .dmg (\(codes.joined(separator: ", "))): inténtalo más tarde o bájalo desde la página de la versión"))
     }
 
     struct Failure: LocalizedError {

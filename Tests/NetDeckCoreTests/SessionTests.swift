@@ -221,6 +221,26 @@ private let config = """
         #expect(r2.dmg == nil && r2.sha256 == nil)
     }
 
+    /// 0.9.12: github.com daba «504» en releases/download y la API servía el mismo .dmg. Se prueban los dos, en orden,
+    /// y sólo vale un 200 (antes se comprobaba el sha256 de la página de error y decía «no coincide»).
+    @Test func dosCaminosDeDescargaYSoloVale200() throws {
+        let json = """
+            {"tag_name":"v0.9.12","html_url":"https://github.com/u/r/releases/tag/v0.9.12","assets":[
+             {"browser_download_url":"https://github.com/u/r/releases/download/v0.9.12/Terminal-NetDeck.dmg",
+              "url":"https://api.github.com/repos/u/r/releases/assets/123","digest":"sha256:\(String(repeating: "0", count: 64))"}]}
+            """
+        let r = try #require(UpdateCheck.parse(Data(json.utf8)))
+        let q = UpdateCheck.downloads(for: r)
+        #expect(q.count == 2 && q[0].url?.host == "github.com" && q[1].url?.host == "api.github.com")
+        #expect(q[1].value(forHTTPHeaderField: "Accept") == "application/octet-stream")
+        // (sólo la API de GitHub: otro sitio no se usa)
+        let malo = json.replacingOccurrences(of: "https://api.github.com/repos/u/r/releases/assets/123", with: "https://example.com/x")
+        #expect(try #require(UpdateCheck.parse(Data(malo.utf8))).mirror == nil)
+        let url = URL(string: "https://github.com/x")!
+        #expect(UpdateCheck.succeeded(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!))
+        #expect(!UpdateCheck.succeeded(HTTPURLResponse(url: url, statusCode: 504, httpVersion: nil, headerFields: nil)!))
+    }
+
     @Test func compruebaLaAppBajada() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let app = dir.appendingPathComponent("Terminal NetDeck.app")

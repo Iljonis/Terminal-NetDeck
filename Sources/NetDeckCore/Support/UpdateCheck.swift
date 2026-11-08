@@ -12,6 +12,33 @@ public enum UpdateCheck {
         public var dmg: URL?
         /// Su sha256 según GitHub («digest» del asset), en hexadecimal.
         public var sha256: String? = nil
+        /// El mismo .dmg por la API de GitHub (api.github.com/…/releases/assets/N): el otro camino si la descarga de
+        /// github.com falla (pasó en la 0.9.12: «504 Gateway Time-out» en releases/download y la API, bien).
+        public var mirror: URL? = nil
+    }
+
+    /// Las descargas a probar, en orden: la de github.com y, si falla, la de la API (pide el binario, no el JSON).
+    /// Las dos acaban en el CDN de GitHub; lo que se baje se comprueba igual con el sha256 publicado.
+    public static func downloads(for r: Release) -> [URLRequest] {
+        var out: [URLRequest] = []
+        if let dmg = r.dmg { out.append(URLRequest(url: dmg, timeoutInterval: 120)) }
+        if let m = r.mirror {
+            var q = URLRequest(url: m, timeoutInterval: 120)
+            q.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
+            out.append(q)
+        }
+        return out
+    }
+
+    /// Una descarga sólo vale con un 200: si no, lo bajado es una página de error (y su sha256 nunca coincidiría).
+    public static func succeeded(_ response: URLResponse) -> Bool {
+        (response as? HTTPURLResponse)?.statusCode == 200
+    }
+
+    /// El asset por la API, sólo si es https://api.github.com/repos/u/r/releases/assets/N.
+    static func isAPIAsset(_ u: URL) -> Bool {
+        u.scheme == "https" && u.host == "api.github.com"
+            && u.path.range(of: #"^/repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/releases/assets/[0-9]+$"#, options: .regularExpression) != nil
     }
 
     /// El repositorio configurado, o nil (sin publicar todavía).
@@ -38,8 +65,9 @@ public enum UpdateCheck {
             let h = d.dropFirst(7).lowercased()
             return h.count == 64 && h.allSatisfy(\.isHexDigit) ? h : nil
         }
+        let mirror = (asset?["url"] as? String).flatMap(URL.init(string:)).flatMap { isAPIAsset($0) ? $0 : nil }
         return Release(version: tag.hasPrefix("v") ? String(tag.dropFirst()) : tag, page: page,
-                       dmg: dmg.flatMap { isGitHub($0) ? $0 : nil }, sha256: digest)
+                       dmg: dmg.flatMap { isGitHub($0) ? $0 : nil }, sha256: digest, mirror: mirror)
     }
 
     /// Sólo enlaces https a github.com (lo que se abre al pulsar «Descargar»).
