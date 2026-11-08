@@ -19,6 +19,8 @@ enum SnapshotDrags {
     private static var failures = 0
     private static var moves = 0
     private static var checks = 0
+    /// Las otras apps que se han puesto delante durante la batería.
+    private static var elsewhere: [String] = []
 
     static func run(_ model: AppModel, report path: String) async {
         try? await Task.sleep(for: .seconds(2))
@@ -31,6 +33,19 @@ enum SnapshotDrags {
         w.makeKeyAndOrderFront(nil)
         let watch = NotificationCenter.default.addObserver(forName: NSWindow.willMoveNotification, object: w, queue: .main) { _ in
             MainActor.assumeIsolated { moves += 1 }
+        }
+        // (si otra app se pone delante —alguien usa el Mac mientras corre—, el foco, la pantalla completa y los clics
+        // fallan sin culpa de la app: se apunta dónde, para no buscar el fallo en el código)
+        let me = ProcessInfo.processInfo.processIdentifier
+        let front = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification,
+                                                                      object: nil, queue: .main) { n in
+            let app = n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            let name = app?.localizedName ?? "?"
+            MainActor.assumeIsolated {
+                guard app?.processIdentifier != me else { return }
+                elsewhere.append(name)
+                say("· otra app delante: \(name) (lo que se compruebe hasta que vuelva ésta no vale)")
+            }
         }
         try? await Task.sleep(for: .milliseconds(500))
         say("app activa=\(NSApp.isActive) · ventana \(w.frame) · escala \(w.backingScaleFactor) · pestañas \(model.tabs.count)")
@@ -102,6 +117,9 @@ enum SnapshotDrags {
         await suite(model, w, label: "estrechas")
         NotificationCenter.default.removeObserver(watch)
         await windowsSuite(model, w)
+        NSWorkspace.shared.notificationCenter.removeObserver(front)
+        check(elsewhere.isEmpty, elsewhere.isEmpty ? "la app siguió delante toda la batería"
+              : "la app dejó de estar delante (\(elsewhere.joined(separator: ", "))): no uses el Mac mientras corre y repite")
         check(checks >= 120, "cobertura: \(checks) comprobaciones (mínimo 120)")
         finish(path)
     }

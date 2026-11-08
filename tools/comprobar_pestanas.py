@@ -19,15 +19,26 @@ def comprobar(texto):
                                        "ventana nueva", "mover a otra ventana", "arrastre a otra ventana",
                                        "arrastre fuera", "cerrar ventana", "menús de ventana",
                                        "reabrir en sus ventanas", "foco: clic en la pestaña ya elegida",
-                                       "foco: clic derecho", "foco: doble clic")))
+                                       "foco: clic derecho", "foco: doble clic",
+                                       "la app siguió delante")))
+
+
+def motivos(texto):
+    """Lo que ha fallado, para verlo sin abrir el informe (y si otra app se puso delante, que lo invalida)."""
+    return [linea for linea in texto.splitlines() if linea.startswith("✗ ") or linea.startswith("· otra app delante")]
 
 
 if __name__ == "__main__":
     try:
-        texto = pathlib.Path(sys.argv[1]).read_text()
+        ruta = pathlib.Path(sys.argv[1])
+        texto = ruta.read_text()
     except (IndexError, OSError):
-        texto = ""
+        ruta, texto = None, ""
+    # (hay dos baterías, con el tema de siempre y con el de cristal: el nombre del informe dice cuál)
+    nombre = f"pestañas ({ruta.stem})" if ruta else "pestañas"
     if not comprobar(texto):
-        print("✗ pestañas: informe incompleto o interacción fallida")
+        print(f"✗ {nombre}: informe incompleto o interacción fallida")
+        for linea in motivos(texto)[:12]:
+            print(f"  {linea}")
         sys.exit(1)
-    print("✓ pestañas: clic, cierre y arrastre en ventana, rellenar, pantalla completa, pestañas estrechas y varias ventanas")
+    print(f"✓ {nombre}: clic, cierre y arrastre en ventana, rellenar, pantalla completa, pestañas estrechas y varias ventanas")
