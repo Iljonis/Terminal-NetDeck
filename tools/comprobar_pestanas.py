@@ -18,7 +18,8 @@ def comprobar(texto):
                                        "herramientas fijas", "botones de crear fijos", "rellenar",
                                        "ventana nueva", "mover a otra ventana", "arrastre a otra ventana",
                                        "arrastre fuera", "cerrar ventana", "menús de ventana",
-                                       "reabrir en sus ventanas")))
+                                       "reabrir en sus ventanas", "foco: clic en la pestaña ya elegida",
+                                       "foco: clic derecho", "foco: doble clic")))
 
 
 if __name__ == "__main__":

@@ -71,21 +71,19 @@ struct Sidebar: View {
             }
             NeonLine(color: t.panel)
             HStack(spacing: 6) {
-                IconButton(icon: "plus") { model.editSessions(.new(group: nil)) }
-                    .help(L("Nueva sesión"))
-                IconButton(icon: "slider.horizontal.3") { model.editSessions() }
-                    .help(L("Gestionar sesiones y grupos"))
-                IconButton(icon: "square.and.arrow.down") { model.editSessions(.importing) }
-                    .help(L("Importar de SecureCRT, MobaXterm, PuTTY, CSV…"))
-                IconButton(icon: "list.bullet.rectangle") { model.present(.list) }
-                    .help(L("Listas de equipos: la misma orden en muchos equipos por un salto (⇧⌘L)"))
+                IconButton(icon: "plus", help: L("Nueva sesión")) { model.editSessions(.new(group: nil)) }
+                IconButton(icon: "slider.horizontal.3", help: L("Gestionar sesiones y grupos")) { model.editSessions() }
+                IconButton(icon: "square.and.arrow.down",
+                           help: L("Importar de SecureCRT, MobaXterm, PuTTY, CSV…")) { model.editSessions(.importing) }
+                IconButton(icon: "list.bullet.rectangle",
+                           help: L("Listas de equipos: la misma orden en muchos equipos por un salto (⇧⌘L)")) { model.present(.list) }
                 Text(model.sessions.source.map { AppPaths.tilde($0.path) }
                      ?? (model.sessions.profiles.isEmpty ? L("sin sesiones todavía") : L("sesiones de ejemplo")))
                     .lineLimit(1).truncationMode(.head)
                     .foregroundStyle(SwiftUI.Color(t.dim))
                 Spacer()
-                IconButton(icon: "arrow.clockwise") { model.reloadSessions(); model.loadFavorites() }
-                    .help(L("Recargar el ssh_config (⇧⌘R)"))
+                IconButton(icon: "arrow.clockwise",
+                           help: L("Recargar el ssh_config (⇧⌘R)")) { model.reloadSessions(); model.loadFavorites() }
             }
             .font(t.ui(10))
             .padding(.horizontal, 8)
@@ -237,6 +235,7 @@ struct SessionRow: View {
                 .shadow(color: SwiftUI.Color(t.accent), radius: t.glow(3))
         }
         .contentShape(Rectangle())
+        .snapshotFrame("sesion:\(profile.name)")
         .onTapGesture(count: 2) { select(); model.open(profile) }
         .simultaneousGesture(TapGesture().onEnded { select() })
         .onHover { hover = $0 }

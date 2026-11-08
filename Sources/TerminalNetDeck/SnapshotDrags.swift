@@ -51,6 +51,7 @@ enum SnapshotDrags {
             say("· control: arrastre en la barra de botones → \(gestureEvents - g) cambios del gesto")
         }
         await suite(model, w, label: "pantalla \(Int(w.backingScaleFactor))x")
+        await focusSuite(model, w)
         // (la misma tanda en una pantalla con la otra escala, si hay)
         if let other = NSScreen.screens.first(where: { $0.backingScaleFactor != w.backingScaleFactor }) {
             let f = other.visibleFrame
@@ -201,6 +202,60 @@ enum SnapshotDrags {
               "\(label) · herramientas fijas tras reordenar y cerrar pestañas")
         check(create.map { before in frames["crear"].map { abs($0.minX - before.minX) <= 1 && abs($0.maxX - before.maxX) <= 1 } ?? false } == true,
               "\(label) · botones de crear fijos tras reordenar y cerrar pestañas")
+    }
+
+    /// El teclado sigue en el terminal de la elegida: tras pulsar la pestaña ya elegida, tras el clic derecho en ella
+    /// (con su menú ya cerrado) y tras el doble clic en una sesión de la lista (en la pestaña nueva). Se apunta si va con
+    /// «Navegación con teclado», donde un clic podría dárselo a la pestaña: `-AppleKeyboardUIMode 2` no la enciende (ni
+    /// en los argumentos ni en las preferencias de la casa temporal), sólo Ajustes del Sistema.
+    private static func focusSuite(_ model: AppModel, _ w: NSWindow) async {
+        let mode = UserDefaults.standard.integer(forKey: "AppleKeyboardUIMode")
+        say("— foco · navegación con teclado=\(NSApp.isFullKeyboardAccessEnabled) (AppleKeyboardUIMode \(mode))")
+        guard let s = model.current, let f = frames["tab:\(s.id)"] else { check(false, "foco: sin pestaña elegida"); return }
+        w.makeFirstResponder(s.view)
+        await click(w, CGPoint(x: f.minX + 40, y: f.midY))
+        check(model.current === s && w.firstResponder === s.view,
+              "foco: clic en la pestaña ya elegida → su terminal (\(responder(w)))")
+        // (el menú sale debajo, sobre el terminal: se cierra con Esc antes de seguir, que no tape nada)
+        post(.rightMouseDown, CGPoint(x: f.minX + 40, y: f.midY), w)
+        try? await Task.sleep(for: .milliseconds(60))
+        post(.rightMouseUp, CGPoint(x: f.minX + 40, y: f.midY), w)
+        // (con el menú abierto, el teclado es suyo: la ventana apunta a SwiftUI, `KeyViewProxy`; cuenta al cerrarlo)
+        let opened = await until { popover != nil }
+        check(opened, "foco: clic derecho en la pestaña abre su menú (en la ventana, \(responder(w)))")
+        if let pw = popover, let esc = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
+                                                         timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: pw.windowNumber,
+                                                         context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}",
+                                                         isARepeat: false, keyCode: 53) {
+            NSApp.postEvent(esc, atStart: false)
+        }
+        let closed = await until { popover == nil }
+        try? await Task.sleep(for: .milliseconds(300))
+        check(closed && w.firstResponder === s.view, "foco: clic derecho en la pestaña, con su menú ya cerrado (\(responder(w)))")
+        // (la primera sesión que se ve en la lista; la conexión, a una IP de ejemplo, no importa)
+        let list = frames["sesiones"] ?? .zero
+        let row = frames.filter { $0.key.hasPrefix("sesion:") && list.contains(CGPoint(x: $0.value.midX, y: $0.value.midY)) }
+            .min { $0.value.minY < $1.value.minY }
+        guard let row else { check(false, "foco: ninguna sesión a la vista en la lista"); return }
+        let n = model.tabs.count, p = CGPoint(x: row.value.minX + 40, y: row.value.midY)
+        for count in [1, 2] {
+            post(.leftMouseDown, p, w, clicks: count)
+            try? await Task.sleep(for: .milliseconds(40))
+            post(.leftMouseUp, p, w, clicks: count)
+            try? await Task.sleep(for: .milliseconds(40))
+        }
+        let landed = await until { model.tabs.count == n + 1 && model.current.map { w.firstResponder === $0.view } == true }
+        check(landed, "foco: doble clic en la sesión «\(row.key.dropFirst(7))» → el terminal de su pestaña nueva (\(responder(w)))")
+        try? await Task.sleep(for: .milliseconds(400))
+    }
+
+    /// El menú con tema abierto (un `NSPopover`, en su propia ventana), si lo hay.
+    private static var popover: NSWindow? {
+        NSApp.windows.first { $0.isVisible && String(describing: type(of: $0)).contains("Popover") }
+    }
+
+    private static func responder(_ w: NSWindow) -> String {
+        w.firstResponder.map { String(describing: type(of: $0)) } ?? "nadie"
     }
 
     /// Varias ventanas (al final: las claves de `frames` son de una sola ventana): una nueva desde el menú, pasar
@@ -537,11 +592,12 @@ enum SnapshotDrags {
         try? await Task.sleep(for: .milliseconds(350))
     }
 
-    private static func post(_ type: NSEvent.EventType, _ p: CGPoint, _ w: NSWindow) {
+    private static func post(_ type: NSEvent.EventType, _ p: CGPoint, _ w: NSWindow, clicks: Int = 1) {
         let h = w.contentView?.bounds.height ?? w.frame.height
+        let up = type == .leftMouseUp || type == .rightMouseUp
         guard let e = NSEvent.mouseEvent(with: type, location: NSPoint(x: p.x, y: h - p.y), modifierFlags: [],
                                          timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: w.windowNumber,
-                                         context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseUp ? 0 : 1)
+                                         context: nil, eventNumber: 0, clickCount: clicks, pressure: up ? 0 : 1)
         else { return }
         NSApp.postEvent(e, atStart: false)
     }
