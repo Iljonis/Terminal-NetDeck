@@ -24,6 +24,28 @@ public struct RGB: Hashable, Sendable, CustomStringConvertible {
 
     public var opaque: RGB { RGB(r, g, b) }
     public func alpha(_ v: Double) -> RGB { RGB(r, g, b, v) }
+    /// Ya pintado encima de `base` (opaco): lo que se ve de un color con transparencia.
+    public func over(_ base: RGB) -> RGB { base.opaque.mix(opaque, a) }
+
+    /// Desde HSL (matiz 0…360, saturación y luz 0…1).
+    public init(hue h: Double, saturation s: Double, lightness l: Double) {
+        let c = (1 - abs(2 * l - 1)) * s, x = c * (1 - abs((h / 60).truncatingRemainder(dividingBy: 2) - 1)), m = l - c / 2
+        let (r, g, b): (Double, Double, Double) = switch h {
+        case ..<60: (c, x, 0)
+        case ..<120: (x, c, 0)
+        case ..<180: (0, c, x)
+        case ..<240: (0, x, c)
+        case ..<300: (x, 0, c)
+        default: (c, 0, x)
+        }
+        self.init((r + m) * 255, (g + m) * 255, (b + m) * 255)
+    }
+
+    /// Saturación y luz HSL (0…1).
+    public var saturationLightness: (s: Double, l: Double) {
+        let mx = max(r, g, b) / 255, mn = min(r, g, b) / 255, l = (mx + mn) / 2
+        return (mx == mn ? 0 : (mx - mn) / (1 - abs(2 * l - 1)), l)
+    }
 
     /// Mezcla con `o` (t = 0 → éste, 1 → o).
     public func mix(_ o: RGB, _ t: Double) -> RGB { RGB(r + (o.r - r) * t, g + (o.g - g) * t, b + (o.b - b) * t, a + (o.a - a) * t) }
@@ -88,8 +110,39 @@ public struct Theme: Identifiable, Hashable, Sendable {
     /// Fondo de lo que va encima del de la ventana: transparente en los temas de cristal (que no se acumule).
     public var layer: RGB { isTranslucent ? background.alpha(0) : background }
 
+    /// Sin transparencias ni desenfoque, para «Reducir transparencia» o «Aumentar contraste» (Accesibilidad): cada
+    /// color, ya pintado sobre el fondo opaco, como se ve en un tema normal.
+    public var solid: Theme {
+        guard isTranslucent else { return self }
+        var t = self
+        let bg = background.opaque
+        t.background = bg
+        t.material = nil
+        for k in [\Theme.text, \.bar, \.panel, \.tab, \.accent, \.accent2, \.good, \.bad, \.special, \.dim] {
+            t[keyPath: k] = self[keyPath: k].over(bg)
+        }
+        t.onTab = onTab.over(t.tab)
+        return t
+    }
+
     public var isLight: Bool { background.opaque.luminance > 0.5 }
-    public var warning: RGB { isLight ? bad.mix(RGB(179, 89, 0), 0.5) : bad.mix(accent, 0.5) }
+    /// Naranja de aviso (y «f.orange» del resaltado). El de siempre (mal + acento, o un ocre en los claros) si ya se ve
+    /// naranja y se lee; si no (con un acento azul o verde salía gris malva: Cisco, NOC, Liquid Glass…), un naranja de
+    /// verdad: matiz 30°, la saturación de «mal» (al menos 75 %) y la luz que haga falta para ≥ 4,5:1 sobre el fondo.
+    /// Con un «mal» que ya es naranja (Grid), más claro, para no confundirse con él.
+    public var warning: RGB {
+        let bg = background.opaque
+        let mixed = (isLight ? bad.mix(RGB(179, 89, 0), 0.5) : bad.mix(accent, 0.5)).over(bg)
+        if mixed.tono.tono == .naranja, mixed.contraste(bg) >= 4.5 { return mixed }
+        let (s, l) = bad.opaque.saturationLightness
+        var luz = min(max(l, 0.40), 0.62) + (bad.opaque.tono.tono == .naranja ? 0.15 : 0)
+        var c = RGB(hue: 30, saturation: max(s, 0.75), lightness: luz)
+        while c.contraste(bg) < 4.5, luz > 0.05, luz < 0.95 {
+            luz += isLight ? -0.01 : 0.01
+            c = RGB(hue: 30, saturation: max(s, 0.75), lightness: luz)
+        }
+        return c
+    }
     public var blue: RGB { accent2.mix(special, 0.45) }
     public var line: RGB { panel.mix(text, 0.18) }
     public var selection: RGB { background.opaque.mix(special, 0.45) }

@@ -174,9 +174,12 @@ private struct FolderRow: View {
         .frame(height: 24)
         .background(RoundedRectangle(cornerRadius: t.corner ?? 4).fill(SwiftUI.Color(t.panel).opacity(hover ? 0.55 : 0)))
         .contentShape(Rectangle())
-        .onTapGesture { withAnimation(.easeOut(duration: 0.12)) { action() } }
+        .onTapGesture(perform: toggle)
         .onHover { hover = $0 }
+        .pressable(title, value: open ? L("desplegado, \(count) sesiones") : L("plegado, \(count) sesiones"), action: toggle)
     }
+
+    private func toggle() { withAnimation(.easeOut(duration: 0.12)) { action() } }
 }
 
 extension SessionProfile.Transport {
@@ -238,6 +241,17 @@ struct SessionRow: View {
         .simultaneousGesture(TapGesture().onEnded { select() })
         .onHover { hover = $0 }
         .help(help)
+        // (VoiceOver: el nombre, el destino y lo que la marca; su acción conecta, como el doble clic)
+        .pressable(profile.name, value: [subtitle, profile.transport.label, model.favorites.contains(profile.name) ? L("favorita") : nil,
+                                         model.tabs.contains { $0.route.sessionName == profile.name } ? L("Abierta") : nil]
+                    .compactMap { $0 }.joined(separator: ", "), selected: selected,
+                   actions: [(L("Editar…"), { model.editSessions(.session(profile.name)) }),
+                             (L("Conectar en la vista dividida"), {
+                                 if let r = try? model.sessions.route(to: profile) { model.addToSplit(model.open(r)) }
+                             })]) {
+            select()
+            model.open(profile)
+        }
         .themedContextMenu {
             Button(L("Conectar")) { model.open(profile) }
             Button(L("Conectar en la vista dividida")) {

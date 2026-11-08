@@ -109,21 +109,38 @@ extension Theme {
 @MainActor @Observable
 final class ThemeStore {
     let library = ThemeLibrary(appDirectory: ThemeStore.appDirectory())
-    private(set) var current = Theme.builtIn
+    /// El elegido, tal cual.
+    private var chosen = Theme.builtIn
+    /// El de la interfaz y los terminales: el elegido, opaco si el Mac lo pide (`solidOnly`).
+    var current: Theme { solidOnly ? chosen.solid : chosen }
     /// Todos (los de la app ya están: no se instalan).
     private(set) var all: [(theme: Theme, source: ThemeLibrary.Source)] = []
     var busy: String?
+    /// «Reducir transparencia» o «Aumentar contraste» (Ajustes del Sistema → Accesibilidad → Pantalla): sin cristal,
+    /// sin desenfoque y con el fondo del terminal opaco.
+    private(set) var solidOnly = ThemeStore.systemWantsSolid
+
+    static var systemWantsSolid: Bool {
+        NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency || NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+    }
 
     init(selected id: String) {
         refresh()
-        current = library.theme(id: id) ?? .builtIn
+        chosen = library.theme(id: id) ?? .builtIn
     }
 
     func refresh() { all = library.all() }
 
-    func theme(id: String) -> Theme? { all.first { $0.theme.id == id }?.theme }
+    /// true si ha cambiado (entonces hay que volver a pintar ventanas y terminales).
+    func refreshAccessibility() -> Bool {
+        guard solidOnly != Self.systemWantsSolid else { return false }
+        solidOnly.toggle()
+        return true
+    }
 
-    func select(_ id: String) { current = theme(id: id) ?? .builtIn }
+    func theme(id: String) -> Theme? { all.first { $0.theme.id == id }.map { solidOnly ? $0.theme.solid : $0.theme } }
+
+    func select(_ id: String) { chosen = all.first { $0.theme.id == id }?.theme ?? .builtIn }
 
     func importTheme(file: URL) -> String {
         do {
@@ -138,7 +155,7 @@ final class ThemeStore {
     func remove(_ id: String) {
         try? library.remove(id)
         refresh()
-        if current.id == id { current = .builtIn }
+        if chosen.id == id { chosen = .builtIn }
     }
 
     nonisolated static func appDirectory() -> URL? { AppResources.directory("Temas") }

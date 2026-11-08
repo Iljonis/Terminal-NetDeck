@@ -21,6 +21,104 @@ extension EnvironmentValues {
         get { self[MenuCloseKey.self] }
         set { self[MenuCloseKey.self] = newValue }
     }
+
+    var menuKeys: MenuKeys? {
+        get { self[MenuKeysKey.self] }
+        set { self[MenuKeysKey.self] = newValue }
+    }
+}
+
+private struct MenuKeysKey: EnvironmentKey {
+    static let defaultValue: MenuKeys? = nil
+}
+
+/// El teclado en un menú con la temática, como en los de macOS: ↑ ↓ recorren las filas, Intro o espacio la elegida y
+/// Esc lo cierra (eso ya lo hace el panel). Una sola fila resaltada, la del ratón o la de las flechas: cada fila se
+/// apunta con su altura en el menú (`space`) y lo que hace.
+@MainActor @Observable
+final class MenuKeys {
+    nonisolated static let space = "menú"
+    private(set) var lit: UUID?
+    @ObservationIgnored private var rows: [UUID: (y: CGFloat, enabled: Bool, run: () -> Void)] = [:]
+
+    /// `y` nil: donde ya estaba.
+    func register(_ id: UUID, y: CGFloat?, enabled: Bool, run: @escaping () -> Void) {
+        rows[id] = (y ?? rows[id]?.y ?? 0, enabled, run)
+        if !enabled, lit == id { lit = nil }
+    }
+
+    func remove(_ id: UUID) {
+        rows[id] = nil
+        if lit == id { lit = nil }
+    }
+
+    func hover(_ id: UUID, _ inside: Bool) {
+        if inside { lit = id } else if lit == id { lit = nil }
+    }
+
+    /// La de abajo (1) o la de arriba (-1); de la última se pasa a la primera.
+    func move(_ step: Int) {
+        let order = rows.filter(\.value.enabled).sorted { $0.value.y < $1.value.y }.map(\.key)
+        guard !order.isEmpty else { return }
+        let i = lit.flatMap(order.firstIndex(of:)).map { $0 + step } ?? (step > 0 ? 0 : order.count - 1)
+        lit = order[(i + order.count) % order.count]
+    }
+
+    func activate() -> Bool {
+        guard let lit, let row = rows[lit], row.enabled else { return false }
+        row.run()
+        return true
+    }
+}
+
+extension View {
+    /// Un menú que se recorre con el teclado (`MenuKeys`): se queda con el foco al abrirse.
+    func menuKeyboard() -> some View { modifier(MenuKeyboard()) }
+
+    /// Una fila de un menú con teclado: se apunta en `MenuKeys` (si está en uno) y avisa del ratón.
+    func menuKey(_ id: UUID, enabled: Bool = true, hover: Binding<Bool>, run: @escaping () -> Void) -> some View {
+        modifier(MenuKeyRow(id: id, enabled: enabled, hover: hover, run: run))
+    }
+}
+
+private struct MenuKeyboard: ViewModifier {
+    @Stored private var keys = MenuKeys()
+    @FocusState private var focused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .coordinateSpace(.named(MenuKeys.space))
+            .environment(\.menuKeys, keys)
+            .focusable()
+            .focusEffectDisabled()
+            .focused($focused)
+            .onAppear { focused = true }
+            .onKeyPress(.downArrow) { keys.move(1); return .handled }
+            .onKeyPress(.upArrow) { keys.move(-1); return .handled }
+            .onKeyPress(keys: [.return, .space]) { _ in keys.activate() ? .handled : .ignored }
+    }
+}
+
+private struct MenuKeyRow: ViewModifier {
+    @Environment(\.menuKeys) private var keys
+    let id: UUID
+    let enabled: Bool
+    @Binding var hover: Bool
+    let run: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(MenuKeys.space)).minY } action: {
+                keys?.register(id, y: $0, enabled: enabled, run: run)
+            }
+            .onChange(of: enabled) { keys?.register(id, y: nil, enabled: enabled, run: run) }
+            .onDisappear { keys?.remove(id) }
+            // (en un menú con teclado, resaltada = la de `MenuKeys`, sea del ratón o de las flechas)
+            .onHover { inside in
+                if let keys { keys.hover(id, inside && enabled) } else { hover = inside && enabled }
+            }
+            .onChange(of: keys?.lit == id) { _, lit in if keys != nil { hover = lit } }
+    }
 }
 
 /// Una fila de menú: el título del botón, resaltada al pasar por encima; al pulsarla se cierra el menú y se hace lo
@@ -34,6 +132,7 @@ struct ThemedMenuRowStyle: PrimitiveButtonStyle {
         @Environment(\.menuClose) private var close
         let configuration: Configuration
         @Stored private var hover = false
+        @Stored private var id = UUID()
 
         var body: some View {
             let tint = configuration.role == .destructive ? t.bad : (hover ? t.accent : t.text)
@@ -53,14 +152,19 @@ struct ThemedMenuRowStyle: PrimitiveButtonStyle {
             }
             .opacity(enabled ? 1 : 0.4)
             .contentShape(Rectangle())
-            .onHover { hover = $0 && enabled }
-            .onTapGesture {
-                guard enabled else { return }
-                close?.close()
-                // (en la vuelta siguiente: así el panel ya se ha cerrado si la acción abre un aviso modal; dentro del
-                // gesto, el bucle modal dejaba el panel abierto encima y la ventana parecía congelada)
-                DispatchQueue.main.async { configuration.trigger() }
-            }
+            .menuKey(id, enabled: enabled, hover: $hover, run: choose)
+            .onTapGesture(perform: choose)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default, choose)
+        }
+
+        private func choose() {
+            guard enabled else { return }
+            close?.close()
+            // (en la vuelta siguiente: así el panel ya se ha cerrado si la acción abre un aviso modal; dentro del
+            // gesto, el bucle modal dejaba el panel abierto encima y la ventana parecía congelada)
+            DispatchQueue.main.async { configuration.trigger() }
         }
     }
 }
@@ -95,6 +199,7 @@ struct ThemedMenuPanel<Content: View>: View {
         .fixedSize(horizontal: true, vertical: true)
         .buttonStyle(ThemedMenuRowStyle())
         .environment(\.menuClose, MenuCloser(close))
+        .menuKeyboard()
         .background(SwiftUI.Color(t.bar.opaque))
         .overlay(alignment: .top) { Rectangle().fill(SwiftUI.Color(t.accent)).frame(height: 2).opacity(t.neon ? 0.8 : 0) }
         .presentationBackground(SwiftUI.Color(t.bar.opaque))
@@ -129,6 +234,7 @@ struct ThemedSubmenu<Content: View>: View {
     @ViewBuilder var content: () -> Content
     @Stored private var open = false
     @Stored private var hover = false
+    @Stored private var id = UUID()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
@@ -143,8 +249,13 @@ struct ThemedSubmenu<Content: View>: View {
             .frame(minHeight: 25)
             .background(RoundedRectangle(cornerRadius: t.corner ?? 4).fill(SwiftUI.Color(t.accent).opacity(hover ? 0.10 : 0)))
             .contentShape(Rectangle())
-            .onHover { hover = $0 }
-            .onTapGesture { withAnimation(.easeOut(duration: 0.12)) { open.toggle() } }
+            .menuKey(id, hover: $hover, run: toggle)
+            .onTapGesture(perform: toggle)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(title)
+            .accessibilityValue(open ? L("desplegado") : L("plegado"))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default, toggle)
             if open {
                 VStack(alignment: .leading, spacing: 1) { content() }
                     .padding(.leading, 12)
@@ -152,6 +263,8 @@ struct ThemedSubmenu<Content: View>: View {
             }
         }
     }
+
+    private func toggle() { withAnimation(.easeOut(duration: 0.12)) { open.toggle() } }
 }
 
 /// `Menu` con la temática: la etiqueta abre un panel con el contenido.

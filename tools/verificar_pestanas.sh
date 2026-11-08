@@ -1,5 +1,6 @@
 #!/bin/bash
 # Clics, cierre y arrastre por la cola AppKit sobre el ejecutable distribuible, con datos aislados.
+#   TEMA=liquid-glass NOMBRE=pestanas-cristal tools/verificar_pestanas.sh carpeta  → la misma batería con otro tema
 set -euo pipefail
 cd "$(dirname "$0")/.."
 BIN=${NETDECK_QA_BIN:?Indica el ejecutable exacto con NETDECK_QA_BIN}
@@ -19,13 +20,14 @@ if [ -n "${NETDECK_QA_APP:-}" ]; then
   cp -R "$NETDECK_QA_APP" "$casa/Applications/Terminal NetDeck.app"
   BIN="$casa/Applications/Terminal NetDeck.app/Contents/MacOS/TerminalNetDeck"
 fi
-informe="$OUT/pestanas-interaccion.txt"
-rm -f "$informe" "$OUT/pestanas-interaccion.png"
+NOMBRE=${NOMBRE:-pestanas-interaccion}
+informe="$OUT/$NOMBRE.txt"
+rm -f "$informe" "$OUT/$NOMBRE.png"
 otool -l "$BIN" | sed -n '/LC_BUILD_VERSION/,+6p' > "$OUT/pestanas-binario.txt"
 CFFIXED_USER_HOME="$casa" NETDECK_HOME="$casa" NETDECK_SAMPLES=1 NETDECK_SNAPSHOT="$casa/captura.png" \
 NETDECK_SNAPSHOT_DRAGS="$informe" NETDECK_SNAPSHOT_ACTION="pestañas:8" \
-  "$BIN" -idioma es -themeID neo-tokyo -themeAuto NO -configured YES -asistenteVisto YES \
-  -sshConfigPath "$casa/.ssh/config" -sidebarVisible YES -buttonBar arriba > "$OUT/pestanas-proceso.log" 2>&1 &
+  "$BIN" -idioma es -themeID "${TEMA:-neo-tokyo}" -themeAuto NO -configured YES -asistenteVisto YES \
+  -sshConfigPath "$casa/.ssh/config" -sidebarVisible YES -buttonBar arriba > "$OUT/$NOMBRE-proceso.log" 2>&1 &
 pid=$!
 # No confundir una captura inicial con la finalización de la batería.
 for _ in $(seq 1 1440); do
@@ -38,5 +40,5 @@ wait "$pid" || estado=$?
 pid=""
 [ "$estado" = 0 ] || { echo "✗ pestañas: proceso terminó con $estado"; exit 1; }
 [ -s "$casa/captura.png" ] || { echo "✗ pestañas: sin captura"; exit 1; }
-cp "$casa/captura.png" "$OUT/pestanas-interaccion.png"
+cp "$casa/captura.png" "$OUT/$NOMBRE.png"
 python3 tools/comprobar_pestanas.py "$informe"

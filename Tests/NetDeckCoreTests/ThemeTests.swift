@@ -37,6 +37,49 @@ import Testing
         #expect(Self.contrast(Theme.builtIn.text, Theme.builtIn.background) >= 4.5)
     }
 
+    static func catalogThemes() throws -> [Theme] {
+        try FileManager.default.contentsOfDirectory(at: catalog, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "tema" }.map(Theme.init(contentsOf:))
+    }
+
+    /// Los de cristal y mica, con «Reducir transparencia» o «Aumentar contraste»: todo opaco (ventana, desenfoque y
+    /// fondo del terminal) y legible: texto ≥ 4,5:1 sobre el fondo, la barra y el panel; apagado ≥ 3:1; pestaña ≥ 4,5:1.
+    @Test func temasConAlfaSinTransparencia() throws {
+        let translucent = try Self.catalogThemes().filter(\.isTranslucent)
+        #expect(Set(translucent.map(\.id)).isSuperset(of: ["liquid-glass", "liquid-glass-claro", "windows-11", "windows-11-claro"]))
+        for t in translucent {
+            let s = t.solid
+            #expect(!s.isTranslucent && s.material == nil, "\(t.id)")
+            #expect(s.layer == s.background, "\(t.id): capas")
+            for c in [s.background, s.text, s.bar, s.panel, s.tab, s.onTab, s.accent, s.dim] { #expect(c.a == 1, "\(t.id)") }
+            for (fondo, nombre) in [(s.background, "fondo"), (s.bar, "barra"), (s.panel, "panel")] {
+                #expect(Self.contrast(s.text, fondo) >= 4.5, "\(t.id): texto sobre \(nombre)")
+                #expect(Self.contrast(s.dim, fondo) >= 3, "\(t.id): apagado sobre \(nombre)")
+            }
+            #expect(Self.contrast(s.onTab, s.tab) >= 4.5, "\(t.id): pestaña activa")
+            #expect(Self.contrast(s.accent, s.bar) >= 3, "\(t.id): acento sobre la barra")
+            // (la barra opaca, ya mezclada con el fondo: no el color de la barra tal cual)
+            #expect(s.bar == t.bar.over(t.background.opaque))
+        }
+        let opaco = Theme.builtIn
+        #expect(opaco.solid == opaco)
+    }
+
+    /// «f.orange» y los avisos: un naranja de verdad en todo el catálogo (antes, gris malva en 11 temas) y legible.
+    @Test func naranjaDeVerdad() throws {
+        for t in try Self.catalogThemes() {
+            let w = t.warning
+            #expect(w.tono.tono == .naranja, "\(t.id): \(w) es \(w.tono.tono)")
+            #expect(Self.contrast(w, t.background.opaque) >= 4.5, "\(t.id): naranja \(w)")
+            #expect(Self.contrast(w, t.bad) >= 1.15 || w.tono.tono != t.bad.tono.tono, "\(t.id): se confunde con «mal»")
+        }
+        // (el que ya era naranja y se lee no cambia)
+        let ambar = try Self.catalogThemes().first { $0.id == "accesible" }!
+        #expect(ambar.warning == ambar.bad.mix(ambar.accent, 0.5))
+        #expect(RGB(hue: 30, saturation: 1, lightness: 0.5).description == "#ff8000")
+        #expect(RGB(hue: 210, saturation: 1, lightness: 0.5).description == "#0080ff")
+    }
+
     @Test func formatoDeNetDeck() throws {
         let t = try Theme(id: "x", text: """
             # Prueba — Una de prueba.

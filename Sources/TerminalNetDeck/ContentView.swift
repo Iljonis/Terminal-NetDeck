@@ -43,7 +43,7 @@ struct ContentView: View {
         .themedControls()
         .disabled(model.core.renamingCredential)
         .overlay(alignment: .bottomTrailing) {
-            StatusToast().padding(.trailing, 14).padding(.bottom, 34)
+            GlassGroup { StatusToast() }.padding(.trailing, 14).padding(.bottom, 34)
                 .animation(.easeInOut(duration: 0.3), value: model.toast)
         }
         .overlay { if model.showSettings { SettingsOverlay().themedControls() } }
@@ -349,7 +349,7 @@ struct TopBar: View {
         return HStack(spacing: Self.spacing) {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Self.tabGap) {
+                    GlassGroup { HStack(spacing: Self.tabGap) {
                         if let sp = model.split {
                             SplitChip(split: sp)
                                 .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { splitWidth = $0 }
@@ -363,7 +363,7 @@ struct TopBar: View {
                                              move: { model.moveTab($0, to: $1) }, end: {}, tap: { model.show(s) },
                                              tearOff: TearOff(title: s.tabTitle, theme: t) { model.dropTab(s, at: $0, grab: $1) })
                         }
-                    }
+                    } }
                     .padding(.vertical, 4)
                     .coordinateSpace(.named(drag.space))
                 }
@@ -377,17 +377,17 @@ struct TopBar: View {
             Spacer(minLength: Self.spacerMin)
                 .frame(maxWidth: .infinity)
                 .snapshotFrame("hueco")
-            HStack(spacing: Self.spacing) {
+            GlassGroup { HStack(spacing: Self.spacing) {
                 NewButton()
                     .help(L("Conectar, terminal local, sesión nueva o una favorita"))
                 IconButton(icon: "apple.terminal") { model.openLocal() }
                     .help(L("Nueva terminal local: tu shell en este Mac (⌘T)"))
-            }
+            } }
             .fixedSize()
             .layoutPriority(1)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { leftWidth = $0 }
             .snapshotFrame("crear")
-            HStack(spacing: Self.spacing) {
+            GlassGroup { HStack(spacing: Self.spacing) {
                 IconButton(icon: "doc.on.clipboard.fill") { model.sheet = .paste }
                     .help(L("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)"))
                 MacroMenu()
@@ -401,7 +401,7 @@ struct TopBar: View {
                     Button(L("Volver a pestañas sueltas")) { model.unsplit() }.disabled(model.split == nil)
                 }
                 .help(L("Dividir la pantalla"))
-                IconMenu(icon: "key.fill") {
+                IconMenu(icon: "key.fill", label: L("Escribir una contraseña")) {
                     if let s = model.current {
                         MenuHeader(title: L("Escribir en «\(s.title)»"))
                         ForEach(model.keychainAccounts, id: \.self) { ref in
@@ -432,7 +432,7 @@ struct TopBar: View {
                     .help(L("Mostrar/ocultar sesiones (⌃⌘S)"))
                 IconButton(icon: "gearshape.fill") { model.openSettings() }
                     .help(L("Ajustes (⌘,)"))
-            }
+            } }
             // (los botones de la derecha, siempre enteros y dentro de la ventana: las pestañas se encogen antes)
             .fixedSize()
             .layoutPriority(1)
@@ -462,10 +462,9 @@ struct NewButton: View {
     @Stored private var open = false
 
     var body: some View {
-        IconButton(icon: "plus", active: open) { open.toggle() }
+        IconButton(icon: "plus", active: open, label: L("Nuevo")) { open.toggle() }
             .popover(isPresented: $open, arrowEdge: .bottom) {
                 NewMenu { open = false }
-                    .presentationBackground(SwiftUI.Color(t.bar.opaque))
             }
             .onAppear {                                       // (capturas: NETDECK_SNAPSHOT_ACTION=nuevo)
                 if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_ACTION"]?.hasPrefix("nuevo") == true { open = true }
@@ -525,7 +524,6 @@ struct NewMenu: View {
                                      arrowEdge: .trailing) {
                                 groupMenu(f.path, count: f.count)
                                     .onHover { hovering(f.path, $0) }
-                                    .presentationBackground(SwiftUI.Color(t.bar.opaque))
                             }
                         }
                     }
@@ -536,7 +534,8 @@ struct NewMenu: View {
         .padding(6)
         .frame(minWidth: 250)
         .font(t.ui(12))
-        .background(SwiftUI.Color(t.bar.opaque))
+        .menuKeyboard()
+        .menuBackground()
         .overlay(alignment: .top) { Rectangle().fill(SwiftUI.Color(t.accent)).frame(height: 2).opacity(t.neon ? 0.8 : 0) }
         .onAppear {                                           // (capturas: NETDECK_SNAPSHOT_ACTION=nuevo:<grupo>)
             let action = ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_ACTION"] ?? ""
@@ -582,7 +581,8 @@ struct NewMenu: View {
         .padding(6)
         .frame(minWidth: 250)
         .font(t.ui(12))
-        .background(SwiftUI.Color(t.bar.opaque))
+        .environment(\.menuKeys, nil)              // (el submenú va con el ratón: las flechas, en el de fuera)
+        .menuBackground()
     }
 
     private var divider: some View {
@@ -615,6 +615,7 @@ private struct NewMenuItem: View {
     var indent = 0
     let action: () -> Void
     @Stored private var hover = false
+    @Stored private var id = UUID()
 
     var body: some View {
         Button(action: action) {
@@ -638,7 +639,7 @@ private struct NewMenuItem: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .onHover { hover = $0 }
+        .menuKey(id, hover: $hover, run: action)
     }
 }
 
@@ -677,6 +678,8 @@ struct IconButton: View {
     var tint: RGB?
     var active = false
     var badge: String?
+    /// Su nombre para VoiceOver (si no, el de su ayuda: `help(_:)`).
+    var label: String?
     var action: () -> Void
     @Stored private var hover = false
 
@@ -690,13 +693,28 @@ struct IconButton: View {
             .foregroundStyle(SwiftUI.Color(active ? t.background : (hover ? color : (tint ?? t.text))))
             .padding(.horizontal, 7)
             .frame(minWidth: 30, minHeight: 26)
-            .background(RoundedRectangle(cornerRadius: t.corner ?? 6)
-                .fill(SwiftUI.Color(active ? color : t.panel).opacity(active ? 1 : (hover ? 0.9 : 0.4))))
+            .netdeckGlass(RoundedRectangle(cornerRadius: t.corner ?? 6), tint: active ? color : nil, interactive: true,
+                          fallback: SwiftUI.Color(active ? color : t.panel).opacity(active ? 1 : (hover ? 0.9 : 0.4)))
             .shadow(color: SwiftUI.Color(color).opacity(active ? 0.6 : 0), radius: t.glow(6))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
+        .iconAccessibility(label, value: badge, active: active)
+    }
+
+    /// La ayuda (al pasar el ratón) y, si no lleva `label`, su nombre para VoiceOver: lo de antes de los «:» o el
+    /// atajo («Ajustes (⌘,)» → «Ajustes»). La ayuda entera queda de pista.
+    func help(_ text: String) -> some View {
+        self.help(Text(text)).accessibilityLabel(label ?? AccessibilityText.label(fromHelp: text))
+    }
+}
+
+extension View {
+    /// Nombre (si lo hay), número del distintivo y si está encendido, para VoiceOver.
+    @ViewBuilder fileprivate func iconAccessibility(_ label: String?, value: String? = nil, active: Bool) -> some View {
+        let v = accessibilityValue(value ?? "").accessibilityAddTraits(active ? .isSelected : [])
+        if let label { v.accessibilityLabel(label) } else { v }
     }
 }
 
@@ -705,6 +723,8 @@ struct IconMenu<Content: View>: View {
     @Environment(\.theme) private var t
     let icon: String
     var active = false
+    /// Su nombre para VoiceOver (si no, el de su ayuda: `help(_:)`).
+    var label: String?
     @ViewBuilder var content: () -> Content
     @Stored private var hover = false
 
@@ -714,12 +734,18 @@ struct IconMenu<Content: View>: View {
                 .foregroundStyle(SwiftUI.Color(active ? t.background : (hover ? t.accent : t.text)))
                 .padding(.horizontal, 7)
                 .frame(minWidth: 30, minHeight: 26)
-                .background(RoundedRectangle(cornerRadius: t.corner ?? 6)
-                    .fill(SwiftUI.Color(active ? t.accent : t.panel).opacity(active ? 1 : (hover ? 0.9 : 0.4))))
+                .netdeckGlass(RoundedRectangle(cornerRadius: t.corner ?? 6), tint: active ? t.accent : nil, interactive: true,
+                              fallback: SwiftUI.Color(active ? t.accent : t.panel).opacity(active ? 1 : (hover ? 0.9 : 0.4)))
                 .contentShape(Rectangle())
         }
         .fixedSize()
         .onHover { hover = $0 }
+        .iconAccessibility(label, active: active)
+    }
+
+    /// Como en `IconButton`: la ayuda también da su nombre a VoiceOver.
+    func help(_ text: String) -> some View {
+        self.help(Text(text)).accessibilityLabel(label ?? AccessibilityText.label(fromHelp: text))
     }
 }
 
@@ -728,6 +754,7 @@ struct IconMenu<Content: View>: View {
 struct TabChip: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var shapes
     let session: TerminalSession
     /// El que le toca en la barra (todas igual de anchas); el título se corta por el centro si no cabe.
     var width: CGFloat = TopBar.tabMax
@@ -747,11 +774,18 @@ struct TabChip: View {
         let inSplit = model.split?.panes.contains(session.id) == true
         let selected = selected
         let notice = model.notices[session.id] != nil
+        let status = session.status(t, notice: notice)
         HStack(spacing: 7) {
-            Circle()
-                .fill(SwiftUI.Color(dotColor(notice)))
-                .frame(width: 7, height: 7)
-                .shadow(color: SwiftUI.Color(dotColor(notice)).opacity(0.8), radius: t.glow(3))
+            Group {
+                // («Distinguir sin color»: el estado también por la forma)
+                if shapes {
+                    Image(systemName: status.symbol).font(.system(size: 8, weight: .bold)).foregroundStyle(SwiftUI.Color(status.color))
+                } else {
+                    Circle().fill(SwiftUI.Color(status.color))
+                }
+            }
+            .frame(width: shapes ? 9 : 7, height: shapes ? 9 : 7)
+            .shadow(color: SwiftUI.Color(status.color).opacity(0.8), radius: t.glow(3))
             if inSplit { Image(systemName: "square.split.2x1").font(.system(size: 9)) }
             // (sólo el destino; el camino entero, en la ayuda)
             Text(session.tabTitle).font(t.ui(12, .semibold)).lineLimit(1).truncationMode(.middle)
@@ -778,18 +812,23 @@ struct TabChip: View {
         .padding(.leading, width < 130 ? 9 : 12)
         .padding(.trailing, max(0, (width < 130 ? 11 : 16) - (showsClose ? (Self.closeSize - 9) / 2 : 0)))
         .frame(width: width, height: 29)
-        .background(ChamferShape(radius: t.corner).fill(SwiftUI.Color(selected ? t.tab : t.panel).opacity(selected ? 1 : (hover ? 0.95 : 0.6))))
+        .netdeckGlass(ChamferShape(radius: t.corner), tint: selected ? t.tab : nil, interactive: true,
+                      fallback: SwiftUI.Color(selected ? t.tab : t.panel).opacity(selected ? 1 : (hover ? 0.95 : 0.6)))
         .shadow(color: SwiftUI.Color(t.tab).opacity(selected ? 0.6 : 0), radius: t.glow(8))
         .contentShape(Rectangle())
         .snapshotFrame("tab:\(session.id)")
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { model.tabFrames[session.id] = $0 }
         .onTapGesture { model.show(session) }
         .onHover { hover = $0 }
-        .help(session.pathDescription)
+        .help(session.pathDescription + " · " + status.text)
+        .pressable(session.tabTitle, value: [status.text, session.activity ? L("con salida nueva") : nil,
+                                             inSplit ? L("en la vista dividida") : nil].compactMap { $0 }.joined(separator: ", "),
+                   selected: selected,
+                   actions: [(L("Cerrar la pestaña"), { model.close(session) }), (L("Reconectar"), { model.reconnect(session) })]) {
+            model.show(session)
+        }
         .themedContextMenu { SessionTabMenu(session: session) }
     }
-
-    private func dotColor(_ notice: Bool) -> RGB { session.statusColor(t, notice: notice) }
 }
 
 /// La ✕ de una pestaña: fondo redondeado al pasar el ratón y más marcado al pulsar, con el color de la pestaña.
@@ -920,17 +959,22 @@ struct SplitChip: View {
         .foregroundStyle(SwiftUI.Color(on ? t.background : t.accent))
         .padding(.horizontal, 11)
         .frame(height: 29)
-        .background(ChamferShape(radius: t.corner).fill(SwiftUI.Color(on ? t.accent : t.panel).opacity(on ? 1 : 0.7)))
+        .netdeckGlass(ChamferShape(radius: t.corner), tint: on ? t.accent : nil, interactive: true,
+                      fallback: SwiftUI.Color(on ? t.accent : t.panel).opacity(on ? 1 : 0.7))
         .shadow(color: SwiftUI.Color(t.accent).opacity(on ? 0.6 : 0), radius: t.glow(8))
         .contentShape(Rectangle())
-        .onTapGesture {
-            model.showSplit = true
-            if let f = split.panes.first, !split.panes.contains(model.selection ?? UUID()) { model.selection = f }
-        }
+        .onTapGesture(perform: show)
+        .pressable(L("Pantalla dividida"), value: L("\(split.panes.count) paneles"), selected: on,
+                   actions: [(L("Volver a pestañas sueltas"), { model.unsplit() })], action: show)
         .themedContextMenu {
             Button(L("Volver a pestañas sueltas")) { model.unsplit() }
         }
         .help(L("Pantalla dividida · clic derecho: volver a pestañas sueltas"))
+    }
+
+    private func show() {
+        model.showSplit = true
+        if let f = split.panes.first, !split.panes.contains(model.selection ?? UUID()) { model.selection = f }
     }
 }
 
@@ -1007,18 +1051,25 @@ struct SessionContent: View {
 
 extension TerminalSession {
     /// El punto de la pestaña: verde conectada, ámbar conectando, rojo cerrada (con explorador, el de su conexión).
-    func statusColor(_ t: Theme, notice: Bool = false) -> RGB {
+    func statusColor(_ t: Theme, notice: Bool = false) -> RGB { status(t, notice: notice).color }
+
+    /// El color del punto, lo mismo en palabras (VoiceOver y la ayuda: no sólo el color) y una forma para «Distinguir
+    /// sin color» (Accesibilidad → Pantalla).
+    func status(_ t: Theme, notice: Bool = false) -> (color: RGB, text: String, symbol: String) {
+        let ok = (t.good, L("conectada"), "circle.fill"), going = (t.warning, L("conectando"), "circle.dotted")
+        let asks = (t.warning, L("pide contraseña"), "exclamationmark.circle.fill")
         if let b = browser, !showConsole {
             switch b.state {
-            case .connected: return t.good
-            case .connecting, .idle, .needsPassword: return t.warning
-            case .failed: return t.bad
+            case .connected: return ok
+            case .connecting, .idle: return going
+            case .needsPassword: return asks
+            case .failed: return (t.bad, L("sin conexión"), "xmark.circle.fill")
             }
         }
         switch state {
-        case .exited: return t.bad
-        case .connecting: return t.warning
-        case .connected: return notice ? t.warning : t.good
+        case .exited: return (t.bad, L("cerrada"), "xmark.circle.fill")
+        case .connecting: return going
+        case .connected: return notice ? asks : ok
         }
     }
 }
@@ -1248,13 +1299,17 @@ struct StatusToast: View {
                 .lineLimit(2).truncationMode(.middle)
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .frame(maxWidth: 520, alignment: .trailing)
-                .background(RoundedRectangle(cornerRadius: t.corner ?? 8).fill(SwiftUI.Color(t.bar.opaque)))
+                .netdeckGlass(RoundedRectangle(cornerRadius: t.corner ?? 8), fallback: SwiftUI.Color(t.bar.opaque))
                 .overlay(RoundedRectangle(cornerRadius: t.corner ?? 8)
                     .strokeBorder(SwiftUI.Color(text.hasPrefix("✗") ? t.bad : t.accent2).opacity(0.7)))
                 .shadow(color: .black.opacity(0.3), radius: 6)
                 .onTapGesture { model.toast = nil }
                 .transition(.opacity)
                 .allowsHitTesting(true)
+                // (VoiceOver lo lee al salir; su acción lo cierra, como el clic)
+                .accessibilityAction(named: L("Cerrar")) { model.toast = nil }
+                .onAppear { AccessibilityNotification.Announcement(text).post() }
+                .onChange(of: text) { AccessibilityNotification.Announcement(text).post() }
         }
     }
 }
