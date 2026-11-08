@@ -28,14 +28,16 @@ import Testing
         let inner = try await connect()
         defer { Task { await inner.close() } }
         let fs = EdicionFallosFS(inner, path: target.path, failure: failure)
-        let w = try await AtomicRemoteWriter.open(fs, target.path, verify: true, replacementSeconds: 1)
+        // (2 s y no 1: en el runner de GitHub, con la máquina cargada, un paso normal llegó a pasar de 1 s y salía
+        // RemoteTimeout en vez del ReplaceStuckError que se prueba; Release de la 0.9.13)
+        let w = try await AtomicRemoteWriter.open(fs, target.path, verify: true, replacementSeconds: 2)
         let start = ContinuousClock.now
         var failureResult: ReplaceStuckError?
         do { try await Transfer.copy(from: DataReader(after), to: w) } catch let error as ReplaceStuckError {
             failureResult = error
         }
         let error = try #require(failureResult)
-        #expect(ContinuousClock.now - start < .seconds(15))
+        #expect(ContinuousClock.now - start < .seconds(25))
         #expect(error.path == target.path && error.new == w.part)
         #expect(error.localizedDescription.contains(error.previous) && error.localizedDescription.contains(error.new))
         await w.abort()                                    // (la limpieza de Transfer tampoco borra las copias)
@@ -77,7 +79,7 @@ import Testing
         let inner = try await connect()
         defer { Task { await inner.close() } }
         let fs = EdicionFallosFS(inner, path: target.path, failure: .reject)
-        let w = try await AtomicRemoteWriter.open(fs, target.path, verify: true, replacementSeconds: 1)
+        let w = try await AtomicRemoteWriter.open(fs, target.path, verify: true, replacementSeconds: 2)
         await #expect(throws: RemoteError.self) { try await Transfer.copy(from: DataReader(Data("nuevo".utf8)), to: w) }
         #expect(try Data(contentsOf: target) == Data("anterior".utf8))
         #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path) == ["core-01.cfg"])
