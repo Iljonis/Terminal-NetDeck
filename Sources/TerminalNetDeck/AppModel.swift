@@ -434,21 +434,41 @@ final class AppModel {
 
     var terminalFont: NSFont { terminalFont(theme: themes.current, family: settings.fontFamily, size: settings.fontSize) }
 
-    /// `family` "" = la del tema; `size` 0 = el del tema.
-    func terminalFont(theme t: Theme, family: String, size: Double) -> NSFont {
-        Fonts.terminal(family: family.isEmpty ? Fonts.firstInstalled(t.fonts) : family, size: size > 0 ? size : CGFloat(t.size - 1))
+    /// `family` "" = la del tema; `size` 0 = el del tema; `zoom`, los puntos de ⌘+ / ⌘- de la pestaña
+    /// (`TerminalFont.size`: el mismo cálculo en Ajustes, en el editor de sesiones y en las pestañas).
+    func terminalFont(theme t: Theme, family: String, size: Double, zoom: Int = 0) -> NSFont {
+        Fonts.terminal(family: Fonts.terminalFamily(family, theme: t).used,
+                       size: CGFloat(TerminalFont.size(size, themeSize: t.size, zoom: zoom)))
+    }
+
+    /// Lo que vale en la pestaña: el perfil de su sesión y, lo que no dice, de Ajustes (con su tema).
+    private func effectiveProfile(_ s: TerminalSession) -> (TerminalProfile.Effective, Theme) {
+        let e = s.profile.resolved(theme: themes.current.id, fontFamily: settings.fontFamily, fontSize: settings.fontSize,
+                                   lineSpacing: settings.lineSpacing, scrollback: settings.scrollback,
+                                   session: s.route.sessionName ?? s.title,
+                                   themeExists: { [themes] in themes.theme(id: $0) != nil }, fontInstalled: Fonts.isInstalled)
+        return (e, themes.theme(id: e.theme) ?? themes.current)
     }
 
     /// El perfil de la sesión de la pestaña (`TerminalProfile`; lo que no dice, de Ajustes): tema, fuente, historial,
     /// teclado y prompt. Al abrir, al reconectar, al guardar las sesiones y al cambiar Ajustes.
     func applyProfile(to s: TerminalSession) {
-        let e = s.profile.resolved(theme: themes.current.id, fontFamily: settings.fontFamily, fontSize: settings.fontSize,
-                                   scrollback: settings.scrollback, session: s.route.sessionName ?? s.title,
-                                   themeExists: { [themes] in themes.theme(id: $0) != nil }, fontInstalled: Fonts.isInstalled)
-        let th = themes.theme(id: e.theme) ?? themes.current
-        s.apply(theme: th, font: terminalFont(theme: th, family: e.fontFamily, size: e.fontSize))
+        let (e, th) = effectiveProfile(s)
+        s.apply(theme: th, font: terminalFont(theme: th, family: e.fontFamily, size: e.fontSize, zoom: s.fontZoom))
+        s.apply(lineSpacing: e.lineSpacing, smoothing: settings.fontSmoothing)
         s.apply(scrollback: e.scrollback, optionAsMeta: e.optionAsMeta, backspaceSendsCtrlH: e.backspaceSendsCtrlH)
         s.promptRule = e.prompt
+    }
+
+    /// ⌘+ / ⌘- (`steps`) y ⌘0 (nil): la letra de la pestaña elegida, como en iTerm2 (cada pestaña la suya; las demás y
+    /// Ajustes no cambian). Sólo mientras está abierta: al reabrir la app, la de siempre.
+    func zoomFont(_ steps: Int?) {
+        guard let s = current else { return }
+        let (e, th) = effectiveProfile(s)
+        s.fontZoom = steps.map { TerminalFont.zoom(s.fontZoom, by: $0, size: e.fontSize, themeSize: th.size) } ?? 0
+        applyProfile(to: s)
+        let pt = Int(TerminalFont.size(e.fontSize, themeSize: th.size, zoom: s.fontZoom))
+        status = s.fontZoom == 0 ? L("Letra de la pestaña: \(pt) pt (la de siempre)") : L("Letra de la pestaña: \(pt) pt · ⌘0, la de siempre")
     }
 
     /// El perfil guardado de la sesión de `s` (sin sesión guardada, todo de Ajustes).

@@ -6,16 +6,17 @@ código el 2026-11-08. Esfuerzo: S (horas) · M (1-2 días) · L (más). Se marc
 
 ## 1.0.1 — Fuentes: lo rápido y lo que falla
 
-- [ ] **El tamaño confunde y deja poner 1-7 pt.** Ajustes → Fuentes tiene un deslizador de 0 a 26 (0 = el del tema) y
+- [x] **El tamaño confunde y deja poner 1-7 pt.** Ajustes → Fuentes tiene un deslizador de 0 a 26 (0 = el del tema) y
       el terminal usa «tamaño del tema − 1»; `# @fuente` sólo acepta 8-36. Que vaya de 8 a 36, que enseñe el tamaño
       real y que la celda se mida por carácter, como SwiftTerm (la «W» por nombre de glifo descuadra con CJK).
       `SettingsView.swift` (Tamaño), `AppModel.terminalFont`, `TerminalSession.cellSize`. **S**
-- [ ] **⌘+ / ⌘- / ⌘0 por pestaña** (hoy no existen). Sobre el tamaño que ya se resuelve, dentro de 8-36.
+- [x] **⌘+ / ⌘- / ⌘0 por pestaña** (hoy no existen). Sobre el tamaño que ya se resuelve, dentro de 8-36.
       `App.swift` (menú Ver), `TerminalSession`, `AppModel.applyProfile`. **S**
-- [ ] **Interlineado** (0,9-1,5), en Ajustes y como `# @interlineado` por sesión. SwiftTerm ya tiene `lineSpacing`. **S**
-- [ ] **Trazo fino / suavizado** (SwiftTerm `fontSmoothing`). **S**
-- [ ] **Avisar si falta la fuente del tema**: «JetBrains Mono no instalada: se usa X · Instalar», en la galería, en
+- [x] **Interlineado** (0,9-1,5), en Ajustes y como `# @interlineado` por sesión. SwiftTerm ya tiene `lineSpacing`. **S**
+- [x] **Trazo fino / suavizado** (SwiftTerm `fontSmoothing`). **S**
+- [x] **Avisar si falta la fuente del tema**: «JetBrains Mono no instalada: se usa X · Instalar», en la galería, en
       Ajustes y en el asistente (hoy elige otra sin decir nada; el asistente ofrece fuentes no instaladas). **S**
+      (Hecho en Ajustes y en el asistente; en la galería, pendiente.)
 
 ## 1.0.2 — Temas: Neon Glass y colores a tu gusto
 
@@ -46,9 +47,9 @@ código el 2026-11-08. Esfuerzo: S (horas) · M (1-2 días) · L (más). Se marc
 
 ## 1.0.3 — Fuentes: lo de fondo
 
-- [ ] **Lista de monoespaciadas fiable y en caché** (por rasgo de ancho fijo, no por nombre; se vacía al instalar una
+- [x] **Lista de monoespaciadas fiable y en caché** (por rasgo de ancho fijo, no por nombre; se vacía al instalar una
       fuente) y muestra con cajas, Powerline, «ñ» y una tabla tipo `show int`. Hoy `Theme.ui` consulta NSFontManager
-      en cada repintado. **S-M**
+      en cada repintado. **S-M** (Hechas la caché y la lista por rasgo; la muestra, pendiente.)
 - [ ] **Símbolos de Nerd Font / Powerline y CJK de reserva** (`glyphFallbackProvider` de SwiftTerm 1.99.3 y lista de
       reserva de CoreText). **M**
 - [ ] **Ligaduras opcionales**, apagadas por defecto: SwiftTerm 1.99.3 ya coloca cada glifo en su celda; hay que

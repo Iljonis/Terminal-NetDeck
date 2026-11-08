@@ -20,7 +20,7 @@ public struct EditableSession: Hashable, Sendable, Identifiable {
     public var kind = SessionProfile.Transport.ssh
     /// «# @serie …» (sólo cuenta si `kind` es .serial).
     public var serial = SerialLine()
-    /// Perfil de terminal («# @fuente», «# @tema», «# @scrollback», «# @teclado», «# @prompt»): vacío = Ajustes.
+    /// Perfil de terminal («# @fuente», «# @interlineado», «# @tema», «# @scrollback», «# @teclado»…): vacío = Ajustes.
     public var terminal = TerminalProfile()
     /// Comentarios libres del bloque («# lo que sea», «# @proyecto X»): se conservan tal cual, sin el «# ».
     public var notes: [String] = []
@@ -117,7 +117,7 @@ public struct SessionFile: Sendable {
         #    # @telnet · # @tipo sftp|ftp|serie|local   tipo de sesión (sin nada: ssh)
         #    # @serie /dev/cu.usbserial-0001 9600 8N1    puerto serie (con «@tipo serie»)
         #    # @fuente Menlo 13 · # @tema ID · # @scrollback 10000 · # @teclado meta retroceso-h
-        #    # @prompt REGEX      perfil de la pestaña (sin ellas, lo de Ajustes)
+        #    # @interlineado 1.2 · # @prompt REGEX   perfil de la pestaña (sin ellas, lo de Ajustes)
         #  Un grupo con «/» (Clientes/Madrid/Core) se ve como carpetas dentro de carpetas.
         #  Los bloques «Host *», «Host a b» o «Match» no son sesiones: se conservan tal cual,
         #  al final (o al principio si estaban antes de la primera sesión).

@@ -7,7 +7,8 @@ errores. Las reglas en corto están en la raíz (CLAUDE.md / AGENTS.md); aquí, 
   `ssh -G`). `~/.ssh/config` sólo recibe un `Include`, y no hay ningún `sesiones.json` aparte: así `ssh core-01` vale
   desde cualquier terminal. Los datos propios de la app van como anotaciones: `# @grupo` (con `/` para carpetas),
   `# @clave`, `# @clave-grupo`, `# @desc`, `# @telnet`, `# @tipo sftp|ftp|serie|local`, `# @serie /dev/cu.x 9600 8N1`
-  y `# @antiguo`. El perfil de cada sesión también: `# @tema`, `# @fuente`, `# @scrollback`, `# @teclado`, `# @prompt`.
+  y `# @antiguo`. El perfil de cada sesión también: `# @tema`, `# @fuente`, `# @interlineado`, `# @scrollback`,
+  `# @teclado`, `# @prompt`.
 - **Ventanas:** hay un `AppCore`, común a todas, con los ajustes, temas, sesiones, Llavero, botones, macros, túneles,
   espacios y resaltado, y con un `abiertas.json` por ventana con su marco. Cada ventana tiene su `AppModel`, con sus
   pestañas, vista dividida, MultiExec, hojas y avisos.

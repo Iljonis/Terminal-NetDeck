@@ -361,8 +361,11 @@ struct SessionEditor: View {
         let inherit = { (v: String) in L("Heredar (\(v))") }
         let globalFamily = model.settings.fontFamily.isEmpty ? (Fonts.firstInstalled(th.fonts) ?? L("monoespaciada del sistema"))
                                                              : model.settings.fontFamily
-        let globalSize = model.settings.fontSize > 0 ? Int(model.settings.fontSize) : th.size - 1
-        let sizes = [0.0] + stride(from: 9.0, through: 24.0, by: 1.0) + (cur.fontSize > 0 && !(9...24).contains(cur.fontSize) ? [cur.fontSize] : [])
+        // (el tamaño heredado, con el tema de la sesión si tiene uno: el mismo cálculo que la pestaña)
+        let globalSize = Int(TerminalFont.size(model.settings.fontSize, themeSize: (model.themes.theme(id: cur.theme) ?? th).size))
+        let sizes = [0.0] + stride(from: TerminalFont.sizes.lowerBound, through: TerminalFont.sizes.upperBound, by: 1)
+        let steps = [0.9, 1.0, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3, 1.4, 1.5]
+        let spacings = [0.0] + steps + (cur.lineSpacing == 0 || steps.contains(cur.lineSpacing) ? [] : [cur.lineSpacing])
         let lines = [0] + TerminalHistory.options + (cur.scrollback.map { TerminalHistory.options.contains($0) ? [] : [$0] } ?? [])
         let problem = cur.prompt.isEmpty ? nil : PromptRule.problem(cur.prompt)
         return Section {
@@ -378,6 +381,12 @@ struct SessionEditor: View {
             }
             ThemedPicker(L("Tamaño"), selection: p.fontSize) { o in
                 for x in sizes { o.append((x, x == 0 ? inherit(L("\(globalSize) pt")) : L("\(Int(x)) pt"))) }
+            }
+            ThemedPicker(L("Interlineado"), selection: p.lineSpacing) { o in
+                for x in spacings {
+                    let v = (x == 0 ? model.settings.lineSpacing : x).formatted(.number.precision(.fractionLength(2)))
+                    o.append((x, x == 0 ? inherit(v) : v))
+                }
             }
             ThemedPicker(L("Líneas guardadas"), selection: Binding(get: { cur.scrollback ?? 0 },
                                                                   set: { file.sessions[i].terminal.scrollback = $0 == 0 ? nil : $0 })) { o in

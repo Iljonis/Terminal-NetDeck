@@ -20,6 +20,9 @@ All notable changes to Terminal NetDeck are listed here. The format follows
 - Accessibility: opaque themes with «Reduce transparency» / «Increase contrast», VoiceOver labels and button traits for
   tabs, sessions and folders, keyboard navigation in themed menus, status dot shapes with «Differentiate without colour».
 - ⌘1…⌘9 to jump to a tab; ⌘Q asks about unsaved Settings.
+- Fonts: ⌘+ / ⌘- / ⌘0 per tab (View menu, Settings untouched); the size goes from 8 to 36 pt and shows the real size;
+  line spacing (0.9-1.5, also `# @interlineado` per session) and thin strokes; a warning with «Install» when the
+  theme's font is missing (Settings and the setup assistant).
 - Demo cases for the paste review sheet, Settings → Paste and the Liquid Glass themes.
 - CHANGELOG, contributing guide, code of conduct, security policy, issue and PR templates, social preview image.
 
@@ -34,6 +37,7 @@ All notable changes to Terminal NetDeck are listed here. The format follows
 ### Fixed
 - The paste review copies exactly the pasted text (the ⚠ marks live in a ruler).
 - The SFTP panel resize cursor no longer sticks; a button password with a newline is rejected.
+- Block selection and the mouse no longer drift with CJK fonts (the cell is measured like SwiftTerm does).
 
 ## [0.9.13] - 2026-11-08
 

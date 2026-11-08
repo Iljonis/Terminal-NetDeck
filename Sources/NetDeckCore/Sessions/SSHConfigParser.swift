@@ -10,7 +10,7 @@ import Foundation
 ///   # @telnet           (dentro del bloque) se entra por telnet (a través del salto, si lo hay)
 ///   # @tipo X           (dentro del bloque) sftp, ftp, serie o local (sin él: ssh)
 ///   # @serie DEV VEL 8N1  (dentro del bloque) el puerto serie de una sesión «@tipo serie»
-///   # @fuente · @tema · @scrollback · @teclado · @prompt   (dentro del bloque) su perfil de terminal (`TerminalProfile`)
+///   # @fuente · @interlineado · @tema · @scrollback · @teclado · @prompt   (dentro del bloque) su perfil de terminal (`TerminalProfile`)
 public struct SSHConfigParser: Sendable {
     public init() {}
 

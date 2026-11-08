@@ -52,7 +52,7 @@ public struct SessionProfile: Identifiable, Hashable, Sendable {
     public var legacy: Bool
     /// «# @serie /dev/cu.… 9600 8N1» (sesiones de consola por puerto serie).
     public var serial: SerialLine?
-    /// «# @fuente», «# @tema», «# @scrollback», «# @teclado», «# @prompt»: lo que no dice, de Ajustes.
+    /// «# @fuente», «# @interlineado», «# @tema», «# @scrollback», «# @teclado», «# @prompt»: lo que no dice, de Ajustes.
     public var terminal = TerminalProfile()
 
     public init(name: String, hostName: String? = nil, user: String? = nil, port: Int? = nil,

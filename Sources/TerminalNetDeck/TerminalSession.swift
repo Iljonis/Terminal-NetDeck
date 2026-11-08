@@ -109,14 +109,9 @@ final class NetDeckTerminalView: TerminalView {
         event.modifierFlags.contains(.option) && (!allowMouseReporting || currentMouseMode == .off)
     }
 
-    /// El tamaño de la celda, como lo calcula SwiftTerm (alto de la letra por el interlineado, ancho de la «W»,
-    /// ajustados a los píxeles de la pantalla).
+    /// El tamaño de la celda, como lo calcula SwiftTerm (`TerminalFont.cell`: la «W» por carácter, también en las CJK).
     var cellSize: CGSize {
-        let f = font
-        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
-        let w = f.advancement(forGlyph: f.glyph(withName: "W")).width
-        let h = ceil((f.ascender - f.descender + f.leading) * lineSpacing)
-        return CGSize(width: max(1, (w * scale).rounded() / scale), height: max(1, ceil(h * scale) / scale))
+        TerminalFont.cell(font, lineSpacing: lineSpacing, scale: window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1)
     }
 
     /// La celda de pantalla (fila desde arriba, columna) bajo un punto de la vista.
@@ -358,6 +353,8 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     @ObservationIgnored private(set) var theme: Theme?
     @ObservationIgnored var promptRule: PromptRule?
     @ObservationIgnored private var appliedScrollback = TerminalHistory.current
+    /// Los puntos de ⌘+ / ⌘- de esta pestaña sobre su tamaño (0 = el de siempre; no se guarda).
+    @ObservationIgnored var fontZoom = 0
     @ObservationIgnored var onEvent: ((TerminalSession, PasswordAutomation.Event) -> Void)?
     /// La que has escrito tú en un «Password:» y ha entrado (para ofrecer guardarla en el Llavero).
     @ObservationIgnored var onTypedPassword: ((TerminalSession, TypedPassword.Candidate) -> Void)?
@@ -769,6 +766,15 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         view.caretColor = NSColor(t.accent)
         view.selectedTextBackgroundColor = NSColor(t.selection)
         view.installColors(t.ansi.map { SwiftTerm.Color($0) })
+    }
+
+    /// Interlineado (sólo si cambia: SwiftTerm rehace la letra y el tamaño) y suavizado de la letra.
+    func apply(lineSpacing: Double, smoothing: Bool) {
+        if view.lineSpacing != CGFloat(lineSpacing) { view.lineSpacing = CGFloat(lineSpacing) }
+        if view.fontSmoothing != smoothing {
+            view.fontSmoothing = smoothing
+            view.needsDisplay = true                    // (SwiftTerm sólo lo mira al pintar)
+        }
     }
 
     /// Historial y teclado del perfil (el historial sólo si cambia: SwiftTerm lo rehace).

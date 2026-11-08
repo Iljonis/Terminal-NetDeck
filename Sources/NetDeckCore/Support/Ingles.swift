@@ -746,8 +746,6 @@ enum Ingles {
             "system monospaced",
         "Tamaño":
             "Size",
-        "del tema (%@)":
-            "theme's (%@)",
         "%@ pt":
             "%@ pt",
         "core-01(config)# interface xe-0/0/1\nadmin@core-01> show bgp summary | match Estab":
@@ -2332,5 +2330,20 @@ enum Ingles {
         "desplegado, %@ sesiones": "expanded, %@ sessions",
         "plegado, %@ sesiones": "collapsed, %@ sessions",
         "favorita": "favorite",
+        // 1.0.0 · fuentes
+        "Automático: el del tema (%@ pt)": "Automatic: the theme’s (%@ pt)",
+        "Interlineado": "Line spacing",
+        "Trazo fino (sin suavizado de la letra; se nota en pantallas Retina)":
+            "Thin strokes (no font smoothing; noticeable on Retina displays)",
+        "«%@» no está instalada: se usa %@": "“%@” isn’t installed: using %@",
+        "la monoespaciada del sistema": "the system monospaced font",
+        "interlineado «%@»": "line spacing “%@”",
+        "Letra más grande": "Bigger Text",
+        "Letra más pequeña": "Smaller Text",
+        "Tamaño de letra normal": "Default Text Size",
+        "Letra de la pestaña: %@ pt (la de siempre)": "Tab text: %@ pt (the usual size)",
+        "Letra de la pestaña: %@ pt · ⌘0, la de siempre": "Tab text: %@ pt · ⌘0 for the usual size",
+        "instalada": "installed",
+        "%@ (se instalará)": "%@ (will be installed)",
 ]
 }

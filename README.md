@@ -173,8 +173,8 @@ siguen únicamente en el Llavero de macOS.
   sin guardar.
 - **Importar** de SecureCRT, MobaXterm, PuTTY, electerm, CSV u otro `ssh_config`; **exportar** a JSON o CSV.
   Nunca contraseñas.
-- **Perfiles por sesión:** tema, fuente, tamaño, historial, teclado y prompt en anotaciones del propio `ssh_config`
-  (`# @tema`, `# @fuente`, `# @prompt`…); lo que no definas hereda de Ajustes.
+- **Perfiles por sesión:** tema, fuente, tamaño, interlineado, historial, teclado y prompt en anotaciones del
+  propio `ssh_config` (`# @tema`, `# @fuente`, `# @interlineado`, `# @prompt`…); lo que no definas hereda de Ajustes.
 - **Selección rectangular:** mantén ⌥ y arrastra para copiar sólo unas columnas (las IP de un `show ip interface
   brief`, sin el resto de la línea).
 - **Historial configurable:** 2.500 líneas por pestaña de serie; 1.000, 5.000 o 10.000 en Ajustes → Terminal.
@@ -392,6 +392,7 @@ cd Terminal-NetDeck
 | ⌘1…⌘9 | Ir a la pestaña de ese número (⌘9, a la última) |
 | ⇧⌘B | Explorador SFTP al lado del terminal |
 | ⌘F / ⇧⌘F | Buscar en la salida / en todos los registros |
+| ⌘+ / ⌘- / ⌘0 | Letra de la pestaña más grande / más pequeña / la de siempre (no cambia Ajustes) |
 | Esc o ⌘. | Cortar cualquier secuencia automática |
 | ⌥ + arrastrar | Selección rectangular (sólo esas columnas); ⌘C la copia |
 | ⌘, | Ajustes |

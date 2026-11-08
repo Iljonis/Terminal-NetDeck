@@ -1,8 +1,9 @@
 import Foundation
 
-/// Perfil de terminal de una sesión: fuente, colores (tema), historial, teclado y prompt. Va en su bloque del ssh_config
+/// Perfil de terminal de una sesión: fuente, interlineado, colores (tema), historial, teclado y prompt. Va en su bloque del ssh_config
 /// de la app, como el resto de anotaciones (nada de un JSON aparte):
 ///   # @fuente Menlo 13          familia y/o tamaño («# @fuente 14», «# @fuente JetBrains Mono»)
+///   # @interlineado 1.2         alto de la línea (dentro de `TerminalFont.lineSpacings`; también «1,2»)
 ///   # @tema neo-tokyo           id del tema
 ///   # @scrollback 10000         líneas de historial (dentro de `TerminalHistory.range`)
 ///   # @teclado meta retroceso-h ⌥ como Meta (o «sin-meta») y Retroceso con ^H (o «retroceso-del»)
@@ -13,6 +14,8 @@ public struct TerminalProfile: Hashable, Sendable {
     public var fontFamily = ""
     /// 0 = el de Ajustes.
     public var fontSize: Double = 0
+    /// 0 = el de Ajustes.
+    public var lineSpacing: Double = 0
     /// id del tema; "" = el de Ajustes.
     public var theme = ""
     /// nil = el de Ajustes.
@@ -24,8 +27,8 @@ public struct TerminalProfile: Hashable, Sendable {
     /// Regex del prompt del equipo (`PromptRule`); "" = el genérico.
     public var prompt = ""
 
-    public static let keys = ["fuente", "tema", "scrollback", "teclado", "prompt"]
-    public static let fontSizes = 8.0...36.0
+    public static let keys = ["fuente", "interlineado", "tema", "scrollback", "teclado", "prompt"]
+    public static let fontSizes = TerminalFont.sizes
     static let maxFamilyLength = 100
     static let themeID = Pattern(#"^[^\s"'`$\\]{1,80}$"#, ignoreCase: false)
 
@@ -42,6 +45,7 @@ public struct TerminalProfile: Hashable, Sendable {
         let size = fontSize > 0 ? String(Int(fontSize)) : ""
         let font = [fontFamily, size].filter { !$0.isEmpty }.joined(separator: " ")
         if !font.isEmpty { out.append(("fuente", font)) }
+        if lineSpacing > 0 { out.append(("interlineado", String(lineSpacing))) }
         if !theme.isEmpty { out.append(("tema", theme)) }
         if let scrollback { out.append(("scrollback", String(scrollback))) }
         let keys = [optionAsMeta.map { $0 ? "meta" : "sin-meta" }, backspaceSendsCtrlH.map { $0 ? "retroceso-h" : "retroceso-del" }]
@@ -86,6 +90,11 @@ public struct TerminalProfile: Hashable, Sendable {
             guard family.count <= Self.maxFamilyLength, !family.contains("\"") else { return "familia no válida" }
             fontFamily = family
             fontSize = size
+        case "interlineado":
+            guard let n = Double(v.replacingOccurrences(of: ",", with: ".")), TerminalFont.lineSpacings.contains(n) else {
+                return "fuera de \(TerminalFont.lineSpacings.lowerBound)…\(TerminalFont.lineSpacings.upperBound)"
+            }
+            lineSpacing = TerminalFont.lineSpacing(n)
         case "tema":
             guard Self.themeID.matches(v) else { return "id no válido" }
             theme = v
@@ -124,6 +133,7 @@ public struct TerminalProfile: Hashable, Sendable {
             out.append(L("fuente «\(fontFamily)» no válida"))
         }
         if fontSize != 0, !Self.fontSizes.contains(fontSize) { out.append(L("tamaño de letra «\(Int(fontSize))»")) }
+        if lineSpacing != 0, !TerminalFont.lineSpacings.contains(lineSpacing) { out.append(L("interlineado «\(String(lineSpacing))»")) }
         if !theme.isEmpty, !Self.themeID.matches(theme) || SessionFile.hasControl(theme) { out.append(L("tema «\(theme)» no válido")) }
         if let n = scrollback, !TerminalHistory.range.contains(n) { out.append(L("historial «\(String(n))» fuera de lo admitido")) }
         if !prompt.isEmpty, let why = PromptRule.problem(prompt) { out.append(L("prompt: \(why)")) }
@@ -144,16 +154,19 @@ public struct TerminalProfile: Hashable, Sendable {
         public var backspaceSendsCtrlH: Bool
         /// nil = el prompt genérico.
         public var prompt: PromptRule?
+        /// 1 = el de la fuente.
+        public var lineSpacing: Double = 1
     }
 
     /// Con los valores de Ajustes. Un tema que ya no está o una fuente que no está instalada heredan (aviso en
     /// ErrorLog, una vez).
     public func resolved(theme globalTheme: String, fontFamily globalFamily: String, fontSize globalSize: Double,
-                         scrollback globalScrollback: Int, session: String,
+                         lineSpacing globalLineSpacing: Double = 1, scrollback globalScrollback: Int, session: String,
                          themeExists: (String) -> Bool, fontInstalled: (String) -> Bool) -> Effective {
         var e = Effective(theme: globalTheme, fontFamily: globalFamily, fontSize: globalSize, scrollback: globalScrollback,
                           optionAsMeta: optionAsMeta ?? false, backspaceSendsCtrlH: backspaceSendsCtrlH ?? false,
-                          prompt: prompt.isEmpty ? nil : PromptRule(prompt))
+                          prompt: prompt.isEmpty ? nil : PromptRule(prompt),
+                          lineSpacing: TerminalFont.lineSpacing(lineSpacing > 0 ? lineSpacing : globalLineSpacing))
         if !theme.isEmpty {
             if themeExists(theme) { e.theme = theme } else { Self.warn("«\(session)»: el tema «\(theme)» no existe: se usa el de Ajustes") }
         }
