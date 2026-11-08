@@ -9,7 +9,7 @@ SFTP/FTP y resaltado de la salida de Cisco, Juniper, Huawei y Nokia. Gratis, de 
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v0.9.13](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.13)** · macOS 15 o posterior ·
+Versión actual: **[v1.0.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.0.0)** · macOS 15 o posterior ·
 código abierto (MIT)
 
 [![Última versión](https://img.shields.io/github/v/release/Iljonis/Terminal-NetDeck?label=versi%C3%B3n&color=ff2e88)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
@@ -26,7 +26,7 @@ código abierto (MIT)
 [Novedades](#novedades-de-0912) · [Funciones](#funciones-para-ingenieros-de-red) ·
 [Comparación](#comparación-con-securecrt-mobaxterm-iterm2-y-royal-tsx) ·
 [Instalación](#instalación-y-primer-uso-en-macos-15-sequoia) · [Primeros pasos](#primeros-pasos) ·
-[Preguntas](#preguntas-frecuentes) · [Hoja de ruta](#hoja-de-ruta-hacia-la-100) · [Contribuir](#contribuir)
+[Preguntas](#preguntas-frecuentes) · [Hoja de ruta](#hoja-de-ruta) · [Contribuir](#contribuir)
 
 </div>
 
@@ -42,13 +42,19 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 - Si algo sale mal (una contraseña que falla, un servidor que no contesta, una copia que se corta), la app se para,
   te avisa y conserva las copias que puedan necesitar recuperación.
 
-## Novedades de 0.9.13
+## Novedades de 1.0.0
 
-- **Actualizar ya no se atasca:** si GitHub no deja bajar el `.dmg` por su enlace normal (pasaba con la 0.9.12:
-  «504 Gateway Time-out»), «Actualizar ahora» lo baja por la API de GitHub. Se sigue comprobando igual (sha256
-  publicado, misma app, versión y firma) y, si no hay forma de bajarlo, el aviso lo dice claro en vez de «no coincide».
-- **Si vienes de la 0.9.11 o la 0.9.12** y «Actualizar ahora» falla, instala esta versión a mano una vez (descárgala
-  desde la página de la versión); a partir de aquí las actualizaciones vuelven a ir solas.
+- **Liquid Glass de serie:** quien empieza ve el tema Liquid Glass (y Liquid Glass Claro en el modo automático), con
+  el cristal de macOS 26 en la barra, las pestañas y los avisos; nunca sobre el texto del terminal. Los temas de neón
+  de siempre se sugieren aparte en el asistente, y a quien ya tenía un tema elegido no se le cambia.
+- **Mucho más rápido con historiales largos:** cada Intro o cada salida ya sólo lee la pantalla y lo nuevo. Con
+  100.000 líneas de historial, un Intro pasa de ~250 ms a menos de 1 ms.
+- **Accesibilidad:** con «Reducir transparencia» o «Aumentar contraste» la app se pinta opaca; VoiceOver lee los
+  botones, las pestañas y las sesiones; los menús se recorren con ↑ ↓ e Intro; «Distinguir sin color» cambia la forma
+  del punto de estado; el naranja de los temas es naranja de verdad.
+- **Atajos y detalles:** ⌘1…⌘9 para ir a cada pestaña, ⌘Q pregunta si hay Ajustes sin guardar, favoritas con copia
+  de seguridad y un tope para las recientes.
+- **Por dentro:** Swift 6.2 (copias SFTP y MD5 siempre fuera del hilo principal) y SwiftTerm 1.99.3.
 
 ## Funciones para ingenieros de red
 
@@ -469,17 +475,17 @@ código, `./desinstalar.sh --todo` quita también los temas y los ajustes (el Ll
 
 </details>
 
-## Hoja de ruta hacia la 1.0.0
+## Hoja de ruta
 
-La 1.0.0 será la versión para trabajar en producción sin miedo. Lo hecho y lo que falta:
+La 1.0.0 es la versión para trabajar en producción sin miedo. Lo que ha hecho falta para llegar:
 
 - [x] Pegado y MultiExec más seguros: revisar antes de pegar y confirmar órdenes peligrosas (0.9.12).
 - [x] Resaltado más fino de contadores, BGP y syslog (0.9.12).
-- [ ] **Swift 6.2** y su concurrencia más sencilla, con las copias SFTP y el MD5 siempre fuera del hilo principal.
-- [ ] **Accesibilidad:** respetar «Reducir transparencia» y «Aumentar contraste» del Mac y repasar VoiceOver y el
+- [x] **Swift 6.2** y su concurrencia más sencilla, con las copias SFTP y el MD5 siempre fuera del hilo principal.
+- [x] **Accesibilidad:** respetar «Reducir transparencia» y «Aumentar contraste» del Mac y repasar VoiceOver y el
   teclado.
-- [ ] **Liquid Glass** en macOS 26: el cristal en botones, menús y avisos, nunca sobre el texto del terminal.
-- [ ] **Rendimiento:** menos trabajo por tecla y por línea con salidas largas y muchas pestañas abiertas.
+- [x] **Liquid Glass** en macOS 26: el cristal en botones, menús y avisos, nunca sobre el texto del terminal.
+- [x] **Rendimiento:** menos trabajo por tecla y por línea con salidas largas y muchas pestañas abiertas.
 
 ¿Echas algo en falta? [Propón una función](https://github.com/Iljonis/Terminal-NetDeck/issues/new/choose).
 
@@ -517,7 +523,7 @@ agentes de revisión están en [CLAUDE.md](CLAUDE.md). Los tests se ejecutan en 
 
 ## Licencia
 
-[MIT](LICENSE) © 2026 Jonay / Iljonis. Hecho con Swift 6, SwiftUI y [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm).
+[MIT](LICENSE) © 2026 Jonay / Iljonis. Hecho con Swift 6.2, SwiftUI y [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm).
 Las licencias de las dependencias y la atribución de las paletas de color están en
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), que también va dentro de la app.
 

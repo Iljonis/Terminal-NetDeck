@@ -19,7 +19,7 @@ Si es un fallo de seguridad, no abras un issue público: usa
 
 ## Preparar el entorno
 
-Necesitas macOS 15 o posterior y Xcode (Swift 6).
+Necesitas macOS 15 o posterior y Xcode 26 (Swift 6.2).
 
 ```bash
 swift build
@@ -69,7 +69,7 @@ For a security issue, don't open a public issue: use
 
 ## Setting up
 
-You need macOS 15 or later and Xcode (Swift 6). Run `swift build` and `./test.sh` (it must be green).
+You need macOS 15 or later and Xcode 26 (Swift 6.2). Run `swift build` and `./test.sh` (it must be green).
 `swift run TerminalNetDeck -idioma en` starts the app in English **with your real data** (sessions, settings,
 Keychain); to see it with sample data, use `tools/verificar_demo.sh`, which runs it in a temporary folder with the
 sessions from `tools/demo`.

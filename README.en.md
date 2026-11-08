@@ -9,7 +9,7 @@ SFTP/FTP browser and output highlighting for Cisco, Juniper, Huawei and Nokia. F
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v0.9.13](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.13)** · macOS 15 or later ·
+Current version: **[v1.0.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.0.0)** · macOS 15 or later ·
 open source (MIT)
 
 [![Latest release](https://img.shields.io/github/v/release/Iljonis/Terminal-NetDeck?label=version&color=ff2e88)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
@@ -26,7 +26,7 @@ open source (MIT)
 [What's new](#new-in-0912) · [Features](#features-for-network-engineers) ·
 [Comparison](#comparison-with-securecrt-mobaxterm-iterm2-and-royal-tsx) ·
 [Install](#installation--first-run-on-macos-15-sequoia) · [Getting started](#getting-started) · [FAQ](#faq) ·
-[Roadmap](#roadmap-to-100) · [Contributing](#contributing)
+[Roadmap](#roadmap) · [Contributing](#contributing)
 
 </div>
 
@@ -42,14 +42,19 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - When something goes wrong (a password fails, a server stops answering, a copy breaks off), the app stops, tells
   you, and keeps whatever copies may need recovering.
 
-## New in 0.9.13
+## New in 1.0.0
 
-- **Updating no longer gets stuck:** if GitHub will not serve the `.dmg` through its usual link (it happened with
-  0.9.12: «504 Gateway Time-out»), «Update now» downloads it through the GitHub API. It is checked the same way
-  (published sha256, same app, version and signature) and, if there is no way to download it, the notice says so
-  clearly instead of «does not match».
-- **If you come from 0.9.11 or 0.9.12** and «Update now» fails, install this version by hand once (download it from
-  the release page); from then on updates work on their own again.
+- **Liquid Glass by default:** new users get the Liquid Glass theme (and Liquid Glass Light in automatic mode), with
+  macOS 26 glass on the toolbar, tabs and notices — never over the terminal text. The classic neon themes are
+  suggested separately in the setup assistant, and anyone who already picked a theme keeps it.
+- **Much faster with long scrollback:** each Return or burst of output now reads only the screen and what is new.
+  With 100,000 lines of scrollback, a Return goes from ~250 ms to under 1 ms.
+- **Accessibility:** with «Reduce transparency» or «Increase contrast» the app paints opaque; VoiceOver reads buttons,
+  tabs and sessions; menus work with ↑ ↓ and Return; «Differentiate without colour» changes the status dot's shape;
+  the themes' orange is a real orange.
+- **Shortcuts and details:** ⌘1…⌘9 to jump to a tab, ⌘Q asks about unsaved Settings, favourites with a backup and a
+  cap on recents.
+- **Under the hood:** Swift 6.2 (SFTP copies and MD5 always off the main thread) and SwiftTerm 1.99.3.
 
 ## Features for network engineers
 
@@ -468,17 +473,17 @@ source, `./desinstalar.sh --todo` also removes themes and settings (the Keychain
 
 </details>
 
-## Roadmap to 1.0.0
+## Roadmap
 
-1.0.0 will be the version for working on production networks without fear. Done and still to do:
+1.0.0 is the version for working on production networks without fear. What it took to get here:
 
 - [x] Safer paste and MultiExec: review before pasting and confirm dangerous commands (0.9.12).
 - [x] Finer highlighting of counters, BGP and syslog (0.9.12).
-- [ ] **Swift 6.2** and its simpler concurrency, keeping SFTP copies and MD5 off the main thread.
-- [ ] **Accessibility:** honour the Mac's “Reduce transparency” and “Increase contrast”, and review VoiceOver and
+- [x] **Swift 6.2** and its simpler concurrency, keeping SFTP copies and MD5 off the main thread.
+- [x] **Accessibility:** honour the Mac's “Reduce transparency” and “Increase contrast”, and review VoiceOver and
   keyboard use.
-- [ ] **Liquid Glass** on macOS 26: glass on buttons, menus and notices, never over the terminal text.
-- [ ] **Performance:** less work per key and per line with long outputs and many open tabs.
+- [x] **Liquid Glass** on macOS 26: glass on buttons, menus and notices, never over the terminal text.
+- [x] **Performance:** less work per key and per line with long outputs and many open tabs.
 
 Missing something? [Suggest a feature](https://github.com/Iljonis/Terminal-NetDeck/issues/new/choose).
 
@@ -517,7 +522,7 @@ The code is written in Spanish (Spain) and the interface is translated into Engl
 
 ## License
 
-[MIT](LICENSE) © 2026 Jonay / Iljonis. Built with Swift 6, SwiftUI and [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm).
+[MIT](LICENSE) © 2026 Jonay / Iljonis. Built with Swift 6.2, SwiftUI and [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm).
 Dependency licences and colour-palette attributions are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), which
 also ships inside the app.
 

@@ -10,7 +10,30 @@ All notable changes to Terminal NetDeck are listed here. The format follows
 
 ## [Unreleased]
 
-Work towards 1.0.0: see the [roadmap](README.en.md#roadmap-to-100).
+## [1.0.0] - 2026-11-08
+
+### Added
+- Liquid Glass is the default theme for new users (Liquid Glass Light in automatic mode); the setup assistant suggests
+  the classic NetDeck neon themes separately. Existing users keep their theme.
+- macOS 26 Liquid Glass on toolbar buttons, tabs, the «+» menu and chips (never over the terminal; selected and active
+  items stay opaque for contrast).
+- Accessibility: opaque themes with «Reduce transparency» / «Increase contrast», VoiceOver labels and button traits for
+  tabs, sessions and folders, keyboard navigation in themed menus, status dot shapes with «Differentiate without colour».
+- ⌘1…⌘9 to jump to a tab; ⌘Q asks about unsaved Settings.
+- Demo cases for the paste review sheet, Settings → Paste and the Liquid Glass themes.
+- CHANGELOG, contributing guide, code of conduct, security policy, issue and PR templates, social preview image.
+
+### Changed
+- The terminal reads only the screen and new rows instead of the whole scrollback (Return with 100,000 lines:
+  ~250 ms → under 1 ms; leaving vi/less/tmux no longer rereads the scrollback).
+- Swift 6.2 with approachable concurrency: SFTP copies, MD5 and remote edits run off the main thread (`@concurrent`).
+- SwiftTerm 1.99.3, swift-png 4.5.2, `actions/upload-artifact` v7.
+- The themes' orange is computed to be a real orange with WCAG contrast.
+- Favourites are saved with a backup; recents are capped; log search streams grep output with a limit.
+
+### Fixed
+- The paste review copies exactly the pasted text (the ⚠ marks live in a ruler).
+- The SFTP panel resize cursor no longer sticks; a button password with a newline is rejected.
 
 ## [0.9.13] - 2026-11-08
 
@@ -164,7 +187,8 @@ Paths shown with `~`, private permissions (0700/0600) for the app's data, and do
 First public release: background update checks (never installs without a click), standard `.dmg` install and
 rejection of names, hosts and users starting with `-`.
 
-[Unreleased]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.12...HEAD
+[Unreleased]: https://github.com/Iljonis/Terminal-NetDeck/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.13...v1.0.0
 [0.9.13]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.12...v0.9.13
 [0.9.12]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.11...v0.9.12
 [0.9.11]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.10...v0.9.11
