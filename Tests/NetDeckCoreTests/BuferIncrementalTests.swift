@@ -87,6 +87,47 @@ import SwiftTerm
         #expect(p.filas.resyncs == 2 && p.filas.first(from: dentro) > dentro && p.cursorLine == "core-01#")
     }
 
+    /// Sin historial con el que comparar (pestaña recién abierta), un `clear` o un ESC c reutilizan los números de
+    /// fila: si el cursor queda por detrás del de antes, se recoloca, y lo anclado no se queda esperando una fila que ya
+    /// ha pasado (el «Permission denied» nuevo sale en una fila de número menor).
+    @Test func sinHistorialUnClearQueRetrocedeRecoloca() {
+        for borrar in ["\u{1b}[H\u{1b}[2J\u{1b}[3J", "\u{1b}c"] {
+            let p = Pestana(historial: 500)
+            for i in 0..<10 { p.t.feed(text: "línea \(i)\r\n") }
+            p.escribir("core-01#ssh tu.usuario@core-02\r\nPassword: ")
+            let marca = p.cursorRow
+            #expect(p.filas.resyncs == 0)
+            p.t.feed(text: borrar + "línea\r\n")
+            p.escribir("tu.usuario@core-02: Permission denied (password).\r\ncore-01#")
+            p.comprobar()
+            #expect(p.filas.resyncs == 1 && p.cursorRow > marca)
+            // (vi o un progreso que sube el cursor en la pantalla alternativa no recolocan)
+            p.escribir("\u{1b}[?1049h\u{1b}[20;1Hfila\u{1b}[2;1Hfila")
+            p.escribir("\u{1b}[1;1Hfila")
+            #expect(p.filas.resyncs == 2)
+        }
+    }
+
+    /// Al salir de vi, less o top (y con otro tamaño) sólo se lee la pantalla, no el historial entero: lo de antes no
+    /// casa y se recoloca igual. Antes, 460 ms con 100.000 líneas, en el hilo principal.
+    @Test func alSalirDeLaAlternativaSoloSeLeeLaPantalla() {
+        let p = Pestana(historial: 20_000)
+        p.t.feed(text: (0..<20_100).map { "Gi0/\($0 % 48) 192.0.2.\($0 % 250) up up\r\n" }.joined())
+        p.escribir("core-01#")
+        p.escribir("\u{1b}[?1049h\u{1b}[H\u{1b}[2J~\r\n~")
+        #expect(p.leidas <= 24 && p.filas.resyncs == 1)
+        let c = ContinuousClock.now
+        p.escribir("\u{1b}[?1049l")
+        let d = ContinuousClock.now - c
+        #expect(p.leidas <= 24 && p.filas.resyncs == 2 && p.cursorLine == "core-01#")
+        #expect(d < .seconds(5))                                         // (margen de CI; leerlo todo, ~90 ms)
+        p.comprobar()
+        p.t.resize(cols: 100, rows: 30)
+        p.escribir("")
+        #expect(p.leidas <= 30 && p.filas.resyncs == 3)
+        p.comprobar()
+    }
+
     @Test func otroTamanoUOtroHistorialRecolocan() {
         let p = Pestana(historial: 1_000)
         for i in 0..<1_500 { p.t.feed(text: "línea \(i) con texto de sobra para que se recoloque al estrechar\r\n") }
@@ -164,7 +205,8 @@ import SwiftTerm
         }
         let intro = "\r\ncore-01#", salida = (0..<50).map { "línea \($0) de show run\r\n" }.joined() + "core-01#"
         print("BÚFER \(n) líneas · Intro: \(ms(intro) { p.leer() }) · 50 líneas: \(ms(salida) { p.leer() })"
-              + " · entero: \(ms(intro) { _ = p.entero })")
+              + " · entero: \(ms(intro) { _ = p.entero })"
+              + " · al salir de vi: \(ms("\u{1b}[?1049h~\u{1b}[?1049l") { p.leer() })")
     }
 }
 
@@ -188,8 +230,8 @@ private final class Pestana {
 
     func leer() {
         leidas = 0
-        filas.refresh(rows: { self.read(self.t.contentSnapshot(region: $0.map { .rows($0..<Int.max) } ?? .all)) },
-                      kept: { self.t.contentSnapshot(region: .rows(0..<0)).capturedRange.lowerBound },
+        filas.refresh(top: { self.read(self.t.contentSnapshot(region: .rows(0..<0))) },
+                      rows: { self.read(self.t.contentSnapshot(region: $0.map { .rows($0..<Int.max) } ?? .all)) },
                       screen: { self.read(self.t.contentSnapshot(region: .history(maximumScrollbackRows: 0))) })
     }
 

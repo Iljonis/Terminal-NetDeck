@@ -49,13 +49,20 @@ public struct BufferRows: Sendable {
         }
     }
 
-    /// Lo que ha podido cambiar desde la lectura anterior: `rows(n)` lee desde el número `n` (nil = todo); `kept`, la
-    /// primera fila que SwiftTerm aún guarda (lo de antes se suelta); `screen`, sólo la pantalla, por si la numeración
-    /// no casa y lo leído no la trae. Cada una coge el lock de SwiftTerm por separado: si entre una y otra llega salida,
-    /// la siguiente lectura vuelve a leer lo que ha cambiado.
-    public mutating func refresh(rows: (Int?) -> Read?, kept: () -> Int?, screen: () -> Read?) {
+    /// Lo que ha podido cambiar desde la lectura anterior: `top`, una lectura sin filas (`.rows(0..<0)`) con la primera
+    /// fila que SwiftTerm aún guarda (lo de antes se suelta) y el tamaño; `rows(n)` lee desde el número `n` (nil =
+    /// todo); `screen`, sólo la pantalla. Con otro tamaño o desde la pantalla alternativa, sólo la pantalla: lo de antes
+    /// no casa (al salir de vi, `readFrom` es 0 y leer el historial entero eran 460 ms con 100.000 líneas, para nada).
+    /// Cada una coge el lock de SwiftTerm por separado: si entre una y otra llega salida, la siguiente lectura vuelve a
+    /// leer lo que ha cambiado.
+    public mutating func refresh(top: () -> Read?, rows: (Int?) -> Read?, screen: () -> Read?) {
+        let t = top()
+        if let old = layout, old[2] == 1 || t.map({ $0.layout != old }) == true {
+            if let s = screen(), !merge(s) { restart(s) }
+            return
+        }
         guard let r = rows(readFrom) else { return }
-        if !merge(r, retainedTop: kept()), let s = screen() { restart(s) }
+        if !merge(r, retainedTop: t?.first), let s = screen() { restart(s) }
     }
 
     /// Si casa con lo anterior (mismo tamaño y pantalla, la numeración no retrocede y lo que ya era historial sale
@@ -72,7 +79,10 @@ public struct BufferRows: Sendable {
             // (si se ha expulsado lo pedido, todo lo leído es nuevo: no hay con qué comparar)
             let checked = r.first == from ? max(0, min(screenTop, from + r.rows.count) - from) : 0
             let k = from - start
-            if (0..<checked).allSatisfy({ k + $0 < lines.count && lines[k + $0] == r.rows[$0] }) {
+            // (sin historial con el que comparar, un `clear` con CSI 3 J o un ESC c y salida de sobra reutilizan los
+            // números: si el cursor retrocede, no es lo mismo; en la alternativa no hay historial y vi lo mueve)
+            let back = checked == 0 && r.layout[2] == 0 && r.cursorRow < start + cursor
+            if !back, (0..<checked).allSatisfy({ k + $0 < lines.count && lines[k + $0] == r.rows[$0] }) {
                 if r.first == from {
                     lines.removeSubrange(min(lines.count, k)...)
                     lines += r.rows

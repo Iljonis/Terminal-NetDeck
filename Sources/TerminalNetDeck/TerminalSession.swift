@@ -986,8 +986,8 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     /// Sólo lo que ha podido cambiar desde la lectura anterior (`BufferRows.refresh`): la pantalla y lo que ha pasado al
     /// historial, no el historial entero.
     private func readBuffer() {
-        bufferRows.refresh(rows: { Self.read(view.terminalContentSnapshot(region: $0.map { .rows($0..<Int.max) } ?? .all)) },
-                           kept: { view.terminalContentSnapshot(region: .rows(0..<0))?.capturedRange.lowerBound },
+        bufferRows.refresh(top: { Self.read(view.terminalContentSnapshot(region: .rows(0..<0))) },
+                           rows: { Self.read(view.terminalContentSnapshot(region: $0.map { .rows($0..<Int.max) } ?? .all)) },
                            screen: { Self.read(view.terminalContentSnapshot(region: .history(maximumScrollbackRows: 0))) })
     }
 

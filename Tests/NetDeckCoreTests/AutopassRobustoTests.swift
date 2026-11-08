@@ -415,7 +415,9 @@ private final class TerminalAcotado: TerminalIO {
             return .init(rows: Array(lineas[i...]), first: expulsadas + i, screenTop: arriba, cursorRow: total - 1,
                          layout: [ancho, pantalla, 0])
         }
-        filas.refresh(rows: { desde($0 ?? 0) }, kept: { self.expulsadas }, screen: { desde(arriba) })
+        filas.refresh(top: { .init(rows: [], first: self.expulsadas, screenTop: arriba, cursorRow: total - 1,
+                                   layout: [self.ancho, self.pantalla, 0]) },
+                      rows: { desde($0 ?? 0) }, screen: { desde(arriba) })
     }
 
     func send(bytes: [UInt8]) { sent.append(String(decoding: bytes, as: UTF8.self)) }
