@@ -447,6 +447,7 @@ final class AppModel {
                                    themeExists: { [themes] in themes.theme(id: $0) != nil }, fontInstalled: Fonts.isInstalled)
         let th = themes.theme(id: e.theme) ?? themes.current
         s.apply(theme: th, font: terminalFont(theme: th, family: e.fontFamily, size: e.fontSize))
+        applyScreenFilter(to: s)
         s.apply(scrollback: e.scrollback, optionAsMeta: e.optionAsMeta, backspaceSendsCtrlH: e.backspaceSendsCtrlH)
         s.promptRule = e.prompt
     }

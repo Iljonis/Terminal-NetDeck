@@ -3,6 +3,7 @@
 # tus sesiones, ajustes ni el Llavero: la app arranca con NETDECK_HOME en una carpeta temporal.
 #   tools/capturas.sh            → todas
 #   TEMA=neo-tokyo tools/capturas.sh
+#   FILTRO=crt tools/capturas.sh     → con un filtro de pantalla (crt, lcd, fosforo, holograma o ninguno)
 #   SOLO=ajustes tools/capturas.sh   → sólo las que contengan eso en el nombre
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -29,7 +30,7 @@ captura() {   # nombre idioma acción
   NETDECK_SFTP_SERVER=/usr/libexec/sftp-server NETDECK_SFTP_DIR="$casa/ficheros" \
   NETDECK_HOME="$casa" NETDECK_SAMPLES=1 NETDECK_SNAPSHOT="$png" NETDECK_SNAPSHOT_ACTION="$accion" \
     "$BIN" -idioma "$idioma" -themeID "$TEMA" -themeAuto NO -sshConfigPath "$casa/.ssh/config" -configured YES -asistenteVisto YES \
-           -sidebarVisible YES -buttonBar arriba >/dev/null 2>&1 &
+           -sidebarVisible YES -buttonBar arriba ${FILTRO:+-screenFilter "$FILTRO" -screenFilterOn YES} >/dev/null 2>&1 &
   local pid=$!
   for _ in $(seq 1 60); do [ -s "$png" ] && break; sleep 0.25; done
   sleep 0.5

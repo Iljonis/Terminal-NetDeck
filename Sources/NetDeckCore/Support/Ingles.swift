@@ -2332,5 +2332,28 @@ enum Ingles {
         "desplegado, %@ sesiones": "expanded, %@ sessions",
         "plegado, %@ sesiones": "collapsed, %@ sessions",
         "favorita": "favorite",
+        // 1.0.0 · filtros
+        "CRT": "CRT",
+        "LCD": "LCD",
+        "Fósforo": "Phosphor",
+        "Holograma": "Hologram",
+        "Filtro de pantalla": "Screen Filter",
+        "Filtro": "Filter",
+        "Intensidad": "Intensity",
+        "%@ %%": "%@%%",
+        "Filtro encima del terminal": "Filter over the Terminal",
+        "Filtro encima del terminal (⌥⌘F)": "Filter over the terminal (⌥⌘F)",
+        "Automático (el del tema)": "Automatic (the Theme’s)",
+        "Automático: el del tema (%@)": "Automatic: the theme’s (%@)",
+        "Filtro de pantalla apagado": "Screen filter off",
+        "Filtro de pantalla apagado: el Mac pide menos efectos (Accesibilidad → Pantalla)":
+            "Screen filter off: the Mac asks for fewer effects (Accessibility → Display)",
+        "Filtro de pantalla: este tema no lleva ninguno (elige uno en Ver → Filtro de pantalla)":
+            "Screen filter: this theme has none (pick one in View → Screen Filter)",
+        "Filtro de pantalla: %@": "Screen filter: %@",
+        "Ahora apagado: el Mac tiene activado «Reducir movimiento», «Reducir transparencia» o «Aumentar contraste» (Ajustes del Sistema → Accesibilidad → Pantalla).":
+            "Off right now: the Mac has “Reduce motion”, “Reduce transparency” or “Increase contrast” turned on (System Settings → Accessibility → Display).",
+        "Líneas de barrido, rejilla de píxeles o resplandor encima del texto, como en una pantalla antigua. «Automático» usa el del tema. Es un dibujo fijo: no gasta mientras sale texto y no toca el ratón ni la selección.":
+            "Scan lines, a pixel grid or a glow over the text, like an old screen. “Automatic” uses the theme’s. It’s a fixed drawing: it costs nothing while text comes in and doesn’t touch the mouse or the selection.",
 ]
 }

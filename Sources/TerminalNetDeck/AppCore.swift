@@ -61,6 +61,8 @@ final class AppCore {
     var macroWarnings: [String] = []
     /// Pestañas abiertas la última vez, por ventana (para reabrirlas).
     var lastOpen = OpenWindows()
+    /// El Mac pide menos efectos (Accesibilidad → Pantalla): el filtro de pantalla, apagado (`ScreenFilterOverlay`).
+    private(set) var screenCalm = ScreenFilterOverlay.systemWantsCalm
     /// La primera ventana ya ha cargado lo de todas (sesiones, botones, macros…: `AppModel.init`).
     @ObservationIgnored var started = false
 
@@ -119,7 +121,11 @@ final class AppCore {
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, self.themes.refreshAccessibility() else { return }
+                guard let self else { return }
+                // (y el filtro de pantalla, que también se apaga con «Reducir movimiento»)
+                let calm = ScreenFilterOverlay.systemWantsCalm, filter = calm != self.screenCalm
+                self.screenCalm = calm
+                guard self.themes.refreshAccessibility() || filter else { return }
                 self.front?.applyAppearance()
             }
         }
@@ -173,7 +179,7 @@ final class AppCore {
         withObservationTracking {
             let m = front
             _ = (m?.modalOpen, m?.selection, m?.tabs.count, m?.recording, m?.multiExecOn, m?.current?.exited)
-            _ = (m?.startupProfile?.name, settings.highlightEnabled)
+            _ = (m?.startupProfile?.name, settings.highlightEnabled, settings.screenFilterOn, settings.screenFilter)
         } onChange: { [weak self] in
             DispatchQueue.main.async {
                 guard let self else { return }

@@ -105,6 +105,8 @@ public struct Theme: Identifiable, Hashable, Sendable {
     /// «resaltado = green #2ecc71, blue #9b59b6…»: los colores con nombre del resaltado que fija el tema (los demás
     /// salen de sus colores, ver `highlightPalette`). Las reglas no cambian: siguen diciendo «f.green», «f.blue»…
     public var highlightColors: [String: RGB] = [:]
+    /// «filtro = crt|lcd|fosforo|holograma»: el filtro de pantalla del tema (`ScreenFilter`); nil = sin filtro.
+    public var screenFilter: ScreenFilter?
 
     public var isTranslucent: Bool { background.a < 1 || material != nil }
     /// Fondo de lo que va encima del de la ventana: transparente en los temas de cristal (que no se acumule).
@@ -198,6 +200,7 @@ public struct Theme: Identifiable, Hashable, Sendable {
         let ansiList = (v["ansi"] ?? "").split(separator: ",").compactMap { RGB(hex: String($0)) }
         explicitANSI = ansiList.count == 16 ? ansiList : nil
         highlightColors = Self.highlightColors(v["resaltado"] ?? "")
+        screenFilter = ScreenFilter(tema: v["filtro"])
         background = colors["fondo"]!
         text = colors["texto"]!
         bar = colors["barra"]!
