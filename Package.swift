@@ -11,7 +11,7 @@ let package = Package(
     ],
     dependencies: [
         // Emulador de terminal: vista AppKit + proceso local con pty (/usr/bin/ssh)
-        .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", from: "1.99.0"),
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", from: "1.99.3"),
     ],
     targets: [
         // Lógica sin interfaz: sesiones y saltos, Llavero y regla de usuario, Esc, pegado seguro, MultiExec, listas
@@ -21,6 +21,10 @@ let package = Package(
             "NetDeckCore",
             .product(name: "SwiftTerm", package: "SwiftTerm"),
         ]),
-        .testTarget(name: "NetDeckCoreTests", dependencies: ["NetDeckCore"]),
+        // (y SwiftTerm sin vista, para leer el búfer como la pestaña: `BuferIncrementalTests`)
+        .testTarget(name: "NetDeckCoreTests", dependencies: [
+            "NetDeckCore",
+            .product(name: "SwiftTerm", package: "SwiftTerm"),
+        ]),
     ]
 )
