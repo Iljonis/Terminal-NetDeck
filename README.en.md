@@ -255,11 +255,11 @@ original, **NetDeck Cyberpunk**, always there as a fallback.
 | **Classic computers** | Terminal 3270, Comandante, Ocho bits, Banco de trabajo |
 | **Science fiction** | Puente de mando, Nostromo, Imperio, HAL |
 | **Data centre** | Rack, Fibra óptica, NORAD, Consola de rescate |
-| **Nature** (8 themes) | Aurora boreal light and dark, Desierto light and dark, Volcán light and dark, Arrecife light and dark |
+| **Nature** (8 themes) | Aurora boreal, Desierto, Volcán and Arrecife, each in a light (*clara/claro*) and a dark (*oscura/oscuro*) version |
 | **Retro video games** | Portátil verde, Laboratorio, Arcade |
 
 <details>
-<summary><b>See the full catalogue: the 52 classic themes</b></summary>
+<summary><b>See the full catalogue: all 85 themes (✦ new families in 1.0.0)</b></summary>
 
 | Group | Theme | What it looks like |
 |---|---|---|
@@ -279,14 +279,14 @@ original, **NetDeck Cyberpunk**, always there as a fallback.
 |  | **Neo-Tokio rojo** | Motorbike red, black and white with kanji (Akira style). |
 |  | **Fantasma rojo** | Red, black and white with brutal contrast (Persona 5 style). |
 |  | **Replicante** | Orange haze and petrol blue (Blade Runner style). |
-|  | **Sección 9** | Sea green and white on slate (Ghost in the Shell style). |
+|  | **Sección 9** | Sea green and white on slate (Ghost in the Shell style). Comes with the hologram filter. |
 |  | **Bosque** | Moss greens, sky and warm tones (Ghibli style). |
 |  | **Andén** | Orange LED board of a Japanese train station. |
 | **Kawaii** | **Kawaii futurista** | Dark lavender, pink, mint and lilac. ♡ ✧ touches. |
 |  | **Sakura** | Light and soft, for a white background. |
 |  | **Alba rosa** | Light dawn tones: cream, old rose, iris and pine (inspired by Rosé Pine Dawn). |
-| **Retro** | **Fósforo** | Classic green phosphor monitor. |
-|  | **Ámbar** | 80s amber terminal, warm for long hours. |
+| **Retro** | **Fósforo** | Classic green phosphor monitor. Comes with the phosphor filter. |
+|  | **Ámbar** | 80s amber terminal, warm for long hours. Comes with the phosphor filter. |
 |  | **Otoño retro** | Warm with little blue, inspired by Gruvbox: good for night work. |
 |  | **Monokai** | The editor classic: bright green, yellow and pink on olive grey. |
 |  | **Trigo** | Cream paper with toasted ink (inspired by Gruvbox light): daytime partner of Otoño retro. |
@@ -315,6 +315,39 @@ original, **NetDeck Cyberpunk**, always there as a fallback.
 |  | **Juniper** | Juniper green (#84B135) and lime (#CCDB2A) on slate grey. |
 |  | **Huawei** | Huawei red (#CF0A2C) and its black (#232527). |
 |  | **Ubuntu** | Ubuntu orange (#E95420) on aubergine (#300A24), like its terminal. |
+| **Neon Glass** ✦ | **Neón Tokio** | Indigo glass over the city at night: magenta tab, cyan interfaces and the NetDeck glow. |
+|  | **Neón Ámbar** | Amber 2049 haze behind the glass: streetlight orange, turquoise signs and rain on the pane. |
+|  | **Neón Ácido** | Acid green dripping down the glass: phosphor-green and lime code on greenish black. |
+|  | **Neón Ocaso** | Synthwave sunset behind the glass: violet, bubblegum pink, a yellow sun and a cyan grid. |
+|  | **Neón Corpo** | Smoked-glass corporate tower: alarm red, white chrome and nothing extra. |
+|  | **Neón Hielo** | ICE: a frozen-glass firewall, glacier blue and frost white on deep navy. |
+|  | **Neón Unidad** | Purple cockpit glass, neon start-up green and orange warnings (EVA-01 style). |
+|  | **Neón Zaibatsu** | Matte black boardroom glass: crimson, white and kanji labels (Arasaka style). |
+|  | **Neón Nocturna** | Night city behind the glass: electric-yellow tab, cyan interfaces and red signs (Night City style). |
+|  | **Neón Sección** | Hologram over slate: aqua green, white and blue-grey, thin glass (Ghost in the Shell style). Comes with the hologram filter. |
+| **Classic computers** ✦ | **Terminal 3270** | Green mainframe screen, cyan fields and yellow warnings (IBM 3270 style). Comes with the phosphor filter. |
+|  | **Comandante** | Blue DOS panels, cyan text and the function-key bar (Norton Commander style). Comes with the CRT filter. |
+|  | **Ocho bits** | 8-bit violet blue, lilac text and the good old READY., with more contrast (C64 style). Comes with the CRT filter. |
+|  | **Banco de trabajo** | Blue desktop, white windows and the orange of the icons (Amiga Workbench style). Comes with the CRT filter. |
+| **Science fiction** ✦ | **Puente de mando** | Orange, lilac and pastel-blue blocks on black (Star Trek LCARS style). |
+|  | **Nostromo** | The ship's green phosphor monitor with amber warnings (Alien style). Comes with the phosphor filter. |
+|  | **Imperio** | Steel grey, armour white and a single imperial red (Star Wars style). |
+|  | **HAL** | Pure black, clean white and the all-seeing red eye (2001 style). |
+| **Data centre** ✦ | **Rack** | Black rack sheet metal and the device LEDs: link green, activity amber, fault red. |
+|  | **Fibra óptica** | The colours of the fibres in a tube (blue, orange, green, brown, slate…) on night blue (TIA-598). |
+|  | **NORAD** | Cold War command screens: deep blue, white and the DEFCON alert (WarGames style). |
+|  | **Consola de rescate** | For a ROMMON session at 3 a.m.: large type, white on black and yellow where you need to look. |
+| **Nature** ✦ | **Aurora boreal oscura** | Polar night: green and violet curtains over ice blue. |
+|  | **Aurora boreal clara** | The same aurora by day, over snow: the pair of Aurora boreal oscura (ideal in Auto mode). |
+|  | **Desierto oscuro** | Dunes at night: toasted sand, campfire embers and a turquoise sky. |
+|  | **Desierto claro** | Sand in the sun, terracotta and palm shade: the pair of Desierto oscuro (ideal in Auto mode). |
+|  | **Volcán oscuro** | Black rock and rivers of lava: glowing orange, sulphur and ash. |
+|  | **Volcán claro** | Pale ash and pumice with lava in the accents: the pair of Volcán oscuro (ideal in Auto mode). |
+|  | **Arrecife oscuro** | Deep sea at night: turquoise, coral and glowing fish. |
+|  | **Arrecife claro** | Clear lagoon water, coral and sand: the pair of Arrecife oscuro (ideal in Auto mode). |
+| **Retro video games** ✦ | **Portátil verde** | The greens of the LCD screen, IPs in navy and «bad» in the purple of the buttons (Game Boy style). Comes with the LCD filter. |
+|  | **Laboratorio** | White test-chamber walls, an orange portal and a blue portal (Portal style). |
+|  | **Arcade** | 80s arcade cabinet: black, pure colours and the score at the top. Comes with the CRT filter. |
 
 </details>
 

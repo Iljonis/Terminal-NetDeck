@@ -254,11 +254,11 @@ fuente, pueden **seguir al modo claro u oscuro del Mac**, y **todos pasan una pr
 | **Ordenadores clásicos** | Terminal 3270, Comandante, Ocho bits, Banco de trabajo |
 | **Ciencia ficción** | Puente de mando, Nostromo, Imperio, HAL |
 | **Centro de datos** | Rack, Fibra óptica, NORAD, Consola de rescate |
-| **Naturaleza** (8 temas) | Aurora boreal claro y oscuro, Desierto claro y oscuro, Volcán claro y oscuro, Arrecife claro y oscuro |
+| **Naturaleza** (8 temas) | Aurora boreal, Desierto, Volcán y Arrecife, cada uno en claro y en oscuro |
 | **Videojuegos retro** | Portátil verde, Laboratorio, Arcade |
 
 <details>
-<summary><b>Ver el catálogo completo: los 52 temas de siempre</b></summary>
+<summary><b>Ver el catálogo completo: los 85 temas (✦ familias nuevas en 1.0.0)</b></summary>
 
 | Grupo | Tema | Cómo es |
 |---|---|---|
@@ -278,14 +278,14 @@ fuente, pueden **seguir al modo claro u oscuro del Mac**, y **todos pasan una pr
 |  | **Neo-Tokio rojo** | Rojo moto, negro y blanco con kanji (estilo Akira). |
 |  | **Fantasma rojo** | Rojo, negro y blanco con contraste brutal (estilo Persona 5). |
 |  | **Replicante** | Neblina naranja y azul petróleo (estilo Blade Runner). |
-|  | **Sección 9** | Verde agua y blanco sobre pizarra (estilo Ghost in the Shell). |
+|  | **Sección 9** | Verde agua y blanco sobre pizarra (estilo Ghost in the Shell). Con el filtro de holograma de serie. |
 |  | **Bosque** | Verdes musgo, cielo y tonos cálidos (estilo Ghibli). |
 |  | **Andén** | Panel LED naranja de estación japonesa. |
 | **Kawaii** | **Kawaii futurista** | Lavanda oscuro, rosa, menta y lila. Detalles ♡ ✧. |
 |  | **Sakura** | Clara y suave, para fondo blanco. |
 |  | **Alba rosa** | Clara de amanecer: crema, rosa viejo, lirio y pino (inspirada en Rosé Pine Dawn). |
-| **Retro** | **Fósforo** | Monitor clásico de fósforo verde. |
-|  | **Ámbar** | Terminal ámbar de los 80, cálida para muchas horas. |
+| **Retro** | **Fósforo** | Monitor clásico de fósforo verde. Con el filtro de fósforo de serie. |
+|  | **Ámbar** | Terminal ámbar de los 80, cálida para muchas horas. Con el filtro de fósforo de serie. |
 |  | **Otoño retro** | Cálida y con poco azul, inspirada en Gruvbox: buena para la noche. |
 |  | **Monokai** | La de los editores de siempre: verde, amarillo y rosa intensos sobre gris oliva. |
 |  | **Trigo** | Papel crema con tinta tostada (inspirada en Gruvbox claro): pareja diurna de Otoño retro. |
@@ -314,6 +314,39 @@ fuente, pueden **seguir al modo claro u oscuro del Mac**, y **todos pasan una pr
 |  | **Juniper** | Verde Juniper (#84B135) y lima (#CCDB2A) sobre gris pizarra. |
 |  | **Huawei** | Rojo Huawei (#CF0A2C) y su negro (#232527). |
 |  | **Ubuntu** | Naranja Ubuntu (#E95420) sobre berenjena (#300A24), como su terminal. |
+| **Neon Glass** ✦ | **Neón Tokio** | Cristal índigo sobre la ciudad de noche: pestaña magenta, interfaces en cian y el brillo de NetDeck. |
+|  | **Neón Ámbar** | Bruma ámbar de 2049 tras el cristal: naranja de farola, carteles turquesa y lluvia en el vidrio. |
+|  | **Neón Ácido** | Verde ácido que gotea por el cristal: código en verde fósforo y lima sobre negro verdoso. |
+|  | **Neón Ocaso** | Atardecer synthwave detrás del vidrio: violeta, rosa chicle, sol amarillo y rejilla cian. |
+|  | **Neón Corpo** | Torre corporativa de cristal ahumado: rojo de alarma, cromo blanco y nada que sobre. |
+|  | **Neón Hielo** | ICE: cortafuegos de cristal helado, azul glaciar y blanco escarcha sobre azul marino profundo. |
+|  | **Neón Unidad** | Cristal morado de cabina, verde neón de arranque y avisos en naranja (estilo EVA-01). |
+|  | **Neón Zaibatsu** | Cristal negro mate de sala de juntas: carmesí, blanco y rótulos en kanji (estilo Arasaka). |
+|  | **Neón Nocturna** | Ciudad nocturna tras el vidrio: pestaña amarillo eléctrico, interfaces cian y rótulos rojos (estilo Night City). |
+|  | **Neón Sección** | Holograma sobre pizarra: verde agua, blanco y gris azulado, vidrio fino (estilo Ghost in the Shell). Con el filtro de holograma de serie. |
+| **Ordenadores clásicos** ✦ | **Terminal 3270** | Pantalla verde de mainframe, campos en cian y avisos en amarillo (estilo IBM 3270). Con el filtro de fósforo de serie. |
+|  | **Comandante** | Paneles azules de DOS, texto cian y la barra de teclas de función (estilo Norton Commander). Con el filtro CRT de serie. |
+|  | **Ocho bits** | Azul violáceo de 8 bits, texto lila y el READY. de siempre, con más contraste (estilo C64). Con el filtro CRT de serie. |
+|  | **Banco de trabajo** | Escritorio azul, ventanas blancas y el naranja de los iconos (estilo Amiga Workbench). Con el filtro CRT de serie. |
+| **Ciencia ficción** ✦ | **Puente de mando** | Bloques naranja, lila y azul pastel sobre negro (estilo LCARS de Star Trek). |
+|  | **Nostromo** | Monitor de fósforo verde de la nave y avisos en ámbar (estilo Alien). Con el filtro de fósforo de serie. |
+|  | **Imperio** | Gris acero, blanco de armadura y un único rojo imperial (estilo Star Wars). |
+|  | **HAL** | Negro absoluto, blanco limpio y el ojo rojo que todo lo ve (estilo 2001). |
+| **Centro de datos** ✦ | **Rack** | Chapa negra de armario y los LEDs de los equipos: verde enlace, ámbar actividad, rojo fallo. |
+|  | **Fibra óptica** | Los colores de las fibras de un tubo (azul, naranja, verde, marrón, pizarra…) sobre azul noche (TIA-598). |
+|  | **NORAD** | Pantallas de mando de la Guerra Fría: azul profundo, blanco y la alerta en DEFCON (estilo WarGames). |
+|  | **Consola de rescate** | Para un ROMMON de madrugada: letra grande, blanco sobre negro y amarillo donde hay que mirar. |
+| **Naturaleza** ✦ | **Aurora boreal oscura** | Noche polar: cortinas verdes y violetas sobre azul de hielo. |
+|  | **Aurora boreal clara** | La misma aurora de día, sobre nieve: pareja de Aurora boreal oscura (ideal en modo Auto). |
+|  | **Desierto oscuro** | Dunas de noche: arena tostada, brasas de hoguera y cielo turquesa. |
+|  | **Desierto claro** | Arena al sol, terracota y sombra de palmera: pareja de Desierto oscuro (ideal en modo Auto). |
+|  | **Volcán oscuro** | Roca negra y ríos de lava: naranja incandescente, azufre y ceniza. |
+|  | **Volcán claro** | Ceniza clara y piedra pómez con la lava en los acentos: pareja de Volcán oscuro (ideal en modo Auto). |
+|  | **Arrecife oscuro** | Mar profundo de noche: turquesa, coral y peces que brillan. |
+|  | **Arrecife claro** | Agua clara de laguna, coral y arena: pareja de Arrecife oscuro (ideal en modo Auto). |
+| **Videojuegos retro** ✦ | **Portátil verde** | Los verdes de la pantalla LCD, IPs en azul marino y «mal» en el morado de los botones (estilo Game Boy). Con el filtro LCD de serie. |
+|  | **Laboratorio** | Paredes blancas de pruebas, portal naranja y portal azul (estilo Portal). |
+|  | **Arcade** | Recreativa de los 80: negro, colores puros y la puntuación arriba. Con el filtro CRT de serie. |
 
 </details>
 
