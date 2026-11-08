@@ -229,11 +229,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor private static func capture(to path: String) {
         for (i, w) in visibleWindows.enumerated() {
-            guard let v = w.contentView, let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { continue }
-            v.cacheDisplay(in: v.bounds, to: rep)
+            guard let v = w.contentView else { continue }
             let url = URL(fileURLWithPath: i == 0 ? path : path.replacingOccurrences(of: ".png", with: "-\(i).png"))
+            // (la ventana tal como la compone el Mac: con SwiftTerm 1.99 `cacheDisplay` deja el texto del terminal en
+            // blanco; una app puede capturar sus propias ventanas sin el permiso de grabación de pantalla)
+            if let image = windowImage(w.windowNumber, frame: i == 0 ? w.frame : nil) {
+                try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: url)
+                continue
+            }
+            guard let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { continue }
+            v.cacheDisplay(in: v.bounds, to: rep)
             try? rep.representation(using: .png, properties: [:])?.write(to: url)
         }
+    }
+
+    /// `CGWindowListCreateImage` (sin símbolo en Swift desde el SDK de macOS 15, pero sigue en CoreGraphics) de una
+    /// ventana propia: sin marco ni sombra y a la resolución de la pantalla. Con `frame` (la principal), también lo
+    /// que la app tiene encima dentro de ese recuadro: hojas y avisos («revisar antes de pegar»). Sin el permiso de
+    /// grabación, las ventanas de otras apps no salen. nil si no está o no devuelve nada.
+    @MainActor private static func windowImage(_ number: Int, frame: NSRect?) -> CGImage? {
+        typealias Create = @convention(c) (CGRect, UInt32, UInt32, UInt32) -> Unmanaged<CGImage>?
+        guard number > 0, let cg = dlopen("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", RTLD_LAZY),
+              let f = dlsym(cg, "CGWindowListCreateImage") else { return nil }
+        let create = unsafeBitCast(f, to: Create.self)
+        // (lista: 1 << 3 esta ventana, + 1 << 1 las de encima; imagen: 1 << 0 sin marco + 1 << 3 la mejor resolución)
+        var rect = CGRect.null, list: UInt32 = 1 << 3
+        if let frame, let screen = NSScreen.screens.first {     // (de abajo-izquierda a arriba-izquierda, como CG)
+            rect = CGRect(x: frame.minX, y: screen.frame.maxY - frame.maxY, width: frame.width, height: frame.height)
+            list |= 1 << 1
+        }
+        guard let image = create(rect, list, UInt32(number), 1 << 0 | 1 << 3)?.takeRetainedValue(),
+              image.width > 1, image.height > 1 else { return nil }
+        return image
     }
 
     @MainActor private static func rightClick(x: Double, y: Double) {

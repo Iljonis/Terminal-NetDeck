@@ -160,7 +160,7 @@ name, the app keeps that entry and tells you. External files are not rewritten; 
   them). Passwords never travel: only the name they're saved under in the Keychain.
 
 <p align="center">
-  <img src="docs/capturas/multiexec.png" width="49%" alt="MultiExec in Terminal NetDeck: split view with three SSH sessions to switches and the same command typed into all of them at once">
+  <img src="docs/capturas/multiexec.png" width="49%" alt="MultiExec in Terminal NetDeck: split view with three SSH sessions to switches, two in the MultiExec group and one excluded">
   <img src="docs/capturas/revisar-pegado.png" width="49%" alt="Review before pasting in Terminal NetDeck: five configuration lines with a reload flagged as a dangerous command before they are sent to the router">
 </p>
 

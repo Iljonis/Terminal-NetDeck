@@ -158,7 +158,7 @@ siguen únicamente en el Llavero de macOS.
   repetir, o sustituyéndolos). Las contraseñas no viajan: sólo el nombre con el que están en el Llavero.
 
 <p align="center">
-  <img src="docs/capturas/multiexec.png" width="49%" alt="MultiExec en Terminal NetDeck: vista dividida con tres sesiones SSH a switches y la misma orden escrita a la vez en todas">
+  <img src="docs/capturas/multiexec.png" width="49%" alt="MultiExec en Terminal NetDeck: vista dividida con tres sesiones SSH a switches, dos en el grupo MultiExec y una excluida">
   <img src="docs/capturas/revisar-pegado.png" width="49%" alt="Revisar antes de pegar en Terminal NetDeck: cinco líneas de configuración con un reload marcado como orden peligrosa antes de enviarlas al router">
 </p>
 

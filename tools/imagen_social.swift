@@ -1,10 +1,10 @@
 // tools/imagen_social.swift [captura] [salida] — la imagen social de GitHub (1280 × 640, Settings → Social preview) a
 // partir de una captura de la demo: nombre y frase a la izquierda, la captura a la derecha. Sin dependencias.
-//   swift tools/imagen_social.swift docs/capturas/portada-en.png docs/capturas/social-preview.png
+//   swift tools/imagen_social.swift docs/capturas/portada-liquid-glass-en.png docs/capturas/social-preview.png
 import AppKit
 
 let a = CommandLine.arguments
-let entrada = a.count > 1 ? a[1] : "docs/capturas/portada-en.png"
+let entrada = a.count > 1 ? a[1] : "docs/capturas/portada-liquid-glass-en.png"
 let salida = a.count > 2 ? a[2] : "docs/capturas/social-preview.png"
 guard let captura = NSImage(contentsOfFile: entrada) else { print("✗ no se puede leer \(entrada)"); exit(1) }
 

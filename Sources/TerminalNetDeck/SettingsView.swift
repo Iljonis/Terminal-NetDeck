@@ -195,20 +195,24 @@ struct ThemeSettings: View {
             .padding(.vertical, 10)
             if !message.isEmpty { Text(message).font(t.ui(11)).padding(.horizontal, 14) }
             ScrollViewReader { proxy in
+                // (el editor arriba, bajo su botón: debajo de la galería había que saltar al final antes de que la
+                // cuadrícula perezosa midiera sus tarjetas, y se pintaba encima de ellas)
                 ScrollView {
-                    ThemeGallery(active: themes.current.id,
-                                 select: { id in
-                                     if s.themeAuto { s.themeAuto = false }
-                                     model.selectTheme(id)
-                                 },
-                                 hover: { hovered = $0 },
-                                 remove: { model.removeTheme($0) })
-                        .padding(14)
-                    ThemeColorsEditor(expanded: $colorsOpen)
-                        .padding([.horizontal, .bottom], 14)
-                        .id("colores")
+                    VStack(alignment: .leading, spacing: 0) {
+                        ThemeColorsEditor(expanded: $colorsOpen)
+                            .padding([.horizontal, .top], 14)
+                            .id("colores")
+                        ThemeGallery(active: themes.current.id,
+                                     select: { id in
+                                         if s.themeAuto { s.themeAuto = false }
+                                         model.selectTheme(id)
+                                     },
+                                     hover: { hovered = $0 },
+                                     remove: { model.removeTheme($0) })
+                            .padding(14)
+                    }
                 }
-                .onChange(of: colorsOpen) { if colorsOpen { withAnimation { proxy.scrollTo("colores", anchor: .bottom) } } }
+                .onChange(of: colorsOpen) { if colorsOpen { withAnimation { proxy.scrollTo("colores", anchor: .top) } } }
                 // (captura «settings:temas:colores»: el editor ya desplegado)
                 .onAppear {
                     if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_ACTION"] == "settings:temas:colores" { colorsOpen = true }
