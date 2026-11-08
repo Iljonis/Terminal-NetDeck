@@ -29,6 +29,10 @@ let package = Package(
             "NetDeckCore",
             .product(name: "SwiftTerm", package: "SwiftTerm"),
         ], swiftSettings: concurrencia62 + [.defaultIsolation(MainActor.self)]),
-        .testTarget(name: "NetDeckCoreTests", dependencies: ["NetDeckCore"], swiftSettings: concurrencia62),
+        // (y SwiftTerm sin vista, para leer el búfer como la pestaña: `BuferIncrementalTests`)
+        .testTarget(name: "NetDeckCoreTests", dependencies: [
+            "NetDeckCore",
+            .product(name: "SwiftTerm", package: "SwiftTerm"),
+        ], swiftSettings: concurrencia62),
     ]
 )

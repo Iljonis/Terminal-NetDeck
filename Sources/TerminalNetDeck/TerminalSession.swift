@@ -8,19 +8,9 @@ import SwiftTerm
 nonisolated final class OutputCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var n = 0
-    private var feeds = 0
     private var scheduled = false
 
     var value: Int { lock.withLock { n } }
-    /// Lo que ha podido desplazar la pantalla (`BufferRows.scrolls`): con uno, aunque se vea igual. Se cuenta después
-    /// de pasarlo al terminal: una lectura de en medio ve la pantalla nueva con la cuenta de antes y la siguiente lo
-    /// lee todo (el lado seguro).
-    var lineFeeds: Int { lock.withLock { feeds } }
-
-    func countLineFeeds<S: Sequence>(_ bytes: S) where S.Element == UInt8 {
-        let k = BufferRows.scrolls(in: bytes)
-        if k > 0 { lock.withLock { feeds += k } }
-    }
 
     /// true si hay que avisar al hilo principal (uno por tanda).
     func bump() -> Bool {
@@ -59,7 +49,6 @@ nonisolated final class OutputPipe: LocalProcessDelegate, @unchecked Sendable {
         sink?(slice)
         let out = highlighter.process(slice)
         view?.feed(byteArray: out[...])
-        counter.countLineFeeds(slice)
         if counter.bump() { onOutput() }
     }
 
@@ -67,7 +56,6 @@ nonisolated final class OutputPipe: LocalProcessDelegate, @unchecked Sendable {
     func say(_ text: String) {
         queue.async { [weak self] in
             self?.view?.feed(text: text)
-            self?.counter.countLineFeeds(text.utf8)
             if self?.counter.bump() == true { self?.onOutput() }
         }
     }
@@ -411,12 +399,10 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
     /// Consola serie: el puerto abierto por la app (sin proceso).
     @ObservationIgnored private var serialPort: SerialPort?
     @ObservationIgnored private var environment: [String: String] = [:]
-    /// La última lectura del búfer: sus líneas, el índice del cursor en ellas, la fila absoluta de la primera y el tamaño.
-    @ObservationIgnored private var cache: (rev: Int, lines: [String], cursor: Int, base: Int, cols: Int, rows: Int, feeds: Int)?
-    /// Filas absolutas que no retroceden con el historial lleno (`BufferRows`).
+    /// Las filas del búfer, leídas por partes y con filas absolutas que no retroceden (`BufferRows`).
     @ObservationIgnored private var bufferRows = BufferRows()
-    /// ¿En la pantalla alternativa? (`BufferRows.alternateEvidence`: sólo cambia con pruebas)
-    @ObservationIgnored private var alternate = false
+    /// La revisión de la salida de la última lectura (sin salida nueva, no se vuelve a leer).
+    @ObservationIgnored private var readRevision: Int?
     @ObservationIgnored private var hopTask: Task<Void, Never>?
     @ObservationIgnored private var fellBack = false
     /// ssh ha dicho que el salto rechaza el reenvío; sólo cuenta si además ssh termina con 255 (`processExited`).
@@ -987,43 +973,28 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         return Array(s.lines[max(0, from - s.base)...s.cursor])
     }
 
-    /// Todo el búfer (historial + pantalla) como texto; la pantalla son las últimas `rows` filas.
+    /// Todo el búfer (historial + pantalla) como texto, el índice del cursor y la fila absoluta de la primera.
     private func snapshot() -> (lines: [String], cursor: Int, base: Int) {
         let rev = pipe.counter.value
-        if let c = cache, c.rev == rev { return (c.lines, c.cursor, c.base) }
-        // (el eco de una tecla sólo cambia la línea del cursor: se lee la pantalla, no el historial entero. Con un salto
-        // de línea (o ESC D, ESC E, CSI S), no: con el historial lleno y la pantalla de líneas iguales —Intro sostenido en «core-01#»— se vería
-        // igual aunque una fila haya pasado al historial. Se lee antes de mirar la pantalla: lo que llegue después es de
-        // la próxima lectura)
-        let feeds = pipe.counter.lineFeeds
-        let screen = view.terminalStateSnapshot()
-        if var c = cache, c.feeds == feeds, c.cols == screen.dimensions.cols, c.rows == screen.dimensions.rows {
-            cache = nil                                    // (así las líneas se cambian sin copiarlas)
-            var rows = Array(repeating: "", count: screen.dimensions.rows), seen = 0
-            for r in screen.visibleRows where rows.indices.contains(r.row) { rows[r.row] = r.text; seen += 1 }
-            if seen == rows.count, BufferRows.applyCursorLineEdit(&c.lines, cursor: c.cursor, screen: rows,
-                                                                  screenCursor: screen.cursor.row, viewportRow: screen.viewportRow) {
-                c.rev = rev
-                cache = c
-                return (c.lines, c.cursor, c.base)
-            }
+        if readRevision != rev {
+            readRevision = rev
+            readBuffer()
         }
-        var lines = String(decoding: view.getBufferAsData(), as: UTF8.self).components(separatedBy: "\n")
-        if lines.last == "" { lines.removeLast() }
-        let st = view.terminalStateSnapshot()
-        let cursor = max(0, min(lines.count - 1, lines.count - st.dimensions.rows + st.cursor.row))
-        // (la pantalla alternativa, sólo si el búfer activo es del tamaño de la pantalla: entonces leerla es barato;
-        // sin pruebas en un sentido u otro, se queda la de antes)
-        var alt: [String] = []
-        if lines.count == st.dimensions.rows {
-            alt = String(decoding: view.getBufferAsData(kind: .alt), as: UTF8.self).components(separatedBy: "\n")
-            if alt.last == "" { alt.removeLast() }
-        }
-        alternate = BufferRows.alternateEvidence(active: lines, alternate: alt, screenRows: st.dimensions.rows) ?? alternate
-        bufferRows.update(lines, screenRows: st.dimensions.rows, cursor: cursor,
-                          layout: [st.dimensions.cols, st.dimensions.rows, alternate ? 1 : 0])
-        cache = (rev, lines, cursor, bufferRows.base, st.dimensions.cols, st.dimensions.rows, feeds)
-        return (lines, cursor, bufferRows.base)
+        return (bufferRows.lines, bufferRows.cursor, bufferRows.base)
+    }
+
+    /// Sólo lo que ha podido cambiar desde la lectura anterior (`BufferRows.refresh`): la pantalla y lo que ha pasado al
+    /// historial, no el historial entero.
+    private func readBuffer() {
+        bufferRows.refresh(rows: { Self.read(view.terminalContentSnapshot(region: $0.map { .rows($0..<Int.max) } ?? .all)) },
+                           kept: { view.terminalContentSnapshot(region: .rows(0..<0))?.capturedRange.lowerBound },
+                           screen: { Self.read(view.terminalContentSnapshot(region: .history(maximumScrollbackRows: 0))) })
+    }
+
+    /// Las filas como texto, sus números y el tamaño (con la pantalla alternativa: vi, less, tmux).
+    private static func read(_ s: TerminalContentSnapshot?) -> BufferRows.Read? {
+        s.map { .init(rows: $0.rows.map(\.text), first: $0.capturedRange.lowerBound, screenTop: $0.liveTopRow,
+                      cursorRow: $0.cursorRow, layout: [$0.dimensions.cols, $0.dimensions.rows, $0.bufferKind == .alt ? 1 : 0]) }
     }
 
     // MARK: - TerminalViewDelegate

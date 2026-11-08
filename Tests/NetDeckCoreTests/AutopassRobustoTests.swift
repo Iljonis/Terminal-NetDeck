@@ -18,13 +18,6 @@ import Testing
 
     // MARK: - filas absolutas
 
-    @Test func elSolapeEsElDesplazamientoMasPequeno() {
-        #expect(BufferRows.overlap(suffixOf: [1, 2, 3, 4], prefixOf: [3, 4, 5]) == 2)
-        #expect(BufferRows.overlap(suffixOf: [1, 2, 3], prefixOf: [1, 2, 3, 4]) == 3)
-        #expect(BufferRows.overlap(suffixOf: [1, 2], prefixOf: [7, 8]) == 0)
-        #expect(BufferRows.overlap(suffixOf: [5, 5, 5], prefixOf: [5, 5, 5, 6]) == 3)
-    }
-
     @Test func conElHistorialLlenoLaFilaSigueCreciendo() {
         let t = TerminalAcotado(capacidad: 50, pantalla: 5)
         for i in 0..<60 { t.escribir("línea \(i)") }
@@ -104,40 +97,24 @@ import Testing
     }
 
     /// Entrar en la pantalla alternativa (tmux, less) y salir cuentan como recolocar, aunque allí no haya historial:
-    /// lo anclado dentro de tmux no lee luego el historial normal.
+    /// lo anclado dentro de tmux no lee luego el historial normal. Dentro, la salida continua no recoloca.
     @Test func entrarYSalirDeLaPantallaAlternativaRecoloca() {
-        let normal = (0..<5).map { "n\($0)" }, tmux = (0..<5).map { "t\($0)" }
-        #expect(BufferRows.alternateEvidence(active: tmux, alternate: tmux, screenRows: 5) == true)
-        #expect(BufferRows.alternateEvidence(active: normal, alternate: tmux, screenRows: 5) == nil)   // (difieren)
-        #expect(BufferRows.alternateEvidence(active: ["", ""], alternate: ["", ""], screenRows: 2) == nil)  // (en blanco)
-        #expect(BufferRows.alternateEvidence(active: normal + ["x"], alternate: tmux, screenRows: 5) == false) // (historial)
+        func leer(_ f: inout BufferRows, _ filas: [String], primera: Int, alt: Int) {
+            let r = BufferRows.Read(rows: filas, first: primera, screenTop: primera + filas.count - 5,
+                                    cursorRow: primera + filas.count - 1, layout: [80, 5, alt])
+            if !f.merge(r) { f.restart(r) }
+        }
+        let normal = (0..<9).map { "n\($0)" }, tmux = (0..<5).map { "t\($0)" }
         var f = BufferRows()
-        f.update(normal, screenRows: 5, cursor: 4, layout: [80, 5, 0])
-        f.update(tmux, screenRows: 5, cursor: 2, layout: [80, 5, 1])
+        leer(&f, normal, primera: 0, alt: 0)
+        leer(&f, tmux, primera: 0, alt: 1)
         #expect(f.resyncs == 1)
         let dentro = f.resync
-        f.update(normal, screenRows: 5, cursor: 4, layout: [80, 5, 0])
+        leer(&f, (0..<5).map { "u\($0)" }, primera: 0, alt: 1)                    // (tmux repinta: igual)
+        leer(&f, Array(repeating: "", count: 5), primera: 0, alt: 1)            // (clear dentro de tmux)
+        #expect(f.resyncs == 1)
+        leer(&f, normal, primera: 0, alt: 0)
         #expect(f.resyncs == 2 && f.first(from: dentro) > dentro)
-    }
-
-    /// Dentro de tmux con salida continua, una lectura a destiempo (activo ≠ alternativo) o un «clear» que deja la
-    /// alternativa en blanco no son pruebas de haber salido: no recolocan ni cancelan el autopass armado.
-    @Test func laAlternaEsEstableSinPruebas() {
-        var estado = false, f = BufferRows()
-        func leer(_ activo: [String], _ alt: [String]) {
-            estado = BufferRows.alternateEvidence(active: activo, alternate: alt, screenRows: 5) ?? estado
-            f.update(activo, screenRows: 5, cursor: activo.count - 1, layout: [80, 5, estado ? 1 : 0])
-        }
-        let tmux = (0..<5).map { "t\($0)" }, otro = (0..<5).map { "u\($0)" }, blanco = Array(repeating: "", count: 5)
-        leer(tmux, tmux)                                                // (entra: un recolocado)
-        let entrar = f.resyncs
-        leer(otro, tmux)                                                // (a destiempo: ambiguo)
-        leer(otro, otro)
-        leer(blanco, blanco)                                            // (clear en screen: ambiguo)
-        leer(tmux, tmux)
-        #expect(f.resyncs == entrar && estado)
-        leer((0..<9).map { "n\($0)" }, tmux)                            // (sale: con historial, sí)
-        #expect(f.resyncs == entrar + 1 && !estado)
     }
 
     @Test func unEscSueltoNoSeComeLaSiguienteTecla() {
@@ -259,18 +236,21 @@ import Testing
         #expect(!ledger.isBlocked(ref) && io.sent.count == 1)
     }
 
-    @Test func soloUnSolapeSuficienteCuentaComoElMismoHistorial() {
+    /// Lo que ya era historial se vuelve a leer: si no sale igual (borrado y vuelto a llenar entre dos lecturas), no es
+    /// el mismo historial aunque la numeración siga.
+    @Test func sinElMismoHistorialSeRecoloca() {
         var f = BufferRows()
         let viejo = (0..<40).map { "l\($0)" }
-        f.update(viejo, screenRows: 5, cursor: 39)
-        // (sólo coinciden 3 líneas: no demuestra nada; se da por recolocado)
-        f.update(Array(viejo.suffix(3)) + (0..<37).map { "n\($0)" }, screenRows: 5, cursor: 39)
-        #expect(f.resyncs == 1 && f.resync == f.base + 39)
-        // (desplazado una línea: el mismo historial)
+        f.merge(.init(rows: viejo, first: 0, screenTop: 35, cursorRow: 39, layout: [80, 5, 0]))
+        #expect(f.readFrom == 27)
+        let otro = (27..<41).map { "n\($0)" }
+        let cabe = f.merge(.init(rows: otro, first: 27, screenTop: 36, cursorRow: 40, layout: [80, 5, 0]))
+        #expect(cabe && f.resyncs == 1 && f.resync == f.base + f.cursor && f.lines == otro)
+        // (desplazado una línea y lo de antes igual: el mismo historial)
         var g = BufferRows()
-        g.update(viejo, screenRows: 5, cursor: 39)
-        g.update(Array(viejo.dropFirst()) + ["l40"], screenRows: 5, cursor: 39)
-        #expect(g.resyncs == 0 && g.base == 1)
+        g.merge(.init(rows: viejo, first: 0, screenTop: 35, cursorRow: 39, layout: [80, 5, 0]))
+        g.merge(.init(rows: Array(viejo[27...]) + ["l40"], first: 27, screenTop: 36, cursorRow: 40, layout: [80, 5, 0]))
+        #expect(g.resyncs == 0 && g.base + g.cursor == 40 && g.lines == viejo + ["l40"])
     }
 
     // MARK: - Llavero
@@ -385,8 +365,8 @@ private final class FilaFija: TerminalIO {
     func lines(from r: Int) -> [String] { r <= row ? [line] : [] }
 }
 
-/// Como SwiftTerm con el historial lleno: el búfer no pasa de `capacidad` líneas y las de arriba se expulsan; las
-/// filas absolutas salen de `BufferRows`, como en la pestaña.
+/// Como SwiftTerm con el historial lleno: el búfer no pasa de `capacidad` líneas, las de arriba se expulsan y las filas
+/// tienen número fijo; se lee como en la pestaña (`BufferRows.refresh`), y de ahí salen las filas absolutas.
 @MainActor
 private final class TerminalAcotado: TerminalIO {
     private(set) var lineas: [String] = []
@@ -394,6 +374,9 @@ private final class TerminalAcotado: TerminalIO {
     var revision = 0
     var sent: [String] = []
     private var filas = BufferRows()
+    /// Las expulsadas (el número de `lineas[0]`).
+    private var expulsadas = 0
+    private var ancho = 80
 
     init(capacidad: Int, pantalla: Int) {
         self.capacidad = capacidad
@@ -403,33 +386,45 @@ private final class TerminalAcotado: TerminalIO {
     /// Una línea nueva del equipo (la del cursor pasa a ser ésta).
     func escribir(_ texto: String) {
         lineas.append(texto)
-        if lineas.count > capacidad { lineas.removeFirst(lineas.count - capacidad) }
-        revision += 1
-        filas.update(lineas, screenRows: pantalla)
+        if lineas.count > capacidad {
+            expulsadas += lineas.count - capacidad
+            lineas.removeFirst(lineas.count - capacidad)
+        }
+        leer()
     }
 
-    /// Otro tamaño: las líneas se recolocan (aquí, cada una cambia) y no casan con el historial de antes.
+    /// Otro tamaño: las líneas se recolocan (aquí, cada una cambia).
     func redimensionar() {
         lineas = lineas.map { $0 + " " }
-        revision += 1
         ancho += 1
-        filas.update(lineas, screenRows: pantalla, cursor: lineas.count - 1, layout: [ancho, pantalla])
+        leer()
     }
-    private var ancho = 80
 
+    /// CSI 3 J: sólo queda la pantalla y la numeración vuelve a empezar.
     func borrarHistorial() {
         lineas = Array(lineas.suffix(pantalla))
+        expulsadas = 0
+        leer()
+    }
+
+    private func leer() {
         revision += 1
-        filas.update(lineas, screenRows: pantalla)
+        let total = expulsadas + lineas.count, arriba = max(expulsadas, total - pantalla)
+        func desde(_ n: Int) -> BufferRows.Read {
+            let i = min(max(n, expulsadas) - expulsadas, lineas.count)
+            return .init(rows: Array(lineas[i...]), first: expulsadas + i, screenTop: arriba, cursorRow: total - 1,
+                         layout: [ancho, pantalla, 0])
+        }
+        filas.refresh(rows: { desde($0 ?? 0) }, kept: { self.expulsadas }, screen: { desde(arriba) })
     }
 
     func send(bytes: [UInt8]) { sent.append(String(decoding: bytes, as: UTF8.self)) }
-    var cursorRow: Int { filas.absolute(lineas.count - 1) }
-    var cursorLine: String { lineas.last ?? "" }
+    var cursorRow: Int { filas.base + filas.cursor }
+    var cursorLine: String { filas.lines.isEmpty ? "" : filas.lines[filas.cursor] }
     func lines(from row: Int) -> [String] {
         let from = filas.first(from: row)
-        guard from <= cursorRow, !lineas.isEmpty else { return [] }
-        return Array(lineas[max(0, filas.local(from))...])
+        guard from <= cursorRow, !filas.lines.isEmpty else { return [] }
+        return Array(filas.lines[max(0, from - filas.base)...filas.cursor])
     }
 }
 

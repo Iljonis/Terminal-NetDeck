@@ -1,125 +1,110 @@
 import Foundation
 
-/// Filas absolutas del búfer de una pestaña (historial + pantalla) que nunca retroceden. Con el historial lleno, el
-/// terminal expulsa las de arriba y el número de líneas deja de crecer: la fila del cursor se quedaba quieta y todo lo
-/// anclado a filas (el Intro de una orden, la contraseña enviada, «lo nuevo» desde una marca) dejaba de ver lo nuevo.
-/// SwiftTerm 2 no dice desde la vista cuántas ha expulsado: se deduce comparando el historial anterior con el nuevo
-/// (el historial sólo pierde filas por arriba y gana por abajo). Si no casan (borrar el historial, la pantalla
-/// alternativa, otro tamaño con las líneas recolocadas), todo lo de antes se da por expulsado: la fila salta hacia
-/// delante, nunca hacia atrás, y lo anclado antes deja de ver nada anterior al cursor de ese momento (`resync`): un
-/// «Permission denied» viejo, recolocado, no se puede tomar por nuevo.
+/// Las filas del búfer de una pestaña (historial + pantalla) leídas por partes, con un número absoluto que nunca
+/// retrocede. Leer el búfer entero con cada Intro o salida costaba 10-40 ms con 2.500-10.000 líneas de historial y
+/// 250 ms con 100.000 (en el hilo principal, y bloqueando al terminal): ahora se lee la pantalla y lo que ha pasado al
+/// historial desde la lectura anterior (`readFrom`). SwiftTerm (1.99.3, `terminalContentSnapshot(region: .rows)`)
+/// numera las filas sin que cambien al expulsar las de arriba con el historial lleno; lo que ya era historial no
+/// cambia, salvo si se borra (`clear` con CSI 3 J, ESC c), se reduce, se recoloca (otro tamaño) o se cambia de pantalla
+/// (vi, less, tmux). Entonces la numeración no casa con la anterior y todo lo de antes se da por expulsado: la fila
+/// salta hacia delante, nunca hacia atrás, y lo anclado antes deja de ver nada anterior al cursor de ese momento
+/// (`resync`): un «Permission denied» viejo, recolocado, no se puede tomar por nuevo.
 public struct BufferRows: Sendable {
-    /// Filas ya expulsadas (o dadas por perdidas): fila absoluta = `base` + índice en el búfer.
-    public private(set) var base = 0
+    /// Lo leído: desde la primera fila que aún guarda SwiftTerm (o la de la última recolocación) hasta la última.
+    public private(set) var lines: [String] = []
+    /// El índice de la fila del cursor en `lines`.
+    public private(set) var cursor = 0
     /// La fila absoluta del cursor la última vez que se perdió la alineación: nada de antes vale como «nuevo».
     public private(set) var resync = 0
     /// Cuántas veces se ha perdido (la pestaña suelta entonces lo anclado a filas: contraseña enviada, último Intro…).
     public private(set) var resyncs = 0
-    /// El historial de la última lectura (sin la pantalla), resumido por línea.
-    private var history: [Int] = []
-    private var count = 0
+    /// Fila absoluta = `offset` + número de SwiftTerm (cambia sólo al recolocar, y siempre hacia delante).
+    private var offset = 0
+    /// El número de SwiftTerm de `lines[0]` y el de la primera fila de la pantalla en la última lectura.
+    private var start = 0, screenTop = 0
+    /// Columnas, filas y pantalla alternativa (1) de la última lectura; nil = aún ninguna.
     private var layout: [Int]?
-    /// Menos que esto en común (con historial para tenerlo) no demuestra que sea el mismo historial desplazado.
+    /// Las filas que ya eran historial y se vuelven a leer para comprobar que la numeración sigue siendo la misma.
     static let minimumOverlap = 8
 
     public init() {}
 
-    /// Con cada lectura nueva del búfer: todas sus líneas (las `screenRows` últimas son la pantalla), el índice del
-    /// cursor en ellas y el tamaño (`layout`: columnas y filas; si cambia, las líneas se han recolocado).
-    public mutating func update(_ lines: [String], screenRows: Int, cursor: Int? = nil, layout: [Int]? = nil) {
-        let hashes = lines.map(\.hashValue)
-        let old = history, oldCount = count, oldLayout = self.layout
-        history = Array(hashes.prefix(max(0, lines.count - max(0, screenRows))))
-        count = lines.count
-        self.layout = layout ?? oldLayout
-        let resized = layout != nil && oldLayout != nil && layout != oldLayout
-        guard !old.isEmpty || resized else { return }
-        let kept = resized ? 0 : Self.overlap(suffixOf: old, prefixOf: hashes)
-        if kept >= min(old.count, Self.minimumOverlap), kept > 0 {
-            base += old.count - kept
-        } else {
-            base += oldCount
-            resync = base + (cursor ?? max(0, lines.count - 1))
-            resyncs += 1
+    /// La fila absoluta de `lines[0]`.
+    public var base: Int { offset + start }
+
+    /// Desde qué número de fila de SwiftTerm hay que leer (hasta el final): la pantalla de la última lectura (lo que ha
+    /// pasado de ella al historial pudo cambiar antes de pasar) y unas filas de antes, para comprobar. nil = todo (la
+    /// primera vez).
+    public var readFrom: Int? { layout == nil ? nil : max(start, screenTop - Self.minimumOverlap) }
+
+    /// Una lectura de SwiftTerm por filas (`terminalContentSnapshot(region:)`): `rows` desde el número `first` hasta el
+    /// final, la primera fila de la pantalla (`screenTop`), la del cursor (`cursorRow`) y el tamaño (`layout`).
+    public struct Read: Sendable {
+        public var rows: [String]
+        public var first: Int, screenTop: Int, cursorRow: Int
+        public var layout: [Int]
+
+        public init(rows: [String], first: Int, screenTop: Int, cursorRow: Int, layout: [Int]) {
+            (self.rows, self.first, self.screenTop, self.cursorRow, self.layout) = (rows, first, screenTop, cursorRow, layout)
         }
     }
 
-    /// ¿Es la pantalla alternativa (tmux, screen, less, vi)? SwiftTerm 2 no lo dice desde la vista, y sus lecturas
-    /// cogen el lock por separado (con salida continua, un trozo puede llegar entre una y otra). Sólo con pruebas:
-    /// true = el activo es del tamaño de la pantalla e igual al alternativo, que tiene algo escrito; false = el activo
-    /// tiene historial (el alternativo nunca lo tiene); nil = no se sabe (difieren, o la alternativa está en blanco):
-    /// se queda lo que había y no cuenta como recolocar. Entrar y salir de verdad sí cuentan (`layout`).
-    public static func alternateEvidence(active: [String], alternate: [String], screenRows: Int) -> Bool? {
-        guard active.count == screenRows else { return false }
-        guard active == alternate, alternate.contains(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) else { return nil }
+    /// Lo que ha podido cambiar desde la lectura anterior: `rows(n)` lee desde el número `n` (nil = todo); `kept`, la
+    /// primera fila que SwiftTerm aún guarda (lo de antes se suelta); `screen`, sólo la pantalla, por si la numeración
+    /// no casa y lo leído no la trae. Cada una coge el lock de SwiftTerm por separado: si entre una y otra llega salida,
+    /// la siguiente lectura vuelve a leer lo que ha cambiado.
+    public mutating func refresh(rows: (Int?) -> Read?, kept: () -> Int?, screen: () -> Read?) {
+        guard let r = rows(readFrom) else { return }
+        if !merge(r, retainedTop: kept()), let s = screen() { restart(s) }
+    }
+
+    /// Si casa con lo anterior (mismo tamaño y pantalla, la numeración no retrocede y lo que ya era historial sale
+    /// igual), sólo cambia lo leído; si no, se recoloca con lo leído si trae la pantalla. false = ni casa ni la trae (la
+    /// numeración ha vuelto atrás): hay que leer la pantalla y llamar a `restart`.
+    @discardableResult
+    public mutating func merge(_ r: Read, retainedTop: Int? = nil) -> Bool {
+        guard let old = layout else {
+            (lines, start, screenTop, layout) = (r.rows, r.first, r.screenTop, r.layout)
+            cursor = clampedCursor(r.cursorRow)
+            return true
+        }
+        if let from = readFrom, r.layout == old, r.screenTop >= screenTop, r.first >= from {
+            // (si se ha expulsado lo pedido, todo lo leído es nuevo: no hay con qué comparar)
+            let checked = r.first == from ? max(0, min(screenTop, from + r.rows.count) - from) : 0
+            let k = from - start
+            if (0..<checked).allSatisfy({ k + $0 < lines.count && lines[k + $0] == r.rows[$0] }) {
+                if r.first == from {
+                    lines.removeSubrange(min(lines.count, k)...)
+                    lines += r.rows
+                } else {
+                    (lines, start) = (r.rows, r.first)
+                }
+                screenTop = r.screenTop
+                // (lo que SwiftTerm ya no guarda; nunca lo que acaba de llegar)
+                if let t = retainedTop, min(t, r.first) > start {
+                    lines.removeFirst(min(t, r.first) - start)
+                    start = min(t, r.first)
+                }
+                cursor = clampedCursor(r.cursorRow)
+                return true
+            }
+        }
+        guard r.first <= r.screenTop, r.first + r.rows.count > r.screenTop else { return false }
+        restart(r)
         return true
     }
 
-    /// Lo que deja un eco al teclear (o mover el cursor por la línea): sólo cambia la fila del cursor. Leer el búfer
-    /// entero en el hilo principal costaba 10-40 ms por tecla con 2.500-10.000 líneas de historial (y bloquea al
-    /// terminal mientras tanto); la pantalla sola, menos de 1 ms. Con la última lectura entera (`lines`, el índice de su
-    /// cursor) y la pantalla de ahora (`screen`, la fila del cursor en ella y la primera fila que se ve): si se ve el final,
-    /// el cursor sigue en la misma fila y las demás filas de la pantalla no han cambiado, nada ha pasado al historial y
-    /// basta con cambiar la línea del cursor (true). Si no (salto de línea, desplazamiento, otra pantalla, historial a la
-    /// vista, otro tamaño), false: hay que leerlo entero. Las filas absolutas (`base`) no cambian.
-    public static func applyCursorLineEdit(_ lines: inout [String], cursor: Int, screen: [String], screenCursor: Int,
-                                           viewportRow: Int) -> Bool {
-        let top = lines.count - screen.count
-        guard !screen.isEmpty, top >= 0, viewportRow == top, screen.indices.contains(screenCursor),
-              cursor == top + screenCursor else { return false }
-        for i in screen.indices where i != screenCursor {
-            guard screen[i] == lines[top + i] else { return false }
-        }
-        lines[cursor] = screen[screenCursor]
-        return true
+    /// La numeración no casa con la anterior: lo de ahora (al menos la pantalla) va después de todo lo leído.
+    public mutating func restart(_ r: Read) {
+        offset = base + lines.count - r.first
+        (lines, start, screenTop, layout) = (r.rows, r.first, r.screenTop, r.layout)
+        cursor = clampedCursor(r.cursorRow)
+        resync = base + cursor
+        resyncs += 1
     }
 
-    /// Cuántas cosas de un trozo de salida pueden desplazar la pantalla: LF, VT, FF, ESC D (IND), ESC E (NEL) y
-    /// CSI … S (subir). Con alguna, `applyCursorLineEdit` no basta aunque la pantalla se vea igual. Una secuencia
-    /// partida entre dos trozos no cuenta (sólo engaña con el historial lleno y la pantalla de filas iguales). El salto
-    /// al llegar al final de la última fila tampoco: sin un byte que lo diga, cambia la fila del cursor o las de encima.
-    public static func scrolls<S: Sequence>(in bytes: S) -> Int where S.Element == UInt8 {
-        var n = 0, escape = false, csi = false
-        for b in bytes {
-            if csi {
-                if (0x40...0x7E).contains(b) { csi = false; if b == 0x53 { n += 1 } }   // (la letra final; «S»)
-                continue
-            }
-            if escape {
-                escape = false
-                if b == 0x44 || b == 0x45 { n += 1 }       // ESC D, ESC E
-                else if b == 0x5B { csi = true }           // ESC [
-                if b != 0x1B { continue }
-            }
-            if b == 0x1B { escape = true } else if (10...12).contains(b) { n += 1 }
-        }
-        return n
-    }
+    private func clampedCursor(_ row: Int) -> Int { max(0, min(lines.count - 1, row - start)) }
 
     /// La primera fila absoluta que se puede leer desde `row` (lo de antes del último `resync`, no).
     public func first(from row: Int) -> Int { max(row, resync) }
-
-    /// Fila absoluta de un índice del búfer.
-    public func absolute(_ index: Int) -> Int { base + index }
-
-    /// Índice del búfer de una fila absoluta (negativo: ya expulsada).
-    public func local(_ row: Int) -> Int { row - base }
-
-    /// La parte más larga del final de `a` con la que empieza `b` (KMP: lineal, sin probar cada desplazamiento).
-    /// La más larga es el desplazamiento más pequeño: con filas repetidas se queda corto, nunca se pasa.
-    static func overlap(suffixOf a: [Int], prefixOf b: [Int]) -> Int {
-        guard !a.isEmpty, !b.isEmpty else { return 0 }
-        var fail = [Int](repeating: 0, count: b.count), k = 0
-        for i in b.indices.dropFirst() {
-            while k > 0, b[i] != b[k] { k = fail[k - 1] }
-            if b[i] == b[k] { k += 1 }
-            fail[i] = k
-        }
-        var q = 0
-        for x in a {
-            while q > 0, q == b.count || x != b[q] { q = fail[q - 1] }
-            if x == b[q] { q += 1 }
-        }
-        return q
-    }
 }
