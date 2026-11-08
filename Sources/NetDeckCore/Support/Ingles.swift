@@ -373,6 +373,7 @@ enum Ingles {
             "the app in the .dmg is not Terminal NetDeck",
         "la app del .dmg no es la versión %@":
             "the app in the .dmg is not version %@",
+        "GitHub no ha dejado bajar el .dmg (%@): inténtalo más tarde o bájalo desde la página de la versión": "GitHub would not let the .dmg download (%@): try again later or get it from the release page",
         "el .dmg no coincide con el publicado (sha256)":
             "the .dmg does not match the published one (sha256)",
         "no se ha podido abrir el .dmg":
