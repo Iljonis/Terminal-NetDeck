@@ -113,8 +113,12 @@ final class ThemeStore {
     let library = ThemeLibrary(appDirectory: ThemeStore.appDirectory())
     /// El elegido, tal cual.
     private var chosen = Theme.builtIn
-    /// El de la interfaz y los terminales: el elegido, opaco si el Mac lo pide (`solidOnly`).
-    var current: Theme { solidOnly ? chosen.solid : chosen }
+    /// Colores a medida por id de tema (Ajustes → Temas → «Personalizar colores»; los guarda `AppModel`).
+    var overrides: [String: ThemeOverrides] = [:]
+    /// El de la interfaz y los terminales: el elegido, con sus colores a medida y opaco si el Mac lo pide (`solidOnly`).
+    var current: Theme { ThemeOverrides.effective(chosen, overrides[chosen.id], solid: solidOnly) }
+    /// El elegido con sus colores a medida pero tal cual el .tema en lo demás (para exportarlo o guardarlo como nuevo).
+    var customized: Theme { ThemeOverrides.effective(chosen, overrides[chosen.id], solid: false) }
     /// Todos (los de la app ya están: no se instalan).
     private(set) var all: [(theme: Theme, source: ThemeLibrary.Source)] = []
     var busy: String?
@@ -140,7 +144,9 @@ final class ThemeStore {
         return true
     }
 
-    func theme(id: String) -> Theme? { all.first { $0.theme.id == id }.map { solidOnly ? $0.theme.solid : $0.theme } }
+    func theme(id: String) -> Theme? {
+        all.first { $0.theme.id == id }.map { ThemeOverrides.effective($0.theme, overrides[id], solid: solidOnly) }
+    }
 
     func select(_ id: String) { chosen = all.first { $0.theme.id == id }?.theme ?? .builtIn }
 

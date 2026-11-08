@@ -106,6 +106,10 @@ final class AppCore {
             ? MemoryCredentialStore([.named("AD"): "ejemplo", .named("Red principal"): "ejemplo", .device("tu.usuario", "core-01"): "ejemplo"])
             : KeychainStore()
         themes = ThemeStore(selected: settings.themeID)
+        // (los colores a medida de los temas que ya no están, fuera)
+        let kept = ThemeOverrides.pruned(settings.themeOverrides, keeping: Set(themes.all.map(\.theme.id)))
+        if kept != settings.themeOverrides { settings.themeOverrides = kept }
+        themes.overrides = settings.themeOverrides.mapValues(ThemeOverrides.init)
         DebugLog.enabled = settings.debugLog
         DebugLog.log("app", "arranca \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")"
                      + " (\(Bundle.main.bundlePath)) · ssh_config \(settings.sshConfigURL.path)")

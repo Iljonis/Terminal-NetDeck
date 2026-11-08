@@ -766,7 +766,7 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
         view.font = font
         view.nativeBackgroundColor = NSColor(t.background)
         view.nativeForegroundColor = NSColor(t.text)
-        view.caretColor = NSColor(t.accent)
+        view.caretColor = NSColor(t.cursor)
         view.selectedTextBackgroundColor = NSColor(t.selection)
         view.installColors(t.ansi.map { SwiftTerm.Color($0) })
     }

@@ -170,6 +170,8 @@ struct ThemeSettings: View {
     @Environment(AppModel.self) private var model
     @Stored private var hovered: String?
     @Stored private var message = ""
+    /// «Personalizar colores» desplegado (`ThemeColorsEditor`).
+    @Stored private var colorsOpen = false
 
     var body: some View {
         @Bindable var s = model.settings
@@ -185,21 +187,28 @@ struct ThemeSettings: View {
                     ThemedPicker(L("Oscuro"), selection: $s.themeDark, options: options).frame(maxWidth: 220)
                 }
                 Spacer()
+                Button(L("Personalizar colores…")) { colorsOpen = true }
                 Button(L("Importar .tema…"), action: importFile)
             }
             .font(t.ui(12))
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             if !message.isEmpty { Text(message).font(t.ui(11)).padding(.horizontal, 14) }
-            ScrollView {
-                ThemeGallery(active: themes.current.id,
-                             select: { id in
-                                 if s.themeAuto { s.themeAuto = false }
-                                 model.selectTheme(id)
-                             },
-                             hover: { hovered = $0 },
-                             remove: { model.themes.remove($0); model.selectTheme(model.themes.current.id) })
-                    .padding(14)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    ThemeGallery(active: themes.current.id,
+                                 select: { id in
+                                     if s.themeAuto { s.themeAuto = false }
+                                     model.selectTheme(id)
+                                 },
+                                 hover: { hovered = $0 },
+                                 remove: { model.removeTheme($0) })
+                        .padding(14)
+                    ThemeColorsEditor(expanded: $colorsOpen)
+                        .padding([.horizontal, .bottom], 14)
+                        .id("colores")
+                }
+                .onChange(of: colorsOpen) { if colorsOpen { withAnimation { proxy.scrollTo("colores", anchor: .bottom) } } }
             }
         }
         .background(SwiftUI.Color(themes.current.background))
