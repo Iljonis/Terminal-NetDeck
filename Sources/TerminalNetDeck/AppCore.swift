@@ -115,6 +115,14 @@ final class AppCore {
         tunnelRunner.onChange = { [weak self] id, state in self?.front?.tunnelChanged(id, state) }
         watchMenus()
         refreshKeychain()
+        // («Reducir transparencia» o «Aumentar contraste» al momento: ventanas, desenfoque y terminales opacos)
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.themes.refreshAccessibility() else { return }
+                self.front?.applyAppearance()
+            }
+        }
         // (las marcas también cambian sin aviso: una lista de equipos que falla, el fin de los 15 min)
         Task { [weak self] in
             while !Task.isCancelled {
