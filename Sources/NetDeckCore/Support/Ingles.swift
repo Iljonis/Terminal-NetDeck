@@ -2385,6 +2385,7 @@ enum Ingles {
         "Automático (el del tema)": "Automatic (the Theme’s)",
         "Automático: el del tema (%@)": "Automatic: the theme’s (%@)",
         "Filtro de pantalla apagado": "Screen filter off",
+        "Ahora apagado por Accesibilidad del Mac": "Off for now: macOS Accessibility settings",
         "Filtro de pantalla apagado: el Mac pide menos efectos (Accesibilidad → Pantalla)":
             "Screen filter off: the Mac asks for fewer effects (Accessibility → Display)",
         "Filtro de pantalla: este tema no lleva ninguno (elige uno en Ver → Filtro de pantalla)":

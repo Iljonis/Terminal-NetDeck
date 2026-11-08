@@ -30,7 +30,7 @@ captura() {   # nombre idioma acción
   NETDECK_SFTP_SERVER=/usr/libexec/sftp-server NETDECK_SFTP_DIR="$casa/ficheros" \
   NETDECK_HOME="$casa" NETDECK_SAMPLES=1 NETDECK_SNAPSHOT="$png" NETDECK_SNAPSHOT_ACTION="$accion" \
     "$BIN" -idioma "$idioma" -themeID "$TEMA" -themeAuto NO -sshConfigPath "$casa/.ssh/config" -configured YES -asistenteVisto YES \
-           -sidebarVisible YES -buttonBar arriba ${FILTRO:+-screenFilter "$FILTRO" -screenFilterOn YES} >/dev/null 2>&1 &
+           -sidebarVisible YES -buttonBar arriba ${FILTRO:+-screenFilter "$FILTRO" -screenFilterOn YES} ${EXTRA:+$EXTRA} >/dev/null 2>&1 &
   local pid=$!
   for _ in $(seq 1 60); do [ -s "$png" ] && break; sleep 0.25; done
   sleep 0.5
@@ -45,8 +45,15 @@ captura() {   # nombre idioma acción
   rm -rf "$casa"
 }
 
-captura portada        es ""
-captura portada-en     en ""
+# (la principal, con el tema de serie)
+TEMA=liquid-glass captura portada-liquid-glass    es terminal
+TEMA=liquid-glass captura portada-liquid-glass-en en terminal
+TEMA=liquid-glass captura multiexec               es split
+TEMA=liquid-glass captura revisar-pegado          es pegar
+TEMA=neon-glass-tokio captura neon-glass          es terminal
+TEMA=terminal-3270 FILTRO=crt captura filtro-crt  es terminal
+# (con un color que se lee mal: el editor enseña su aviso de contraste)
+TEMA=liquid-glass EXTRA='-themeOverrides {"liquid-glass"={ansi4="#1d2a5a";acento2="#ff6ec7";};}' captura colores es settings:temas:colores
 captura temas          es settings:temas
 captura resaltado      es settings:resaltado
 captura ajustes-en     en settings:terminal
@@ -57,8 +64,8 @@ captura explorador     es explorador:vista
 [ "$fallos" = 0 ] || exit 1
 
 # (la imagen social de GitHub, de la portada en inglés: el autor la sube en Settings → Social preview)
-if [ -z "${SOLO:-}" ] || [[ portada-en == *"$SOLO"* ]]; then
-  swift tools/imagen_social.swift "$OUT/portada-en.png" "$OUT/social-preview.png" || exit 1
+if [ -z "${SOLO:-}" ] || [[ portada-liquid-glass-en == *"$SOLO"* ]]; then
+  swift tools/imagen_social.swift "$OUT/portada-liquid-glass-en.png" "$OUT/social-preview.png" || exit 1
 fi
 
 # (la barra de pestañas, sola: la terminal no sale en estas capturas)

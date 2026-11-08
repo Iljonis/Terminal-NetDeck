@@ -77,11 +77,6 @@ public struct ThemeOverrides: Hashable, Sendable {
         return solid ? t.solid : t
     }
 
-    /// Sin los cambios de los temas que ya no están (se quitó el importado o se borró el archivo).
-    public static func pruned(_ all: [String: [String: String]], keeping ids: Set<String>) -> [String: [String: String]] {
-        all.filter { ids.contains($0.key) && !ThemeOverrides($0.value).isEmpty }
-    }
-
     /// Lo que se lee mal en el tema (aviso, no impide nada): con el mínimo de los temas de la app (ThemeTests): texto y
     /// pestaña activa ≥ 4,5:1; los ANSI de primer plano (1–6, 9–14) y el cursor ≥ 3:1 sobre el fondo.
     public struct ContrastWarning: Hashable, Sendable {

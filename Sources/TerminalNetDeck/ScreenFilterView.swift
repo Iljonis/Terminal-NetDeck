@@ -61,8 +61,8 @@ final class ScreenFilterOverlay: NSView {
             path.addRect(b)
             path.addPath(CGPath(roundedRect: b, cornerWidth: l.curve, cornerHeight: l.curve, transform: nil))
             cg.addPath(path)
-            cg.setShadow(offset: .zero, blur: l.curve * 0.8, color: NSColor.black.withAlphaComponent(0.6).cgColor)
-            cg.setFillColor(NSColor.black.withAlphaComponent(min(0.8, 0.3 + l.vignette)).cgColor)
+            cg.setShadow(offset: .zero, blur: l.curve * 0.8, color: NSColor.black.withAlphaComponent(l.cornerAlpha).cgColor)
+            cg.setFillColor(NSColor.black.withAlphaComponent(l.cornerAlpha).cgColor)
             cg.fillPath(using: .evenOdd)
             cg.restoreGState()
         }
@@ -98,16 +98,23 @@ final class ScreenFilterOverlay: NSView {
 }
 
 extension NetDeckTerminalView {
-    /// El filtro de esta pestaña (nil = ninguno). La vista se crea la primera vez que hace falta, encima de todo.
+    /// El filtro de esta pestaña (nil = ninguno). La vista se crea la primera vez que hace falta, encima del texto
+    /// pero debajo de la barra de desplazamiento y de la de ⌘F (las dos de SwiftTerm), aunque ya estuvieran.
     func showScreenFilter(_ look: ScreenLook?) {
         let current = subviews.lazy.compactMap { $0 as? ScreenFilterOverlay }.first
         guard look != nil || current != nil else { return }
         let overlay = current ?? {
             let v = ScreenFilterOverlay(frame: bounds)
             v.autoresizingMask = [.width, .height]
-            addSubview(v, positioned: .above, relativeTo: nil)
             return v
         }()
+        if let bar = subviews.first(where: { $0 !== overlay && ($0 is NSScroller || $0 is NSVisualEffectView) }) {
+            if subviews.firstIndex(of: overlay).map({ $0 > subviews.firstIndex(of: bar)! }) ?? true {
+                addSubview(overlay, positioned: .below, relativeTo: bar)
+            }
+        } else if overlay.superview == nil {
+            addSubview(overlay, positioned: .above, relativeTo: nil)
+        }
         overlay.look = look
     }
 }
@@ -158,6 +165,7 @@ struct ScreenFilterSection: View {
             HStack {
                 Text(L("Intensidad"))
                 Slider(value: $s.screenFilterIntensity, in: ScreenFilter.intensityRange)
+                    .accessibilityLabel(L("Intensidad"))
                 Text(L("\(String(Int((s.screenFilterIntensity * 100).rounded()))) %")).monospacedDigit().frame(width: 50)
             }
             .disabled(!s.screenFilterOn)
@@ -186,6 +194,7 @@ struct ScreenFilterMenu: View {
             Toggle(L("Filtro encima del terminal"), isOn: Binding(get: { s.screenFilterOn },
                                                                set: { on in act { $0.setScreenFilter(on: on) } }))
                 .keyboardShortcut("f", modifiers: [.command, .option])
+            if core.screenCalm { Text(L("Ahora apagado por Accesibilidad del Mac")) }
             Divider()
             Picker(L("Filtro"), selection: Binding(get: { s.screenFilter }, set: { c in act { $0.setScreenFilter(choice: c) } })) {
                 Text(L("Automático (el del tema)")).tag(ScreenFilter.automatic)

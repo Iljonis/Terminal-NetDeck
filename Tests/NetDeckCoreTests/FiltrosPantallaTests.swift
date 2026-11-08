@@ -4,7 +4,7 @@ import Testing
 
 /// Filtro de pantalla (1.0.0): «filtro =» de los .tema, qué se pinta en cada pestaña y que nunca tape el texto.
 @Suite struct FiltrosPantallaTests {
-    private func tema(_ filtro: String?) throws -> Theme {
+    private func tema(_ filtro: String?, extra: String = "") throws -> Theme {
         var t = """
             nombre = Prueba
             fondo = #0b0a1f
@@ -21,7 +21,18 @@ import Testing
             apagado = #6b66a8
             """
         if let filtro { t += "\nfiltro = \(filtro)" }
+        t += extra
         return try Theme(id: "prueba", text: t)
+    }
+
+    /// Un .tema importado con un «tamaño» absurdo no puede cerrar la app al calcular la fuente.
+    @Test func tamañoAbsurdoDelTema() throws {
+        for (valor, esperado) in [("-9223372036854775808", 1), ("9223372036854775807", 200), ("0", 1), ("15", 15)] {
+            let t = try tema(nil, extra: "\ntamaño = \(valor)")
+            #expect(t.size == esperado, "\(valor)")
+            #expect(TerminalFont.sizes.contains(TerminalFont.size(0, themeSize: t.size)))
+        }
+        #expect(TerminalFont.size(0, themeSize: Int.min) == 8)
     }
 
     @Test func seLeeElFiltroDelTema() throws {
@@ -83,6 +94,9 @@ import Testing
             }
             for c in [max.tint, max.glow].compactMap({ $0 }) { #expect(c.a <= 0.12, "\(f): velo") }
             #expect(max.vignette <= 0.4 && max.curve <= 12, "\(f): bordes")
+            for l in [max, mid] {   // la esquina, encima de la viñeta, tampoco pasa de 0,4
+                #expect(l.vignette + l.cornerAlpha * (1 - l.vignette) <= 0.4 + 1e-9, "\(f): esquinas")
+            }
             #expect((mid.scan ?? mid.grid)?.color.a ?? 0 < (max.scan ?? max.grid)?.color.a ?? 1, "\(f): moderada")
         }
         // el resplandor del fósforo y el «fantasma» del LCD son del color del texto

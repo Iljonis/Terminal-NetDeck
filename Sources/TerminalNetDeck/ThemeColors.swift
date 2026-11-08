@@ -33,8 +33,10 @@ extension AppModel {
     /// Quita un tema importado y sus colores a medida.
     func removeTheme(_ id: String) {
         themes.remove(id)
-        themes.overrides[id] = nil
-        settings.themeOverrides[id] = nil
+        if !themes.all.contains(where: { $0.theme.id == id }) {   // (si no se ha podido borrar, se quedan)
+            themes.overrides[id] = nil
+            settings.themeOverrides[id] = nil
+        }
         selectTheme(themes.current.id)
     }
 

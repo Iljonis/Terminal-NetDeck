@@ -209,6 +209,10 @@ struct ThemeSettings: View {
                         .id("colores")
                 }
                 .onChange(of: colorsOpen) { if colorsOpen { withAnimation { proxy.scrollTo("colores", anchor: .bottom) } } }
+                // (captura «settings:temas:colores»: el editor ya desplegado)
+                .onAppear {
+                    if ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_ACTION"] == "settings:temas:colores" { colorsOpen = true }
+                }
             }
         }
         .background(SwiftUI.Color(themes.current.background))
@@ -240,6 +244,7 @@ struct FontSettings: View {
     @Stored private var families: [String] = []
     @Stored private var message = ""
     @Stored private var installing: String?
+    @Stored private var sliding = false       // (mientras se arrastra un deslizador, se aplica al soltar)
 
     var body: some View {
         @Bindable var s = model.settings
@@ -264,7 +269,9 @@ struct FontSettings: View {
                 }
                 HStack {
                     Text(L("Tamaño"))
-                    Slider(value: Binding(get: { size }, set: { s.fontSize = TerminalFont.setting($0) }), in: TerminalFont.sizes, step: 1)
+                    Slider(value: Binding(get: { size }, set: { s.fontSize = TerminalFont.setting($0) }), in: TerminalFont.sizes, step: 1,
+                           onEditingChanged: slid)
+                        .accessibilityLabel(L("Tamaño"))
                     Text(L("\(Int(size)) pt")).monospacedDigit().frame(width: 50, alignment: .trailing)
                 }
                 Toggle(L("Automático: el del tema (\(Int(TerminalFont.size(0, themeSize: th.size))) pt)"),
@@ -272,7 +279,8 @@ struct FontSettings: View {
                 HStack {
                     Text(L("Interlineado"))
                     Slider(value: Binding(get: { s.lineSpacing }, set: { s.lineSpacing = TerminalFont.lineSpacing($0) }),
-                           in: TerminalFont.lineSpacings, step: 0.05)
+                           in: TerminalFont.lineSpacings, step: 0.05, onEditingChanged: slid)
+                        .accessibilityLabel(L("Interlineado"))
                     Text(s.lineSpacing.formatted(.number.precision(.fractionLength(2)))).monospacedDigit()
                         .frame(width: 50, alignment: .trailing)
                 }
@@ -317,9 +325,16 @@ struct FontSettings: View {
         .formStyle(.themed)
         .onAppear { families = Fonts.monospacedFamilies() }
         .onChange(of: s.fontFamily) { model.applyAppearance() }
-        .onChange(of: s.fontSize) { model.applyAppearance() }
-        .onChange(of: s.lineSpacing) { model.applyAppearance() }
+        .onChange(of: s.fontSize) { if !sliding { model.applyAppearance() } }
+        .onChange(of: s.lineSpacing) { if !sliding { model.applyAppearance() } }
         .onChange(of: s.fontSmoothing) { model.applyAppearance() }
+    }
+
+    /// Tamaño e interlineado: cada paso rehace la letra de todas las pestañas (y su tamaño en el equipo), así que se
+    /// aplica una vez, al soltar.
+    private func slid(_ editing: Bool) {
+        sliding = editing
+        if !editing { model.applyAppearance() }
     }
 
     /// Todas las fuentes que recomiendan los temas (instalados y del catálogo).

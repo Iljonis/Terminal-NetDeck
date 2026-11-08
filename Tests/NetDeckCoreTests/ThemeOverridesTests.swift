@@ -118,13 +118,6 @@ import Testing
         }
     }
 
-    /// Los cambios de un tema que ya no existe (o que no tienen nada válido) se descartan.
-    @Test func losDeUnTemaQueYaNoEstaSeDescartan() {
-        let all = ["netdeck-cyberpunk": ["acento": "#112233"], "borrado": ["acento": "#445566"],
-                   "vacio": ["acento": "nada"]]
-        #expect(ThemeOverrides.pruned(all, keeping: ["netdeck-cyberpunk", "vacio"]) == ["netdeck-cyberpunk": ["acento": "#112233"]])
-    }
-
     /// Aviso de contraste: texto sobre el fondo por debajo de 4,5:1 y un ANSI por debajo de 3:1.
     @Test func avisoDeContraste() {
         #expect(ThemeOverrides.contrastWarnings(Theme.builtIn).isEmpty)

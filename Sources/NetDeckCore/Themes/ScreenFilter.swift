@@ -44,7 +44,7 @@ public enum ScreenFilter: String, CaseIterable, Sendable {
     }
 
     /// Cómo se pinta con esta intensidad y los colores de la pestaña (nil = nada encima). Los alfas van a escala de la
-    /// intensidad y, con la máxima, ninguno pasa de 0,35 (las líneas), 0,12 (los velos) ni 0,4 (los bordes): el texto se lee.
+    /// intensidad y, con la máxima, ninguno pasa de 0,35 (las líneas), 0,12 (los velos) ni 0,4 (los bordes y las esquinas): el texto se lee.
     public func look(intensity: Double, text: RGB) -> ScreenLook? {
         let k = Self.intensity(intensity)
         switch self {
@@ -87,6 +87,8 @@ public struct ScreenLook: Equatable, Sendable {
     public var vignette = 0.0
     /// Radio de las esquinas redondeadas del tubo, en puntos (0 = rectas).
     public var curve = 0.0
+    /// Lo negras que quedan las esquinas del tubo (fuera del redondeo `curve`), sumado a la viñeta: nunca más de 0,4.
+    public var cornerAlpha: Double { curve > 0 ? max(0, min(0.3, (0.4 - vignette) / (1 - vignette))) : 0 }
 
     public init(scan: Lines? = nil, grid: Lines? = nil, tint: RGB? = nil, glow: RGB? = nil, vignette: Double = 0, curve: Double = 0) {
         self.scan = scan

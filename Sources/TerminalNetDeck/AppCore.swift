@@ -108,9 +108,8 @@ final class AppCore {
             ? MemoryCredentialStore([.named("AD"): "ejemplo", .named("Red principal"): "ejemplo", .device("tu.usuario", "core-01"): "ejemplo"])
             : KeychainStore()
         themes = ThemeStore(selected: settings.themeID)
-        // (los colores a medida de los temas que ya no están, fuera)
-        let kept = ThemeOverrides.pruned(settings.themeOverrides, keeping: Set(themes.all.map(\.theme.id)))
-        if kept != settings.themeOverrides { settings.themeOverrides = kept }
+        // (los colores a medida de un tema que hoy no se ve se guardan igual: si falta una carpeta de temas en este
+        // arranque, no se pierden; sólo se borran al quitar el tema, en `removeTheme`)
         themes.overrides = settings.themeOverrides.mapValues(ThemeOverrides.init)
         DebugLog.enabled = settings.debugLog
         DebugLog.log("app", "arranca \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")"

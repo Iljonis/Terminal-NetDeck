@@ -202,7 +202,7 @@ public struct Theme: Identifiable, Hashable, Sendable {
         order = v["orden"] ?? "99"
         summary = desc
         fonts = (v["fuentes"] ?? "Space Mono").split(separator: ",").map { String($0).trimmed }.filter { !$0.isEmpty }
-        size = Int(v["tamaño"] ?? "") ?? 14
+        size = min(max(Int(v["tamaño"] ?? "") ?? 14, 1), 200)   // un valor enorme desbordaría al calcular la fuente
         menu = v["menu"] ?? "☰ Menú"
         clock = v["reloj"] ?? "%H:%M"
         style = Style(rawValue: (v["estilo"] ?? "").lowercased().replacingOccurrences(of: "ó", with: "o")) ?? .neon

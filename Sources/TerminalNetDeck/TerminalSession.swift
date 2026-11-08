@@ -760,7 +760,7 @@ final class TerminalSession: Identifiable, PendingAuthenticationIO, TerminalView
 
     func apply(theme t: Theme, font: NSFont) {
         theme = t
-        view.font = font
+        if !view.font.isEqual(font) { view.font = font }     // (SwiftTerm rehace la letra y quita la selección)
         view.nativeBackgroundColor = NSColor(t.background)
         view.nativeForegroundColor = NSColor(t.text)
         view.caretColor = NSColor(t.cursor)

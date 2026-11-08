@@ -57,7 +57,7 @@ public enum TerminalFont {
     /// El que sale de verdad: `size` (0 = el del tema, su «tamaño» − 1) más `zoom` (los puntos de ⌘+ / ⌘- de la
     /// pestaña), siempre dentro de `sizes`.
     public static func size(_ size: Double, themeSize: Int, zoom: Int = 0) -> Double {
-        clamp(clamp(size.isFinite && size > 0 ? size : Double(themeSize - 1)) + Double(zoom))
+        clamp(clamp(size.isFinite && size > 0 ? size : Double(themeSize) - 1) + Double(zoom))
     }
 
     /// ⌘+ / ⌘-: el aumento de la pestaña tras `steps` puntos más (o menos), sin salirse de `sizes` (así, al tope, ⌘-
