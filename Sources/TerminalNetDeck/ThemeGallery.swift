@@ -27,6 +27,7 @@ struct ThemeGallery: View {
                             ThemeCard(theme: item.theme, active: item.theme.id == active, badge: badge(item.source))
                                 .onTapGesture { select(item.theme.id) }
                                 .onHover { hover($0 ? item.theme.id : nil) }
+                                .pressable(item.theme.name, selected: item.theme.id == active) { select(item.theme.id) }
                                 .themedContextMenu {
                                     Button(L("Usar «\(item.theme.name)»")) { select(item.theme.id) }
                                     if item.source == .imported, let remove {

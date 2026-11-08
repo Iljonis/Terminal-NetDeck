@@ -1,0 +1,29 @@
+# Neón Hielo — ICE: cortafuegos de cristal helado, azul glaciar y blanco escarcha sobre azul marino profundo.
+# Temática de la app (estilo «cristal» con alma de neón: barra, pestañas y menús de vidrio; el terminal, casi opaco).
+
+nombre    = Neón Hielo
+grupo     = Neon Glass
+orden     = 06
+estilo    = cristal
+material  = cristal
+brillo    = sí                           # (propuesta)
+tinte     = #5ad7ff26                    # (propuesta)
+fuentes   = Fira Code, JetBrains Mono, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
+fuente_interfaz = sistema
+tamaño    = 14
+
+fondo         = #04101ccc                # azul marino profundo (cc ≈ 80 %)
+texto         = #e6f6ff
+barra         = #0a243d66
+panel         = #12385a80
+pestaña       = #5ad7ff                  # azul glaciar
+sobre_pestaña = #04101c
+acento        = #9ff0ff                  # escarcha
+acento2       = #4fb8ff
+bien          = #6fffd2
+mal           = #ff4f6e
+especial      = #b8a6ff
+apagado       = #7397b4
+menu          = ❄ NetDeck
+reloj         = ICE %H:%M
+ansi          = #13283b, #ff5c78, #6fffd2, #ffe28a, #4fb8ff, #c7a6ff, #5ad7ff, #cfe4f2, #5d7d96, #ff8aa0, #a3ffe4, #fff0b8, #8fd3ff, #dcc8ff, #9fe9ff, #ffffff

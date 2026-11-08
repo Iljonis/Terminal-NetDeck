@@ -23,7 +23,7 @@ open source (MIT)
 
 ![Terminal NetDeck, an SSH client for macOS: router and switch sessions grouped in folders, jump hosts and quick connect](docs/capturas/portada-en.png)
 
-[What's new](#new-in-0912) · [Features](#features-for-network-engineers) ·
+[What's new](#new-in-100) · [Features](#features-for-network-engineers) ·
 [Comparison](#comparison-with-securecrt-mobaxterm-iterm2-and-royal-tsx) ·
 [Install](#installation--first-run-on-macos-15-sequoia) · [Getting started](#getting-started) · [FAQ](#faq) ·
 [Roadmap](#roadmap) · [Contributing](#contributing)
@@ -45,10 +45,11 @@ that into one macOS app, built around one idea: **it should never play a trick o
 ## New in 1.0.0
 
 - **Liquid Glass by default:** new users get the Liquid Glass theme (and Liquid Glass Light in automatic mode), with
-  macOS 26 glass on the toolbar, tabs and notices — never over the terminal text. The classic neon themes are
-  suggested separately in the setup assistant, and anyone who already picked a theme keeps it.
+  macOS 26 glass on the toolbar buttons, tabs and the «+» menu — never over the terminal text. The classic neon themes are
+  suggested separately in the setup assistant, and anyone already using the app keeps their theme, even if they never picked one.
 - **Much faster with long scrollback:** each Return or burst of output now reads only the screen and what is new.
-  With 100,000 lines of scrollback, a Return goes from ~250 ms to under 1 ms.
+  With 100,000 lines of scrollback, a Return goes from ~250 ms to under 1 ms (Settings offers up to 10,000; for
+  100,000, set `# @scrollback 100000` on the session).
 - **Accessibility:** with «Reduce transparency» or «Increase contrast» the app paints opaque; VoiceOver reads buttons,
   tabs and sessions; menus work with ↑ ↓ and Return; «Differentiate without colour» changes the status dot's shape;
   the themes' orange is a real orange.
@@ -182,13 +183,14 @@ name, the app keeps that entry and tells you. External files are not rewritten; 
 
 ![Terminal NetDeck terminal settings: configurable scrollback and rectangular selection](docs/capturas/ajustes-en.png)
 
-### 🎨 51 themes for every shift
+### 🎨 52 themes for every shift
 
 From a 3 a.m. NOC shift to a presentation on a projector. Each one has its ANSI palette and font, can **follow the
 Mac's light or dark mode**, and **every theme passes a WCAG contrast test** (text ≥ 4.5:1). Want your own? Copy a
-`.tema` file from `Temas/`, change the colours and import it. There's also the built-in one, **NetDeck Cyberpunk**.
+`.tema` file from `Temas/`, change the colours and import it. There's also the original,
+**NetDeck Cyberpunk**, always there as a fallback.
 
-![Gallery of 51 macOS terminal themes with live preview](docs/capturas/temas.png)
+![Gallery of 52 macOS terminal themes with live preview](docs/capturas/temas.png)
 
 <details>
 <summary><b>See the full catalogue</b></summary>
@@ -205,6 +207,7 @@ Mac's light or dark mode**, and **every theme passes a WCAG contrast test** (tex
 |  | **Liquid Glass Claro** | macOS 27 by day: light blurred glass, crisp dark text. |
 |  | **Windows 11** | Fluent and Mica: translucent dark grey, blue accent, Cascadia Mono and the Campbell palette. |
 |  | **Windows 11 Claro** | Fluent by day: light Mica, blue accent and the "One Half Light" palette. |
+|  | **MobaXterm Net** | Charcoal grey and white text with NOC colours: green up, red down and IPs in blue. |
 | **Anime & film** | **Unidad-01** | Purple and neon green, warnings in orange (EVA-01 style). |
 |  | **Unidad-02** | Intense red and orange with lime green (EVA-02 style). |
 |  | **Neo-Tokio rojo** | Motorbike red, black and white with kanji (Akira style). |
@@ -385,6 +388,7 @@ cd Terminal-NetDeck
 | ⇧⌘L | Device lists |
 | ⇧⌘V | Safe paste |
 | ⇧⌘M | MultiExec |
+| ⌘1…⌘9 | Go to the tab with that number (⌘9, the last one) |
 | ⇧⌘B | SFTP browser next to the terminal |
 | ⌘F / ⇧⌘F | Find in the output / in all logs |
 | Esc or ⌘. | Stop any automated sequence |
@@ -482,7 +486,7 @@ source, `./desinstalar.sh --todo` also removes themes and settings (the Keychain
 - [x] **Swift 6.2** and its simpler concurrency, keeping SFTP copies and MD5 off the main thread.
 - [x] **Accessibility:** honour the Mac's “Reduce transparency” and “Increase contrast”, and review VoiceOver and
   keyboard use.
-- [x] **Liquid Glass** on macOS 26: glass on buttons, menus and notices, never over the terminal text.
+- [x] **Liquid Glass** on macOS 26: glass on buttons, tabs and menus, never over the terminal text.
 - [x] **Performance:** less work per key and per line with long outputs and many open tabs.
 
 Missing something? [Suggest a feature](https://github.com/Iljonis/Terminal-NetDeck/issues/new/choose).

@@ -14,7 +14,7 @@ All notable changes to Terminal NetDeck are listed here. The format follows
 
 ### Added
 - Liquid Glass is the default theme for new users (Liquid Glass Light in automatic mode); the setup assistant suggests
-  the classic NetDeck neon themes separately. Existing users keep their theme.
+  the classic NetDeck neon themes separately. Existing users keep their theme, even if they never picked one.
 - macOS 26 Liquid Glass on toolbar buttons, tabs, the «+» menu and chips (never over the terminal; selected and active
   items stay opaque for contrast).
 - Accessibility: opaque themes with «Reduce transparency» / «Increase contrast», VoiceOver labels and button traits for

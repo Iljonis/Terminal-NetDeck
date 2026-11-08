@@ -1,0 +1,29 @@
+# Neón Unidad — Cristal morado de cabina, verde neón de arranque y avisos en naranja (estilo EVA-01).
+# Temática de la app (estilo «cristal» con alma de neón: barra, pestañas y menús de vidrio; el terminal, casi opaco).
+
+nombre    = Neón Unidad
+grupo     = Neon Glass
+orden     = 07
+estilo    = cristal
+material  = cristal
+brillo    = sí                           # (propuesta)
+tinte     = #a259ff26                    # (propuesta)
+fuentes   = Kode Mono, Share Tech Mono, JetBrains Mono      # la 1ª es la oficial; las otras, recomendadas
+fuente_interfaz = sistema
+tamaño    = 14
+
+fondo         = #150a28cc                # morado profundo (cc ≈ 80 %)
+texto         = #f1eaff
+barra         = #2a124d66
+panel         = #3b1a6680
+pestaña       = #a259ff                  # morado neón (en Unidad-01, la pestaña es verde)
+sobre_pestaña = #0e0619
+acento        = #7dff3a                  # verde neón de arranque
+acento2       = #c9a2ff
+bien          = #7dff3a
+mal           = #ff3d2e
+especial      = #ffa21f                  # naranja de aviso
+apagado       = #9c86c4
+menu          = 初号機 · NetDeck
+reloj         = 稼働 %H:%M
+ansi          = #2c1c47, #ff4a3a, #7dff3a, #ffa21f, #7c8cff, #c77dff, #4fe3d0, #e2d8f5, #6f5c96, #ff7257, #a8ff7a, #ffc35c, #a5b0ff, #dcaaff, #85efe2, #ffffff

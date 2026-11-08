@@ -28,6 +28,16 @@ import Testing
         #expect(!neon.contains { $0.id == Theme.defaultID })
     }
 
+    /// Al pasar de la 0.9 a la 1.0.0, quien nunca eligió tema sigue con los de entonces; quien empieza, Liquid Glass.
+    @Test func actualizarNoCambiaElTemaDeQuienYaLaUsaba() throws {
+        let antes = Theme.startingIDs(previousUser: true), nuevo = Theme.startingIDs(previousUser: false)
+        #expect(antes.fixed == Theme.builtIn.id && antes.dark == Theme.builtIn.id && antes.light == "papel")
+        #expect(nuevo.fixed == Theme.defaultID && nuevo.dark == Theme.defaultID && nuevo.light == Theme.defaultLightID)
+        let ids = Set(ThemeLibrary(appDirectory: Self.catalog, importDirectory: FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString), netdeckDirectory: nil).all().map(\.theme.id))
+        #expect(ids.contains("papel"))
+    }
+
     /// Contraste WCAG entre dos colores (1…21).
     static func contrast(_ a: RGB, _ b: RGB) -> Double {
         let (l1, l2) = (a.opaque.luminance, b.opaque.luminance)

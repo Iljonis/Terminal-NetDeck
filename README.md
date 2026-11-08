@@ -23,7 +23,7 @@ código abierto (MIT)
 
 ![Terminal NetDeck, cliente SSH para macOS: sesiones de routers y switches agrupadas por carpetas, saltos por un bastión y conexión rápida](docs/capturas/portada.png)
 
-[Novedades](#novedades-de-0912) · [Funciones](#funciones-para-ingenieros-de-red) ·
+[Novedades](#novedades-de-100) · [Funciones](#funciones-para-ingenieros-de-red) ·
 [Comparación](#comparación-con-securecrt-mobaxterm-iterm2-y-royal-tsx) ·
 [Instalación](#instalación-y-primer-uso-en-macos-15-sequoia) · [Primeros pasos](#primeros-pasos) ·
 [Preguntas](#preguntas-frecuentes) · [Hoja de ruta](#hoja-de-ruta) · [Contribuir](#contribuir)
@@ -45,10 +45,11 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 ## Novedades de 1.0.0
 
 - **Liquid Glass de serie:** quien empieza ve el tema Liquid Glass (y Liquid Glass Claro en el modo automático), con
-  el cristal de macOS 26 en la barra, las pestañas y los avisos; nunca sobre el texto del terminal. Los temas de neón
-  de siempre se sugieren aparte en el asistente, y a quien ya tenía un tema elegido no se le cambia.
+  el cristal de macOS 26 en los botones de la barra, las pestañas y el menú «+»; nunca sobre el texto del terminal. Los temas de neón
+  de siempre se sugieren aparte en el asistente, y a quien ya usaba la app no se le cambia el tema, aunque nunca lo eligiera.
 - **Mucho más rápido con historiales largos:** cada Intro o cada salida ya sólo lee la pantalla y lo nuevo. Con
-  100.000 líneas de historial, un Intro pasa de ~250 ms a menos de 1 ms.
+  100.000 líneas de historial, un Intro pasa de ~250 ms a menos de 1 ms (Ajustes ofrece hasta 10.000; las 100.000 se
+  piden por sesión con `# @scrollback 100000`).
 - **Accesibilidad:** con «Reducir transparencia» o «Aumentar contraste» la app se pinta opaca; VoiceOver lee los
   botones, las pestañas y las sesiones; los menús se recorren con ↑ ↓ e Intro; «Distinguir sin color» cambia la forma
   del punto de estado; el naranja de los temas es naranja de verdad.
@@ -183,14 +184,14 @@ siguen únicamente en el Llavero de macOS.
 
 ![Ajustes del terminal de Terminal NetDeck: historial configurable y selección rectangular](docs/capturas/ajustes-en.png)
 
-### 🎨 51 temas para cada turno
+### 🎨 52 temas para cada turno
 
 Desde un NOC de guardia a las tres de la mañana hasta una presentación con proyector. Todos tienen su paleta ANSI y su
 fuente, pueden **seguir al modo claro u oscuro del Mac**, y **todos pasan una prueba de contraste WCAG** (texto
-≥ 4,5:1). ¿Quieres el tuyo? Copia un archivo `.tema` de `Temas/`, cambia los colores e impórtalo. Además está el de
-serie, **NetDeck Cyberpunk**.
+≥ 4,5:1). ¿Quieres el tuyo? Copia un archivo `.tema` de `Temas/`, cambia los colores e impórtalo. Además está la
+original, **NetDeck Cyberpunk**, que siempre queda de reserva.
 
-![Galería de 51 temas de terminal para macOS con vista previa en vivo](docs/capturas/temas.png)
+![Galería de 52 temas de terminal para macOS con vista previa en vivo](docs/capturas/temas.png)
 
 <details>
 <summary><b>Ver el catálogo completo</b></summary>
@@ -207,6 +208,7 @@ serie, **NetDeck Cyberpunk**.
 |  | **Liquid Glass Claro** | macOS 27 de día: vidrio claro y desenfocado, texto oscuro bien legible. |
 |  | **Windows 11** | Fluent y Mica: gris oscuro translúcido, acento azul, Cascadia Mono y la paleta Campbell. |
 |  | **Windows 11 Claro** | Fluent de día: Mica clara, acento azul y la paleta «One Half Light». |
+|  | **MobaXterm Net** | Gris carbón y texto blanco, con los colores de un NOC: verde up, rojo down e IPs en azul. |
 | **Anime y cine** | **Unidad-01** | Morado y verde neón, avisos en naranja (estilo EVA-01). |
 |  | **Unidad-02** | Rojo y naranja intensos con verde lima (estilo EVA-02). |
 |  | **Neo-Tokio rojo** | Rojo moto, negro y blanco con kanji (estilo Akira). |
@@ -387,6 +389,7 @@ cd Terminal-NetDeck
 | ⇧⌘L | Listas de equipos |
 | ⇧⌘V | Pegado seguro |
 | ⇧⌘M | MultiExec |
+| ⌘1…⌘9 | Ir a la pestaña de ese número (⌘9, a la última) |
 | ⇧⌘B | Explorador SFTP al lado del terminal |
 | ⌘F / ⇧⌘F | Buscar en la salida / en todos los registros |
 | Esc o ⌘. | Cortar cualquier secuencia automática |
@@ -484,7 +487,7 @@ La 1.0.0 es la versión para trabajar en producción sin miedo. Lo que ha hecho 
 - [x] **Swift 6.2** y su concurrencia más sencilla, con las copias SFTP y el MD5 siempre fuera del hilo principal.
 - [x] **Accesibilidad:** respetar «Reducir transparencia» y «Aumentar contraste» del Mac y repasar VoiceOver y el
   teclado.
-- [x] **Liquid Glass** en macOS 26: el cristal en botones, menús y avisos, nunca sobre el texto del terminal.
+- [x] **Liquid Glass** en macOS 26: el cristal en botones, pestañas y menús, nunca sobre el texto del terminal.
 - [x] **Rendimiento:** menos trabajo por tecla y por línea con salidas largas y muchas pestañas abiertas.
 
 ¿Echas algo en falta? [Propón una función](https://github.com/Iljonis/Terminal-NetDeck/issues/new/choose).

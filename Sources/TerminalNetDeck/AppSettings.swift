@@ -135,16 +135,25 @@ final class AppSettings {
         startupSession = d.string(forKey: "startupSession") ?? ""
         startupLocalTerminal = d.object(forKey: "startupLocalTerminal") as? Bool ?? false
         language = Idioma.actual
-        if d.object(forKey: "configured") == nil { Self.importNetDeck(into: d) }
+        // (quien ya la usaba: toda 0.9 deja «configured»; los temas que nunca eligió siguen siendo los de entonces)
+        let previousUser = d.object(forKey: "configured") != nil
+        if !previousUser { Self.importNetDeck(into: d) }
         sessionAutoPassword = d.object(forKey: "sessionAutoPassword") as? Bool ?? true
         offerSaveTyped = d.object(forKey: "offerSaveTyped") as? Bool ?? true
         devicePasswordMode = PasswordAutomation.Mode(rawValue: d.string(forKey: "devicePasswordMode") ?? "") ?? .suggest
         defaultCredentialName = d.string(forKey: "defaultCredentialName") ?? ""
         defaultCredentialUser = d.string(forKey: "defaultCredentialUser") ?? AppPaths.userName
-        themeID = d.string(forKey: "themeID") ?? Theme.defaultID
+        let starting = Theme.startingIDs(previousUser: previousUser)
+        let themes = (fixed: d.string(forKey: "themeID") ?? starting.fixed,
+                      light: d.string(forKey: "themeLight") ?? starting.light,
+                      dark: d.string(forKey: "themeDark") ?? (d.string(forKey: "themeID") ?? starting.dark))
+        // (se apuntan ya: en la siguiente apertura ya es «quien la usaba» y no debe pasar a los de la 0.9)
+        for (key, id) in [("themeID", themes.fixed), ("themeLight", themes.light), ("themeDark", themes.dark)]
+        where d.object(forKey: key) == nil { d.set(id, forKey: key) }
+        themeID = themes.fixed
         themeAuto = d.object(forKey: "themeAuto") as? Bool ?? false
-        themeLight = d.string(forKey: "themeLight") ?? Theme.defaultLightID
-        themeDark = d.string(forKey: "themeDark") ?? (d.string(forKey: "themeID") ?? Theme.defaultID)
+        themeLight = themes.light
+        themeDark = themes.dark
         fontFamily = d.string(forKey: "fontFamily") ?? ""
         fontSize = d.object(forKey: "fontSize") as? Double ?? 0
         sshConfigPath = d.string(forKey: "sshConfigPath") ?? SessionManager.defaultConfigURL.path

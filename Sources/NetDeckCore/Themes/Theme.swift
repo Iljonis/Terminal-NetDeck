@@ -228,11 +228,16 @@ public struct Theme: Identifiable, Hashable, Sendable {
         try self.init(id: url.deletingPathExtension().lastPathComponent, text: String(contentsOf: url, encoding: .utf8))
     }
 
-    /// La de serie (siempre está, aunque no haya ninguna instalada): cyberpunk índigo, magenta y cian.
     /// El de serie para quien empieza (desde 1.0.0): Liquid Glass, y su versión clara para el modo automático. Viene
     /// con la app (Temas/); si faltara, se usa `builtIn`, que siempre está.
     public static let defaultID = "liquid-glass"
     public static let defaultLightID = "liquid-glass-claro"
+
+    /// Los temas (fijo, claro y oscuro del automático) de quien aún no ha elegido. Quien ya usaba una 0.9 sigue con los
+    /// de entonces aunque nunca los eligiera (NetDeck Cyberpunk y Papel): actualizar no le cambia el aspecto.
+    public static func startingIDs(previousUser: Bool) -> (fixed: String, light: String, dark: String) {
+        previousUser ? (builtIn.id, "papel", builtIn.id) : (defaultID, defaultLightID, defaultID)
+    }
 
     /// Los de neón de NetDeck que el asistente sugiere aparte: el de siempre (`builtIn`) y los del grupo Cyberpunk con
     /// estilo neón, en su orden.
@@ -241,6 +246,7 @@ public struct Theme: Identifiable, Hashable, Sendable {
             .sorted { ($0.id == builtIn.id ? 0 : 1, $0.order, $0.name) < ($1.id == builtIn.id ? 0 : 1, $1.order, $1.name) }
     }
 
+    /// La original (siempre está, aunque no haya ninguna instalada): cyberpunk índigo, magenta y cian.
     public static let builtIn = try! Theme(id: "netdeck-cyberpunk", text: """
         # NetDeck Cyberpunk — La original de NetDeck (y la de reserva si falta un tema): índigo profundo, magenta y cian.
         nombre    = NetDeck Cyberpunk

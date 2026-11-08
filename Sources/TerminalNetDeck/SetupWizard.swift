@@ -373,6 +373,7 @@ struct SetupContent: View {
                         ThemeCard(theme: th, active: th.id == wizard.active, badge: nil)
                             .onTapGesture { wizard.active = th.id }
                             .onHover { wizard.hovered = $0 ? th.id : nil }
+                            .pressable(th.name, selected: th.id == wizard.active) { wizard.active = th.id }
                     }
                 }
             }

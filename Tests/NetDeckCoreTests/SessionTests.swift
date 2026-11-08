@@ -272,6 +272,45 @@ private let config = """
         #expect(!UpdateCheck.isNewer("0.3.9", than: "0.4.0"))
     }
 
+    /// De la 0.9 a la 1.0.0: se ofrece desde cualquier 0.9.x y nunca al revés (ni a la misma).
+    @Test func deLa09ALa100() {
+        for vieja in ["0.9.9", "0.9.11", "0.9.12", "0.9.13"] { #expect(UpdateCheck.isNewer("1.0.0", than: vieja)) }
+        #expect(!UpdateCheck.isNewer("0.9.13", than: "1.0.0"))
+        #expect(!UpdateCheck.isNewer("1.0.0", than: "1.0.0"))
+        #expect(!UpdateCheck.isNewer("1.0", than: "1.0.0"))
+        #expect(UpdateCheck.isNewer("1.0.1", than: "1.0.0"))
+        #expect(UpdateCheck.isNewer("1.10.0", than: "1.9.0"))
+    }
+
+    /// El otro camino de descarga sólo vale si es exactamente https://api.github.com/repos/u/r/releases/assets/N.
+    @Test func soloLaApiDeGitHubComoSegundoCamino() throws {
+        func mirror(_ u: String) throws -> URL? {
+            let json = """
+                {"tag_name":"v1.0.0","html_url":"https://github.com/u/r/releases/tag/v1.0.0","assets":[
+                 {"browser_download_url":"https://github.com/u/r/releases/download/v1.0.0/Terminal-NetDeck.dmg","url":"\(u)"}]}
+                """
+            return try #require(UpdateCheck.parse(Data(json.utf8))).mirror
+        }
+        #expect(try mirror("https://api.github.com/repos/u/r/releases/assets/123") != nil)
+        for malo in ["http://api.github.com/repos/u/r/releases/assets/123",
+                     "https://api.github.com.example.com/repos/u/r/releases/assets/123",
+                     "https://api.github.com/repos/u/r/releases/assets/abc",
+                     "https://api.github.com/repos/u/r/releases/assets/1/x",
+                     "https://api.github.com/repos/u/r/releases/123",
+                     "https://example.com/repos/u/r/releases/assets/123"] {
+            #expect(try mirror(malo) == nil, "\(malo)")
+        }
+        // (sin .dmg de github.com, sólo la API; sin nada, ninguna descarga)
+        var r = UpdateCheck.Release(version: "1.0.0", page: URL(string: "https://github.com/u/r")!, dmg: nil,
+                                    mirror: URL(string: "https://api.github.com/repos/u/r/releases/assets/1"))
+        #expect(UpdateCheck.downloads(for: r).count == 1)
+        r.mirror = nil
+        #expect(UpdateCheck.downloads(for: r).isEmpty)
+        let url = URL(string: "https://github.com/x")!
+        #expect(!UpdateCheck.succeeded(HTTPURLResponse(url: url, statusCode: 302, httpVersion: nil, headerFields: nil)!))
+        #expect(!UpdateCheck.succeeded(URLResponse(url: url, mimeType: nil, expectedContentLength: 0, textEncodingName: nil)))
+    }
+
     @Test func releaseDeGitHub() throws {
         let json = #"{"tag_name":"v0.5.0","html_url":"https://github.com/u/r/releases/tag/v0.5.0","assets":[{"browser_download_url":"https://github.com/u/r/releases/download/v0.5.0/Terminal-NetDeck.dmg"}]}"#
         let r = try #require(UpdateCheck.parse(Data(json.utf8)))

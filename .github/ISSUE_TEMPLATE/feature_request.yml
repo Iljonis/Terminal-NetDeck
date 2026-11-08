@@ -5,9 +5,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Gracias por la idea. Mira antes la [hoja de ruta](https://github.com/Iljonis/Terminal-NetDeck#hoja-de-ruta-hacia-la-100) y los [issues abiertos](https://github.com/Iljonis/Terminal-NetDeck/issues). Ejemplos sólo con `192.0.2.x`, `tu.usuario`, `core-01`.
+        Gracias por la idea. Mira antes la [hoja de ruta](https://github.com/Iljonis/Terminal-NetDeck#hoja-de-ruta) y los [issues abiertos](https://github.com/Iljonis/Terminal-NetDeck/issues). Ejemplos sólo con `192.0.2.x`, `tu.usuario`, `core-01`.
 
-        Thanks for the idea. Please check the [roadmap](https://github.com/Iljonis/Terminal-NetDeck/blob/main/README.en.md#roadmap-to-100) and [open issues](https://github.com/Iljonis/Terminal-NetDeck/issues) first. Examples only with `192.0.2.x`, `tu.usuario`, `core-01`.
+        Thanks for the idea. Please check the [roadmap](https://github.com/Iljonis/Terminal-NetDeck/blob/main/README.en.md#roadmap) and [open issues](https://github.com/Iljonis/Terminal-NetDeck/issues) first. Examples only with `192.0.2.x`, `tu.usuario`, `core-01`.
   - type: textarea
     id: problema
     attributes:

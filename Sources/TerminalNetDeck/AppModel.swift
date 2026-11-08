@@ -611,10 +611,18 @@ final class AppModel {
             // (no se pisa al marcar otra: `saveFavorites` hace la copia y falla igual)
             ErrorLog.error("favoritas", "no se pueden leer: \(error.localizedDescription)")
         }
-        recents = SessionLists.recents(((try? SafeFile.read(Self.recentsFile)) ?? nil) ?? "")
+        do { recents = SessionLists.recents(try SafeFile.read(Self.recentsFile) ?? "") } catch {
+            ErrorLog.error("recientes", "no se pueden leer: \(error.localizedDescription)")
+        }
     }
 
     func toggleFavorite(_ name: String) {
+        // (sobre lo que hay ahora en el archivo: si al arrancar no se pudo leer y ya se puede, no se pierden las demás)
+        do { favorites = try SessionLists.loadFavorites(Self.favoritesFile) } catch {
+            ErrorLog.error("favoritas", "no se pueden leer: \(error.localizedDescription)")
+            status = L("✗ No se han podido guardar las favoritas: \(error.localizedDescription)")
+            return
+        }
         if favorites.contains(name) { favorites.removeAll { $0 == name } } else { favorites.append(name) }
         AppPaths.ensure(AppPaths.netdeck)
         do {
