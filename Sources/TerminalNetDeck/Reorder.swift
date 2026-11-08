@@ -7,6 +7,9 @@ import SwiftUI
 /// pasar la mitad de otro, ocupa su sitio en vivo y con animación; al soltar se guarda (`end`).
 @MainActor @Observable
 final class RowDrag<ID: Hashable> {
+    // (escrito a mano: el que pone Swift solo en esta clase genérica, @MainActor y @Observable, tumbaba al compilador
+    // de Swift 6.3.3 en -c release, en «EarlyPerfInliner»; no cambia nada al ejecutarse)
+    nonisolated deinit {}
     /// El espacio de coordenadas de la fila (el `HStack` lleva `.coordinateSpace(.named(space))`).
     let space = UUID()
     @ObservationIgnored var frames: [ID: CGRect] = [:]
