@@ -33,12 +33,35 @@ extension EnvironmentValues {
 // MARK: - fuentes
 
 enum Fonts {
+    /// Lo ya mirado (`Theme.ui` pregunta en cada repintado): se vacía cuando el Mac activa o quita fuentes.
+    nonisolated private static let lock = NSLock()
+    nonisolated(unsafe) private static var installed: [String: Bool] = [:]
+    nonisolated(unsafe) private static var monospaced: [String]?
+    private static let watching: Bool = {
+        NotificationCenter.default.addObserver(forName: NSFont.fontSetChangedNotification, object: nil, queue: nil) { _ in
+            Fonts.forget()
+        }
+        return true
+    }()
+
+    nonisolated static func forget() { lock.withLock { installed = [:]; monospaced = nil } }
+
     static func isInstalled(_ family: String) -> Bool {
-        NSFontManager.shared.availableMembers(ofFontFamily: family) != nil
+        _ = watching
+        if let known = lock.withLock({ installed[family] }) { return known }
+        let ok = NSFontManager.shared.availableMembers(ofFontFamily: family) != nil
+        lock.withLock { installed[family] = ok }
+        return ok
     }
 
     /// La primera instalada de la lista (la oficial del tema primero), o nil.
     static func firstInstalled(_ families: [String]) -> String? { families.first(where: isInstalled) }
+
+    /// La del terminal que se pide (la elegida o, en «Automática», la oficial del tema) y la que sale de verdad (nil =
+    /// la monoespaciada del sistema). Si no coinciden, falta instalar `wanted`.
+    static func terminalFamily(_ family: String, theme t: Theme) -> (wanted: String?, used: String?) {
+        family.isEmpty ? (t.fonts.first, firstInstalled(t.fonts)) : (family, isInstalled(family) ? family : nil)
+    }
 
     /// Sin ligaduras (`TerminalFont.strict`): cada carácter en su celda, sin montarse en el de al lado.
     static func terminal(family: String?, size: CGFloat) -> NSFont {
@@ -49,11 +72,19 @@ enum Fonts {
         return TerminalFont.strict(NSFont.monospacedSystemFont(ofSize: size, weight: .regular)) as NSFont
     }
 
-    /// Las monoespaciadas instaladas (para elegir otra).
+    /// Las monoespaciadas instaladas (para elegir otra): las familias con algún estilo de ancho fijo (por el rasgo, no
+    /// por el nombre: `NSFont(name:)` espera el PostScript y con muchas familias no daba nada).
     static func monospacedFamilies() -> [String] {
-        NSFontManager.shared.availableFontFamilies.filter { fam in
-            !fam.hasPrefix(".") && (NSFont(name: fam, size: 12)?.isFixedPitch ?? false)
+        _ = watching
+        if let known = lock.withLock({ monospaced }) { return known }
+        let fm = NSFontManager.shared, fixed = NSFontTraitMask.fixedPitchFontMask.rawValue
+        let out = fm.availableFontFamilies.filter { fam in
+            !fam.hasPrefix(".") && (fm.availableMembers(ofFontFamily: fam) ?? []).contains { m in
+                m.count > 3 && ((m[3] as? NSNumber)?.uintValue ?? 0) & fixed != 0
+            }
         }
+        lock.withLock { monospaced = out }
+        return out
     }
 
     /// Como NetDeck: la fuente con Homebrew («font-m-plus-1-code»). false si no hay Homebrew o no existe.
@@ -72,6 +103,7 @@ enum Fonts {
             try? p.run()
             p.waitUntilExit()
         }.value
+        forget()                                         // (el aviso del Mac puede llegar después)
         return isInstalled(family)
     }
 }

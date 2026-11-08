@@ -244,17 +244,40 @@ struct FontSettings: View {
     var body: some View {
         @Bindable var s = model.settings
         let th = model.themes.current
+        let family = Fonts.terminalFamily(s.fontFamily, theme: th)
+        let size = TerminalFont.size(s.fontSize, themeSize: th.size)          // (el de verdad, también en «Automático»)
         Form {
             Section(L("Terminal")) {
                 ThemedPicker(L("Fuente"), selection: $s.fontFamily) { o in
                     o.append(("", L("Automática: la del tema (\(Fonts.firstInstalled(th.fonts) ?? L("monoespaciada del sistema")))")))
+                    if !s.fontFamily.isEmpty, !families.contains(s.fontFamily) { o.append((s.fontFamily, L("\(s.fontFamily) (no instalada)"))) }
                     for x in families { o.append((x, x)) }
+                }
+                if let wanted = family.wanted, wanted != family.used {
+                    HStack {
+                        Label(L("«\(wanted)» no está instalada: se usa \(family.used ?? L("la monoespaciada del sistema"))"),
+                              systemImage: "exclamationmark.triangle").font(t.ui(11.5))
+                        Spacer()
+                        if installing == wanted { ProgressView().controlSize(.small) }
+                        else { Button(L("Instalar")) { install(wanted) }.disabled(installing != nil) }
+                    }
                 }
                 HStack {
                     Text(L("Tamaño"))
-                    Slider(value: $s.fontSize, in: 0...26, step: 1)
-                    Text(s.fontSize == 0 ? L("del tema (\(th.size - 1))") : L("\(Int(s.fontSize)) pt")).monospacedDigit().frame(width: 110)
+                    Slider(value: Binding(get: { size }, set: { s.fontSize = TerminalFont.setting($0) }), in: TerminalFont.sizes, step: 1)
+                    Text(L("\(Int(size)) pt")).monospacedDigit().frame(width: 50, alignment: .trailing)
                 }
+                Toggle(L("Automático: el del tema (\(Int(TerminalFont.size(0, themeSize: th.size))) pt)"),
+                       isOn: Binding(get: { s.fontSize == 0 }, set: { s.fontSize = $0 ? 0 : size }))
+                HStack {
+                    Text(L("Interlineado"))
+                    Slider(value: Binding(get: { s.lineSpacing }, set: { s.lineSpacing = TerminalFont.lineSpacing($0) }),
+                           in: TerminalFont.lineSpacings, step: 0.05)
+                    Text(s.lineSpacing.formatted(.number.precision(.fractionLength(2)))).monospacedDigit()
+                        .frame(width: 50, alignment: .trailing)
+                }
+                Toggle(L("Trazo fino (sin suavizado de la letra; se nota en pantallas Retina)"),
+                       isOn: Binding(get: { !s.fontSmoothing }, set: { s.fontSmoothing = !$0 }))
                 Text(L("core-01(config)# interface xe-0/0/1\nadmin@core-01> show bgp summary | match Estab"))
                     .font(SwiftUI.Font(model.terminalFont))
                     .foregroundStyle(SwiftUI.Color(th.text))
@@ -295,6 +318,8 @@ struct FontSettings: View {
         .onAppear { families = Fonts.monospacedFamilies() }
         .onChange(of: s.fontFamily) { model.applyAppearance() }
         .onChange(of: s.fontSize) { model.applyAppearance() }
+        .onChange(of: s.lineSpacing) { model.applyAppearance() }
+        .onChange(of: s.fontSmoothing) { model.applyAppearance() }
     }
 
     /// Todas las fuentes que recomiendan los temas (instalados y del catálogo).

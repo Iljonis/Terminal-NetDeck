@@ -25,8 +25,12 @@ final class AppSettings {
     var themeOverrides: [String: [String: String]] { didSet { d.set(themeOverrides, forKey: "themeOverrides") } }
     /// "" = la oficial del tema.
     var fontFamily: String { didSet { d.set(fontFamily, forKey: "fontFamily") } }
-    /// 0 = el del tema.
+    /// 0 = el del tema; si no, dentro de `TerminalFont.sizes`.
     var fontSize: Double { didSet { d.set(fontSize, forKey: "fontSize") } }
+    /// Alto de la línea (`TerminalFont.lineSpacings`; 1 = el de la fuente).
+    var lineSpacing: Double { didSet { d.set(lineSpacing, forKey: "lineSpacing") } }
+    /// Suavizado de la letra; sin él, el trazo es más fino (en pantallas Retina).
+    var fontSmoothing: Bool { didSet { d.set(fontSmoothing, forKey: "fontSmoothing") } }
     var sshConfigPath: String { didSet { d.set(sshConfigPath, forKey: "sshConfigPath") } }
     var sidebarVisible: Bool { didSet { d.set(sidebarVisible, forKey: "sidebarVisible") } }
     /// Rejilla y líneas de barrido en la portada.
@@ -164,7 +168,9 @@ final class AppSettings {
         themeDark = themes.dark
         themeOverrides = d.dictionary(forKey: "themeOverrides") as? [String: [String: String]] ?? [:]
         fontFamily = d.string(forKey: "fontFamily") ?? ""
-        fontSize = d.object(forKey: "fontSize") as? Double ?? 0
+        fontSize = TerminalFont.setting(d.object(forKey: "fontSize") as? Double ?? 0)     // (un 1-7 de antes, a 8)
+        lineSpacing = TerminalFont.lineSpacing(d.object(forKey: "lineSpacing") as? Double ?? 1)
+        fontSmoothing = d.object(forKey: "fontSmoothing") as? Bool ?? true
         sshConfigPath = d.string(forKey: "sshConfigPath") ?? SessionManager.defaultConfigURL.path
         sidebarVisible = d.object(forKey: "sidebarVisible") as? Bool ?? true
         crtEffect = d.object(forKey: "crtEffect") as? Bool ?? true

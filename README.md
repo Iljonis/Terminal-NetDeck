@@ -198,8 +198,8 @@ siguen únicamente en el Llavero de macOS.
   sin guardar.
 - **Importar** de SecureCRT, MobaXterm, PuTTY, electerm, CSV u otro `ssh_config`; **exportar** a JSON o CSV.
   Nunca contraseñas.
-- **Perfiles por sesión:** tema, fuente, tamaño, historial, teclado y prompt en anotaciones del propio `ssh_config`
-  (`# @tema`, `# @fuente`, `# @prompt`…); lo que no definas hereda de Ajustes.
+- **Perfiles por sesión:** tema, fuente, tamaño, interlineado, historial, teclado y prompt en anotaciones del propio
+  `ssh_config` (`# @tema`, `# @fuente`, `# @interlineado`, `# @prompt`…); lo que no definas hereda de Ajustes.
 - Las pestañas se reparten el ancho de la ventana y, si no caben, se desplazan sin perder de vista la activa.
 - El título es sólo el **equipo de destino** (`core-02`, no `core-02 ⟵ bastion`); el camino entero sale al pasar el
   ratón. Si desde una sesión saltas a otro equipo, la pestaña lo refleja.
@@ -456,7 +456,7 @@ cd Terminal-NetDeck
 | ⌘1…⌘9 | Ir a la pestaña de ese número (⌘9, a la última) |
 | ⇧⌘B | Explorador SFTP al lado del terminal |
 | ⌘F / ⇧⌘F | Buscar en la salida / en todos los registros |
-| ⌘+ / ⌘- / ⌘0 | Agrandar, reducir o devolver la letra a su tamaño |
+| ⌘+ / ⌘- / ⌘0 | Letra de la pestaña más grande / más pequeña / la de siempre (no cambia Ajustes) |
 | Esc o ⌘. | Cortar cualquier secuencia automática |
 | ⌥ + arrastrar | Selección rectangular (sólo esas columnas); ⌘C la copia |
 | ⌘, | Ajustes |

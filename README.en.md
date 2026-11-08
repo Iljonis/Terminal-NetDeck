@@ -199,8 +199,8 @@ name, the app keeps that entry and tells you. External files are not rewritten; 
   without saving.
 - **Import** from SecureCRT, MobaXterm, PuTTY, electerm, CSV or another `ssh_config`; **export** to JSON or CSV.
   Never passwords.
-- **Per-session profiles:** theme, font, size, scrollback, keyboard and prompt as annotations in the `ssh_config`
-  itself (`# @tema`, `# @fuente`, `# @prompt`…); anything you leave out inherits from Settings.
+- **Per-session profiles:** theme, font, size, line spacing, scrollback, keyboard and prompt as annotations in the `ssh_config`
+  itself (`# @tema`, `# @fuente`, `# @interlineado`, `# @prompt`…); anything you leave out inherits from Settings.
 - Tabs share the window's width and, when they don't fit, scroll while keeping the active one in view.
 - The title is just the **destination device** (`core-02`, not `core-02 ⟵ bastion`); the full path shows on hover.
   If you hop from a session to another device, the tab shows it.
@@ -457,7 +457,7 @@ cd Terminal-NetDeck
 | ⌘1…⌘9 | Go to the tab with that number (⌘9, the last one) |
 | ⇧⌘B | SFTP browser next to the terminal |
 | ⌘F / ⇧⌘F | Find in the output / in all logs |
-| ⌘+ / ⌘- / ⌘0 | Make the text bigger, smaller or back to its size |
+| ⌘+ / ⌘- / ⌘0 | Tab text bigger / smaller / back to normal (Settings unchanged) |
 | Esc or ⌘. | Stop any automated sequence |
 | ⌥ + drag | Rectangular selection (just those columns); ⌘C copies it |
 | ⌘, | Settings |

@@ -383,10 +383,21 @@ struct SetupContent: View {
     private var fonts: some View {
         let families = Fonts.monospacedFamilies()
         let rec = wizard.recommendedFonts(model)
+        let family = Fonts.terminalFamily(wizard.terminalFont, theme: wizard.previewTheme(model))
         return VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 14) {
                 picker(L("Terminal"), $wizard.terminalFont, L("Automática (la del tema)"), families + rec.filter { !families.contains($0) })
                 picker(L("Interfaz"), $wizard.uiFont, L("La del tema"), ["system"] + families)
+            }
+            // (la que va a salir no es la pedida: se marca para instalar, o se dice que falta Homebrew)
+            if let wanted = family.wanted, wanted != family.used, !wizard.fontsToInstall.contains(wanted) {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle").foregroundStyle(SwiftUI.Color(t.accent))
+                    Text(L("«\(wanted)» no está instalada: se usa \(family.used ?? L("la monoespaciada del sistema"))")).font(t.ui(11.5))
+                    Spacer()
+                    if wizard.brew { Button(L("Instalar")) { wizard.fontsToInstall.insert(wanted) } }
+                    else { Text(L("falta Homebrew")).font(t.ui(10.5)).foregroundStyle(SwiftUI.Color(t.dim)) }
+                }
             }
             section(L("RECOMENDADAS POR TUS TEMAS"))
             ForEach(rec, id: \.self) { f in
@@ -396,7 +407,7 @@ struct SetupContent: View {
                         .foregroundStyle(SwiftUI.Color(ok ? t.good : t.accent))
                     Text(f).font(ok ? .custom(f, size: 14) : t.ui(13))
                     Spacer()
-                    Text(ok ? "instalada" : (wizard.brew ? L("se instalará con Homebrew") : L("falta Homebrew")))
+                    Text(ok ? L("instalada") : (wizard.brew ? L("se instalará con Homebrew") : L("falta Homebrew")))
                         .font(t.ui(10.5)).foregroundStyle(SwiftUI.Color(t.dim))
                 }
                 .padding(10)
@@ -407,6 +418,9 @@ struct SetupContent: View {
                     if wizard.fontsToInstall.contains(f) { wizard.fontsToInstall.remove(f) } else { wizard.fontsToInstall.insert(f) }
                 }
             }
+        }
+        .onChange(of: wizard.terminalFont) { _, f in
+            if !f.isEmpty, wizard.brew, !Fonts.isInstalled(f) { wizard.fontsToInstall.insert(f) }   // (la elegida, a instalar)
         }
     }
 
@@ -524,7 +538,10 @@ struct SetupContent: View {
             Text(title.uppercased()).font(t.ui(10, .bold)).tracking(2).foregroundStyle(SwiftUI.Color(t.accent2))
             ThemedPicker("", selection: value) { o in
                 o.append(("", auto))
-                for x in options { o.append((x, x == "system" ? L("Monoespaciada del sistema") : x)) }
+                for x in options {
+                    o.append((x, x == "system" ? L("Monoespaciada del sistema")
+                                : Fonts.isInstalled(x) ? x : wizard.brew ? L("\(x) (se instalará)") : L("\(x) (no instalada)")))
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -101,6 +101,14 @@ struct NetDeckCommands: Commands {
         CommandGroup(after: .textEditing) {
             Button(L("Buscar en la salida…")) { onFront { $0.current?.view.showFind() } }.keyboardShortcut("f").disabled(modal)
         }
+        // (menú Ver, como Terminal e iTerm2: la letra de la pestaña elegida, sin tocar Ajustes)
+        CommandGroup(before: .toolbar) {
+            let noTab = modal || model?.current == nil
+            Button(L("Letra más grande")) { onFront { $0.zoomFont(1) } }.keyboardShortcut("+").disabled(noTab)
+            Button(L("Letra más pequeña")) { onFront { $0.zoomFont(-1) } }.keyboardShortcut("-").disabled(noTab)
+            Button(L("Tamaño de letra normal")) { onFront { $0.zoomFont(nil) } }.keyboardShortcut("0").disabled(noTab)
+            Divider()
+        }
         CommandGroup(replacing: .help) {
             Button(L("Abrir el registro de depuración")) {
                 DebugLog.flush()

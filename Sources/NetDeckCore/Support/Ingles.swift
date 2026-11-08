@@ -746,8 +746,6 @@ enum Ingles {
             "system monospaced",
         "Tamaño":
             "Size",
-        "del tema (%@)":
-            "theme's (%@)",
         "%@ pt":
             "%@ pt",
         "core-01(config)# interface xe-0/0/1\nadmin@core-01> show bgp summary | match Estab":
@@ -2396,5 +2394,20 @@ enum Ingles {
             "Off right now: the Mac has “Reduce motion”, “Reduce transparency” or “Increase contrast” turned on (System Settings → Accessibility → Display).",
         "Líneas de barrido, rejilla de píxeles o resplandor encima del texto, como en una pantalla antigua. «Automático» usa el del tema. Es un dibujo fijo: no gasta mientras sale texto y no toca el ratón ni la selección.":
             "Scan lines, a pixel grid or a glow over the text, like an old screen. “Automatic” uses the theme’s. It’s a fixed drawing: it costs nothing while text comes in and doesn’t touch the mouse or the selection.",
+        // 1.0.0 · fuentes
+        "Automático: el del tema (%@ pt)": "Automatic: the theme’s (%@ pt)",
+        "Interlineado": "Line spacing",
+        "Trazo fino (sin suavizado de la letra; se nota en pantallas Retina)":
+            "Thin strokes (no font smoothing; noticeable on Retina displays)",
+        "«%@» no está instalada: se usa %@": "“%@” isn’t installed: using %@",
+        "la monoespaciada del sistema": "the system monospaced font",
+        "interlineado «%@»": "line spacing “%@”",
+        "Letra más grande": "Bigger Text",
+        "Letra más pequeña": "Smaller Text",
+        "Tamaño de letra normal": "Default Text Size",
+        "Letra de la pestaña: %@ pt (la de siempre)": "Tab text: %@ pt (the usual size)",
+        "Letra de la pestaña: %@ pt · ⌘0, la de siempre": "Tab text: %@ pt · ⌘0 for the usual size",
+        "instalada": "installed",
+        "%@ (se instalará)": "%@ (will be installed)",
 ]
 }

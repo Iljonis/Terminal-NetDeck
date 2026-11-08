@@ -69,6 +69,31 @@ import Testing
         #expect(!ajena)                                                   // (no es del perfil)
     }
 
+    /// «# @interlineado»: con punto o coma, dentro de 0,9-1,5; fuera, se ignora (hereda el de Ajustes).
+    @Test func interlineadoPorSesion() {
+        let f = SessionFile(text: """
+            Host core-01
+                # @interlineado 1,2
+                HostName 192.0.2.11
+            Host core-02
+                # @interlineado 3
+                HostName 192.0.2.12
+            """)
+        #expect(f.sessions[0].terminal.lineSpacing == 1.2 && f.sessions[1].terminal.lineSpacing == 0)
+        #expect(f.render().contains("# @interlineado 1.2"))
+        #expect(SessionFile(text: f.render()).sessions == f.sessions)
+        #expect(SSHConfigParser().parse(f.render()).first { $0.name == "core-01" }?.terminal.lineSpacing == 1.2)
+        let e = f.sessions[0].terminal.resolved(theme: "papel", fontFamily: "", fontSize: 0, lineSpacing: 1.1, scrollback: 2_500,
+                                                session: "core-01", themeExists: { _ in true }, fontInstalled: { _ in true })
+        #expect(e.lineSpacing == 1.2)
+        let h = f.sessions[1].terminal.resolved(theme: "papel", fontFamily: "", fontSize: 0, lineSpacing: 1.1, scrollback: 2_500,
+                                                session: "core-02", themeExists: { _ in true }, fontInstalled: { _ in true })
+        #expect(h.lineSpacing == 1.1)
+        var p = TerminalProfile()
+        p.lineSpacing = 2
+        #expect(p.problems().count == 1)
+    }
+
     @Test func vacioHeredaDeAjustes() {
         let e = TerminalProfile().resolved(theme: "papel", fontFamily: "", fontSize: 0, scrollback: 2_500, session: "x",
                                            themeExists: { _ in true }, fontInstalled: { _ in true })
