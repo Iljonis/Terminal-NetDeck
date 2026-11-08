@@ -1,7 +1,7 @@
-# Commodore — Azul violáceo de 8 bits, texto lila y el READY. de siempre, con más contraste (estilo C64).
+# Ocho bits — Azul violáceo de 8 bits, texto lila y el READY. de siempre, con más contraste (estilo C64).
 # Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
 
-nombre    = Commodore
+nombre    = Ocho bits
 grupo     = Ordenadores clásicos
 orden     = 03
 fuentes   = VT323, Space Mono, DotGothic16      # la 1ª es la oficial; las otras, recomendadas

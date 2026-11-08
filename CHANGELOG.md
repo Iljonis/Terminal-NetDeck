@@ -21,7 +21,7 @@ All notable changes to Terminal NetDeck are listed here. The format follows
   tabs, sessions and folders, keyboard navigation in themed menus, status dot shapes with «Differentiate without colour».
 - 33 new themes (85 in all): ten «Neon Glass» themes that blend macOS 26 glass with neon, with a glow and glass
   tinted in the theme's colour (Neón Tokio, Ámbar, Ácido, Ocaso, Corpo, Hielo, Unidad, Zaibatsu, Nocturna, Sección),
-  and five new families: Classic computers (Terminal 3270, Comandante, Commodore, Workbench), Science fiction (Puente
+  and five new families: Classic computers (Terminal 3270, Comandante, Ocho bits, Banco de trabajo), Science fiction (Puente
   de mando, Nostromo, Imperio, HAL), Data centre (Rack, Fibra óptica, NORAD, Consola de rescate), Nature, each in light
   and dark (Aurora boreal, Desierto, Volcán, Arrecife: 8 themes) and Retro video games (Portátil verde, Laboratorio, Arcade).
 - Screen filters over the terminal (CRT, LCD, phosphor, hologram) with an intensity setting, switched or turned off

@@ -252,7 +252,7 @@ original, **NetDeck Cyberpunk**, always there as a fallback.
 | Family | Themes |
 |---|---|
 | **Neon Glass** | Neón Tokio, Ámbar, Ácido, Ocaso, Corpo, Hielo, Unidad, Zaibatsu, Nocturna, Sección |
-| **Classic computers** | Terminal 3270, Comandante, Commodore, Workbench |
+| **Classic computers** | Terminal 3270, Comandante, Ocho bits, Banco de trabajo |
 | **Science fiction** | Puente de mando, Nostromo, Imperio, HAL |
 | **Data centre** | Rack, Fibra óptica, NORAD, Consola de rescate |
 | **Nature** (8 themes) | Aurora boreal light and dark, Desierto light and dark, Volcán light and dark, Arrecife light and dark |

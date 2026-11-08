@@ -20,5 +20,5 @@ mal           = #ff4d4d                  # down, errores, alarmas
 especial      = #ffd166                  # dBm, MAC, rosa/morado
 apagado       = #5d7ab3                  # fechas, descripciones, @ del prompt
 menu          = DEFCON 5                 # texto del botón de menú (arriba a la derecha)
-reloj         = ZULU %H:%M               # formato del reloj (%H:%M = hora:minutos)
+reloj         = NORAD %H:%M              # formato del reloj (%H:%M = hora:minutos)
 ansi          = #0b2a5c, #ff4d4d, #6fe3a0, #ffd166, #7fb2ff, #e08cff, #66e0ff, #dbe8ff, #5d7ab3, #ff7a7a, #93eab8, #ffdc8c, #9fc5ff, #e8a9ff, #8ce8ff, #edf4ff

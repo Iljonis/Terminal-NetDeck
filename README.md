@@ -251,7 +251,7 @@ fuente, pueden **seguir al modo claro u oscuro del Mac**, y **todos pasan una pr
 | Familia | Temas |
 |---|---|
 | **Neon Glass** | Neón Tokio, Ámbar, Ácido, Ocaso, Corpo, Hielo, Unidad, Zaibatsu, Nocturna, Sección |
-| **Ordenadores clásicos** | Terminal 3270, Comandante, Commodore, Workbench |
+| **Ordenadores clásicos** | Terminal 3270, Comandante, Ocho bits, Banco de trabajo |
 | **Ciencia ficción** | Puente de mando, Nostromo, Imperio, HAL |
 | **Centro de datos** | Rack, Fibra óptica, NORAD, Consola de rescate |
 | **Naturaleza** (8 temas) | Aurora boreal claro y oscuro, Desierto claro y oscuro, Volcán claro y oscuro, Arrecife claro y oscuro |
