@@ -1,0 +1,24 @@
+# Arrecife oscuro — Mar profundo de noche: turquesa, coral y peces que brillan.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Arrecife oscuro
+grupo     = Naturaleza
+orden     = 07
+fuentes   = DM Mono, Fira Code, Source Code Pro      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #062a30                  # fondo de la ventana de Terminal
+texto         = #e2f7f4                  # texto normal
+barra         = #042126                  # barra de pestañas y de botones
+panel         = #0c3a42                  # pestañas y botones inactivos
+pestaña       = #ff6f61                  # pestaña activa
+sobre_pestaña = #062a30                  # texto sobre la pestaña activa
+acento        = #4fe0d0                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #ff8f7f                  # IPs, rutas, enlaces
+bien          = #7ee0a0                  # up, established, 0% loss
+mal           = #ff6464                  # down, errores, alarmas
+especial      = #ffb0e0                  # dBm, MAC, rosa/morado
+apagado       = #6a9a9d                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #0c3a42, #ff6464, #7ee0a0, #ffd27a, #7ab8ff, #ffb0e0, #4fe0d0, #d2ebe8, #6a9a9d, #ff8b8b, #9ee8b8, #ffdd9b, #9bcaff, #ffc4e8, #7be8dc, #e8f5f4

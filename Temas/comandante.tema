@@ -1,0 +1,25 @@
+# Comandante — Paneles azules de DOS, texto cian y la barra de teclas de función (estilo Norton Commander).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Comandante
+grupo     = Ordenadores clásicos
+orden     = 02
+fuentes   = VT323, IBM Plex Mono, Share Tech Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 16
+filtro    = crt                        # filtro de pantalla
+
+fondo         = #0000aa                  # fondo de la ventana de Terminal
+texto         = #55ffff                  # texto normal
+barra         = #00007a                  # barra de pestañas y de botones
+panel         = #0000cc                  # pestañas y botones inactivos
+pestaña       = #55ffff                  # pestaña activa
+sobre_pestaña = #000000                  # texto sobre la pestaña activa
+acento        = #ffff55                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #ffffff                  # IPs, rutas, enlaces
+bien          = #55ff55                  # up, established, 0% loss
+mal           = #ff5555                  # down, errores, alarmas
+especial      = #ff55ff                  # dBm, MAC, rosa/morado
+apagado       = #7fb7ff                  # fechas, descripciones, @ del prompt
+menu          = 1Ayuda 2Menú 10Salir     # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #000000, #ff6b6b, #55ff55, #ffff55, #9fb4ff, #ff77ff, #55ffff, #c0c0c0, #7fb7ff, #ff9090, #80ff80, #ffff80, #b7c7ff, #ff99ff, #80ffff, #e0e0e0

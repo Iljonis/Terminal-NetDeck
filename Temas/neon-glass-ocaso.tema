@@ -1,0 +1,29 @@
+# Neón Ocaso — Atardecer synthwave detrás del vidrio: violeta, rosa chicle, sol amarillo y rejilla cian.
+# Temática de la app (estilo «cristal» con alma de neón: barra, pestañas y menús de vidrio; el terminal, casi opaco).
+
+nombre    = Neón Ocaso
+grupo     = Neon Glass
+orden     = 04
+estilo    = cristal
+material  = cristal
+brillo    = sí
+tinte     = #b84dff26
+fuentes   = Martian Mono, Kode Mono, Space Mono      # la 1ª es la oficial; las otras, recomendadas
+fuente_interfaz = sistema
+tamaño    = 14
+
+fondo         = #1a0b2ecc                # violeta noche (cc ≈ 80 %)
+texto         = #ffeefa
+barra         = #2e104f66
+panel         = #46197080
+pestaña       = #ff3cac                  # rosa chicle
+sobre_pestaña = #1a0b2e
+acento        = #ffd319                  # sol amarillo
+acento2       = #2de2e6                  # rejilla cian
+bien          = #72f1b8
+mal           = #fe4450
+especial      = #d58cff
+apagado       = #a385c9
+menu          = ▲ NetDeck
+reloj         = ☼ %H:%M
+ansi          = #34204f, #ff5260, #72f1b8, #ffd319, #6c9bff, #ff5cbd, #2de2e6, #e6d6f5, #7e62a3, #ff7a83, #9df7cf, #ffe066, #9cbcff, #ff8fd2, #7ff0f2, #ffffff

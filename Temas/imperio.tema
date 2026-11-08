@@ -1,0 +1,24 @@
+# Imperio — Gris acero, blanco de armadura y un único rojo imperial (estilo Star Wars).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Imperio
+grupo     = Ciencia ficción
+orden     = 03
+fuentes   = Martian Mono, Azeret Mono, Geist Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #121417                  # fondo de la ventana de Terminal
+texto         = #d8dde3                  # texto normal
+barra         = #1c1f24                  # barra de pestañas y de botones
+panel         = #2a2e35                  # pestañas y botones inactivos
+pestaña       = #c8102e                  # pestaña activa
+sobre_pestaña = #ffffff                  # texto sobre la pestaña activa
+acento        = #e8eaed                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #8fa3b8                  # IPs, rutas, enlaces
+bien          = #7fbf7f                  # up, established, 0% loss
+mal           = #ff3b3b                  # down, errores, alarmas
+especial      = #b0b8c4                  # dBm, MAC, rosa/morado
+apagado       = #7a828c                  # fechas, descripciones, @ del prompt
+menu          = ◤ IMPERIO                # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #1c1f24, #ff3b3b, #7fbf7f, #e0c060, #6f9fdf, #b08fd8, #8fb8c8, #d8dde3, #7a828c, #ff6c6c, #9fcf9f, #e8d088, #93b7e7, #c4abe2, #abcad6, #eceef1

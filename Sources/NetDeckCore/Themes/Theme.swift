@@ -65,7 +65,9 @@ public struct RGB: Hashable, Sendable, CustomStringConvertible {
 
 /// Una temática de NetDeck: el mismo formato .tema («clave = valor  # comentario»), así que las de NetDeck valen tal cual.
 public struct Theme: Identifiable, Hashable, Sendable {
-    public static let groups = ["Cyberpunk", "Sistemas", "Anime y cine", "Kawaii", "Retro", "Sobrias", "Prácticas", "Corporativas"]
+    public static let groups = ["Cyberpunk", "Neon Glass", "Sistemas", "Anime y cine", "Ciencia ficción", "Kawaii", "Retro",
+                                "Ordenadores clásicos", "Videojuegos retro", "Naturaleza", "Sobrias", "Prácticas",
+                                "Centro de datos", "Corporativas"]
     static let colorKeys = ["fondo", "texto", "barra", "panel", "pestaña", "sobre_pestaña", "acento", "acento2", "bien",
                             "mal", "especial", "apagado"]
 
@@ -100,6 +102,10 @@ public struct Theme: Identifiable, Hashable, Sendable {
     public var material: String?
     /// Letra de la interfaz (si no, la del terminal): «sistema» = la del Mac (SF Pro).
     public var uiFonts: [String] = []
+    /// «brillo = sí»: el halo de neón también fuera del estilo neón (los Neon Glass, de cristal).
+    public var glowing = false
+    /// «tinte = #rrggbbaa»: el color del cristal de pestañas y botones (si no, el gris de macOS).
+    public var glassTint: RGB?
     /// Los 16 colores ANSI tal cual (si no, salen de los del tema).
     public var explicitANSI: [RGB]?
     /// «resaltado = green #2ecc71, blue #9b59b6…»: los colores con nombre del resaltado que fija el tema (los demás
@@ -118,6 +124,7 @@ public struct Theme: Identifiable, Hashable, Sendable {
         let bg = background.opaque
         t.background = bg
         t.material = nil
+        t.glassTint = nil                                    // (sin cristal, el relleno de siempre)
         for k in [\Theme.text, \.bar, \.panel, \.tab, \.accent, \.accent2, \.good, \.bad, \.special, \.dim] {
             t[keyPath: k] = self[keyPath: k].over(bg)
         }
@@ -194,6 +201,8 @@ public struct Theme: Identifiable, Hashable, Sendable {
         clock = v["reloj"] ?? "%H:%M"
         style = Style(rawValue: (v["estilo"] ?? "").lowercased().replacingOccurrences(of: "ó", with: "o")) ?? .neon
         material = v["material"].flatMap { ["cristal", "mica"].contains($0.lowercased()) ? $0.lowercased() : nil }
+        glowing = ["sí", "si", "yes", "true", "1"].contains((v["brillo"] ?? "").lowercased())
+        glassTint = v["tinte"].flatMap(RGB.init(hex:))
         uiFonts = (v["fuente_interfaz"] ?? "").split(separator: ",").map { String($0).trimmed }.filter { !$0.isEmpty }
         let ansiList = (v["ansi"] ?? "").split(separator: ",").compactMap { RGB(hex: String($0)) }
         explicitANSI = ansiList.count == 16 ? ansiList : nil

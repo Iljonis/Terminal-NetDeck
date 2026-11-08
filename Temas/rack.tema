@@ -1,0 +1,24 @@
+# Rack — Chapa negra de armario y los LEDs de los equipos: verde enlace, ámbar actividad, rojo fallo.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Rack
+grupo     = Centro de datos
+orden     = 01
+fuentes   = JetBrains Mono, Fira Code, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #0d0f10                  # fondo de la ventana de Terminal
+texto         = #cfd6d9                  # texto normal
+barra         = #15181a                  # barra de pestañas y de botones
+panel         = #202427                  # pestañas y botones inactivos
+pestaña       = #39d353                  # pestaña activa
+sobre_pestaña = #0d0f10                  # texto sobre la pestaña activa
+acento        = #39d353                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #ffb020                  # IPs, rutas, enlaces
+bien          = #39d353                  # up, established, 0% loss
+mal           = #ff4040                  # down, errores, alarmas
+especial      = #4fa8ff                  # dBm, MAC, rosa/morado
+apagado       = #6b7378                  # fechas, descripciones, @ del prompt
+menu          = ▮▮ RACK 42U              # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #202427, #ff4040, #39d353, #ffb020, #4fa8ff, #c07cff, #3fd0d0, #cfd6d9, #6b7378, #ff7070, #6ade7e, #ffc458, #7bbeff, #d09dff, #6fdcdc, #e7eaec

@@ -1,0 +1,25 @@
+# Arcade — Recreativa de los 80: negro, colores puros y la puntuación arriba.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Arcade
+grupo     = Videojuegos retro
+orden     = 03
+fuentes   = DotGothic16, VT323, Kode Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 15
+filtro    = crt                        # filtro de pantalla
+
+fondo         = #000000                  # fondo de la ventana de Terminal
+texto         = #ffffff                  # texto normal
+barra         = #0a0a0a                  # barra de pestañas y de botones
+panel         = #1a1a1a                  # pestañas y botones inactivos
+pestaña       = #ffde00                  # pestaña activa
+sobre_pestaña = #000000                  # texto sobre la pestaña activa
+acento        = #00ffff                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #ff00ff                  # IPs, rutas, enlaces
+bien          = #00ff00                  # up, established, 0% loss
+mal           = #ff0000                  # down, errores, alarmas
+especial      = #ff8800                  # dBm, MAC, rosa/morado
+apagado       = #8080ff                  # fechas, descripciones, @ del prompt
+menu          = 1UP 000100               # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #1a1a1a, #ff2020, #00ff00, #ffde00, #4a6aff, #ff00ff, #00ffff, #ffffff, #8080ff, #ff5858, #40ff40, #ffe640, #778fff, #ff40ff, #40ffff, #ffffff

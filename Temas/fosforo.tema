@@ -6,6 +6,7 @@ grupo     = Retro
 orden     = 17
 fuentes   = VT323, Doto, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
 tamaño    = 17
+filtro    = fosforo                    # filtro de pantalla
 
 fondo         = #030a04                  # fondo de la ventana de Terminal
 texto         = #7dff9a                  # texto normal

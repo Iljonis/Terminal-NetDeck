@@ -1,0 +1,24 @@
+# Aurora boreal clara — La misma aurora de día, sobre nieve: pareja de Aurora boreal oscura (ideal en modo Auto).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Aurora boreal clara
+grupo     = Naturaleza
+orden     = 02
+fuentes   = Geist Mono, JetBrains Mono, Fira Code      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #eef6fb                  # fondo de la ventana de Terminal
+texto         = #0f2533                  # texto normal
+barra         = #e0ecf4                  # barra de pestañas y de botones
+panel         = #d2e2ec                  # pestañas y botones inactivos
+pestaña       = #0b7a57                  # pestaña activa
+sobre_pestaña = #ffffff                  # texto sobre la pestaña activa
+acento        = #0b7a57                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #6a3fd1                  # IPs, rutas, enlaces
+bien          = #137a4a                  # up, established, 0% loss
+mal           = #c62850                  # down, errores, alarmas
+especial      = #b0307f                  # dBm, MAC, rosa/morado
+apagado       = #5a7488                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #0f2533, #c62850, #137a4a, #8a6a00, #1f5fbf, #6a3fd1, #0b6e85, #5a7488, #5a7488, #941e3c, #0e5c38, #685000, #17478f, #502f9d, #085264, #0f2533

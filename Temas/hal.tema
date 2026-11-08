@@ -1,0 +1,24 @@
+# HAL — Negro absoluto, blanco limpio y el ojo rojo que todo lo ve (estilo 2001).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = HAL
+grupo     = Ciencia ficción
+orden     = 04
+fuentes   = Red Hat Mono, Geist Mono, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #000000                  # fondo de la ventana de Terminal
+texto         = #e6e6e6                  # texto normal
+barra         = #0a0a0a                  # barra de pestañas y de botones
+panel         = #161616                  # pestañas y botones inactivos
+pestaña       = #ff1a1a                  # pestaña activa
+sobre_pestaña = #000000                  # texto sobre la pestaña activa
+acento        = #ff1a1a                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #ffffff                  # IPs, rutas, enlaces
+bien          = #9ad19a                  # up, established, 0% loss
+mal           = #ff1a1a                  # down, errores, alarmas
+especial      = #ff8080                  # dBm, MAC, rosa/morado
+apagado       = #6e6e6e                  # fechas, descripciones, @ del prompt
+menu          = ● HAL 9000               # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #161616, #ff3030, #9ad19a, #e6c84a, #6aa0ff, #ff80b0, #80d0e0, #e6e6e6, #6e6e6e, #ff6464, #b3dcb3, #ecd677, #8fb8ff, #ffa0c4, #a0dce8, #f2f2f2

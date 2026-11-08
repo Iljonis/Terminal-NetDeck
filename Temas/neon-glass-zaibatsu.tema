@@ -1,0 +1,29 @@
+# Neón Zaibatsu — Cristal negro mate de sala de juntas: carmesí, blanco y rótulos en kanji (estilo Arasaka).
+# Temática de la app (estilo «cristal» sobrio: vidrio oscuro y poco teñido; el terminal, casi opaco).
+
+nombre    = Neón Zaibatsu
+grupo     = Neon Glass
+orden     = 08
+estilo    = cristal
+material  = cristal
+brillo    = sí
+tinte     = #b3001b14                    # 14 ≈ 8 %: apenas un velo carmesí
+fuentes   = Azeret Mono, Red Hat Mono, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
+fuente_interfaz = sistema
+tamaño    = 14
+
+fondo         = #070707e0                # negro mate (e0 ≈ 88 %: más oscuro y menos vidrio que Neón Corpo)
+texto         = #ececec
+barra         = #0d0d0d8c                # (8c ≈ 55 %: vidrio ahumado, casi sin color)
+panel         = #1c1c1e99
+pestaña       = #b3001b                  # carmesí
+sobre_pestaña = #ffffff
+acento        = #ffffff                  # blanco
+acento2       = #e0304a                  # carmesí claro
+bien          = #8fcf9f
+mal           = #ff4d5e
+especial      = #c9a227                  # oro viejo
+apagado       = #7c7c82
+menu          = ■ 財閥 · NetDeck
+reloj         = 本社 %H:%M
+ansi          = #1f1f22, #e0304a, #8fcf9f, #d9b44a, #7f9fd9, #c77d9f, #7fbfc4, #d4d4d8, #5c5c62, #ff5c6e, #b0e6bd, #ecd27f, #a6bff0, #e0a6c2, #a6dde0, #ffffff

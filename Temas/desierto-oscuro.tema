@@ -1,0 +1,24 @@
+# Desierto oscuro — Dunas de noche: arena tostada, brasas de hoguera y cielo turquesa.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Desierto oscuro
+grupo     = Naturaleza
+orden     = 03
+fuentes   = Courier Prime, Source Code Pro, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #1c140d                  # fondo de la ventana de Terminal
+texto         = #f0e2c8                  # texto normal
+barra         = #140e08                  # barra de pestañas y de botones
+panel         = #2a1f15                  # pestañas y botones inactivos
+pestaña       = #e0703a                  # pestaña activa
+sobre_pestaña = #1c140d                  # texto sobre la pestaña activa
+acento        = #f0a050                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #6fc0d8                  # IPs, rutas, enlaces
+bien          = #a8c060                  # up, established, 0% loss
+mal           = #ff6a50                  # down, errores, alarmas
+especial      = #d89adf                  # dBm, MAC, rosa/morado
+apagado       = #8a7357                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #2a1f15, #ff6a50, #a8c060, #f0c060, #7aa8e0, #d89adf, #6fc0d8, #e0d2b8, #8a7357, #ff8f7c, #bed088, #f4d088, #9bbee8, #e2b3e7, #93d0e2, #f0e8dc

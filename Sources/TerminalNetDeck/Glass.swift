@@ -3,8 +3,9 @@ import SwiftUI
 
 // Liquid Glass de macOS 26 en las piezas que flotan sobre la barra (botones de icono, pestañas, «VISTA» y el menú «+»),
 // sólo con los temas de cristal. Lo elegido o activo va opaco (sobre cristal teñido no se leía) y el aviso también (flota
-// sobre el terminal). El terminal nunca: su fondo sigue siendo el del tema. En macOS 15, con otro tema o con «Reducir
-// transparencia» / «Aumentar contraste», todo queda como antes (el fondo de siempre).
+// sobre el terminal); con «tinte», el cristal va teñido del color del tema. El terminal nunca: su fondo sigue siendo el
+// del tema. En macOS 15, con otro tema o con «Reducir transparencia» / «Aumentar contraste», todo queda como antes (el
+// fondo de siempre).
 
 extension Theme {
     /// Cristal de verdad: macOS 26, un tema «cristal» y transparente (con Accesibilidad, `ThemeStore` ya lo da opaco).
@@ -59,6 +60,7 @@ extension View {
 
 private struct NetDeckGlass<S: Shape, F: ShapeStyle>: ViewModifier {
     @Environment(\.glassOn) private var on
+    @Environment(\.theme) private var t
     let shape: S
     let active: Bool
     let interactive: Bool
@@ -67,8 +69,10 @@ private struct NetDeckGlass<S: Shape, F: ShapeStyle>: ViewModifier {
     func body(content: Content) -> some View {
         if #available(macOS 26, *), on {
             // (la misma vista al encenderse o apagarse: `.identity` es sin cristal, y debajo el relleno de siempre)
+            // (con «tinte», teñido del color del tema)
+            let glass = t.glassTint.map { Glass.regular.tint(SwiftUI.Color($0)) } ?? .regular
             content.background(shape.fill(fallback).opacity(active ? 1 : 0))
-                .glassEffect(active ? .identity : interactive ? .regular.interactive() : .regular, in: shape)
+                .glassEffect(active ? .identity : interactive ? glass.interactive() : glass, in: shape)
         } else {
             content.background(shape.fill(fallback))
         }

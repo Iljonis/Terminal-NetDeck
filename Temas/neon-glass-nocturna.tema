@@ -1,0 +1,29 @@
+# Neón Nocturna — Ciudad nocturna tras el vidrio: pestaña amarillo eléctrico, interfaces cian y rótulos rojos (estilo Night City).
+# Temática de la app (estilo «cristal» con alma de neón: barra, pestañas y menús de vidrio; el terminal, casi opaco).
+
+nombre    = Neón Nocturna
+grupo     = Neon Glass
+orden     = 09
+estilo    = cristal
+material  = cristal
+brillo    = sí
+tinte     = #fcee0a1a                    # 1a ≈ 10 %
+fuentes   = Kode Mono, JetBrains Mono, Space Mono      # la 1ª es la oficial; las otras, recomendadas
+fuente_interfaz = sistema
+tamaño    = 14
+
+fondo         = #0b0608cc                # negro con un punto de rojo (cc ≈ 80 %)
+texto         = #fff4e8
+barra         = #2a0a1266                # vidrio rojizo
+panel         = #3a101c80
+pestaña       = #fcee0a                  # amarillo eléctrico (en Cyber Neón, la pestaña es cian)
+sobre_pestaña = #0b0608
+acento        = #00f0ff                  # cian
+acento2       = #ff6a6a                  # rojo de rótulo
+bien          = #1affa0
+mal           = #ff1f3d
+especial      = #ff4fd8
+apagado       = #9a7f86
+menu          = ▰ NetDeck
+reloj         = NC %H:%M
+ansi          = #2a1a20, #ff1f3d, #1affa0, #fcee0a, #5aa8ff, #ff4fd8, #00f0ff, #e6dcdf, #6e5a62, #ff5c70, #6fffc4, #fff56b, #8cc4ff, #ff8ae4, #6ff6ff, #ffffff

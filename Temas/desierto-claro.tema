@@ -1,0 +1,24 @@
+# Desierto claro — Arena al sol, terracota y sombra de palmera: pareja de Desierto oscuro (ideal en modo Auto).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Desierto claro
+grupo     = Naturaleza
+orden     = 04
+fuentes   = Courier Prime, Source Code Pro, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #f4e6cf                  # fondo de la ventana de Terminal
+texto         = #3b2a1a                  # texto normal
+barra         = #ead8bb                  # barra de pestañas y de botones
+panel         = #e0cba8                  # pestañas y botones inactivos
+pestaña       = #b54f22                  # pestaña activa
+sobre_pestaña = #ffffff                  # texto sobre la pestaña activa
+acento        = #9a3f12                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #1f6f8b                  # IPs, rutas, enlaces
+bien          = #4f6f1a                  # up, established, 0% loss
+mal           = #b3261e                  # down, errores, alarmas
+especial      = #7a3f8f                  # dBm, MAC, rosa/morado
+apagado       = #85694d                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #3b2a1a, #b3261e, #4f6f1a, #845a00, #2a5a9a, #7a3f8f, #1f6f8b, #85694d, #85694d, #861c16, #3b5314, #634400, #204474, #5c2f6b, #175368, #3b2a1a

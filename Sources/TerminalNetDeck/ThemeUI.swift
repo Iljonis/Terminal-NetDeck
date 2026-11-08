@@ -90,8 +90,10 @@ extension Theme {
     }
 
     var neon: Bool { style == .neon }
-    /// Brillo de neón (sólo en el estilo de NetDeck).
-    func glow(_ r: CGFloat) -> CGFloat { neon ? r : 0 }
+    /// Con halo de neón: el estilo de NetDeck o un tema con «brillo = sí» (los Neon Glass).
+    var glows: Bool { neon || glowing }
+    /// Brillo de neón (en el estilo de NetDeck o con «brillo = sí»).
+    func glow(_ r: CGFloat) -> CGFloat { glows ? r : 0 }
     /// Esquinas: chaflán cyberpunk o redondeadas (cristal: más; fluent: 6).
     var corner: CGFloat? {
         switch style {
@@ -211,11 +213,17 @@ struct NeonLabel: View {
             shape.fill(active ? c : SwiftUI.Color(t.panel).opacity(hover ? 0.9 : 0.55))
         case .glass:
             if active { shape.fill(c) } else {
-                shape.fill(.ultraThinMaterial).overlay(shape.fill(SwiftUI.Color.white.opacity(hover ? 0.14 : 0.06)))
+                shape.fill(.ultraThinMaterial).overlay(shape.fill(glassFill))
             }
         case .fluent:
             shape.fill(active ? c : SwiftUI.Color(t.panel).opacity(hover ? 1 : 0.75))
         }
+    }
+
+    /// El velo del vidrio: con «tinte», el color del tema (algo más al pasar por encima); si no, el blanco de siempre.
+    private var glassFill: SwiftUI.Color {
+        guard let tint = t.glassTint else { return SwiftUI.Color.white.opacity(hover ? 0.14 : 0.06) }
+        return SwiftUI.Color(tint.alpha(min(tint.a + (hover ? 0.08 : 0), 1)))
     }
 
     private func border(_ c: SwiftUI.Color) -> SwiftUI.Color {

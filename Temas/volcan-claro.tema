@@ -1,0 +1,24 @@
+# Volcán claro — Ceniza clara y piedra pómez con la lava en los acentos: pareja de Volcán oscuro (ideal en modo Auto).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Volcán claro
+grupo     = Naturaleza
+orden     = 06
+fuentes   = Martian Mono, JetBrains Mono, Fira Code      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #f6efea                  # fondo de la ventana de Terminal
+texto         = #2a1d18                  # texto normal
+barra         = #ece2db                  # barra de pestañas y de botones
+panel         = #e2d4ca                  # pestañas y botones inactivos
+pestaña       = #b8390b                  # pestaña activa
+sobre_pestaña = #ffffff                  # texto sobre la pestaña activa
+acento        = #b33a0b                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #7a5200                  # IPs, rutas, enlaces
+bien          = #3f7a1e                  # up, established, 0% loss
+mal           = #b3121f                  # down, errores, alarmas
+especial      = #a3326f                  # dBm, MAC, rosa/morado
+apagado       = #7f6a60                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #2a1d18, #b3121f, #3f7a1e, #7a5200, #2a5a9a, #a3326f, #1f6f75, #7f6a60, #7f6a60, #860e17, #2f5c16, #5c3e00, #204474, #7a2653, #175358, #2a1d18

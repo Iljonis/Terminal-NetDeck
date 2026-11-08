@@ -1,0 +1,25 @@
+# Nostromo — Monitor de fósforo verde de la nave y avisos en ámbar (estilo Alien).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Nostromo
+grupo     = Ciencia ficción
+orden     = 02
+fuentes   = VT323, Share Tech Mono, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 16
+filtro    = fosforo                    # filtro de pantalla
+
+fondo         = #050806                  # fondo de la ventana de Terminal
+texto         = #8cff9e                  # texto normal
+barra         = #0a120c                  # barra de pestañas y de botones
+panel         = #13201a                  # pestañas y botones inactivos
+pestaña       = #ffb000                  # pestaña activa
+sobre_pestaña = #050806                  # texto sobre la pestaña activa
+acento        = #ffb000                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #7ae6ff                  # IPs, rutas, enlaces
+bien          = #8cff9e                  # up, established, 0% loss
+mal           = #ff5a3c                  # down, errores, alarmas
+especial      = #ffd27a                  # dBm, MAC, rosa/morado
+apagado       = #3f7f4f                  # fechas, descripciones, @ del prompt
+menu          = MU/TH/UR 6000            # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #0a120c, #ff5a3c, #8cff9e, #ffb000, #6fa8ff, #ff8cd9, #7ae6ff, #cfe8d4, #3f7f4f, #ff836d, #a9ffb6, #ffc440, #93beff, #ffa9e2, #9becff, #e7f4ea

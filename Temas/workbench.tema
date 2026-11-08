@@ -1,0 +1,25 @@
+# Workbench — Escritorio azul, ventanas blancas y el naranja de los iconos (estilo Amiga Workbench).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Workbench
+grupo     = Ordenadores clásicos
+orden     = 04
+fuentes   = Space Mono, VT323, IBM Plex Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 15
+filtro    = crt                        # filtro de pantalla
+
+fondo         = #0055aa                  # fondo de la ventana de Terminal
+texto         = #ffffff                  # texto normal
+barra         = #0044aa                  # barra de pestañas y de botones
+panel         = #0066cc                  # pestañas y botones inactivos
+pestaña       = #ff8800                  # pestaña activa
+sobre_pestaña = #000022                  # texto sobre la pestaña activa
+acento        = #ffaa33                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #ffffff                  # IPs, rutas, enlaces
+bien          = #7dffa0                  # up, established, 0% loss
+mal           = #ff8a8a                  # down, errores, alarmas
+especial      = #ffcc66                  # dBm, MAC, rosa/morado
+apagado       = #a8c8f0                  # fechas, descripciones, @ del prompt
+menu          = ☰ Workbench              # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #000022, #ff8a8a, #7dffa0, #ffcc66, #b0d0ff, #ffa8ee, #7fe8ff, #e0e0e0, #a8c8f0, #ffa7a7, #9effb8, #ffd98c, #c4dcff, #ffbef2, #9feeff, #f0f0f0

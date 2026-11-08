@@ -1,0 +1,24 @@
+# NORAD — Pantallas de mando de la Guerra Fría: azul profundo, blanco y la alerta en DEFCON (estilo WarGames).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = NORAD
+grupo     = Centro de datos
+orden     = 03
+fuentes   = VT323, IBM Plex Mono, Share Tech Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 16
+
+fondo         = #04122b                  # fondo de la ventana de Terminal
+texto         = #dbe8ff                  # texto normal
+barra         = #061a3d                  # barra de pestañas y de botones
+panel         = #0b2a5c                  # pestañas y botones inactivos
+pestaña       = #ffffff                  # pestaña activa
+sobre_pestaña = #04122b                  # texto sobre la pestaña activa
+acento        = #7fb2ff                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #ffffff                  # IPs, rutas, enlaces
+bien          = #6fe3a0                  # up, established, 0% loss
+mal           = #ff4d4d                  # down, errores, alarmas
+especial      = #ffd166                  # dBm, MAC, rosa/morado
+apagado       = #5d7ab3                  # fechas, descripciones, @ del prompt
+menu          = DEFCON 5                 # texto del botón de menú (arriba a la derecha)
+reloj         = ZULU %H:%M               # formato del reloj (%H:%M = hora:minutos)
+ansi          = #0b2a5c, #ff4d4d, #6fe3a0, #ffd166, #7fb2ff, #e08cff, #66e0ff, #dbe8ff, #5d7ab3, #ff7a7a, #93eab8, #ffdc8c, #9fc5ff, #e8a9ff, #8ce8ff, #edf4ff

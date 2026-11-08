@@ -1,0 +1,25 @@
+# Terminal 3270 — Pantalla verde de mainframe, campos en cian y avisos en amarillo (estilo IBM 3270).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Terminal 3270
+grupo     = Ordenadores clásicos
+orden     = 01
+fuentes   = VT323, IBM Plex Mono, Share Tech Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 16
+filtro    = fosforo                    # filtro de pantalla
+
+fondo         = #000000                  # fondo de la ventana de Terminal
+texto         = #33ff66                  # texto normal
+barra         = #0a0a0a                  # barra de pestañas y de botones
+panel         = #141414                  # pestañas y botones inactivos
+pestaña       = #33ff66                  # pestaña activa
+sobre_pestaña = #000000                  # texto sobre la pestaña activa
+acento        = #00e5ff                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #ffff40                  # IPs, rutas, enlaces
+bien          = #33ff66                  # up, established, 0% loss
+mal           = #ff4040                  # down, errores, alarmas
+especial      = #ff66cc                  # dBm, MAC, rosa/morado
+apagado       = #2f8f4f                  # fechas, descripciones, @ del prompt
+menu          = ▌3270                    # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #000000, #ff4040, #33ff66, #ffff40, #5c8aff, #ff66cc, #00e5ff, #e0e0e0, #2f8f4f, #ff7070, #66ff8c, #ffff70, #85a7ff, #ff8cd9, #40ecff, #f0f0f0

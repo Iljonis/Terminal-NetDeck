@@ -6,6 +6,7 @@ grupo     = Retro
 orden     = 18
 fuentes   = Sometype Mono, VT323, Courier Prime      # la 1ª es la oficial; las otras, recomendadas
 tamaño    = 14
+filtro    = fosforo                    # filtro de pantalla
 
 fondo         = #0d0700                  # fondo de la ventana de Terminal
 texto         = #ffc66d                  # texto normal
