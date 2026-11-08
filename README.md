@@ -16,7 +16,7 @@ código abierto (MIT)
 [![Descargas](https://img.shields.io/github/downloads/Iljonis/Terminal-NetDeck/total?label=descargas&color=5ce1f0)](https://github.com/Iljonis/Terminal-NetDeck/releases)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
-[![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
+[![Swift 6.2](https://img.shields.io/badge/Swift-6.2-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
 [![macOS 15+](https://img.shields.io/badge/macOS-15%2B-000000.svg?logo=apple&logoColor=white)](https://www.apple.com/macos/)
 
 **Español** · [English](README.en.md)
@@ -295,7 +295,8 @@ remoto; iTerm2 es un gran terminal local. Lo propio de Terminal NetDeck:
 ## Requisitos y compatibilidad
 
 - macOS Sequoia (15.0) o posterior.
-- Para compilar desde el código: Swift 6 (Xcode o Command Line Tools).
+- Para compilar desde el código: Swift 6.2 o posterior (Xcode 26 o sus Command Line Tools, que piden macOS 15.6 o
+  posterior). La app compilada funciona desde macOS 15.0.
 
 ## Instalación y primer uso en macOS 15 (Sequoia)
 
@@ -336,7 +337,7 @@ arrancar faltara el archivo de sesiones o su `Include`, la app los recupera sola
   ```
 
 <details>
-<summary><b>Instalar desde el código</b> (macOS 15+ y Swift 6)</summary>
+<summary><b>Instalar desde el código</b> (macOS 15.6+ y Swift 6.2)</summary>
 
 ```bash
 xcode-select --install          # si no tienes Xcode ni las Command Line Tools

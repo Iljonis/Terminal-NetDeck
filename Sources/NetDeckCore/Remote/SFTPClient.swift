@@ -23,8 +23,9 @@ public actor SFTPFileSystem: RemoteFileSystem {
         self.process = process
     }
 
-    /// Arranca ssh y hace el saludo de SFTP (versión 3).
-    public static func connect(label: String, executable: String, arguments: [String],
+    /// Arranca ssh y hace el saludo de SFTP (versión 3). (`@concurrent`: el arranque de ssh, fuera del actor de quien
+    /// llama, como antes de `NonisolatedNonsendingByDefault`.)
+    @concurrent public static func connect(label: String, executable: String, arguments: [String],
                                environment: [String: String]) async throws -> SFTPFileSystem {
         let p = try ChildProcess(executable: executable, arguments: arguments, environment: environment)
         let fs = SFTPFileSystem(label: label, process: p)

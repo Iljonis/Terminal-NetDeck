@@ -31,8 +31,9 @@ public struct TransferDigest: Sendable {
     public static let progressStep: Int64 = 1 << 20
 
     /// El MD5 de todo lo que dé `reader` (y lo cierra). `progress`: los bytes leídos hasta ahora (cada `progressStep`
-    /// y al final). Cancelado, para en el siguiente trozo y cierra el lector.
-    public static func of(_ reader: any RemoteReader, progress: @Sendable (Int64) -> Void = { _ in }) async throws -> String {
+    /// y al final). Cancelado, para en el siguiente trozo y cierra el lector. (`@concurrent`: el cálculo, fuera del
+    /// actor de quien llama; si no, con `NonisolatedNonsendingByDefault` se haría en el principal.)
+    @concurrent public static func of(_ reader: any RemoteReader, progress: @Sendable (Int64) -> Void = { _ in }) async throws -> String {
         var d = TransferDigest()
         var read: Int64 = 0, told: Int64 = 0
         do {

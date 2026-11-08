@@ -52,8 +52,9 @@ public enum RemoteEdit {
     public static func isText(_ d: Data) -> Bool { !d.contains(0) }
 
     /// Baja `path` a una carpeta nueva (0700) dentro de `folder`, con el mismo nombre (0600). Sólo archivos normales, de
-    /// texto y de hasta `maxSize`.
-    public static func download(_ fs: any RemoteFileSystem, _ path: String, into folder: URL,
+    /// texto y de hasta `maxSize`. (`@concurrent`, igual que `upload` y `uploadCopy`: leer, comprobar y escribir la
+    /// copia, fuera del hilo principal; con `NonisolatedNonsendingByDefault` se harían en el actor de quien llama.)
+    @concurrent public static func download(_ fs: any RemoteFileSystem, _ path: String, into folder: URL,
                                 maxSize: Int64 = RemoteEdit.maxSize) async throws -> RemoteEditFile {
         try Task.checkCancellation()
         let name = RemotePath.name(path)
@@ -91,7 +92,7 @@ public enum RemoteEdit {
     /// Sube con temporal y MD5 comprobado. Sin `force`, comprueba la versión antes del envío y en el archivo apartado
     /// al reemplazar en backends con rename sin sobrescritura. FTP/RNTO exige confirmar `force`:
     /// comprobar el MD5 y luego renombrar no equivale a un reemplazo condicional atómico.
-    public static func upload(_ fs: any RemoteFileSystem, _ file: RemoteEditFile, force: Bool = false) async throws -> UploadResult {
+    @concurrent public static func upload(_ fs: any RemoteFileSystem, _ file: RemoteEditFile, force: Bool = false) async throws -> UploadResult {
         let data = try readLocal(file)
         let md5 = TransferDigest.hexOf(data)
         if !force {
@@ -116,7 +117,7 @@ public enum RemoteEdit {
 
     /// Copia con UUID y publicación exclusiva: una aparición concurrente nunca se reemplaza, ni se aparta.
     /// FTP/RNTO no lo garantiza: se rechaza antes de escribir y se conserva la copia local.
-    public static func uploadCopy(_ fs: any RemoteFileSystem, _ file: RemoteEditFile, date: Date = Date()) async throws -> (path: String, file: RemoteEditFile) {
+    @concurrent public static func uploadCopy(_ fs: any RemoteFileSystem, _ file: RemoteEditFile, date: Date = Date()) async throws -> (path: String, file: RemoteEditFile) {
         guard fs.renameDoesNotOverwrite else {
             throw RemoteError(L("Este servidor no permite guardar una copia sin riesgo de sobrescribir otro archivo. Tu copia local se conserva."))
         }

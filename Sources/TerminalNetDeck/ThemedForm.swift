@@ -180,8 +180,6 @@ struct ThemedTextFieldStyle: TextFieldStyle {
         @Environment(\.theme) private var t
         @FocusState private var focused: Bool
 
-        nonisolated init() {}
-
         func body(content: Content) -> some View {
             content
                 .textFieldStyle(.plain)

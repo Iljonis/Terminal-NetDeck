@@ -5,7 +5,7 @@ import Observation
 import SwiftTerm
 
 /// Salidas del equipo: lo sube la cola de salida, lo lee el principal.
-final class OutputCounter: @unchecked Sendable {
+nonisolated final class OutputCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var n = 0
     private var feeds = 0
@@ -35,8 +35,9 @@ final class OutputCounter: @unchecked Sendable {
 }
 
 /// Proceso (o canal SSH) → registro → resaltado (tipo ChromaTerm) → terminal, en su propia cola: una salida enorme no
-/// frena la interfaz.
-final class OutputPipe: LocalProcessDelegate, @unchecked Sendable {
+/// frena la interfaz. (`nonisolated`: `LocalProcess` llama al delegado desde su cola; con el principal por defecto
+/// sería una conformidad aislada y la llamada fuera del principal fallaría al ejecutarse.)
+nonisolated final class OutputPipe: LocalProcessDelegate, @unchecked Sendable {
     let queue = DispatchQueue(label: "netdeck.salida", qos: .userInteractive)
     let highlighter = Highlighter()
     let counter = OutputCounter()

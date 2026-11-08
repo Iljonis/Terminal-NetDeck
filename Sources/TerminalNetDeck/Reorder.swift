@@ -59,7 +59,7 @@ extension View {
         let dragging = row.dragging == id
         let decorated = offset(x: dragging ? row.offset : 0)
             // (el marco, el de su sitio en la fila: sin el desplazamiento del arrastre, que si no se realimenta)
-            .reportFrame(in: .named(space)) { row.frames[id] = $0 }
+            .reportFrame(in: space) { row.frames[id] = $0 }
             .onDisappear { row.frames[id] = nil }
             .zIndex(dragging ? 1 : 0)
             .shadow(color: .black.opacity(dragging ? 0.35 : 0), radius: 6, y: 2)
@@ -81,14 +81,15 @@ extension View {
     /// Con el ratón de verdad no basta con decidirlo al pulsar: el WindowServer arrastra la ventana (y en «Rellenar» la
     /// suelta de la pantalla) antes de que llegue el clic. Por eso deja de ser movible en cuanto el puntero entra.
     func keepsWindowStill(_ model: AppModel, _ key: String) -> some View {
-        reportFrame(in: .global) { model.stillZones[key] = $0 }
+        reportFrame(in: nil) { model.stillZones[key] = $0 }
             .background(StillZoneTracker { model.pointerInStillZone(key, $0) })
             .onDisappear { model.stillZones[key] = nil; model.pointerInStillZone(key, false) }
     }
 
-    /// El marco al aparecer y cada vez que cambia.
-    fileprivate func reportFrame(in space: some CoordinateSpaceProtocol, _ report: @escaping (CGRect) -> Void) -> some View {
-        onGeometryChange(for: CGRect.self) { $0.frame(in: space) } action: { report($0) }
+    /// El marco al aparecer y cada vez que cambia, en el espacio `space` (`.named`) o, con nil, en la pantalla. (Un
+    /// UUID y no un `CoordinateSpaceProtocol`: el cálculo es `@Sendable` y los de SwiftUI no lo son.)
+    fileprivate func reportFrame(in space: UUID?, _ report: @escaping (CGRect) -> Void) -> some View {
+        onGeometryChange(for: CGRect.self) { g in space.map { g.frame(in: .named($0)) } ?? g.frame(in: .global) } action: { report($0) }
     }
 }
 
