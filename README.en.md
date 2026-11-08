@@ -15,7 +15,7 @@ open source (MIT)
 [![Version](https://img.shields.io/badge/version-v0.9.12-ff2e88.svg)](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.12)
 [![Tests](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml/badge.svg)](https://github.com/Iljonis/Terminal-NetDeck/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
+[![Swift 6.2](https://img.shields.io/badge/Swift-6.2-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
 [![macOS 15+](https://img.shields.io/badge/macOS-15%2B-000000.svg?logo=apple&logoColor=white)](https://www.apple.com/macos/)
 
 [Español](README.md) · **English**
@@ -172,7 +172,8 @@ that into one macOS app, built around one idea: **it should never play a trick o
 ## Requirements & compatibility
 
 - macOS Sequoia (15.0) or later.
-- To build from source: Swift 6 (Xcode or Command Line Tools).
+- To build from source: Swift 6.2 or later (Xcode 26 or its Command Line Tools, which need macOS 15.6 or later).
+  The built app runs on macOS 15.0 and later.
 
 ## Installation & First Run on macOS 15 (Sequoia)
 
@@ -213,7 +214,7 @@ file or its `Include` were ever missing at launch, the app restores them on its 
   ```
 
 <details>
-<summary><b>Install from source</b> (macOS 15+ and Swift 6)</summary>
+<summary><b>Install from source</b> (macOS 15.6+ and Swift 6.2)</summary>
 
 ```bash
 xcode-select --install          # if you have neither Xcode nor the Command Line Tools
