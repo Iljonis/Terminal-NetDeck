@@ -9,7 +9,7 @@ SFTP/FTP browser and output highlighting for Cisco, Juniper, Huawei and Nokia. F
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v0.9.12](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.12)** · macOS 15 or later ·
+Current version: **[v0.9.13](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v0.9.13)** · macOS 15 or later ·
 open source (MIT)
 
 [![Latest release](https://img.shields.io/github/v/release/Iljonis/Terminal-NetDeck?label=version&color=ff2e88)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
@@ -42,25 +42,14 @@ that into one macOS app, built around one idea: **it should never play a trick o
 - When something goes wrong (a password fails, a server stops answering, a copy breaks off), the app stops, tells
   you, and keeps whatever copies may need recovering.
 
-## New in 0.9.12
+## New in 0.9.13
 
-- **Review before pasting:** pasting more than 3 lines (or anything with dangerous commands) opens a window to review
-  the text. **Return** pastes and **Esc** cancels; it is pasted whole and in one go, as usual, so a full configuration
-  goes in without limits. Turn it off or change the number of lines in **Settings → Terminal → Paste**. It does not
-  show up while the device is asking for a password.
-- **Safer MultiExec and buttons:** a `reload`, `clear ip bgp *` or `write erase` typed with MultiExec asks before it
-  goes to several tabs, and buttons with dangerous commands ask for confirmation.
-- **Better dangerous-command detection:** commands are checked from their start and without the prompt, including IOS
-  abbreviations (`reloa`, `wr er`, `shu`) and Junos, Huawei, Nokia SR-OS and Linux commands. `show`, `no shutdown`,
-  `clear counters` and `clear ip bgp * soft` no longer ask.
-- **Finer highlighting:** IOS error counters in red only when not 0, BGP `Active`/`Idle` states in red, intentional
-  shutdowns (`administratively down`, `Idle (Admin)`) in grey, IOS-XR and Huawei syslog, more interface types and
-  fewer false positives. The interface rule is up to 5 times faster.
-- **Colours show their real name:** in Settings and in the rule editor each colour shows the name of the colour you
-  actually see in the theme (change «cyan» to green and it says «green»), with its swatch next to it.
-
-Earlier versions, back to 0.5.0, are in the [CHANGELOG](CHANGELOG.md) and on the
-[Releases page](https://github.com/Iljonis/Terminal-NetDeck/releases).
+- **Updating no longer gets stuck:** if GitHub will not serve the `.dmg` through its usual link (it happened with
+  0.9.12: «504 Gateway Time-out»), «Update now» downloads it through the GitHub API. It is checked the same way
+  (published sha256, same app, version and signature) and, if there is no way to download it, the notice says so
+  clearly instead of «does not match».
+- **If you come from 0.9.11 or 0.9.12** and «Update now» fails, install this version by hand once (download it from
+  the release page); from then on updates work on their own again.
 
 ## Features for network engineers
 

@@ -12,6 +12,13 @@ All notable changes to Terminal NetDeck are listed here. The format follows
 
 Work towards 1.0.0: see the [roadmap](README.en.md#roadmap-to-100).
 
+## [0.9.13] - 2026-11-08
+
+### Fixed
+- «Update now» no longer gets stuck when GitHub answers `504 Gateway Time-out` on the usual `.dmg` link: it only
+  accepts an HTTP 200 and falls back to the GitHub API asset download, still checking the published sha256, the app
+  id, the version and the signature. Users on 0.9.11 or 0.9.12 install 0.9.13 by hand once.
+
 ## [0.9.12] - 2026-11-07
 
 ### Added
@@ -158,6 +165,7 @@ First public release: background update checks (never installs without a click),
 rejection of names, hosts and users starting with `-`.
 
 [Unreleased]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.12...HEAD
+[0.9.13]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.12...v0.9.13
 [0.9.12]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.11...v0.9.12
 [0.9.11]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.10...v0.9.11
 [0.9.10]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.9...v0.9.10
