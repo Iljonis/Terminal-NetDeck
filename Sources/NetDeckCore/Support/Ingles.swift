@@ -2332,5 +2332,12 @@ enum Ingles {
         "desplegado, %@ sesiones": "expanded, %@ sessions",
         "plegado, %@ sesiones": "collapsed, %@ sessions",
         "favorita": "favorite",
+        // 1.0.0 · temas
+        "Neon Glass": "Neon Glass",
+        "Ciencia ficción": "Science fiction",
+        "Ordenadores clásicos": "Classic computers",
+        "Videojuegos retro": "Retro games",
+        "Naturaleza": "Nature",
+        "Centro de datos": "Data centre",
 ]
 }

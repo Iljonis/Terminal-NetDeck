@@ -174,7 +174,7 @@ struct ThemedMenuRowStyle: PrimitiveButtonStyle {
             .frame(minHeight: 25)
             .background(RoundedRectangle(cornerRadius: t.corner ?? 4).fill(SwiftUI.Color(t.accent).opacity(hover && enabled ? 0.14 : 0)))
             .overlay(alignment: .leading) {
-                Rectangle().fill(SwiftUI.Color(t.accent)).frame(width: 2).opacity(hover && enabled && t.neon ? 1 : 0)
+                Rectangle().fill(SwiftUI.Color(t.accent)).frame(width: 2).opacity(hover && enabled && t.glows ? 1 : 0)
                     .shadow(color: SwiftUI.Color(t.accent), radius: t.glow(3))
             }
             .opacity(enabled ? 1 : 0.4)
@@ -228,7 +228,7 @@ struct ThemedMenuPanel<Content: View>: View {
         .environment(\.menuClose, MenuCloser(close))
         .menuKeyboard()
         .background(SwiftUI.Color(t.bar.opaque))
-        .overlay(alignment: .top) { Rectangle().fill(SwiftUI.Color(t.accent)).frame(height: 2).opacity(t.neon ? 0.8 : 0) }
+        .overlay(alignment: .top) { Rectangle().fill(SwiftUI.Color(t.accent)).frame(height: 2).opacity(t.glows ? 0.8 : 0) }
         .presentationBackground(SwiftUI.Color(t.bar.opaque))
     }
 }

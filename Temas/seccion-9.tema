@@ -6,6 +6,7 @@ grupo     = Anime y cine
 orden     = 12
 fuentes   = B612 Mono, Share Tech Mono, Kode Mono      # la 1ª es la oficial; las otras, recomendadas
 tamaño    = 14
+filtro    = holograma                  # filtro de pantalla
 
 fondo         = #0b1414                  # fondo de la ventana de Terminal
 texto         = #dff7f2                  # texto normal

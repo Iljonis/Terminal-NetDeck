@@ -1,0 +1,29 @@
+# Neón Ácido — Verde ácido que gotea por el cristal: código en verde fósforo y lima sobre negro verdoso.
+# Temática de la app (estilo «cristal» con alma de neón: barra, pestañas y menús de vidrio; el terminal, casi opaco).
+
+nombre    = Neón Ácido
+grupo     = Neon Glass
+orden     = 03
+estilo    = cristal
+material  = cristal
+brillo    = sí
+tinte     = #39ff1420                    # 20 ≈ 12 %: el verde tiñe mucho
+fuentes   = Share Tech Mono, JetBrains Mono, VT323      # la 1ª es la oficial; las otras, recomendadas
+fuente_interfaz = sistema
+tamaño    = 14
+
+fondo         = #030d07cc                # negro verdoso (cc ≈ 80 %)
+texto         = #d8ffe4
+barra         = #06200f66
+panel         = #0d3a1c80
+pestaña       = #39ff14                  # verde fósforo
+sobre_pestaña = #03100a
+acento        = #c6ff00                  # lima ácida
+acento2       = #2cffc4
+bien          = #39ff14
+mal           = #ff3b5c
+especial      = #b48cff
+apagado       = #6a9f7c
+menu          = ▚ NetDeck
+reloj         = > %H:%M:%S
+ansi          = #12261a, #ff3b5c, #39ff14, #c6ff00, #4fa8ff, #b48cff, #2cffc4, #c8f0d4, #4f7a5e, #ff6f88, #7dff63, #dcff66, #85c4ff, #cfb3ff, #7affdb, #f0fff4

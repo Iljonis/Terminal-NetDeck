@@ -1,0 +1,24 @@
+# Puente de mando — Bloques naranja, lila y azul pastel sobre negro (estilo LCARS de Star Trek).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Puente de mando
+grupo     = Ciencia ficción
+orden     = 01
+fuentes   = B612 Mono, Share Tech Mono, Red Hat Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #000000                  # fondo de la ventana de Terminal
+texto         = #ffcc99                  # texto normal
+barra         = #000000                  # barra de pestañas y de botones
+panel         = #222222                  # pestañas y botones inactivos
+pestaña       = #ff9900                  # pestaña activa
+sobre_pestaña = #000000                  # texto sobre la pestaña activa
+acento        = #cc99cc                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #9999ff                  # IPs, rutas, enlaces
+bien          = #66cc99                  # up, established, 0% loss
+mal           = #ff6666                  # down, errores, alarmas
+especial      = #cc99cc                  # dBm, MAC, rosa/morado
+apagado       = #997766                  # fechas, descripciones, @ del prompt
+menu          = LCARS 47                 # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #000000, #ff6666, #66cc99, #ffcc66, #9999ff, #cc99cc, #99ccff, #ffcc99, #997766, #ff8c8c, #8cd9b2, #ffd98c, #b2b2ff, #d9b2d9, #b2d9ff, #ffe6cc

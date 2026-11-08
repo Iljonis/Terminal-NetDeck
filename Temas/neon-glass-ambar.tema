@@ -1,0 +1,29 @@
+# Neón Ámbar — Bruma ámbar de 2049 tras el cristal: naranja de farola, carteles turquesa y lluvia en el vidrio.
+# Temática de la app (estilo «cristal» con alma de neón: barra, pestañas y menús de vidrio; el terminal, casi opaco).
+
+nombre    = Neón Ámbar
+grupo     = Neon Glass
+orden     = 02
+estilo    = cristal
+material  = cristal
+brillo    = sí
+tinte     = #ff8a1f26
+fuentes   = Chivo Mono, Red Hat Mono, Geist Mono      # la 1ª es la oficial; las otras, recomendadas
+fuente_interfaz = sistema
+tamaño    = 14
+
+fondo         = #140c06cc                # marrón casi negro (cc ≈ 80 %)
+texto         = #ffe8cc
+barra         = #2a160866
+panel         = #3d220e80
+pestaña       = #ff8a1f                  # naranja farola
+sobre_pestaña = #140c06
+acento        = #ffb347                  # ámbar
+acento2       = #3fd6d0                  # turquesa de cartel
+bien          = #9be37a
+mal           = #ff4f3a
+especial      = #f78fc0
+apagado       = #a08466
+menu          = ◢ NetDeck
+reloj         = 2049 · %H:%M
+ansi          = #33241a, #ff5a3d, #9be37a, #ffb347, #5fa8ff, #f78fc0, #3fd6d0, #ecd9c0, #7d6650, #ff8466, #bdf0a3, #ffd08a, #8fc4ff, #ffb3d6, #7fe8e3, #fff6ea

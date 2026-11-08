@@ -534,7 +534,7 @@ struct NewMenu: View {
         .font(t.ui(12))
         .menuKeyboard()
         .menuBackground()
-        .overlay(alignment: .top) { Rectangle().fill(SwiftUI.Color(t.accent)).frame(height: 2).opacity(t.neon ? 0.8 : 0) }
+        .overlay(alignment: .top) { Rectangle().fill(SwiftUI.Color(t.accent)).frame(height: 2).opacity(t.glows ? 0.8 : 0) }
         .onAppear {                                           // (capturas: NETDECK_SNAPSHOT_ACTION=nuevo:<grupo>)
             let action = ProcessInfo.processInfo.environment["NETDECK_SNAPSHOT_ACTION"] ?? ""
             guard action.hasPrefix("nuevo:") else { return }

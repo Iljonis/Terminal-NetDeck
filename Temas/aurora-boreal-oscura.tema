@@ -1,0 +1,24 @@
+# Aurora boreal oscura — Noche polar: cortinas verdes y violetas sobre azul de hielo.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Aurora boreal oscura
+grupo     = Naturaleza
+orden     = 01
+fuentes   = Geist Mono, JetBrains Mono, Fira Code      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #07131f                  # fondo de la ventana de Terminal
+texto         = #e3f2ff                  # texto normal
+barra         = #0a1a2a                  # barra de pestañas y de botones
+panel         = #12263a                  # pestañas y botones inactivos
+pestaña       = #4dffb5                  # pestaña activa
+sobre_pestaña = #07131f                  # texto sobre la pestaña activa
+acento        = #4dffb5                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #b388ff                  # IPs, rutas, enlaces
+bien          = #5cf2a0                  # up, established, 0% loss
+mal           = #ff6b8a                  # down, errores, alarmas
+especial      = #ff8fd8                  # dBm, MAC, rosa/morado
+apagado       = #5f7f99                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #12263a, #ff6b8a, #4dffb5, #f2e27a, #6ab0ff, #b388ff, #4de6ff, #c8d8e8, #5f7f99, #ff90a7, #7affc8, #f5e99b, #8fc4ff, #c6a6ff, #7aecff, #e4ecf4

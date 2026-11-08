@@ -9,7 +9,7 @@ import Testing
     @Test func todoElCatalogoSeLee() throws {
         let files = try FileManager.default.contentsOfDirectory(at: Self.catalog, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "tema" }
-        #expect(files.count >= 30)
+        #expect(files.count >= 85)
         for f in files { _ = try Theme(contentsOf: f) }
     }
 
@@ -147,6 +147,39 @@ import Testing
         #expect(t.clockText().hasSuffix("東京"))
     }
 
+    /// «brillo = sí» y «tinte = #rrggbbaa» (los Neon Glass) se leen; sin ellos, ni halo ni tinte. Con «Reducir
+    /// transparencia» (`solid`) el tinte se quita, como el resto del cristal.
+    @Test func brilloYTinteSeLeen() throws {
+        let t = try Theme(id: "x", text: Self.sample + "\nestilo = cristal\nbrillo    = sí      # halo\ntinte = #ff2e8826\n")
+        #expect(t.glowing && t.style == .glass)
+        #expect(t.glassTint == RGB(255, 46, 136, Double(0x26) / 255))
+        let sinNada = try Theme(id: "y", text: Self.sample + "\nbrillo = no\ntinte = rosa\n")
+        #expect(!sinNada.glowing && sinNada.glassTint == nil)
+        var cristal = t
+        cristal.background = cristal.background.alpha(0.8)
+        #expect(cristal.solid.glassTint == nil && cristal.solid.glowing)
+        let neonGlass = try Self.catalogThemes().filter { $0.group == "Neon Glass" }
+        #expect(neonGlass.count == 10)
+        #expect(neonGlass.allSatisfy { $0.style == .glass && $0.glowing && $0.glassTint != nil })
+    }
+
+    /// Cada tema del catálogo va en un grupo conocido (con su inglés) y los de Naturaleza, en parejas oscuro/claro
+    /// seguidas para el modo automático.
+    @Test func gruposYParejasDeNaturaleza() throws {
+        let all = try Self.catalogThemes()
+        for t in all { #expect(Theme.groups.contains(t.group), "\(t.id): grupo «\(t.group)»") }
+        for g in ["Ordenadores clásicos", "Ciencia ficción", "Centro de datos", "Videojuegos retro"] {
+            #expect(all.count { $0.group == g } >= 3, "\(g)")
+        }
+        let naturaleza = Theme.sorted(all.filter { $0.group == "Naturaleza" })
+        #expect(naturaleza.count == 8)
+        for par in stride(from: 0, to: naturaleza.count - 1, by: 2) {
+            let (oscuro, claro) = (naturaleza[par], naturaleza[par + 1])
+            #expect(!oscuro.isLight && claro.isLight, "\(oscuro.id) / \(claro.id)")
+            #expect(claro.id.hasSuffix("-clara") || claro.id.hasSuffix("-claro"), "\(claro.id)")
+        }
+    }
+
     @Test func colorMalEsUnError() {
         #expect(throws: Theme.ParseError.badColor("fondo")) { try Theme(id: "x", text: "fondo = rojo") }
     }
@@ -156,7 +189,7 @@ import Testing
         defer { try? FileManager.default.removeItem(at: dir) }
         let lib = ThemeLibrary(appDirectory: Self.catalog, importDirectory: dir, netdeckDirectory: nil)
         let all = lib.all()
-        #expect(all.count >= 31)
+        #expect(all.count >= 86)
         #expect(lib.theme(id: "neo-tokyo") != nil)
         #expect(all.first { $0.theme.id == Theme.builtIn.id }?.source == .builtIn)
         // uno propio, importado de un archivo: se puede quitar

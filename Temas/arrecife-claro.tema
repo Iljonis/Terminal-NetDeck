@@ -1,0 +1,24 @@
+# Arrecife claro — Agua clara de laguna, coral y arena: pareja de Arrecife oscuro (ideal en modo Auto).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Arrecife claro
+grupo     = Naturaleza
+orden     = 08
+fuentes   = DM Mono, Fira Code, Source Code Pro      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #eafaf8                  # fondo de la ventana de Terminal
+texto         = #10343a                  # texto normal
+barra         = #dcf2ef                  # barra de pestañas y de botones
+panel         = #cdeae6                  # pestañas y botones inactivos
+pestaña       = #ff6f61                  # pestaña activa
+sobre_pestaña = #10343a                  # texto sobre la pestaña activa
+acento        = #00707a                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #b23a48                  # IPs, rutas, enlaces
+bien          = #2a7a3a                  # up, established, 0% loss
+mal           = #c0262d                  # down, errores, alarmas
+especial      = #7a3fb0                  # dBm, MAC, rosa/morado
+apagado       = #557a7f                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #10343a, #c0262d, #2a7a3a, #7f6200, #1f5fa0, #7a3fb0, #00707a, #557a7f, #557a7f, #901c22, #205c2c, #5f4a00, #174778, #5c2f84, #00545c, #10343a

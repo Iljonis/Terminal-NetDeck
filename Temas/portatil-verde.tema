@@ -1,0 +1,25 @@
+# Portátil verde — Los verdes de la pantalla LCD, IPs en azul marino y «mal» en el morado de los botones (estilo Game Boy).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Portátil verde
+grupo     = Videojuegos retro
+orden     = 01
+fuentes   = DotGothic16, VT323, Space Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 15
+filtro    = lcd                        # filtro de pantalla
+
+fondo         = #cadc9f                  # fondo de la ventana de Terminal
+texto         = #0f380f                  # texto normal
+barra         = #9bbc0f                  # barra de pestañas y de botones
+panel         = #8bac0f                  # pestañas y botones inactivos
+pestaña       = #0f380f                  # pestaña activa
+sobre_pestaña = #cadc9f                  # texto sobre la pestaña activa
+acento        = #306230                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #23236e                  # IPs, rutas, enlaces
+bien          = #306230                  # up, established, 0% loss
+mal           = #8b1a4a                  # down, errores, alarmas
+especial      = #5a2a6a                  # dBm, MAC, rosa/morado
+apagado       = #306230                  # fechas, descripciones, @ del prompt
+menu          = ▶ START                  # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #0f380f, #8b1a4a, #306230, #5a6a0a, #23236e, #6a2a6a, #1f5a5a, #306230, #306230, #681438, #244a24, #445008, #1a1a52, #502050, #174444, #0f380f

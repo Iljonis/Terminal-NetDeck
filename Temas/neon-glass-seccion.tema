@@ -1,0 +1,30 @@
+# Neón Sección — Holograma sobre pizarra: verde agua, blanco y gris azulado, vidrio fino (estilo Ghost in the Shell).
+# Temática de la app (estilo «cristal» con alma de neón: barra, pestañas y menús de vidrio; el terminal, casi opaco).
+
+nombre    = Neón Sección
+grupo     = Neon Glass
+orden     = 10
+estilo    = cristal
+material  = cristal
+brillo    = sí
+tinte     = #7ffff026
+fuentes   = Fragment Mono, B612 Mono, DM Mono      # la 1ª es la oficial; las otras, recomendadas
+fuente_interfaz = sistema
+tamaño    = 14
+filtro    = holograma                  # filtro de pantalla
+
+fondo         = #10161acc                # gris pizarra (cc ≈ 80 %)
+texto         = #eef8f8
+barra         = #2230354d                # (4d ≈ 30 %: el vidrio más fino, de holograma)
+panel         = #2e3e4480
+pestaña       = #c8fff4                  # blanco verdoso de holograma (en Sección 9, verde agua)
+sobre_pestaña = #10161a
+acento        = #4ff0d0                  # verde agua
+acento2       = #9fd8ff                  # azul holograma
+bien          = #7cf5b0
+mal           = #ff6b7a
+especial      = #d0b8ff
+apagado       = #7d939c
+menu          = ◇ 電脳 · NetDeck
+reloj         = %H:%M:%S
+ansi          = #26343a, #ff6b7a, #7cf5b0, #ffe08a, #6fb6ff, #d0a0ff, #4ff0d0, #d8e6ea, #5f7680, #ff94a0, #a6ffcc, #fff0b5, #9fd0ff, #e2c8ff, #9ffff0, #ffffff

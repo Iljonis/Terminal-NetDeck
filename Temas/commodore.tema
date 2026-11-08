@@ -1,0 +1,25 @@
+# Commodore — Azul violáceo de 8 bits, texto lila y el READY. de siempre, con más contraste (estilo C64).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Commodore
+grupo     = Ordenadores clásicos
+orden     = 03
+fuentes   = VT323, Space Mono, DotGothic16      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 16
+filtro    = crt                        # filtro de pantalla
+
+fondo         = #40318d                  # fondo de la ventana de Terminal
+texto         = #b3abf5                  # texto normal
+barra         = #352879                  # barra de pestañas y de botones
+panel         = #4c3fa0                  # pestañas y botones inactivos
+pestaña       = #b3abf5                  # pestaña activa
+sobre_pestaña = #40318d                  # texto sobre la pestaña activa
+acento        = #ffffff                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #d6e08a                  # IPs, rutas, enlaces
+bien          = #94e089                  # up, established, 0% loss
+mal           = #ff8a7a                  # down, errores, alarmas
+especial      = #e0a0ff                  # dBm, MAC, rosa/morado
+apagado       = #968cec                  # fechas, descripciones, @ del prompt
+menu          = READY.                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #000000, #ff8a7a, #94e089, #eeee77, #a8c4ff, #e88ae8, #aaffee, #d0d0d0, #968cec, #ffa79b, #afe8a6, #f2f299, #bed3ff, #eea7ee, #bffff2, #e8e8e8

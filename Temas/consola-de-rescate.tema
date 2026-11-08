@@ -1,0 +1,24 @@
+# Consola de rescate — Para un ROMMON de madrugada: letra grande, blanco sobre negro y amarillo donde hay que mirar.
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Consola de rescate
+grupo     = Centro de datos
+orden     = 04
+fuentes   = Atkinson Hyperlegible Mono, JetBrains Mono, B612 Mono      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 17
+
+fondo         = #101010                  # fondo de la ventana de Terminal
+texto         = #f0f0f0                  # texto normal
+barra         = #1a1a1a                  # barra de pestañas y de botones
+panel         = #262626                  # pestañas y botones inactivos
+pestaña       = #ffd700                  # pestaña activa
+sobre_pestaña = #101010                  # texto sobre la pestaña activa
+acento        = #ffd700                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #66ccff                  # IPs, rutas, enlaces
+bien          = #66dd66                  # up, established, 0% loss
+mal           = #ff6666                  # down, errores, alarmas
+especial      = #ffffff                  # dBm, MAC, rosa/morado
+apagado       = #999999                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #262626, #ff6666, #66dd66, #ffd700, #7aa8ff, #ff88ff, #66e0e0, #f0f0f0, #999999, #ff8c8c, #8ce68c, #ffe140, #9bbeff, #ffa6ff, #8ce8e8, #f8f8f8

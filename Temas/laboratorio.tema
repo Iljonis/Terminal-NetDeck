@@ -1,0 +1,24 @@
+# Laboratorio — Paredes blancas de pruebas, portal naranja y portal azul (estilo Portal).
+# Temática de NetDeck. Para crear la tuya: copia este archivo, cambia los colores y elígela en ☰ Menú → Temática.
+
+nombre    = Laboratorio
+grupo     = Videojuegos retro
+orden     = 02
+fuentes   = Red Hat Mono, Inconsolata, Source Code Pro      # la 1ª es la oficial; las otras, recomendadas
+tamaño    = 14
+
+fondo         = #f2f4f5                  # fondo de la ventana de Terminal
+texto         = #1f2326                  # texto normal
+barra         = #e4e8ea                  # barra de pestañas y de botones
+panel         = #d5dadd                  # pestañas y botones inactivos
+pestaña       = #ff9a00                  # pestaña activa
+sobre_pestaña = #1f2326                  # texto sobre la pestaña activa
+acento        = #0073e6                  # interfaces, prompt del equipo, ☰ Menú, reloj
+acento2       = #c25e00                  # IPs, rutas, enlaces
+bien          = #2e8b3a                  # up, established, 0% loss
+mal           = #d32f2f                  # down, errores, alarmas
+especial      = #6a5acd                  # dBm, MAC, rosa/morado
+apagado       = #6b7378                  # fechas, descripciones, @ del prompt
+menu          = ☰ Menú                   # texto del botón de menú (arriba a la derecha)
+reloj         = %H:%M                    # formato del reloj (%H:%M = hora:minutos)
+ansi          = #1f2326, #d32f2f, #2e8b3a, #a86a00, #0073e6, #6a5acd, #00838f, #6b7378, #6b7378, #9e2323, #22682c, #7e5000, #0056ac, #50449a, #00626b, #1f2326
