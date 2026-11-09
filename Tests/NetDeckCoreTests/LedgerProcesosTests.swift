@@ -76,7 +76,6 @@ import Testing
         let fresh = try #require(ledger.reserveProbe(ref).token)
         ledger.release(ref, reservation: old)
         #expect(ledger.beginProbe(ref) == .wait)
-        ledger.keepProbing(ref)
         ledger.release(ref, reservation: fresh)
         #expect(ledger.state(of: ref) == nil)
     }

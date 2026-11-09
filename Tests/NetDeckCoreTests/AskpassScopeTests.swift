@@ -229,14 +229,6 @@ import Testing
         #expect(!test.ledger.isBlocked(.named("salto")))
     }
 
-    @Test func entrarTrasElOtpConfirmaLaContrasena() {
-        let ref = CredentialRef.named("clave-a")
-        let attempts = [Askpass.Attempt(ref: ref, host: "core-01"),
-                        Askpass.Attempt(ref: nil, host: "core-01", manualFactor: true)]
-        let result = Askpass.attribute(attempts)
-        #expect(result.confirmed == [ref] && result.failed.isEmpty)
-    }
-
     @Test func otpYPassphraseSiguenManualesYSinEco() throws {
         let test = try Inicio(profiles: [a], selected: a, items: [.named("clave-a"): "propia"])
         for question in ["Enter PASSCODE:", "Enter passphrase for key '/x':", "New password:"] {

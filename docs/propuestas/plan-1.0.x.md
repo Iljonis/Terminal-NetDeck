@@ -18,32 +18,16 @@ código el 2026-11-08. Esfuerzo: S (horas) · M (1-2 días) · L (más). Se marc
       Ajustes y en el asistente (hoy elige otra sin decir nada; el asistente ofrece fuentes no instaladas). **S**
       (Hecho en Ajustes y en el asistente; en la galería, pendiente.)
 
-## 1.0.2 — Temas: Neon Glass y colores a tu gusto
+## Ya en la 1.0.0 (antes previsto para la 1.0.2)
 
-- [ ] **Diez temas Neon Glass** (cristal de macOS 26 con alma de neón): Tokio (magenta/cian), Ámbar (2049), Ácido
-      (verde), Ocaso (synthwave), Corpo (rojo), Hielo (azul), Unidad (estilo EVA-01), Zaibatsu (estilo Arasaka),
-      Nocturna (estilo Night City) y Sección (estilo Ghost in the Shell). Archivos listos en
-      `docs/propuestas/neon-glass/`; ya pasan `ThemeTests` (contraste WCAG) en una copia del repo. Faltan:
-  - [ ] clave `brillo = sí`: el halo neón también en el estilo cristal (`Theme`, `glow()` en ThemeUI). **S**
-  - [ ] clave `tinte = #rrggbbaa`: el cristal de pestañas y botones teñido del color del tema, no gris
-        (`Glass.swift`, `NeonLabel`). **S**
-  - [ ] grupo «Neon Glass» en `Theme.groups` y su inglés en `Ingles.swift`; README (62 temas, tabla) y CHANGELOG. **S**
-  - [ ] mirarlos en la demo (capturas de cristal): cómo queda el halo sobre el `glassEffect`. **S**
-- [ ] **Colores a tu gusto** (Ajustes → Temas → «Personalizar colores»). Una capa de cambios por tema encima del
-      tema, como `highlightColors` del resaltado (lo mismo que hacen VS Code y Ghostty): acento, fondo, texto,
-      selección, cursor, los 16 ANSI y, en los de cristal, tinte y opacidad. Vista previa en vivo, aviso de contraste
-      con `RGB.contraste`, «Restablecer», «Guardar como tema nuevo…» y «Exportar .tema…». Se aplica a todas las
-      pestañas (`core.allTabs`) y respeta «Reducir transparencia». Nuevo `ThemeOverrides` en NetDeckCore con tests.
-      **M-L (unos 3 días)**
-
-- [ ] **Familias nuevas** (maqueta enseñada el 2026-11-08; colores a mano, sin `.tema` ni contraste comprobado
-      todavía; el autor elige cuáles):
-  - Ordenadores clásicos: Terminal 3270, Comandante (Norton Commander), Commodore (C64), Workbench (Amiga).
-  - Ciencia ficción: Puente de mando (LCARS), Nostromo (Alien), Imperio (Star Wars), HAL (2001).
-  - Centro de datos: Rack (LEDs), Fibra óptica (código de colores de fibras), NORAD (WarGames), Consola de rescate.
-  - Naturaleza, con versión clara y oscura: Aurora boreal, Desierto, Volcán, Arrecife.
-  - Videojuegos retro: Portátil verde (Game Boy: up/down sólo por tono), Laboratorio (Portal), Arcade.
-  - Ojo: en Comandante y Commodore el azul ANSI casi no se ve sobre su fondo azul.
+- [x] **Diez temas Neon Glass** (cristal de macOS 26 con neón): claves `brillo = sí` y `tinte = #rrggbbaa`, grupo
+      «Neon Glass», README y CHANGELOG.
+- [x] **Colores a tu gusto** (Ajustes → Temas → «Personalizar colores»): `ThemeOverrides`, vista previa, aviso de
+      contraste, «Restablecer», «Guardar como tema nuevo…» y «Exportar .tema…».
+- [x] **Familias nuevas:** Ordenadores clásicos, Ciencia ficción, Centro de datos, Naturaleza (claro y oscuro) y
+      Videojuegos retro, con contraste comprobado por `ThemeTests`.
+- [x] **Filtros de pantalla** (CRT, LCD, fósforo, holograma): en Ajustes → Terminal y Ver → Filtro de pantalla (⌥⌘F),
+      con intensidad y apagados con la Accesibilidad del Mac.
 
 ## 1.0.3 — Fuentes: lo de fondo
 

@@ -81,15 +81,6 @@ public final class CredentialLedger: @unchecked Sendable {
         }
     }
 
-    /// Sigue probándose (un servidor lento): que los demás no se cansen de esperar.
-    public func keepProbing(_ ref: CredentialRef) {
-        storage.locked {
-            if case .probing(_, let owner, let token) = current(ref) {
-                storage.write(ref, .probing(since: now(), owner: owner, reservation: token))
-            }
-        }
-    }
-
     public func markFailed(_ ref: CredentialRef) { storage.locked { storage.write(ref, .failed(at: now())) } }
 
     /// Renombrar no permite saltarse los 15 min. No cambia la fecha ni mueve un login que siga pendiente.

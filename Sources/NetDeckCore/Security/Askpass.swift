@@ -70,25 +70,6 @@ public enum Askpass {
         return text.components(separatedBy: .newlines).compactMap(decodeAttempt)
     }
 
-    /// Ya ha entrado: de cada equipo sólo vale el último intento (ssh no pasa de ahí sin entrar); los de antes en ese
-    /// equipo no valían. Si el último fue a mano, no se confirma ninguna guardada (la rechazada sigue bloqueada y el
-    /// reintento a mano no la desbloquea). Las de otros equipos (los saltos) han entrado.
-    public static func attribute(_ attempts: [Attempt]) -> (confirmed: [CredentialRef], failed: [CredentialRef]) {
-        let attempts = attempts.filter { !$0.manualFactor }      // (un OTP no es un reintento de la contraseña)
-        var last: [String: Int] = [:]
-        for (i, a) in attempts.enumerated() { last[a.host?.lowercased() ?? ""] = i }
-        var confirmed: [CredentialRef] = [], failed: [CredentialRef] = []
-        for (i, a) in attempts.enumerated() {
-            guard let ref = a.ref else { continue }
-            if last[a.host?.lowercased() ?? ""] == i { if !confirmed.contains(ref) { confirmed.append(ref) } }
-        }
-        for a in attempts {
-            guard let ref = a.ref, !confirmed.contains(ref), !failed.contains(ref) else { continue }
-            failed.append(ref)
-        }
-        return (confirmed, failed)
-    }
-
     /// Lo que dice ssh al terminar sin entrar cuando no valía la contraseña, y de qué equipo, si lo dice
     /// («tu.usuario@core-01: Permission denied (…)»). `fromAddress`: es la dirección de la conexión («Connection
     /// closed by 192.0.2.10 port 22»), no el nombre con que preguntó (el HostName del prompt).

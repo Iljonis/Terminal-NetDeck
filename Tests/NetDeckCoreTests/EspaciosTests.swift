@@ -93,24 +93,9 @@ import Testing
     }
 }
 
-/// Qué credencial ha valido al entrar: de cada equipo, el último intento. Una guardada rechazada no se confirma
-/// aunque después se entre (con otra o escribiéndola a mano), y la nueva que ha entrado no se marca como fallida.
+/// El archivo de intentos del askpass de una pestaña.
 @Suite struct AtribucionCredencialesTests {
-    let viejo = CredentialRef.device("tu.usuario", "192.0.2.11"), ad = CredentialRef.named("AD"), salto = CredentialRef.named("salto")
-
-    @Test func cadaEquipoSuUltimoIntento() {
-        func at(_ r: CredentialRef?, _ h: String) -> Askpass.Attempt { .init(ref: r, host: h) }
-        // (la de siempre, a la primera)
-        #expect(Askpass.attribute([at(ad, "192.0.2.11")]) == ([ad], []))
-        // (la guardada falla y se guarda otra que entra: la nueva vale, la vieja no)
-        #expect(Askpass.attribute([at(viejo, "192.0.2.11"), at(ad, "192.0.2.11")]) == ([ad], [viejo]))
-        // (falla y se escribe a mano sin guardar: ninguna guardada se confirma; la rechazada sigue fallida)
-        #expect(Askpass.attribute([at(ad, "192.0.2.11"), at(nil, "192.0.2.11")]) == ([], [ad]))
-        // (la misma, guardada otra vez con la contraseña corregida: vale)
-        #expect(Askpass.attribute([at(ad, "192.0.2.11"), at(ad, "192.0.2.11")]) == ([ad], []))
-        // (el salto y el destino: los dos han entrado)
-        #expect(Askpass.attribute([at(salto, "192.0.2.1"), at(ad, "192.0.2.11")]) == ([salto, ad], []))
-    }
+    let ad = CredentialRef.named("AD")
 
     /// El archivo de la pestaña lleva también los intentos a mano, y se lee en orden.
     @Test func elArchivoLlevaLosIntentosAMano() throws {
@@ -120,7 +105,6 @@ import Testing
             .joined(separator: "\n") + "\n", to: url)
         let attempts = Askpass.takeAttempts(session: id)
         #expect(attempts == [.init(ref: ad, host: "192.0.2.11"), .init(ref: nil, host: "192.0.2.11")])
-        #expect(Askpass.attribute(attempts) == ([], [ad]))
         #expect(!FileManager.default.fileExists(atPath: url.path))         // (leídos, se olvidan)
     }
 }
