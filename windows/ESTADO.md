@@ -3,6 +3,15 @@
 Cada sesión añade una entrada **arriba**, con fecha, dónde (Mac o Windows), qué se ha hecho, qué ha fallado y el
 siguiente paso. Sin datos reales.
 
+## 2026-11-10 · Windows · P3: ADR 0001 aceptada · camino A elegido
+
+- Hecho: sección «Datos» de ADR 0001 rellenada con resultados de P2. Umbral del camino A cumplido
+  (0 errores en archivos puros; 11 errores de cascada < 50). ADR pasa a `aceptada`: **camino A**
+  (Swift en Windows con interfaz WinUI 3). P1 (askpass) sigue pendiente; no cambia la elección A/B,
+  solo afecta a la implementación de P4e.
+- **Siguiente paso:** P4 (capa de plataforma). Empezar por P4.0 (manifiesto y cripto) ya que no
+  depende de hardware. P1 hacer en paralelo cuando haya equipo de laboratorio.
+
 ## 2026-11-10 · Windows · P2: medición completa (tareas 1–3)
 
 - Hecho tarea 1–2: `swift build --target NetDeckCore` en Windows para en el primer `import Darwin`.

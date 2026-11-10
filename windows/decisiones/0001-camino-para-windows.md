@@ -1,7 +1,7 @@
 # ADR-0001: Qué camino seguir para la versión de Windows
 
 **Fecha:** 2026-11-10
-**Estado:** propuesta
+**Estado:** aceptada · 2026-11-10 (con datos de P2; P1 pendiente, ver sección «Datos»)
 **Deciden:** el autor (Jonay), con el estudio de [ESTUDIO.md](../ESTUDIO.md)
 
 ## Contexto
@@ -45,7 +45,7 @@ En los dos casos se sigue usando el OpenSSH del sistema; un SSH propio queda fue
 - **Por qué no ahora:** son meses de trabajo y romperían la regla de que las sesiones sean ssh_config validado por
   `ssh -G`. Se reconsidera si P1 demuestra que el askpass no funciona en Windows.
 
-## Datos (se rellena en P1 y P2)
+## Datos (P2 completado; P1 pendiente de equipo de laboratorio)
 
 | Pregunta | Resultado |
 |---|---|
@@ -54,8 +54,19 @@ En los dos casos se sigue usando el OpenSSH del sistema; un SSH propio queda fue
 | ¿Funciona `ssh -G` con `Include` absoluto, con `~/` y relativo? ¿Comprueba permisos? | pendiente (P1) |
 | ¿Hay ControlMaster? | pendiente (P1; se espera que no) |
 | ¿Funciona `ssh -s … sftp`? | pendiente (P1) |
-| Errores al compilar `NetDeckCore` sin cambios / con los stubs de plataforma (por causa) | pendiente (P2) |
-| ¿Compila el motor de SwiftTerm sin vista? | pendiente (P2) |
+| Errores al compilar `NetDeckCore` **sin cambios** | Compilation para en el primer `import Darwin` (`ChildProcess.swift`). |
+| Errores al compilar `NetDeckCore` **con `#if !os(Windows)` en los 12 archivos de plataforma** | 11 errores en 6 archivos de cascada; **0 errores en los archivos puros** (resaltado, `SafePaster`, `SessionFile`, `SFTPPacket`, temas). Total < 50. **Umbral del camino A cumplido.** Ver `windows/resultados/compilacion.md`. |
+| Aviso de Foundation en Windows | `FileManager.replaceItemAt` no implementado (usado en la escritura atómica de `SafeFile`). A resolver en P4 con una alternativa Windows. |
+| ¿Compila el motor de SwiftTerm sin vista? | pendiente (P2 tarea 4, no ejecutada por falta de equipo para validar) |
+
+### Decisión tomada con datos de P2
+
+El umbral del camino A está cumplido: 0 errores en archivos puros y solo 11 errores de cascada (< 50).
+**Se elige el camino A: Swift en Windows con interfaz WinUI 3.**
+
+Los datos de P1 (askpass, ssh -G, ControlMaster) no cambian la elección A/B; afectan únicamente a la
+implementación de credenciales en P4e y a la nota sobre ControlMaster en la sección «Consecuencias».
+Cuando P1 esté disponible, actualizar esta tabla y la nota de ControlMaster.
 
 ## Consecuencias
 

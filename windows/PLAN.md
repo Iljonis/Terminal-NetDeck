@@ -166,9 +166,12 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
   no**.
 - **Depende de:** P1 y P2. **Esfuerzo:** S. **Modelo:** fuerte (para preparar el resumen).
 - **Tareas:**
-  - [ ] Completar la sección «Datos» de la ADR 0001 con los resultados de P1 y P2.
-  - [ ] El autor elige y la ADR pasa a `aceptada` (o se escribe una nueva que la sustituya).
-  - [ ] Si se elige B o C, reescribir P4-P8 con la skill `blueprint` (o a mano) antes de seguir.
+  - [x] Completar la sección «Datos» de la ADR 0001 con los resultados de P1 y P2.
+        *(P2 completo; P1 pendiente de equipo de laboratorio. No cambia la elección A/B.)*
+  - [x] El autor elige y la ADR pasa a `aceptada` (o se escribe una nueva que la sustituya).
+        *(Camino A elegido con datos de P2: umbral cumplido.)*
+  - [x] Si se elige B o C, reescribir P4-P8 con la skill `blueprint` (o a mano) antes de seguir.
+        *(No aplica: se elige A.)*
 - **Salida:** ADR 0001 `aceptada`. **Sin esto no se empieza P4, P7 ni P8.**
 
 ## P4 · Capa de plataforma en el núcleo
