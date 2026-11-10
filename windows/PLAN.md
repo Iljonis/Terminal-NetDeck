@@ -188,16 +188,16 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 ### P4.0 · Manifiesto y cripto (S, fuerte; el primero, solo, con OK del autor)
 - `Package.swift`, los cuatro `import CryptoKit` (`CredentialLedger`, `JumpSharing`, `UpdateCheck`, `Transfer`) y
   `Tests/NetDeckCoreTests/BuferIncrementalTests.swift`.
-- [ ] Que el ejecutable `TerminalNetDeck` (SwiftUI + AppKit) sólo exista en macOS: `#if os(macOS)` en el manifiesto
+- [x] Que el ejecutable `TerminalNetDeck` (SwiftUI + AppKit) sólo exista en macOS: `#if os(macOS)` en el manifiesto
       alrededor del producto y el target. Si no, `swift build` y `swift test` en Windows intentan compilar la app.
-- [ ] SwiftTerm en los tests sólo en macOS y Linux (`condition: .when(platforms: [.macOS, .linux])`) y
+- [x] SwiftTerm en los tests sólo en macOS y Linux (`condition: .when(platforms: [.macOS, .linux])`) y
       `#if canImport(SwiftTerm)` en `BuferIncrementalTests` (o, si P2 confirma que el motor compila en Windows, dejarlo).
-- [ ] Cripto: en cada archivo, `#if canImport(CryptoKit) import CryptoKit #else import Crypto #endif`, y swift-crypto
+- [x] Cripto: en cada archivo, `#if canImport(CryptoKit) import CryptoKit #else import Crypto #endif`, y swift-crypto
       como dependencia **sólo para Windows** (`.product(name: "Crypto", package: "swift-crypto", condition:
       .when(platforms: [.windows]))`). **Ojo, toca macOS:** el paquete se resuelve igualmente en el Mac y cambia
       `Package.resolved` (y lo que revisa `tools/test_osv.sh`). Se dice en el PR y lo aprueba el autor.
 - [ ] Comprobar en el Mac que `swift build -c release` sigue igual (la Release de la 1.0.0 ya se rompió una vez por el
-      compilador de la CI).
+      compilador de la CI). *(pendiente: verificación en el Mac por el autor)*
 
 ### P4a · Procesos hijos (M, fuerte)
 - `Remote/ChildProcess.swift`, `Sessions/Tunnels.swift` (lanzar y parar el ssh del túnel), un `ProcessAlive` nuevo.

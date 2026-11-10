@@ -3,6 +3,29 @@
 Cada sesión añade una entrada **arriba**, con fecha, dónde (Mac o Windows), qué se ha hecho, qué ha fallado y el
 siguiente paso. Sin datos reales.
 
+## 2026-11-10 · Windows · P4.0: manifiesto y cripto
+
+- Hecho:
+  - `Package.swift` reestructurado con arrays mutables (`var products`, `var targets`) antes del inicializador
+    de `Package`. El `#if` dentro de literales de array no es válido en manifiestos de SPM. Guards `#if os(macOS)`
+    para el ejecutable `TerminalNetDeck` y su target. SwiftTerm condicionado a `.macOS, .linux` en los tests.
+    Dependencia `swift-crypto` añadida; producto `Crypto` sólo para Windows con `.when(platforms: [.windows])`.
+  - 4 archivos con guards `#if canImport(CryptoKit)` / `import CryptoKit` / `#else` / `import Crypto` / `#endif`:
+    `Remote/Transfer.swift`, `Security/CredentialLedger.swift`, `Sessions/JumpSharing.swift`,
+    `Support/UpdateCheck.swift`.
+  - `Tests/NetDeckCoreTests/BuferIncrementalTests.swift` envuelto en `#if canImport(SwiftTerm)` ... `#endif`.
+  - `windows/scripts/swift-build.ps1` recreado en esta rama y actualizado con `-Xcc -DOPENSSL_NO_ASM` como
+    argumento fijo. BoringSSL/swift-crypto usa fallbacks en C puro (igual de seguros, NASM no requerido).
+  - Compilación verificada en Windows: swift-crypto 3.15.1 + swift-asn1 1.7.4 compilan sin errores.
+    Errores restantes: sólo `no such module 'Darwin'` en los 12 archivos de plataforma (trabajo de P4a-P4g,
+    esperado). La cripto era el único bloqueador que resolvía P4.0.
+- Pendiente (Mac, el autor): `swift build -c release` y `./test.sh` para confirmar que macOS no se rompe.
+  `Package.resolved` cambiará en el Mac (nueva dependencia swift-crypto): es lo esperado.
+- Pendiente (sync): los resultados de P2/P3 (ADR `aceptada`, `compilacion.md`, entradas de ESTADO.md para P2 y P3)
+  están en la rama `windows/p2-medir` y no han llegado aún a `propuesta/windows` ni a esta rama. Fusionar
+  `windows/p2-medir` a `propuesta/windows` antes de abrir las ramas `windows/p4x-…`.
+- **Siguiente paso:** verificación en el Mac y fusión de `windows/p2-medir`; después P4a en `windows/p4a-procesos`.
+
 ## 2026-11-10 · Windows · P0: entorno completo
 
 - Hecho: instalado Swift 6.4.2 y Visual Studio Community 2022 con C++. Ejecutado `comprobar-entorno.ps1` sin ✗.

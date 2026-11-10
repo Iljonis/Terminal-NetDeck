@@ -1,4 +1,8 @@
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 import Foundation
 
 /// Actualizaciones: la última release del repositorio en GitHub («usuario/repo», `NetDeckRepo` en el Info.plist que

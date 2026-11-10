@@ -1,4 +1,8 @@
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 import Foundation
 
 /// MD5 de lo que pasa por una copia (para comprobar que el destino tiene exactamente lo mismo).
