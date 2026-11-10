@@ -54,3 +54,5 @@ Claude: skill `netdeck-verificar-demo`.
   revisiones.
 - docs/agentes/publicar.md: cambio de versión, tag y Release (con Claude, skill `netdeck-publicar`).
 - docs/agentes/arquitectura.md · docs/agentes/idiomas.md · docs/agentes/comandos.md.
+- windows/CLAUDE.md: propuesta de versión para Windows (rama `propuesta/windows`). **Si trabajas desde Windows,
+  léelo antes de nada**: allí no hay `./test.sh` ni demo y cambian los comandos.

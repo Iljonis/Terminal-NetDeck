@@ -54,3 +54,5 @@ Después, un informe al autor: problemas detectados, arreglos y estado de `./tes
   revisiones.
 - docs/agentes/publicar.md: cambio de versión, tag y Release (skill `netdeck-publicar` en .agents/skills).
 - docs/agentes/arquitectura.md · docs/agentes/idiomas.md · docs/agentes/comandos.md.
+- windows/CLAUDE.md: propuesta de versión para Windows (rama `propuesta/windows`). **Si trabajas desde Windows,
+  léelo antes de nada**: allí no hay `./test.sh` ni demo y cambian los comandos.
