@@ -1,0 +1,4 @@
+# Fin de línea LF en el repositorio y en las copias de trabajo, también en Windows (los .sh con CRLF no arrancan).
+* text=auto eol=lf
+# Salida de ejemplo de la demo: lleva CRLF a propósito (como la manda un equipo de red).
+tools/demo/salida.txt -text

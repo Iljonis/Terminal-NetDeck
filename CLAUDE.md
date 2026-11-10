@@ -43,6 +43,10 @@ Una pasada funcional en DEMO (`tools/verificar_demo.sh`, con `NETDECK_HOME` temp
 datos reales) que compruebe terminal, explorador SFTP/FTP, pestañas, temas, resaltado y menús, mirando las capturas.
 Después, un informe al autor: problemas detectados, arreglos y estado de `./test.sh` y `tools/privacidad.sh`. Con
 Claude: skill `netdeck-verificar-demo`.
+Excepción, aprobada por el autor el 2026-11-10: los commits hechos **desde Windows** en `propuesta/windows` y en las
+ramas `windows/*` no llevan demo (allí no hay app que probar todavía). Basta con `bash tools/privacidad.sh` en verde, el
+núcleo compilando en Windows (desde el paso P2), los tests con `windows/scripts/test.ps1` (desde P6) y el informe en
+`windows/ESTADO.md`. Nada de esas ramas se fusiona a `main` sin la pasada completa en el Mac (`./test.sh` + demo).
 
 ## Git
 - Autor `Jonay <jonayrr.jr@gmail.com>` (git config local del repo). Nunca el correo corporativo ni una línea de coautor.

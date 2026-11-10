@@ -62,6 +62,8 @@ buscar() {  # descripción  regex(ERE)  [regex de excepciones]
 buscar "IPs privadas" '(^|[^0-9.])(10\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])|192\.168|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7]))\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)'
 # Rutas personales (los ejemplos usan ~ o /Users/x en tests)
 buscar "rutas de una carpeta personal" '/Users/[A-Za-z0-9._-]{2,}' '/Users/(x|usuario|tu\.usuario)([^A-Za-z0-9._-]|$)'
+# (y las de Windows: C:\Users\nombre, C:/Users/nombre o /c/Users/nombre de Git Bash; los ejemplos usan C:\Users\<usuario>)
+buscar "rutas de una carpeta personal de Windows" '([A-Za-z]:(\\+|/)|/[a-z]/)Users(\\+|/)[A-Za-z0-9._-]{2,}' '(\\|/)Users(\\+|/)(x|usuario|tu\.usuario|Public|Default)([^A-Za-z0-9._-]|$)'
 # Correos (salvo los de ejemplo o de GitHub)
 buscar "correos" '[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.(com|es|net|org|eu|io|dev|ro|de|fr|it|pt|co|uk)([^A-Za-z]|$)' '@(example\.(com|org)|users\.noreply\.github\.com|anthropic\.com)|git@github\.com|jonayrr\.jr@gmail\.com'
 # Claves privadas y tokens
