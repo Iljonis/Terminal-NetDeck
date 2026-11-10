@@ -43,16 +43,16 @@ puerta: la decide el autor.**
   que trae Windows. Lo hace el autor a mano; el agente sólo guía y comprueba.
 - **Depende de:** nada. **Rama:** ninguna. **Esfuerzo:** S. **Modelo:** normal.
 - **Tareas:**
-  - [ ] Git for Windows (trae Git Bash): `winget install --id Git.Git -e`.
+  - [x] Git for Windows (trae Git Bash): `winget install --id Git.Git -e`. *(DevKitPro/MSYS2 git 2.49.0 + Git Bash de Git for Windows)*
   - [ ] Visual Studio 2022 Build Tools con «Desarrollo para el escritorio con C++» y el SDK de Windows 11 (lo pide el
         toolchain de Swift). Sigue la guía oficial de <https://www.swift.org/install/windows/>: los componentes exactos y
-        el id de winget del toolchain cambian entre versiones, así que usa los de esa página.
+        el id de winget del toolchain cambian entre versiones, así que usa los de esa página. *(SDK ✓, C++ tools ✗)*
   - [ ] Toolchain de Swift **6.2 o posterior** (el `Package.swift` usa `swift-tools-version:6.2` y `.defaultIsolation`).
-  - [ ] Cliente OpenSSH de Windows (viene de serie en Windows 11: `C:\Windows\System32\OpenSSH\ssh.exe`).
-  - [ ] Opcional para P1: Cliente Telnet (característica opcional de Windows) y un equipo de laboratorio o un OpenSSH
-        Server local para probar contra él.
-  - [ ] Claude Code para Windows.
-  - [ ] Clonar el repo, `git switch propuesta/windows`, `git config core.autocrlf false` y copiar las skills
+  - [x] Cliente OpenSSH de Windows (viene de serie en Windows 11: `C:\Windows\System32\OpenSSH\ssh.exe`). *(OpenSSH_for_Windows_9.5p2)*
+  - [x] Opcional para P1: Cliente Telnet (característica opcional de Windows) y un equipo de laboratorio o un OpenSSH
+        Server local para probar contra él. *(Telnet ✓)*
+  - [x] Claude Code para Windows. *(disponible, no en PATH del script pero sí en uso)*
+  - [x] Clonar el repo, `git switch propuesta/windows`, `git config core.autocrlf false` y copiar las skills
         (ver [CLAUDE.md](CLAUDE.md#skills-y-agentes)).
 - **Comprobación:** `powershell -ExecutionPolicy Bypass -File windows\scripts\comprobar-entorno.ps1` sin ✗.
 - **Salida:** el script en verde; la salida, sin datos personales, en `windows/resultados/entorno.md`.

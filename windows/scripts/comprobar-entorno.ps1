@@ -34,7 +34,7 @@ if ($swift) {
     $v = Version 'swift' '--version'
     if ($v -match 'version (\d+)\.(\d+)') {
         $maj = [int]$Matches[1]; $min = [int]$Matches[2]
-        if ($maj -gt 6 -or ($maj -eq 6 -and $min -ge 2)) { Bien "Swift $maj.$min" } else { Mal "Swift $maj.$min: el Package.swift pide 6.2 o posterior" }
+        if ($maj -gt 6 -or ($maj -eq 6 -and $min -ge 2)) { Bien "Swift $maj.$min" } else { Mal "Swift $maj.${min}: el Package.swift pide 6.2 o posterior" }
     } else { Nota "Swift instalado, versión sin reconocer: $v" }
 } else { Mal "No está Swift (guía: https://www.swift.org/install/windows/)" }
 
@@ -57,7 +57,7 @@ foreach ($p in 'ssh.exe', 'sftp.exe', 'ssh-keygen.exe') {
     if (Test-Path $r) { Bien "$p" } else { Mal "No está $p en System32\OpenSSH (Configuración → Sistema → Características opcionales → Cliente OpenSSH)" }
 }
 $ssh = Join-Path $dir 'ssh.exe'
-if (Test-Path $ssh) { Bien ("Versión: " + ((& $ssh -V 2>&1) | Out-String).Trim()) }
+if (Test-Path $ssh) { Bien ("Versión: " + ((& $ssh -V 2>&1) | ForEach-Object { "$_" } | Select-Object -First 1).Trim()) }
 $enPath = (Get-Command ssh -ErrorAction SilentlyContinue)
 if ($enPath -and $enPath.Source -ne $ssh) { Nota "El «ssh» del PATH no es el de Windows (es otro: Git, MSYS…). NetDeck usaría el de System32." }
 if (Get-Command telnet -ErrorAction SilentlyContinue) { Bien "Cliente Telnet" } else { Nota "Sin cliente Telnet (característica opcional de Windows; sólo para las pestañas telnet)" }
@@ -65,6 +65,12 @@ if (Get-Command telnet -ErrorAction SilentlyContinue) { Bien "Cliente Telnet" } 
 Titulo "Repositorio"
 if ($git) {
     $raiz = (& git rev-parse --show-toplevel 2>$null)
+    # El git de MSYS2/DevKitPro devuelve rutas POSIX; convertir con cygpath si hace falta
+    if ($raiz -and $raiz -match '^/') {
+        $cy = Get-Command cygpath -ErrorAction SilentlyContinue
+        if ($cy) { $raiz = (& cygpath -w $raiz 2>$null).Trim() }
+        else { $raiz = (Get-Location).Path }
+    }
     if ($raiz) {
         $rama = (& git branch --show-current 2>$null)
         if ($rama -like 'propuesta/windows*' -or $rama -like 'windows/*') { Bien "Rama: $rama" } else { Nota "Rama: $rama (el trabajo de Windows va en propuesta/windows o windows/…)" }
