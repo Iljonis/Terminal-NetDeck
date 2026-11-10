@@ -2,7 +2,9 @@
 
 Aquí van las salidas de los pasos P0, P1 y P2 de [PLAN.md](../PLAN.md), **sin datos reales**: nada de IPs, nombres de
 equipos, usuarios ni rutas personales (se sustituyen por `192.0.2.x`, `core-01`, `bastion`, `tu.usuario`,
-`C:\Users\<usuario>`). Antes de cada commit, `bash tools/privacidad.sh` desde Git Bash.
+`C:\Users\<usuario>`). Los scripts ya lo hacen con su salida. Las salidas en bruto (`*.txt`, `*.log`, por ejemplo los
+errores del compilador, que llevan rutas tuyas) se quedan aquí sin subirse (`.gitignore`); al repo van sólo los `.md`.
+Antes de cada commit, `bash tools/privacidad.sh` desde Git Bash (también busca rutas `C:\Users\…`).
 
 | Archivo | Paso | Qué lleva |
 |---|---|---|

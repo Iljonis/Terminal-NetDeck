@@ -26,16 +26,23 @@ buena parte, y sus 705 tests sirven de especificación para comprobar que en Win
 | macOS (archivo) | En Windows | Dificultad | Paso |
 |---|---|---|---|
 | `posix_spawn`, `setsid`, `killpg`, `DispatchSourceProcess` (`ChildProcess`, `Tunnels`) | `CreateProcessW` + Job Object, `WaitForSingleObject` | Media | P4a |
-| `/usr/bin/ssh`, `/usr/bin/sftp`, `/bin/zsh`, `/etc/shells` (`ConnectionRoute`, `KnownHosts`, `JumpSharing`) | `%SystemRoot%\System32\OpenSSH\*.exe`, PowerShell o cmd | Baja | P4b |
+| `/usr/bin/ssh`, `/usr/bin/sftp`, `/usr/bin/env telnet`, `/usr/bin/false`, `/bin/zsh -l`, `/etc/shells` (`ConnectionRoute`, `SessionFile`, `KnownHosts`, `JumpSharing`, `Tunnels`) | `%SystemRoot%\System32\OpenSSH\*.exe`, PowerShell o cmd sin `-l` | Baja | P4b |
 | ControlMaster con socket Unix (`JumpSharing`) | No lo tiene el OpenSSH de Windows (por confirmar en P1) | Alta | P4c |
-| Llavero con `/usr/bin/security` (`KeychainStore`) | Administrador de credenciales (`CredWriteW`/`CredReadW`) | Media | P4d |
+| Llavero: `/usr/bin/security` y `SecItemCopyMatching` (`KeychainStore`) | Administrador de credenciales (`CredWriteW`/`CredReadW`/`CredEnumerateW`) | Media | P4d |
+| Candado entre procesos `flock` (`CredentialLedger`) | `LockFileEx` | Baja | P4d |
+| `getppid()` para nombrar el estado (`Askpass`) | PID del padre con Toolhelp32, o por el entorno | Baja | P4e |
 | `kill(pid, 0)` (`CredentialLedger`, `Askpass`) | `OpenProcess` + `GetExitCodeProcess` | Baja | P4d, P4e |
 | `/dev/tty` + `tcgetattr` (`Askpass`) | `CONIN$` + `SetConsoleMode` | Media | P4e |
-| Permisos 0600/0700 (`SafeFile`, `AppPaths`, `DataBackup`, `SessionLog`) | ACL de NTFS sólo para el usuario | Media | P4f |
+| Permisos 0600/0700 (`SafeFile`, `AppPaths`, `DataBackup`, `SessionLog`, `SessionFile`, `KnownHosts`, `DebugLog`, `ErrorLog`) | ACL de NTFS sólo para el usuario | Media | P4f |
+| Detección de los tests por nombre de proceso (`AppPaths.underTests`) | añadir el de Windows (si no, los tests escriben en tu carpeta) | Baja | P4f |
+| El ejecutable de la app en `Package.swift` y SwiftTerm en los tests | sólo en macOS (`#if os(macOS)` en el manifiesto) | Baja | P4.0 |
 | `/dev/cu.*` + termios (`SerialPort`, `SerialLine`) | `\\.\COMn` + `SetCommState` | Media | P4g |
-| `CryptoKit` (`CredentialLedger`, `JumpSharing`, `UpdateCheck`, `Transfer`) | swift-crypto (misma API) | Baja | P4h |
-| `Network.framework` (`FTPClient`) | Sockets / Winsock | Media | P4h |
-| `CoreText` (`TerminalFont`), `CoreGraphics` (`OpenWindows`) | DirectWrite / lo que pida la interfaz | Baja | P4h |
+| `CryptoKit` (`CredentialLedger`, `JumpSharing`, `UpdateCheck`, `Transfer`) | swift-crypto (misma API; cambia `Package.resolved` también en macOS) | Baja | P4.0 |
+| `Network.framework` (`FTPClient`) | Winsock o SwiftNIO | Media | P4h |
+| Sockets BSD para comprobar puertos: `getaddrinfo`, `poll`, `SO_NOSIGPIPE` (`Tunnels`) | Winsock | Media | P4h |
+| `open(O_EXCL\|O_NOFOLLOW)`, `lstat` (`Transfer`, `SessionLog`) | `CreateFileW` con `CREATE_NEW` y sin seguir enlaces | Media | P4h |
+| Puertos `/dev/cu.*` aceptados por `SerialLine` | aceptar `COMn` | Baja | P4g |
+| `CoreText` (`TerminalFont`), `CoreGraphics` (`OpenWindows`, sólo `CGRect`) | DirectWrite / `#if canImport` | Baja | P4h |
 | pty de SwiftTerm (`LocalProcess` / `forkpty`, en la app) | ConPTY (`CreatePseudoConsole`) | Alta | P7 |
 | SwiftUI + AppKit (toda la app) | WinUI 3, Tauri o .NET según la ADR 0001 | Muy alta | P8 |
 | `.dmg` + `codesign` (actualizaciones) | MSIX o instalador + Authenticode + `WinVerifyTrust` | Media | P10 |
@@ -65,8 +72,8 @@ Tres modelos. El más parecido a NetDeck es el primero.
   [formatos compatibles](https://community.royalapps.com/t/compatibility-of-royalts5-and-royaltsx4-file-formats-merged-file/1359),
   [.NET en Windows](https://royalapps.com/blog/major-version-release-2021).
 - **Arc.** Swift en Windows: cerca del 80 % del código común con macOS, interfaz WinUI 3 con swift-winrt, Mica y
-  Acrylic. Pero Arc sólo recibe mantenimiento desde mayo de 2025 y su empresa es de Atlassian: swift-winrt puede quedarse
-  sin quien lo mantenga. Fuentes:
+  Acrylic. Pero Arc sólo recibe mantenimiento desde mayo de 2025 y su empresa, ahora de Atlassian, se centra en Dia:
+  swift-winrt puede quedarse sin quien lo mantenga (comprobar su actividad en GitHub antes de P3). Fuentes:
   [Windows Central](https://www.windowscentral.com/software-apps/windows-11/arc-for-windows-is-beautiful-and-unique-web-browser-inside-and-out-and-its-available-for-download-now),
   [Swift, meet WinRT](https://speakinginswift.substack.com/p/swift-meet-winrt),
   [Neowin](https://www.neowin.net/news/atlassian-acquires-the-browser-company-creators-of-arc-browser/),

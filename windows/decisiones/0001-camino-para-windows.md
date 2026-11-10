@@ -13,8 +13,10 @@ ControlMaster. Hay que elegir con qué se hace la interfaz y la terminal, y cuá
 
 ## Decisión (propuesta)
 
-**Camino A** si el paso P2 muestra que el núcleo compila en Windows con cambios acotados (que los errores salgan sólo
-de los archivos de plataforma de [ESTUDIO.md](../ESTUDIO.md#qué-hay-que-reescribir-en-el-núcleo)). Si no, **camino B**.
+**Camino A** si el paso P2 muestra que el núcleo compila en Windows con cambios acotados. Umbral: con los stubs de
+plataforma de P2 puestos, **ningún error** en los archivos «puros» (resaltado, `SafePaster`, `SessionFile`,
+`SessionImporter`, `SFTPPacket`, temas) y **menos de 50** errores en total que no sean de los archivos de plataforma de
+[ESTUDIO.md](../ESTUDIO.md#qué-hay-que-reescribir-en-el-núcleo). Si no, **camino B**.
 En los dos casos se sigue usando el OpenSSH del sistema; un SSH propio queda fuera de la primera versión.
 
 ## Alternativas
@@ -22,7 +24,7 @@ En los dos casos se sigue usando el OpenSSH del sistema; un SSH propio queda fue
 ### A: Swift en Windows, interfaz WinUI 3 con swift-winrt (como Arc)
 - **A favor:** el mismo `NetDeckCore` en los dos sistemas, con sus tests; un solo lenguaje; aspecto nativo (Mica).
 - **En contra:** las herramientas de Swift para la interfaz de Windows están verdes; hay que escribir la vista de
-  terminal; swift-winrt depende de una empresa que ya sólo mantiene Arc.
+  terminal; swift-winrt lo mantenía la empresa de Arc, que ahora se centra en Dia (comprobar su actividad en GitHub).
 - **Riesgo y mitigación:** si swift-winrt se abandona, la interfaz se puede rehacer sobre la API en C del núcleo
   (camino C) sin tirar el núcleo.
 
@@ -47,11 +49,12 @@ En los dos casos se sigue usando el OpenSSH del sistema; un SSH propio queda fue
 
 | Pregunta | Resultado |
 |---|---|
-| ¿`ssh.exe` respeta `SSH_ASKPASS` + `SSH_ASKPASS_REQUIRE=force`, sin terminal y con ConPTY? | pendiente (P1) |
-| ¿Funciona `ssh -G` con `Include`? | pendiente (P1) |
+| ¿`ssh.exe` respeta `SSH_ASKPASS` + `SSH_ASKPASS_REQUIRE=force`, con consola, sin consola y en ConPTY? | pendiente (P1) |
+| ¿Llega el askpass al ssh hijo de un salto `-J`? | pendiente (P1) |
+| ¿Funciona `ssh -G` con `Include` absoluto, con `~/` y relativo? ¿Comprueba permisos? | pendiente (P1) |
 | ¿Hay ControlMaster? | pendiente (P1; se espera que no) |
 | ¿Funciona `ssh -s … sftp`? | pendiente (P1) |
-| Errores al compilar `NetDeckCore` sin cambios / con los archivos de plataforma fuera | pendiente (P2) |
+| Errores al compilar `NetDeckCore` sin cambios / con los stubs de plataforma (por causa) | pendiente (P2) |
 | ¿Compila el motor de SwiftTerm sin vista? | pendiente (P2) |
 
 ## Consecuencias
@@ -69,3 +72,5 @@ En los dos casos se sigue usando el OpenSSH del sistema; un SSH propio queda fue
 - **Askpass:** si no funciona en Windows, la contraseña automática de las sesiones tiene que ir por la propia pestaña
   (como el autopass ante el prompt) → se mide en P1 antes de decidir.
 - **Firma:** sin un certificado de firma de código, la instalación asusta → decisión y coste en P10.
+- **Askpass empaquetado:** con MSIX puede que ssh.exe no pueda lanzar el ejecutable de la app por su ruta → valorar un
+  `netdeck-askpass.exe` de consola aparte (P4e) y comprobarlo en P10.
