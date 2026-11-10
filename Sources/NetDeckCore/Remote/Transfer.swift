@@ -6,7 +6,7 @@ import Crypto
 import Foundation
 
 /// MD5 de lo que pasa por una copia (para comprobar que el destino tiene exactamente lo mismo).
-public struct TransferDigest: Sendable {
+public struct TransferDigest: @unchecked Sendable {
     private var md5 = Insecure.MD5()
     public init() {}
     public mutating func update(_ d: Data) { md5.update(data: d) }

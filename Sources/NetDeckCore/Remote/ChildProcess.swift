@@ -1,4 +1,8 @@
+#if os(Windows)
+import WinSDK
+#else
 import Darwin
+#endif
 import Foundation
 
 /// Un proceso sin terminal (ssh con el subsistema sftp) con sus tres tuberías. Se lanza en una sesión propia (setsid):
@@ -15,11 +19,32 @@ public final class ChildProcess: @unchecked Sendable {
     /// este objeto ya se esté liberando; así nunca se manda una señal a un PID recogido (y quizá ya de otro).
     private let reaped = Reaped()
     private var errorText = ""
+    #if os(Windows)
+    private var windowsProcess: Process?
+    #else
     private var exitSource: DispatchSourceProcess?
+    #endif
     private let finishOutput: @Sendable () -> Void
 
     public init(executable: String, arguments: [String], environment: [String: String]) throws {
         let inPipe = Pipe(), outPipe = Pipe(), errPipe = Pipe()
+
+        #if os(Windows)
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: executable)
+        proc.arguments = arguments
+        proc.environment = environment
+        proc.standardInput = inPipe
+        proc.standardOutput = outPipe
+        proc.standardError = errPipe
+        do { try proc.run() } catch {
+            throw RemoteError(L("No arranca \(executable): \(error.localizedDescription)"))
+        }
+        try? inPipe.fileHandleForReading.close()
+        try? outPipe.fileHandleForWriting.close()
+        try? errPipe.fileHandleForWriting.close()
+        let child: pid_t = proc.processIdentifier
+        #else
         var actions: posix_spawn_file_actions_t?
         posix_spawn_file_actions_init(&actions)
         defer { posix_spawn_file_actions_destroy(&actions) }
@@ -51,6 +76,8 @@ public final class ChildProcess: @unchecked Sendable {
         guard rc == 0 else {
             throw RemoteError(L("No arranca \(executable): \(String(cString: strerror(rc)))"))
         }
+        #endif
+
         pid = child
         input = inPipe.fileHandleForWriting
         stdout = outPipe.fileHandleForReading
@@ -77,6 +104,14 @@ public final class ChildProcess: @unchecked Sendable {
                 if let s = self, s.errorText.count > 4000 { s.errorText = String(s.errorText.suffix(2000)) }
             }
         }
+
+        #if os(Windows)
+        windowsProcess = proc
+        let reaped = reaped
+        proc.terminationHandler = { p in
+            reaped.lock.withLock { reaped.status = p.terminationStatus }
+        }
+        #else
         let src = DispatchSource.makeProcessSource(identifier: child, eventMask: .exit, queue: .global())
         let reaped = reaped
         src.setEventHandler {
@@ -96,11 +131,12 @@ public final class ChildProcess: @unchecked Sendable {
         }
         exitSource = src
         src.resume()
+        #endif
     }
 
     deinit { terminate() }
 
-    /// Lo último que ha dicho por su salida de errores (sin avisos «Warning: Permanently added…»).
+    /// Lo último que ha dicho por su salida de errores (sin avisos «Warning: Permanently added...»).
     public var errorSummary: String {
         let lines = lock.withLock { errorText }.components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -113,7 +149,7 @@ public final class ChildProcess: @unchecked Sendable {
     public var exited: Bool { reaped.lock.withLock { reaped.status != nil } }
 
     public func write(_ d: Data) throws {
-        do { try input.write(contentsOf: d) } catch { throw RemoteError(L("Se ha perdido la conexión")) }
+        do { try input.write(contentsOf: d) } catch { throw RemoteError(L("Se ha perdido la conexion")) }
     }
 
     public func terminate() {
@@ -121,10 +157,14 @@ public final class ChildProcess: @unchecked Sendable {
         stderr.readabilityHandler = nil
         finishOutput()
         try? input.close()
-        // (a todo su grupo: ssh y el askpass que haya lanzado. Sin recoger aún, el grupo es suyo: ver arriba)
+        // (a todo su grupo: ssh y el askpass que haya lanzado. Sin recoger aun, el grupo es suyo: ver arriba)
         reaped.lock.withLock {
             guard reaped.status == nil else { return }
+            #if os(Windows)
+            windowsProcess?.terminate()
+            #else
             if killpg(pid, SIGTERM) != 0 { kill(pid, SIGTERM) }
+            #endif
         }
     }
 }

@@ -1,3 +1,30 @@
+﻿## 2026-11-10 · Windows · P4a-P4f: núcleo compila en Windows (501 archivos, Build complete!)
+
+- Hecho: todos los errores de compilación de `NetDeckCore` en Windows corregidos. 501 archivos compilados y enlazados.
+  Problemas resueltos y archivos modificados:
+  - `Security/Askpass.swift`: `getppid()` no existe en Windows → guard `#if os(Windows)` con `processIdentifier`.
+  - `Security/KeychainStore.swift`: `Security.framework` no existe → guard `#if canImport(Security)` + stub Windows.
+  - `Sessions/OpenWindows.swift`: `CoreGraphics` → guard `#if canImport(CoreGraphics)`.
+  - `Terminal/TerminalFont.swift`: `CoreText` → guard `#if canImport(CoreText)`.
+  - `Support/UpdateCheck.swift`: `URLRequest`/`URLSession` → `#if canImport(FoundationNetworking)`.
+  - `Support/WindowsTypes.swift` (creado): stubs POSIX para Windows (`fnmatch`, `localtime_r`, `lstat`, `flock`,
+    `O_CLOEXEC`, `O_NOFOLLOW`, `pid_t`, `SIGKILL`, `_windowsProcessAlive`).
+  - `Security/CredentialLedger.swift`: `import WinSDK` causaba ambigüedad UUID → eliminado, usa `_windowsProcessAlive`.
+  - `Sessions/Tunnels.swift`: `in_addr.s_addr` no existe en WinSDK → guard `#if os(Windows)` con `withUnsafeBytes`.
+    `import WinSDK` / `public typealias UUID = Foundation.UUID` para resolver ambigüedad.
+  - `Sessions/SSHConfigParser.swift`: `glob`/`glob_t` no en Windows → `#if os(Windows)` con `FileManager` + `fnmatch`.
+  - `Remote/Transfer.swift`: `TransferDigest: @unchecked Sendable` (swift-crypto MD5 no es Sendable).
+  - `windows/scripts/swift-build.ps1`: `--scratch-path C:\Users\<usuario>\AppData\Local\NetDeckBuild` para evitar
+    que Windows Defender Controlled Folder Access bloquee a `llvm-lib.exe` al crear `.lib` en Documents/.
+- Compilación verificada: `Build complete!` (501 archivos, 85 s). Warning del symlink `.build/debug` inofensivo
+  (requiere Developer Mode en Windows para crear symlinks sin ser admin).
+- Pendiente (P4b): rutas de programas del sistema (`/usr/bin/ssh` → rutas de Windows OpenSSH).
+- Pendiente (P4d): KeychainStore con Windows Credential Manager (ahora es stub no-op).
+- Pendiente (P4f): `flock` real con `LockFile`/`UnlockFile`, `AppPaths.underTests` para test.ps1.
+- Pendiente (P6): tests con `windows/scripts/test.ps1`.
+- Pendiente (P7): terminal con ConPTY.
+- **Siguiente paso:** ejecutar `bash tools/privacidad.sh` y hacer commit, luego P6 (tests).
+
 # Estado del trabajo de Windows
 
 Cada sesión añade una entrada **arriba**, con fecha, dónde (Mac o Windows), qué se ha hecho, qué ha fallado y el

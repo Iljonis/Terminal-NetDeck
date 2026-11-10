@@ -194,12 +194,23 @@ public struct SSHConfigParser: Sendable {
     /// Archivos de un «Include» (`includePaths` con sus comodines).
     static func includeFiles(_ value: String, sshDirectory: URL?) -> [URL] {
         includePaths(value, sshDirectory: sshDirectory).flatMap { path -> [URL] in
+            #if os(Windows)
+            let url = URL(fileURLWithPath: path)
+            let dir = url.deletingLastPathComponent()
+            let pat = url.lastPathComponent
+            guard let entries = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { return [url] }
+            if pat.contains("*") || pat.contains("?") {
+                return entries.filter { fnmatch(pat, $0.lastPathComponent, 0) == 0 }
+            }
+            return FileManager.default.fileExists(atPath: path) ? [url] : []
+            #else
             var g = glob_t()
             defer { globfree(&g) }
             guard glob(path, 0, nil, &g) == 0 else { return [] }
             return (0..<Int(g.gl_pathc)).compactMap { i in
                 g.gl_pathv[i].map { URL(fileURLWithPath: String(cString: $0)) }
             }
+            #endif
         }
     }
 }

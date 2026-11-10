@@ -1,6 +1,11 @@
 import Foundation
+#if canImport(Security)
 import Security
 
+/// Llavero de macOS. Los secretos se leen y guardan con /usr/bin/security, como NetDeck: las contraseñas guardadas así
+/// (con «pw» o desde aquí) confían en esa herramienta y NUNCA sale el aviso «… quiere usar la información confidencial»
+/// (que con una app sin firmar volvería a salir en cada compilación). Comprobar y listar usan SecItem sin leer el
+/// secreto: tampoco piden permiso. Nunca se guarda una contraseña en un archivo.
 /// Llavero de macOS. Los secretos se leen y guardan con /usr/bin/security, como NetDeck: las contraseñas guardadas así
 /// (con «pw» o desde aquí) confían en esa herramienta y NUNCA sale el aviso «… quiere usar la información confidencial»
 /// (que con una app sin firmar volvería a salir en cada compilación). Comprobar y listar usan SecItem sin leer el
@@ -132,11 +137,6 @@ public struct KeychainStore: CredentialStore {
          kSecAttrAccount as String: ref.account]
     }
 
-    /// Entre comillas para «security -i» (dentro, sólo «"» y «\\» se escapan).
-    static func quoted(_ s: String) -> String {
-        "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
-    }
-
     /// Lo más que se espera a `security` (si macOS pide la contraseña del Llavero y nadie contesta, se corta).
     static let timeout: TimeInterval = 10
 
@@ -172,6 +172,34 @@ public struct KeychainStore: CredentialStore {
             throw KeychainError(message: L("no contesta en \(Int(timeout)) s (¿está bloqueado?)"))
         }
         return (p.terminationStatus, String(decoding: o, as: UTF8.self), String(decoding: e, as: UTF8.self).trimmed)
+    }
+}
+
+#else
+// TODO P4d: implementar KeychainStore con Windows Credential Manager (CredWriteW/CredReadW de WinSDK)
+public struct KeychainStore: CredentialStore {
+    public static let tool = "cmdkey.exe"
+    public init() {}
+    public func password(for ref: CredentialRef) throws -> String? {
+        throw KeychainError(message: L("Llavero no disponible en Windows (TODO P4d)"))
+    }
+    public func contains(_ ref: CredentialRef) -> Bool { false }
+    public func exists(_ ref: CredentialRef) throws -> Bool { false }
+    public func save(_ password: String, for ref: CredentialRef) throws {
+        throw KeychainError(message: L("Llavero no disponible en Windows (TODO P4d)"))
+    }
+    public func create(_ password: String, for ref: CredentialRef) throws {
+        throw KeychainError(message: L("Llavero no disponible en Windows (TODO P4d)"))
+    }
+    public func delete(_ ref: CredentialRef) throws {}
+    public func accounts(in service: CredentialRef.Service) throws -> [String] { [] }
+}
+#endif
+
+extension KeychainStore {
+    /// Entre comillas para "security -i" (dentro, solo "\\"" y "\\\\" se escapan).
+    public static func quoted(_ s: String) -> String {
+        "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
     }
 }
 

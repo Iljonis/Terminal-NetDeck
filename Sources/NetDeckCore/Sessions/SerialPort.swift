@@ -1,6 +1,9 @@
 import Foundation
+#if !os(Windows)
 import Darwin
+#endif
 
+#if !os(Windows)
 /// Consola serie sin programas externos: termios aplica y comprueba la trama. Las lecturas van a `queue`; las
 /// escrituras no bloqueantes esperan disponibilidad sin retener la cola. El cierre cancela ambos eventos antes de
 /// liberar el descriptor (ningún evento pendiente puede escribir en otro archivo que recicle su número).
@@ -226,3 +229,22 @@ public final class SerialPort: @unchecked Sendable {
 
     static func why(_ code: Int32) -> String { String(cString: strerror(code)) }
 }
+#else
+// TODO P4g: implementar SerialPort con Win32 Serial API (COMn)
+public final class SerialPort: @unchecked Sendable {
+    public struct Failure: Error, LocalizedError, Equatable {
+        public let message: String
+        public var errorDescription: String? { message }
+        public init(message: String) { self.message = message }
+    }
+    private init() {}
+    public convenience init(_ line: SerialLine, queue: DispatchQueue,
+                            onData: @escaping @Sendable (ArraySlice<UInt8>) -> Void,
+                            onClose: @escaping @Sendable (String) -> Void) throws {
+        throw Failure(message: L("Serial no disponible en Windows (TODO P4g)"))
+    }
+    public func write(_ bytes: ArraySlice<UInt8>) {}
+    public func sendBreak() {}
+    public func close() {}
+}
+#endif

@@ -1,6 +1,9 @@
 import Foundation
+#if canImport(Network)
 import Network
+#endif
 
+#if canImport(Network)
 /// Conexión TCP con lectura y escritura asíncronas (Network.framework). Cancelar la tarea que espera cierra la
 /// conexión al momento (y la espera termina con error): así «Cancelar» no se queda colgado en un servidor mudo.
 final class TCPStream: @unchecked Sendable {
@@ -124,6 +127,21 @@ final class TCPStream: @unchecked Sendable {
 
     func cancel() { connection.cancel() }
 }
+#else
+// TODO P4h: implementar TCPStream con Winsock2
+final class TCPStream: @unchecked Sendable {
+    static let connectTimeout: TimeInterval = 10
+    private let host: String
+    private let port: UInt16
+    private let ended = Once()
+    init(host: String, port: UInt16) { self.host = host; self.port = port }
+    func start() async throws { throw RemoteError(L("FTP no disponible en Windows (TODO P4h)")) }
+    func send(_ d: Data) async throws { throw RemoteError(L("FTP no disponible en Windows (TODO P4h)")) }
+    func receive(timeout: TimeInterval? = nil) async throws -> Data? { throw RemoteError(L("FTP no disponible en Windows (TODO P4h)")) }
+    func finishSending() async throws { throw RemoteError(L("FTP no disponible en Windows (TODO P4h)")) }
+    func cancel() {}
+}
+#endif
 
 /// Sólo la primera vez (para no reanudar dos veces una continuación).
 final class Once: @unchecked Sendable {

@@ -3,7 +3,9 @@ import CryptoKit
 #else
 import Crypto
 #endif
+#if !os(Windows)
 import Darwin
+#endif
 import Foundation
 
 /// Estado de cada contraseña entre todas las pestañas y el askpass, para no bloquear cuentas AD:
@@ -36,7 +38,13 @@ public final class CredentialLedger: @unchecked Sendable {
 
     public init(storage: LedgerStorage = MemoryLedgerStorage(), now: @escaping @Sendable () -> Date = { Date() },
                 processID: Int32 = ProcessInfo.processInfo.processIdentifier,
-                processAlive: @escaping @Sendable (Int32) -> Bool = { kill($0, 0) == 0 || errno == EPERM }) {
+                processAlive: @escaping @Sendable (Int32) -> Bool = { pid in
+                    #if os(Windows)
+                    return _windowsProcessAlive(pid)
+                    #else
+                    return kill(pid, 0) == 0 || errno == EPERM
+                    #endif
+                }) {
         self.storage = storage
         self.now = now
         self.processID = processID

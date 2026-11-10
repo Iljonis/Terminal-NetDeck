@@ -1,4 +1,6 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#endif
 import Foundation
 
 /// abiertas.json: las pestañas de cada ventana al salir (o al actualizar), para volver a abrirlas cada una en su ventana

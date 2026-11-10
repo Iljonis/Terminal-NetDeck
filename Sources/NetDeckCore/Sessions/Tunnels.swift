@@ -1,4 +1,9 @@
+﻿#if os(Windows)
+import WinSDK
+public typealias UUID = Foundation.UUID  // Resolve WinSDK.UUID vs Foundation.UUID
+#else
 import Darwin
+#endif
 import Foundation
 import Observation
 
@@ -94,7 +99,14 @@ public struct Tunnel: Codable, Hashable, Sendable, Identifiable {
         let a = unbracket(address.trimmed).lowercased()
         if a == "localhost" { return true }
         var v4 = in_addr()
-        if inet_pton(AF_INET, a, &v4) == 1 { return UInt32(bigEndian: v4.s_addr) >> 24 == 127 }
+        if inet_pton(AF_INET, a, &v4) == 1 {
+            #if os(Windows)
+            let raw = withUnsafeBytes(of: &v4) { $0.load(as: UInt32.self) }
+            return UInt32(bigEndian: raw) >> 24 == 127
+            #else
+            return UInt32(bigEndian: v4.s_addr) >> 24 == 127
+            #endif
+        }
         var v6 = in6_addr()
         guard inet_pton(AF_INET6, a, &v6) == 1 else { return false }
         let b = withUnsafeBytes(of: &v6) { Array($0) }
@@ -390,6 +402,9 @@ public enum PortCheck {
     /// Por qué no se puede escuchar en `address:port` en este Mac (otro lo usa, la dirección no es de este Mac…), o nil
     /// si está libre. Bind de prueba con SO_REUSEADDR, como hace ssh. «*»: todas las direcciones.
     public static func problem(address: String, port: Int) -> String? {
+        #if os(Windows)
+        return nil // TODO P4h: implementar con Winsock2
+        #else
         var hints = addrinfo()
         hints.ai_socktype = SOCK_STREAM
         hints.ai_flags = AI_PASSIVE
@@ -422,10 +437,14 @@ public enum PortCheck {
             }
         }
         return nil
+        #endif
     }
 
     /// ¿Alguien escucha ya en `address:port`? (conexión de prueba; «*» y 0.0.0.0 se prueban en 127.0.0.1, «::» en ::1)
     public static func isListening(address: String, port: Int, timeout: Int32 = 300) -> Bool {
+        #if os(Windows)
+        return false // TODO P4h: implementar con Winsock2
+        #else
         let a = address == "*" || address == "0.0.0.0" ? "127.0.0.1" : address == "::" ? "::1" : address
         var hints = addrinfo()
         hints.ai_socktype = SOCK_STREAM
@@ -450,6 +469,7 @@ public enum PortCheck {
             if getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &len) == 0, err == 0 { return true }
         }
         return false
+        #endif
     }
 }
 
@@ -506,10 +526,33 @@ public final class TunnelProcess: @unchecked Sendable {
     private var status: Int32?
     private let stderr: FileHandle
     private let captureOutput: Bool
+    #if os(Windows)
+    private var windowsProcess: Process?
+    #else
     private var exitSource: DispatchSourceProcess?
+    #endif
 
     public init(executable: String, arguments: [String], environment: [String: String], captureOutput: Bool = false) throws {
         let errPipe = Pipe()
+
+        #if os(Windows)
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: executable)
+        proc.arguments = arguments
+        proc.environment = environment
+        proc.standardInput = FileHandle.nullDevice
+        if captureOutput {
+            proc.standardOutput = errPipe
+        } else {
+            proc.standardOutput = FileHandle.nullDevice
+        }
+        proc.standardError = errPipe
+        do { try proc.run() } catch {
+            throw TunnelError.invalid(L("No arranca \(executable): \(error.localizedDescription)"))
+        }
+        try? errPipe.fileHandleForWriting.close()
+        let child: pid_t = proc.processIdentifier
+        #else
         var actions: posix_spawn_file_actions_t?
         posix_spawn_file_actions_init(&actions)
         defer { posix_spawn_file_actions_destroy(&actions) }
@@ -538,9 +581,35 @@ public final class TunnelProcess: @unchecked Sendable {
         let rc = posix_spawn(&child, executable, &actions, &attr, argv, envp)
         try? errPipe.fileHandleForWriting.close()
         guard rc == 0 else { throw TunnelError.invalid(L("No arranca \(executable): \(String(cString: strerror(rc)))")) }
+        #endif
+
         pid = child
         self.captureOutput = captureOutput
         stderr = errPipe.fileHandleForReading
+
+        #if os(Windows)
+        stderr.readabilityHandler = { [weak self] h in
+            guard let self else { return }
+            let d = h.availableData
+            guard !d.isEmpty else { h.readabilityHandler = nil; return }
+            self.lock.withLock {
+                let limit = self.captureOutput ? 1_048_576 : 8000
+                if self.captureOutput {
+                    if self.output.count + d.count > limit { self.truncated = true }
+                    let take = min(d.count, max(0, limit - self.output.count))
+                    if take > 0 { self.output.append(d.prefix(take)) }
+                } else {
+                    self.output.append(contentsOf: d)
+                    if self.output.count > limit { self.output = Data(self.output.suffix(4000)) }
+                }
+            }
+        }
+        windowsProcess = proc
+        proc.terminationHandler = { [weak self] p in
+            self?.lock.withLock { self?.status = p.terminationStatus }
+            self?.stderr.readabilityHandler = nil
+        }
+        #else
         let fd = stderr.fileDescriptor
         _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
         stderr.readabilityHandler = { [weak self] h in
@@ -552,8 +621,10 @@ public final class TunnelProcess: @unchecked Sendable {
         exitSource = src
         src.resume()
         reap()                                                 // (también si salió antes de instalar el aviso)
+        #endif
     }
 
+    #if !os(Windows)
     // (con lock: el lector y la recogida final nunca compiten por la tubería; no se espera un EOF de un nieto)
     private func readOutput() -> Bool {
         var bytes = [UInt8](repeating: 0, count: 8192)
@@ -589,9 +660,13 @@ public final class TunnelProcess: @unchecked Sendable {
         }
         if exited { stderr.readabilityHandler = nil; exitSource?.cancel() }
     }
+    #endif
 
     deinit {
         stderr.readabilityHandler = nil
+        #if os(Windows)
+        windowsProcess?.terminate()
+        #else
         exitSource?.cancel()
         signal(SIGKILL)
         if !exited {
@@ -601,11 +676,17 @@ public final class TunnelProcess: @unchecked Sendable {
                 repeat { result = waitpid(child, &st, 0) } while result < 0 && errno == EINTR
             }
         }
+        #endif
     }
 
     public var exited: Bool { lock.withLock { status != nil } }
     /// Recoge el proceso si ya ha salido, sin esperar al aviso de salida (con la máquina cargada puede tardar segundos).
-    func reapIfExited() -> Bool { reap(); return exited }
+    func reapIfExited() -> Bool {
+        #if !os(Windows)
+        reap()
+        #endif
+        return exited
+    }
     public var exitStatus: Int32? { lock.withLock { status } }
     public var errorOutput: String { lock.withLock { String(decoding: output, as: UTF8.self) } }
     public var outputTruncated: Bool { lock.withLock { truncated } }
@@ -614,7 +695,11 @@ public final class TunnelProcess: @unchecked Sendable {
     public func signal(_ sig: Int32) {
         lock.withLock {
             guard status == nil else { return }
+            #if os(Windows)
+            windowsProcess?.terminate()
+            #else
             if killpg(pid, sig) != 0 { kill(pid, sig) }
+            #endif
         }
     }
 
@@ -796,10 +881,22 @@ public final class TunnelManager {
         guard !all.isEmpty else { return }
         for run in all.values { run.stopping = true; run.process.signal(SIGTERM) }
         let deadline = Date().addingTimeInterval(wait)
-        while all.values.contains(where: { !$0.process.reapIfExited() }), Date() < deadline { usleep(20_000) }
+        while all.values.contains(where: { !$0.process.reapIfExited() }), Date() < deadline {
+            #if os(Windows)
+            Thread.sleep(forTimeInterval: 0.02)
+            #else
+            usleep(20_000)
+            #endif
+        }
         all.values.filter { !$0.process.exited }.forEach { $0.process.signal(SIGKILL) }
         let end = Date().addingTimeInterval(2)
-        while all.values.contains(where: { !$0.process.reapIfExited() }), Date() < end { usleep(20_000) }
+        while all.values.contains(where: { !$0.process.reapIfExited() }), Date() < end {
+            #if os(Windows)
+            Thread.sleep(forTimeInterval: 0.02)
+            #else
+            usleep(20_000)
+            #endif
+        }
         for (id, run) in all { finish(id, run, .stopped) }
         DebugLog.log("tuneles", "parados al salir: \(all.count)")
     }
