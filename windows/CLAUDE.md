@@ -32,12 +32,11 @@ La herramienta Bash de Claude Code en Windows suele ir por **Git Bash**, y las �
     `./test.sh`; sin él, los tests escribirían en tu carpeta de usuario (`AppPaths.underTests` no reconoce aún el
     proceso de tests de Windows: lo arregla el paso P4f).
   - `bash tools/privacidad.sh` desde Git Bash (también busca rutas `C:\Users\…`).
-- **Antes de un commit desde Windows — PENDIENTE DE QUE EL AUTOR LO APRUEBE:** la raíz pide una pasada de demo antes de
-  cada commit, y en Windows no hay app que probar todavía. Mientras el autor no lo confirme, **pregúntale antes del
-  primer commit** proponiendo esto: `bash tools/privacidad.sh` en verde, el núcleo compila en Windows (desde P2), los
-  tests con `test.ps1` (desde P6) y un informe en `windows/ESTADO.md`; sólo para `propuesta/windows` y `windows/*`.
-  **Nada se fusiona a `main` sin que el autor haga en su Mac la pasada de siempre** (`./test.sh` + demo): los cambios en
-  `Sources/` no pueden romper macOS. Si lo aprueba, que se escriba en la sección «Antes de un commit» de la raíz.
+- **Antes de un commit desde Windows** (aprobado por el autor el 2026-11-10 y escrito en la sección «Antes de un
+  commit» de la raíz): no hay demo, porque en Windows no hay app que probar todavía. En su lugar:
+  `bash tools/privacidad.sh` en verde, el núcleo compila en Windows (desde P2), los tests con `test.ps1` (desde P6) y un
+  informe en `windows/ESTADO.md`. Vale sólo para `propuesta/windows` y `windows/*`. **Nada se fusiona a `main` sin que
+  el autor haga en su Mac la pasada de siempre** (`./test.sh` + demo): los cambios en `Sources/` no pueden romper macOS.
 - **El código de Windows no cambia el de macOS.** Lo nuevo va tras `#if os(Windows)` o detrás de un protocolo con su
   implementación de macOS intacta (paso P4). Si un cambio obliga a tocar lo que se compila en macOS (`Package.swift`,
   `Package.resolved`) o su comportamiento, para y pregunta.

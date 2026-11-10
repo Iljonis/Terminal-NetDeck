@@ -13,7 +13,8 @@ siguiente paso. Sin datos reales.
   `tools/privacidad.sh` también busca rutas `C:\Users\…`.
 - Comprobado en el Mac: `./test.sh` y `tools/privacidad.sh` en verde. Sin demo: por decisión del autor en esta
   propuesta, que sólo cambia documentos y scripts de Windows.
-- Pendiente del autor: aprobar o cambiar la regla provisional de commits desde Windows (`windows/CLAUDE.md`).
+- Regla de commits desde Windows (sin demo; privacidad, compilación, tests con `test.ps1` e informe aquí): aprobada
+  por el autor y escrita en la raíz.
 - **Siguiente paso:** P0 en el PC con Windows, luego P1 y P2.
 
 ## 2026-11-10 · Mac · Propuesta inicial
