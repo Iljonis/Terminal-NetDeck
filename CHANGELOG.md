@@ -10,6 +10,13 @@ All notable changes to Terminal NetDeck are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-10
+
+### Fixed
+- Neon Glass themes on macOS 26: the toolbar glass could turn grey and the tabs lose their title (hovering brought
+  back only the last one). The glass is now the regular one with a veil of the theme's tint, and the status dot of
+  unselected glass tabs has no glow.
+
 ## [1.0.0] - 2026-11-08
 
 ### Added
@@ -203,7 +210,8 @@ Paths shown with `~`, private permissions (0700/0600) for the app's data, and do
 First public release: background update checks (never installs without a click), standard `.dmg` install and
 rejection of names, hosts and users starting with `-`.
 
-[Unreleased]: https://github.com/Iljonis/Terminal-NetDeck/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Iljonis/Terminal-NetDeck/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Iljonis/Terminal-NetDeck/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.13...v1.0.0
 [0.9.13]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.12...v0.9.13
 [0.9.12]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.11...v0.9.12

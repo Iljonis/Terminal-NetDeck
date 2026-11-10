@@ -10,7 +10,7 @@ SFTP browser with verified copies and output highlighting for Cisco, Juniper, Hu
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v1.0.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.0.0)** · macOS 15 or later ·
+Current version: **[v1.0.1](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.0.1)** · macOS 15 or later ·
 Apple silicon · open source (MIT)
 
 [![Latest release](https://img.shields.io/github/v/release/Iljonis/Terminal-NetDeck?label=version&color=ff2e88)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
@@ -59,6 +59,12 @@ scripting language: macros, buttons and device lists cover that ground.
 
 Rather build it? `git clone https://github.com/Iljonis/Terminal-NetDeck.git && cd Terminal-NetDeck && ./install.sh`
 (macOS 15.6+ and Swift 6.2). Full details in [Installation](#installation--first-run-on-macos-15-sequoia).
+
+## New in 1.0.1
+
+- **Tab names back in the Neon Glass themes:** with these themes, macOS 26 could draw the toolbar glass grey and leave
+  the tabs without a title; hovering brought back only the last one. The glass is now the regular one with a veil of
+  the theme's colour, and every tab shows its name.
 
 ## New in 1.0.0
 
