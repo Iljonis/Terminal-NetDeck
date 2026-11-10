@@ -1,3 +1,4 @@
+#if canImport(SwiftTerm)
 import Foundation
 import Testing
 import SwiftTerm
@@ -281,3 +282,4 @@ private struct Semilla {
         return x
     }
 }
+#endif

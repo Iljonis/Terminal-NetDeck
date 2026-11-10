@@ -1,0 +1,51 @@
+# BORRADOR (paso P5 de windows/PLAN.md): no está activo. Para activarlo, revisa lo marcado con «REVISAR» y cópialo a
+# .github/workflows/windows.yml. Compila el núcleo (NetDeckCore) en Windows; los tests, desde el paso P6 (con
+# windows/scripts/test.ps1, nunca «swift test» a secas: escribiría en la carpeta del usuario del runner).
+name: Windows (núcleo)
+
+on:
+  pull_request:
+    branches: [propuesta/windows]
+  push:
+    branches: [propuesta/windows]
+
+permissions:
+  contents: read
+
+jobs:
+  privacidad:
+    # Sin continue-on-error: si aparece un dato personal, el PR se pone en rojo.
+    runs-on: windows-latest
+    steps:
+      - name: Sin conversión de fin de línea (si no, los .sh salen con CRLF)
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+      - name: Privacidad (nada personal en el repositorio)
+        shell: bash
+        run: tools/privacidad.sh
+
+  nucleo:
+    runs-on: windows-latest
+    # Hasta que el paso P4 termine, que el núcleo no compile es lo esperado: no pone el PR en rojo.
+    continue-on-error: true
+    steps:
+      - name: Sin conversión de fin de línea
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+      - name: Toolchain de Swift para Windows
+        # REVISAR: fija la acción a un tag o a un commit (no a una rama) y comprueba sus parámetros actuales: según la
+        # versión son «branch» + «tag» o «swift-version». compnerd/gha-setup-swift es la que usa el proyecto Swift.
+        uses: compnerd/gha-setup-swift@REVISAR
+        with:
+          branch: swift-6.2-release   # REVISAR
+          tag: 6.2-RELEASE            # REVISAR
+      - name: Versión
+        run: swift --version
+      - name: Compilar el núcleo
+        run: swift build --target NetDeckCore 2>&1 | Tee-Object compilacion.txt
+      - name: Guardar el resultado
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compilacion-windows
+          path: compilacion.txt
