@@ -40,20 +40,47 @@ Salida en bruto: `windows/resultados/compilacion-0.txt` (no subido al repo).
 
 **Total: 12 archivos únicos** de un núcleo de ~17 000 líneas.
 
-## Lo que sí compila (preliminar)
+## Resultado con `#if !os(Windows)` (tarea 3) · 2026-11-10
 
-Los módulos sin dependencias de plataforma (y que deberían compilar sin `#if`):
-- Resaltado de sintaxis (`Resaltado/`)
-- Pegado seguro (`Security/SafePaster.swift`)
-- Formato de sesiones ssh_config (`Sessions/SessionFile.swift`)
-- Paquetes SFTP (`Remote/SFTPPacket.swift`, `Remote/SFTPClient.swift`)
-- Temas (todos los archivos `.tema` se cargan en runtime)
+Los 12 archivos envueltos; compilación avanza a [34/41] antes de que fallen los que dependen de ellos.
 
-La medición exacta (P2 tarea 3) está pendiente: hay que envolver los 12 archivos en `#if !os(Windows)` y contar.
+### Errores de cascada (6 archivos adicionales, 11 errores)
+
+| Archivo                              | Tipo no encontrado   | Viene de               |
+|--------------------------------------|----------------------|------------------------|
+| `Productivity/JumpBatch.swift`       | `CredentialLedger`   | `Security/CredentialLedger.swift` |
+| `Remote/RemoteEdit.swift`            | `RemoteFileVersion`  | `Remote/Transfer.swift` |
+| `Remote/SFTPClient.swift`            | `ChildProcess`       | `Remote/ChildProcess.swift` |
+| `Security/PasswordAutomation.swift`  | `CredentialLedger`   | `Security/CredentialLedger.swift` |
+| `Sessions/ConnectionRoute.swift`     | `JumpSharing`        | `Sessions/JumpSharing.swift` |
+| `Sessions/TerminalProfile.swift`     | `TerminalFont`       | `Terminal/TerminalFont.swift` |
+
+### Avisos de Foundation en Windows (no fatales, pero a resolver en P4)
+
+| Archivo                          | Aviso                                              |
+|----------------------------------|----------------------------------------------------|
+| `Productivity/Macros.swift:250,254` | `FileManager.replaceItemAt` — no implementado en Windows |
+| `Support/AppPaths.swift:19`      | `getpid()` — usar `_getpid()` en Windows           |
+
+`FileManager.replaceItemAt` se usa en la escritura atómica de `SafeFile`; necesitará una alternativa en P4.
+
+### Lo que sí compila sin cambios
+
+- `Resaltado/` completo (resaltado de sintaxis)
+- `Security/SafePaster.swift` (pegado seguro)
+- `Sessions/SessionFile.swift` (formato ssh_config)
+- `Remote/SFTPPacket.swift` (paquetes SFTP)
+- `Support/AppPaths.swift`, `DebugLog.swift`, `ErrorLog.swift`, `SafeFile.swift` (con avisos menores)
+- Temas (`.tema`, carga en runtime)
+
+`Remote/SFTPClient.swift` **no** compila sin cambios porque depende de `ChildProcess`.
 
 ## Conclusión para la ADR 0001
 
-- El núcleo tiene **12 archivos con dependencias de plataforma** de un total de ~80 archivos Swift.
-- Esto representa una barrera **baja-media** para el camino A (Swift en Windows).
-- Los módulos `Foundation`, `Dispatch`, y gran parte de la API son compatibles en Windows.
+- **12 archivos con `import` de plataforma** + **6 archivos de cascada** = **18 archivos** con trabajo pendiente
+  de un total de ~80 archivos Swift (~22%).
+- **~62 archivos** (~78%) compilan en Windows sin ningún cambio.
+- Barrera **baja-media** confirmada para el camino A (Swift nativo en Windows).
+- Los módulos `Foundation`, `Dispatch`, y gran parte de la API son compatibles; sólo `FileManager.replaceItemAt`
+  no está implementado en la versión actual de swift-corelibs-foundation para Windows.
 - Recomendación: continuar con el camino A (Swift nativo) según lo previsto en P3.

@@ -3,17 +3,20 @@
 Cada sesión añade una entrada **arriba**, con fecha, dónde (Mac o Windows), qué se ha hecho, qué ha fallado y el
 siguiente paso. Sin datos reales.
 
-## 2026-11-10 · Windows · P2: medición de errores del núcleo
+## 2026-11-10 · Windows · P2: medición completa (tareas 1–3)
 
-- Hecho: `swift build --target NetDeckCore` en Windows. Compilación para en el primer `import Darwin`
-  (`Remote/ChildProcess.swift`). Contados los archivos con dependencias de plataforma: **12 de ~80**.
-  Resultado en `windows/resultados/compilacion.md`.
-- Hallazgo del entorno: `swift build` requiere en Windows crear a mano `.build/plugins/cache/` y
-  `.build/plugins/outputs/` antes del primer build (SPM no los crea). Las DLLs del runtime de Swift
-  (`Runtimes/6.4.2/usr/bin`) y la `ManifestAPI` deben estar en el PATH, y `SDKROOT` apuntar al SDK.
-  Pendiente: añadir estas rutas a un script `swift-build.ps1` (o a `comun.ps1`).
-- **Siguiente paso:** tarea 3 de P2 (envolver los 12 archivos en `#if !os(Windows)` y volver a compilar
-  para contar qué queda). Después, completar la ADR 0001 con los datos y que el autor decida el camino.
+- Hecho tarea 1–2: `swift build --target NetDeckCore` en Windows para en el primer `import Darwin`.
+  Identificados **12 archivos con dependencias de plataforma** de ~80 totales. Script `swift-build.ps1`
+  creado con PATH, SDKROOT y la creación de `.build/plugins/{cache,outputs}` necesaria en Windows.
+- Hecho tarea 3: envueltos los 12 archivos en `#if !os(Windows)`. La compilación avanza a [34/41].
+  Resultado: **6 archivos adicionales** fallan por cascada (usan tipos de los 12 envueltos).
+  Total con trabajo pendiente: **18 archivos de ~80 (~22%)**. Los ~62 restantes compilan sin cambios.
+- Hallazgo importante: `FileManager.replaceItemAt` no implementado en Windows (aviso en `Macros.swift`);
+  afecta a la escritura atómica de `SafeFile`. Pendiente en P4.
+- `Package.resolved` cambia al compilar en Windows (SPM elimina `swift-argument-parser`); no subir.
+- Resultado completo en `windows/resultados/compilacion.md`.
+- **Siguiente paso:** P3 — completar la sección «Datos» de la ADR 0001 con estos resultados
+  (y los de P1 cuando estén disponibles) y que el autor decida el camino (A/B/C).
 
 ## 2026-11-10 · Windows · P0: entorno completo
 

@@ -21,7 +21,7 @@ $sdk     = Join-Path $base 'Platforms\6.4.2\Windows.platform\Developer\SDKs\Wind
 $gitWin  = 'C:\Program Files\Git\bin'
 
 foreach ($dir in @($toolBin, $rtBin, $mapi, $sdk)) {
-    if (-not (Test-Path $dir)) { Write-Error "No existe: $dir — ¿está instalado Swift 6.4.2?"; exit 1 }
+    if (-not (Test-Path $dir)) { Write-Error "No existe: $dir (instalar Swift 6.4.2?)"; exit 1 }
 }
 
 $env:PATH    = "$gitWin;$toolBin;$rtBin;$mapi;" + $env:PATH

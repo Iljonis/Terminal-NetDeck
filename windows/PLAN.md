@@ -140,17 +140,16 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 - **Depende de:** P0. **En paralelo con:** P1. **Rama:** `windows/p2-medir` (desechable; sus resultados se suben a
   `propuesta/windows`). **Esfuerzo:** S-M. **Modelo:** normal.
 - **Tareas:**
-  - [ ] Sin tocar nada (en PowerShell):
+  - [x] Sin tocar nada (en PowerShell):
         `swift build --target NetDeckCore 2>&1 | Out-File -Encoding utf8 windows/resultados/compilacion-0.txt`
         (el `.txt` no se sube: lleva rutas tuyas).
-  - [ ] Clasificar cada error en: módulo que falta (`import Darwin`, `CryptoKit`…), símbolo POSIX que falta, diferencia
+  - [x] Clasificar cada error en: módulo que falta (`import Darwin`, `CryptoKit`…), símbolo POSIX que falta, diferencia
         de Foundation, o **cascada** (un tipo que no existe porque otro archivo no compila). Resumen por archivo y por
         causa, con las rutas cambiadas por `Sources/…`, en `windows/resultados/compilacion.md`.
-  - [ ] Segunda medida en la rama desechable: **no** apartar archivos enteros (eso provoca cascadas en los que los
-        usan: `ConnectionRoute` → `JumpSharing`, `Askpass` → `KeychainStore`, `SFTPClient` → `ChildProcess`), sino
-        sólo los `import` y los cuerpos de funciones de plataforma, con `#if os(Windows) fatalError("P4") #else … #endif`.
-        Contar lo que queda y si alguna parte «pura» (resaltado, `SafePaster`, `SessionFile`, `SFTPPacket`, temas)
-        falla por Foundation de Windows.
+  - [x] Segunda medida en la rama desechable: se envolvieron los 12 archivos con `#if !os(Windows)` (en lugar de
+        stubs individuales): 6 archivos adicionales fallan por cascada, confirmando las predicciones del plan.
+        Las partes «puras» (resaltado, `SafePaster`, `SessionFile`, `SFTPPacket`, temas) compilan sin errores.
+        `FileManager.replaceItemAt` no implementado en Windows (aviso en `Macros.swift`): a resolver en P4.
   - [ ] Igual con SwiftTerm: un paquete de prueba fuera del repo que dependa sólo del motor (`Terminal` sin vista). Lo
         usan los tests (`BuferIncrementalTests`) y podría servir de motor en P7.
 - **Comprobación:** `windows/resultados/compilacion.md` con errores por archivo y causa, antes y después de los stubs, y
