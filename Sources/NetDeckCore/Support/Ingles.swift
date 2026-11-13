@@ -1,4 +1,4 @@
-// Textos en inglés de la interfaz. Clave: el texto en castellano tal como está en `L("…")`, con %@ en lugar de
+﻿// Textos en inglés de la interfaz. Clave: el texto en castellano tal como está en `L("…")`, con %@ en lugar de
 // cada valor interpolado (y %% por cada %). Lo comprueba IdiomaTests: toda clave del código tiene que estar aquí.
 enum Ingles {
     static let textos: [String: String] = [
@@ -1643,8 +1643,22 @@ enum Ingles {
             "Modified",
         "Mostrar los archivos ocultos (.algo)":
             "Show hidden files (.something)",
+        "No arranca %@":
+            "%@ doesn't start",
         "No arranca %@: %@":
             "%@ doesn't start: %@",
+        "No arranca %@: atributos (alloc)":
+            "%@ doesn't start: attribute list allocation failed",
+        "No arranca %@: CreatePseudoConsole 0x%@":
+            "%@ doesn't start: CreatePseudoConsole 0x%@",
+        "No arranca %@: InitializeProcThreadAttributeList":
+            "%@ doesn't start: InitializeProcThreadAttributeList",
+        "No arranca %@: tuberias de entrada":
+            "%@ doesn't start: input pipe error",
+        "No arranca %@: tuberias de salida":
+            "%@ doesn't start: output pipe error",
+        "No arranca %@: UpdateProcThreadAttribute":
+            "%@ doesn't start: UpdateProcThreadAttribute",
         "No existe":
             "Doesn't exist",
         "No se ha podido conectar":

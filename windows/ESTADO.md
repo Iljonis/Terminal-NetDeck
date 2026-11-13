@@ -1,4 +1,20 @@
-﻿## 2026-11-13 · Windows · P6: tests del núcleo en verde (512/512, 0 fallos)
+﻿## 2026-11-13 · Windows · P7 (tarea 1): ConPTYProcess.swift — prototipo de pseudo-terminal
+
+- **P7 tarea 1 completada:** `Sources/NetDeckCore/Remote/ConPTYProcess.swift` (implementación completa, 184 líneas).
+  - Clase `ConPTYProcess: @unchecked Sendable` con `output: AsyncStream<Data>`, `write(_:)`, `resize(cols:rows:)` y `terminate()`.
+  - Equivale a `LocalProcess`/`forkpty` de SwiftTerm en macOS.
+  - Resueltos 4 errores de tipos de WinSDK Swift:
+    - `CreatePipe` requiere `HANDLE?` (no `HANDLE`): declaraciones cambiadas a `var ptyInR: HANDLE? = nil` + `guard … let ptyInR, let ptyInW`.
+    - `LPPROC_THREAD_ATTRIBUTE_LIST` es `OpaquePointer?`: `let attrList: LPPROC_THREAD_ATTRIBUTE_LIST = OpaquePointer(attrBase)`.
+    - `MemoryLayout<HPCON?>.size` devuelve `Int`, no `SIZE_T`: envuelto en `SIZE_T(…)`.
+    - `HANDLE` no es `Sendable` en Swift 6: se convierte a `Int` antes de capturar en `Thread.detachNewThread`.
+  - 7 cadenas de error nuevas añadidas a `Ingles.swift` (invariante 4 del plan).
+- **Tests:** `√ Test run with 512 tests in 87 suites passed` (tras limpiar caché de swift-crypto corrupta por colisión de mayúsculas en Windows).
+  - Los fallos intermitentes de `Win32Error(code: 32)` (sharing violation en SafeFile) son pre-existentes y se observan 0-5 veces por ejecución.
+- **`bash tools/privacidad.sh`:** verde (347 archivos, 0 datos personales).
+- **Sin demo:** según la excepción aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+- **Siguiente paso:** P7 tarea 2 — conectar `ConPTYProcess` al motor de terminal y comprobar con el búfer (`BuferIncrementalTests`) que la salida se lee bien.
+## 2026-11-13 · Windows · P6: tests del núcleo en verde (512/512, 0 fallos)
 
 - **P6 — Tests del núcleo en Windows completado:**
   - Ejecutado `windows/scripts/test.ps1`: 15 tests fallaban inicialmente.

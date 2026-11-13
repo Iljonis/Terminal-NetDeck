@@ -1,4 +1,4 @@
-# Plan: Terminal NetDeck para Windows
+﻿# Plan: Terminal NetDeck para Windows
 
 Plan por pasos para llevar Terminal NetDeck a Windows. Cada paso se puede hacer en frío, en otra sesión, sin leer los
 anteriores: trae su contexto, sus tareas, cómo se comprueba y cuándo está terminado. Se marca con `[x]` lo hecho y se
@@ -323,7 +323,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
   vista (si P2 confirma que compila) y la vista se dibuja aparte.
 - **Depende de:** P3, P4a, P4b. **Rama:** `windows/p7-conpty`.
 - **Tareas:**
-  - [ ] Prototipo de consola (sin interfaz): lanzar `ssh.exe` dentro de una ConPTY, leer su salida, escribir la
+  - [x] Prototipo de consola (sin interfaz): lanzar `ssh.exe` dentro de una ConPTY, leer su salida, escribir la
         entrada y cambiar el tamaño (`ResizePseudoConsole`).
   - [ ] Conectar esa salida al motor de terminal y comprobar con el búfer (como `BuferIncrementalTests`) que un
         `show run` con paginador se lee bien.
