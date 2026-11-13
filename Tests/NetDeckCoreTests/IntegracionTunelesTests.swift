@@ -1,3 +1,4 @@
+﻿#if !os(Windows)
 import Darwin
 import Foundation
 import Testing
@@ -69,7 +70,7 @@ struct IntegracionSSHTestsTuneles {
         manager.remoteGrace = 0.3
         manager.killAfter = 0.5
         defer { manager.stopAll(wait: 0) }
-        manager.start(tunnel, executable: "/usr/bin/ssh", arguments: args,
+        manager.start(tunnel, executable: SystemTools.ssh, arguments: args,
                       environment: ["PATH": "/usr/bin:/bin", "SSH_ASKPASS_REQUIRE": "never"])
         let settled = try await until {
             manager.state(tunnel.id) == .active || !manager.state(tunnel.id).isRunning
@@ -92,3 +93,4 @@ struct IntegracionSSHTestsTuneles {
         #expect(PortCheck.problem(address: "127.0.0.1", port: port) == nil)
     }
 }
+#endif

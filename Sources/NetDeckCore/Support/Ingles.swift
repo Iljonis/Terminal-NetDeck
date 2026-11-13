@@ -1681,6 +1681,12 @@ enum Ingles {
             "The connection was closed",
         "Se ha perdido la conexión":
             "The connection was lost",
+        "Se ha perdido la conexion":
+            "Connection lost",
+        "FTP no disponible en Windows (TODO P4h)":
+            "FTP not available on Windows (TODO P4h)",
+        "Serial no disponible en Windows (TODO P4g)":
+            "Serial not available on Windows (TODO P4g)",
         "Se suben a %@":
             "They're uploaded to %@",
         "Se sustituirá lo que haya en el servidor de destino.":
@@ -1767,6 +1773,8 @@ enum Ingles {
             "Connection cancelled",
         "no contesta en %@ s (¿está bloqueado?)":
             "no answer in %@ s (is it locked?)",
+        "error %@ del Administrador de credenciales de Windows":
+            "Windows Credential Manager error %@",
         "%@:%@ no contesta en %@ s (¿cortafuegos, VPN o puerto equivocado?)":
             "%@:%@ doesn't answer in %@ s (firewall, VPN or wrong port?)",
         "%@ rechaza la conexión en el puerto %@":

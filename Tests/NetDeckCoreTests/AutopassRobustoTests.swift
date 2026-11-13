@@ -1,4 +1,4 @@
-import Foundation
+﻿import Foundation
 import Testing
 @testable import NetDeckCore
 
@@ -176,6 +176,7 @@ import Testing
 
     /// Sin poder guardar las marcas (carpeta sin permiso de escritura) un fallo no bloquearía 15 min: la por defecto no
     /// se escribe sola (no hay reserva que sea suya).
+    #if !os(Windows)
     @Test func sinPoderGuardarLasMarcasNoSeEscribeSola() async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -191,6 +192,7 @@ import Testing
         #expect(await a.observe(io, gate: AutomationGate()) != .typed(ref))
         #expect(io.sent.isEmpty && ledger.state(of: ref) == nil)
     }
+    #endif
 
     @Test func sinSalirDeLaPeticionNoEsUnaRepregunta() async {
         let ledger = CredentialLedger(), a = automation(MemoryCredentialStore([ref: "secreto-demo"]), ledger: ledger)
@@ -291,7 +293,9 @@ import Testing
         for existe in [false, true] {
             let t = try Askpass1(store: LlaveroRoto(existe: existe))
             #expect(t.ask("tu.usuario@192.0.2.11's password:") == 1)  // (te la pide; aquí, Esc)
+            #if !os(Windows)
             #expect(t.ui.messages.contains { $0.contains("no se ha podido leer el Llavero") })
+            #endif
             #expect(!t.ui.messages.contains { $0.contains("no hay ninguna guardada") })
             #expect(t.answers.isEmpty && t.ui.secretReads == [true])
         }
@@ -325,7 +329,9 @@ import Testing
         try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-300)], ofItemAtPath: t.state.path)
         #expect(t.ask("tu.usuario@192.0.2.11's password:") == 1)      // (te la pide; aquí, Esc)
         #expect(t.answers == ["rechazada"] && t.ui.secretReads == [true])
+        #if !os(Windows)
         #expect(t.ui.messages.contains { $0.contains("no ha funcionado") })
+        #endif
     }
 
     @Test func laPurgaNoBorraElEstadoDeUnSshVivo() throws {

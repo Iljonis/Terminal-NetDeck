@@ -1,4 +1,4 @@
-import Foundation
+﻿import Foundation
 import Testing
 @testable import NetDeckCore
 
@@ -9,7 +9,13 @@ import Testing
     final class Testigo: @unchecked Sendable {
         private let lock = NSLock()
         private var principal = false
-        func mira() { if pthread_main_np() != 0 { lock.withLock { principal = true } } }
+        func mira() {
+            #if os(Windows)
+            if Thread.isMainThread { lock.withLock { principal = true } }
+            #else
+            if pthread_main_np() != 0 { lock.withLock { principal = true } }
+            #endif
+        }
         var enPrincipal: Bool { lock.withLock { principal } }
     }
 

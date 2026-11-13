@@ -348,7 +348,11 @@ public struct SessionFile: Sendable {
         do {
             try SafeFile.backup(url)                     // (si no se puede leer o copiar, no se toca)
             if fm.fileExists(atPath: url.path) {
+                #if os(Windows)
+                try fm.removeItem(at: url); try fm.moveItem(at: tmp, to: url)
+                #else
                 _ = try fm.replaceItemAt(url, withItemAt: tmp)
+                #endif
             } else {
                 try fm.moveItem(at: tmp, to: url)
             }
@@ -369,7 +373,7 @@ public struct SessionFile: Sendable {
     /// «ssh -G» sobre `file`. Si ssh no se puede ejecutar (o no es /usr/bin/ssh), error: un archivo sin comprobar no
     /// se da por bueno. Es síncrono y puede tardar hasta `checkTimeout`: desde la app, sólo fuera del hilo principal
     /// (`saveInBackground`).
-    static func sshCheck(_ file: URL, host: String, ssh: String = "/usr/bin/ssh") -> String? {
+    static func sshCheck(_ file: URL, host: String, ssh: String = SystemTools.ssh) -> String? {
         guard FileManager.default.isExecutableFile(atPath: ssh) else { return L("no se puede ejecutar \(ssh)") }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: ssh)

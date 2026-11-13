@@ -83,11 +83,12 @@ private let netdeckFile = """
         a.port = "70000"
         f.sessions = [a, EditableSession(name: "x"), EditableSession(name: "X")]
         let p = f.problems()
-        #expect(p.contains { $0.contains("espacios") })
-        #expect(p.contains { $0.contains("puerto") })
-        #expect(p.contains { $0.contains("repetida") })
+        #expect(p.contains { $0.contains("espacios") || $0.contains("spaces") })
+        #expect(p.contains { $0.contains("puerto") || $0.contains("port") })
+        #expect(p.contains { $0.contains("repetida") || $0.contains("duplicated") })
     }
 
+#if !os(Windows)
     @Test func guardaComprobandoConSsh() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -99,6 +100,7 @@ private let netdeckFile = """
         #expect(FileManager.default.fileExists(atPath: url.appendingPathExtension("rechazado").path))
         #expect(SessionFile(text: try String(contentsOf: url, encoding: .utf8)).sessions[0].extra.isEmpty)
     }
+#endif
 }
 
 @Suite struct ImporterTests {

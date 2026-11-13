@@ -1,4 +1,6 @@
+﻿#if !os(Windows)
 import Darwin
+#endif
 import Foundation
 import Testing
 @testable import NetDeckCore
@@ -220,6 +222,7 @@ import Testing
     }
 
     /// Lo que lanza ssh sin terminal (el askpass, con su ventana) se va con él: al cerrarlo y si termina solo.
+    #if !os(Windows)
     @Test func alTerminarSeVaTodoSuGrupo() async throws {
         for script in ["/bin/sleep 60 & echo $!; wait", "/bin/sleep 60 & echo $!"] {
             let p = try ChildProcess(executable: "/bin/sh", arguments: ["-c", script], environment: [:])
@@ -236,6 +239,7 @@ import Testing
             #expect(gone, "«\(script)»: el hijo sigue vivo")
         }
     }
+    #endif
 }
 
 /// Lo que «teclea» la persona en el askpass: siempre lo mismo, y «sí» a todo.

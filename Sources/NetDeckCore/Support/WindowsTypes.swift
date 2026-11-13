@@ -1,4 +1,4 @@
-#if os(Windows)
+﻿#if os(Windows)
 import Foundation
 
 // POSIX types and constants not available on Windows — defined here for API compatibility.
@@ -50,8 +50,11 @@ private func _fnmatch(_ p: Substring, _ s: Substring) -> Bool {
 }
 
 // Process liveness check — used by CredentialLedger.
-// TODO P4d: implement with OpenProcess/GetExitCodeProcess from WinSDK
-public func _windowsProcessAlive(_ pid: Int32) -> Bool { false }
+// The current process is always alive; others stub as dead (TODO P4d: OpenProcess/GetExitCodeProcess from WinSDK).
+public func _windowsProcessAlive(_ pid: Int32) -> Bool {
+    if pid == ProcessInfo.processInfo.processIdentifier { return true }
+    return false
+}
 
 // lstat: POSIX stat without symlink following (Windows has no equivalent; uses regular stat)
 @discardableResult
@@ -62,4 +65,12 @@ public let LOCK_EX: Int32 = 2
 public let LOCK_UN: Int32 = 8
 @discardableResult
 public func flock(_ fd: Int32, _ operation: Int32) -> Int32 { 0 }
+
+// kill: señal POSIX (no existe en Windows). Señal 0 comprueba si el proceso sigue vivo.
+// Las demás se ignoran (TODO P4f: usar TerminateProcess/OpenProcess de WinSDK).
+@discardableResult
+public func kill(_ pid: pid_t, _ sig: Int32) -> Int32 {
+    if sig == 0 { return _windowsProcessAlive(pid) ? 0 : -1 }
+    return 0 // no-op: señales de terminación no implementadas
+}
 #endif

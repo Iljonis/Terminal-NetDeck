@@ -144,7 +144,7 @@ import Testing
         #expect(c.rules.count == 1)
         #expect(c.rules[0].description == "Prompt")
         #expect(c.rules[0].styles[4]?.background == "#00ff00")
-        #expect(c.problems == ["Mala: expresión no válida"])
+        #expect(c.problems == [L("\("Mala"): expresión no válida")])
         let runs = Highlighter(rules: c.rules, palette: c.palette).styledRuns("admin@core-01>")
         #expect(runs.count == 2)
     }

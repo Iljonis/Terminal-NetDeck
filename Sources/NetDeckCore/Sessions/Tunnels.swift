@@ -218,7 +218,7 @@ public struct Tunnel: Codable, Hashable, Sendable, Identifiable {
         guard !r.isLocal, r.transport == .ssh || r.transport == .sftp else { throw TunnelError.notSSH(r.title) }
         r.transport = .ssh
         let cmd = r.command(sharing: sharing, configFile: configFile)
-        guard cmd.executable == "/usr/bin/ssh", let dash = cmd.arguments.lastIndex(of: "--") else { throw TunnelError.notSSH(r.title) }
+        guard cmd.executable == SystemTools.ssh, let dash = cmd.arguments.lastIndex(of: "--") else { throw TunnelError.notSSH(r.title) }
         // (su propia conexión, sin ControlMaster: parar el túnel cierra justo ésa y no deja nada abierto detrás;
         // LogLevel=VERBOSE: «Authenticated to …» dice cuándo ha entrado, para el -R)
         let opts = ["-N", "-T", "-x", "-a",
@@ -368,13 +368,23 @@ public struct TunnelLibrary: Sendable, Equatable {
             try fm.moveItem(at: url, to: held)
             do {
                 try write(text, url)
-                if fm.fileExists(atPath: aside.path) { _ = try fm.replaceItemAt(aside, withItemAt: held) }
-                else { try fm.moveItem(at: held, to: aside) }
+                if fm.fileExists(atPath: aside.path) {
+                    #if os(Windows)
+                    try fm.removeItem(at: aside); try fm.moveItem(at: held, to: aside)
+                    #else
+                    _ = try fm.replaceItemAt(aside, withItemAt: held)
+                    #endif
+                } else { try fm.moveItem(at: held, to: aside) }
             } catch {
                 // (la copia .ilegible anterior sólo se sustituye tras escribir; si falla, vuelve el archivo original)
                 if fm.fileExists(atPath: held.path) {
-                    if fm.fileExists(atPath: url.path) { _ = try fm.replaceItemAt(url, withItemAt: held) }
-                    else { try fm.moveItem(at: held, to: url) }
+                    if fm.fileExists(atPath: url.path) {
+                        #if os(Windows)
+                        try fm.removeItem(at: url); try fm.moveItem(at: held, to: url)
+                        #else
+                        _ = try fm.replaceItemAt(url, withItemAt: held)
+                        #endif
+                    } else { try fm.moveItem(at: held, to: url) }
                 }
                 throw error
             }

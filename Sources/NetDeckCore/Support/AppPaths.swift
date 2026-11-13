@@ -16,7 +16,11 @@ public enum AppPaths {
             || p.environment["XCTestConfigurationFilePath"] != nil || p.environment["XCTestSessionIdentifier"] != nil
     }()
     private static let testHome = FileManager.default.temporaryDirectory
+        #if os(Windows)
+        .appendingPathComponent("netdeck-pruebas-\(_getpid())", isDirectory: true)
+        #else
         .appendingPathComponent("netdeck-pruebas-\(getpid())", isDirectory: true)
+        #endif
 
     /// Tu usuario del Mac para enseñarlo (usuario por defecto de una sesión, del explorador…). En una captura
     /// (NETDECK_SNAPSHOT), «tu.usuario»: así no sale el tuyo en las imágenes que se publican.

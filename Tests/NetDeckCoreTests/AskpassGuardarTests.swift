@@ -1,3 +1,4 @@
+﻿#if canImport(Security)
 import Foundation
 import Security
 import Testing
@@ -210,3 +211,4 @@ private final class Bandera: @unchecked Sendable {
     func marcar() { lock.withLock { valor = true } }
     var marcada: Bool { lock.withLock { valor } }
 }
+#endif

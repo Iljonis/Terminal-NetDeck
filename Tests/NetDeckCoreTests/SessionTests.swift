@@ -1,4 +1,4 @@
-import Foundation
+﻿import Foundation
 import Testing
 @testable import NetDeckCore
 
@@ -204,6 +204,7 @@ private let config = """
     }
 }
 
+#if !os(Windows)
 @Suite struct UpdateCheckTests {
     @Test func releaseConDmgYSuSha256() throws {
         let h = String(repeating: "ab", count: 32)
@@ -319,7 +320,7 @@ private let config = """
         #expect(UpdateCheck.parse(Data(#"{"tag_name":"v1","html_url":"http://x"}"#.utf8)) == nil)   // sólo https
     }
 }
-
+#endif
 @Suite struct LoopbackTests {
     @Test func lasDeEsteMacNoSeReabren() throws {
         func ruta(_ s: String, saltos: [String] = []) throws -> ConnectionRoute {
@@ -370,6 +371,6 @@ private let config = """
         let ssh = ConnectionRoute(title: "core-01", target: Endpoint(host: "192.0.2.11"))
         let old = #"{"title":"core-01","target":{"host":"192.0.2.11"},"jumps":[],"transport":"ssh"}"#
         #expect(try !JSONDecoder().decode(ConnectionRoute.self, from: Data(old.utf8)).isLocal)
-        #expect(ssh.command.executable == "/usr/bin/ssh")
+        #expect(ssh.command.executable == SystemTools.ssh)
     }
 }

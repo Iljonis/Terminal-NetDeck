@@ -214,7 +214,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
   `/usr/bin/env telnet`, `/usr/bin/false`, `/bin/zsh` y `/etc/shells`, y el argumento `-l` de la shell local),
   `Sessions/SessionFile.swift` (`sshCheck`), `Sessions/JumpSharing.swift`, `Security/KnownHosts.swift`
   (`ssh`, `ssh-keygen`), `Sessions/Tunnels.swift`.
-- [ ] Un sitio único para las rutas: en Windows, `%SystemRoot%\System32\OpenSSH\ssh.exe` etc. **Nunca buscarlos por el
+- [x] Un sitio único para las rutas: en Windows, `%SystemRoot%\System32\OpenSSH\ssh.exe` etc. **Nunca buscarlos por el
       `PATH`** (es la misma regla que las rutas fijas de macOS; `/usr/bin/env telnet` ya es una búsqueda por `PATH` y en
       Windows pasa a `%SystemRoot%\System32\telnet.exe`).
 - [ ] Shell local: PowerShell o `cmd.exe` en lugar de `/etc/shells`, **sin** `-l` (no existe en esos dos). Las
@@ -231,10 +231,10 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 ### P4d · Credenciales (M, fuerte, `security-review`; después de P4a)
 - `Security/KeychainStore.swift` (usa `/usr/bin/security` para leer y guardar **y** `Security.framework`
   `SecItemCopyMatching` para comprobar y listar), `Security/CredentialLedger.swift`.
-- [ ] Implementación con el **Administrador de credenciales** (`CredWriteW` / `CredReadW` / `CredDeleteW` /
+- [x] Implementación con el **Administrador de credenciales** (`CredWriteW` / `CredReadW` / `CredDeleteW` /
       `CredEnumerateW`, tipo `CRED_TYPE_GENERIC`, persistencia `LOCAL_MACHINE`). Clave única: `TargetName =
       "Terminal NetDeck:<servicio>:<cuenta>"`. Límite del secreto: 2560 bytes (rechazar lo que pase, con su mensaje).
-- [ ] Reglas que no cambian: el secreto nunca en argumentos ni en `DebugLog`; las lecturas, fuera del hilo principal.
+- [x] Reglas que no cambian: el secreto nunca en argumentos ni en `DebugLog`; las lecturas, fuera del hilo principal.
 - [ ] `CredentialLedger`: `ProcessAlive` (de P4a) en vez de `kill(pid, 0)`, y el candado entre procesos `flock` pasa a
       `LockFileEx`. El bloqueo de 15 min y sus casos (raíz, «Contraseñas») no cambian.
 - [ ] Anotar para P9: en Windows cualquier proceso del mismo usuario puede leer la credencial con `CredReadW` sin que se
@@ -308,9 +308,9 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
   `losTestsNoEscribenEnTuCarpeta` (`AskpassGuardarTests`, si P4f no está).
 - **Depende de:** P4.0, P4a, P4b y P4f; y del resultado de P2 sobre SwiftTerm. **Rama:** `windows/p6-tests`.
 - **Tareas:**
-  - [ ] `powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/scripts/test.ps1` y lista de los que fallan,
+  - [x] `powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/scripts/test.ps1` y lista de los que fallan,
         por causa.
-  - [ ] Los que dependen de macOS de verdad: `@Test(.enabled(if: …))` o `#if os(macOS)`, nunca borrarlos.
+  - [x] Los que dependen de macOS de verdad: `@Test(.enabled(if: …))` o `#if os(macOS)`, nunca borrarlos.
   - [ ] Tests nuevos para lo de Windows (ACL, Administrador de credenciales con un servicio de prueba, Job Objects).
   - [ ] Activar `test.ps1` en la CI de Windows (P5).
 - **Salida:** los tests en verde en Windows (con `test.ps1`) y en macOS (`./test.sh`).

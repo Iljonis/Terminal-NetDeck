@@ -1,3 +1,4 @@
+﻿#if !os(Windows)
 import Darwin
 import Foundation
 import Testing
@@ -554,7 +555,7 @@ import Testing
         let route = ConnectionRoute(title: "real", target: try #require(Endpoint(parsing: t.server)))
         let args = try t.arguments(route: route, sharing: nil, configFile: "/dev/null")
         let m = runner()
-        m.start(t, executable: "/usr/bin/ssh", arguments: args, environment: env)
+        m.start(t, executable: SystemTools.ssh, arguments: args, environment: env)
         #expect(await until(10) { if case .failed = m.state(t.id) { true } else { false } })
         #expect(m.state(t.id) == .failed(TunnelFailure.reason(stderr: "Connection refused", status: nil)))
     }
@@ -563,7 +564,7 @@ import Testing
     @Test func rechazaForwardsDeAliasComodinMatchEInclude() async throws {
         defer { try? FileManager.default.removeItem(at: dir) }
         let marker = dir.appendingPathComponent("conexion")
-        let exe = try script("touch '\(marker.path)'\nexec sleep 30", configuration: "exec /usr/bin/ssh \"$@\"")
+        let exe = try script("touch '\(marker.path)'\nexec sleep 30", configuration: "exec \(SystemTools.ssh) \"$@\"")
         let forwards = ["LocalForward 0.0.0.0:18080 192.0.2.20:80",
                         "RemoteForward 0.0.0.0:19000 192.0.2.20:22", "DynamicForward 0.0.0.0:11080"]
         for forward in forwards {
@@ -618,7 +619,7 @@ import Testing
         for kind in Tunnel.Kind.allCases {
             let t = Tunnel(name: "web", session: "core-01", kind: kind, targetHost: "192.0.2.20")
             let args = try arguments(t, config: cfg.path)
-            let check = try TunnelProcess(executable: "/usr/bin/ssh", arguments: t.configurationArguments(arguments: args),
+            let check = try TunnelProcess(executable: SystemTools.ssh, arguments: t.configurationArguments(arguments: args),
                                           environment: env, captureOutput: true)
             defer { check.signal(SIGKILL) }
             #expect(await until { check.exited })
@@ -629,7 +630,7 @@ import Testing
                 #expect(check.errorOutput.contains(value), "falta \(value)")
             }
             // (-G también en la orden final: el ClearAllForwardings del archivo no se lleva el de CLI)
-            let final = try TunnelProcess(executable: "/usr/bin/ssh", arguments: ["-G"] + args, environment: env, captureOutput: true)
+            let final = try TunnelProcess(executable: SystemTools.ssh, arguments: ["-G"] + args, environment: env, captureOutput: true)
             defer { final.signal(SIGKILL) }
             #expect(await until { final.exited })
             #expect(final.exitStatus == 0)
@@ -822,3 +823,4 @@ import Testing
         #expect(t.problem != nil)                                           // (sin marcarlo, no)
     }
 }
+#endif

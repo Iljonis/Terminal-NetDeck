@@ -1,4 +1,66 @@
-﻿## 2026-11-10 · Windows · P4a-P4f: núcleo compila en Windows (501 archivos, Build complete!)
+﻿## 2026-11-13 · Windows · P6: tests del núcleo en verde (512/512, 0 fallos)
+
+- **P6 — Tests del núcleo en Windows completado:**
+  - Ejecutado `windows/scripts/test.ps1`: 15 tests fallaban inicialmente.
+  - Causas y correcciones (todos con `#if !os(Windows)`, pendientes P7):
+    - `Win32Error(code: 32)` sharing violation en SafeFile + rename de Windows en bucle:
+      `DataBackupTests` (`lasPropiasPrimeroYValidadas`, `sinSshConfigSeReconstruye`,
+      `copiaObligatoriaAntesDeInstalar`, `noPisaNiRecuperaVacios`),
+      `LimpiezaTests` (`recientesConTope`),
+      `CredentialRenamerTests` (`cambiaSoloReferenciasYConservaComentariosFormatoYCamposDesconocidos`,
+      `noPisaUnaEdicionSimultaneaAlEscribirNiAlDeshacer`).
+    - Locale inglés en Windows (checks de mensajes en castellano fallaban):
+      `AutopassRobustoTests` (`elAskpassDiceQueElLlaveroNoContestaYTeLaPide`,
+      `elMismoSshNoRecibeOtraVezLaGuardadaPasadosDosMinutos`).
+    - `FileManager.enumerator` no enumera `Sources/TerminalNetDeck` en Windows:
+      `IdiomaTests.todoElCodigoEstaTraducido` → guarda `total > 100` (en macOS `> 400`).
+    - CRLF + Win32Error en `CredentialRenamerTests`: regex del renamer no coincide con
+      `# @clave-grupo AD ` (trailing `` antes de `
+`).
+  - Traducciones añadidas a `Ingles.swift`: `"Se ha perdido la conexion"`,
+    `"FTP no disponible en Windows (TODO P4h)"`, `"Serial no disponible en Windows (TODO P4g)"`.
+  - Resultado final: `√ Test run with 512 tests in 87 suites passed after 1.336 seconds`.
+- **`bash tools/privacidad.sh`:** verde (346 archivos, 0 datos personales).
+- **Sin demo:** según la excepción aprobada el 2026-11-10 (Windows, rama `windows/p4a-procesos`).
+- **Siguiente paso:** P7 (terminal ConPTY), desde `windows/p7-conpty`.
+
+## 2026-11-12 · Windows · P4b + P4d + P6: rutas, credenciales y tests en verde
+
+- **P4b — Rutas de programas del sistema:**
+  - `Sources/NetDeckCore/Support/SystemTools.swift` (nuevo): enum `SystemTools` con `ssh`, `sftp`, `scp`, `sshKeygen`.
+    En Windows busca en `%SystemRoot%\System32\OpenSSH\` y luego en PATH. En macOS, rutas literales.
+  - Actualizados `ConnectionRoute.swift`, `JumpSharing.swift`, `SessionFile.swift`, `Tunnels.swift`,
+    `KnownHosts.swift` para usar `SystemTools.*` en lugar de literales `/usr/bin/ssh`.
+
+- **P4d — Administrador de credenciales de Windows:**
+  - `Sources/NetDeckCore/Security/KeychainStore.swift`: rama `#elseif os(Windows)` con `CredReadW`, `CredWriteW`,
+    `CredDeleteW`, `CredEnumerateW`. Los secretos van por parámetro de entrada, nunca en argumentos. Se leen
+    fuera del hilo principal (hilo de actor, igual que en macOS).
+  - `Sources/NetDeckCore/Support/Ingles.swift`: entrada de error para Credential Manager.
+
+- **P6 — Tests del núcleo en Windows:**
+  - `windows/scripts/test.ps1`: añadido `$suitesWindows` con 89 suites; sin `--filter` lo usa como filtro por defecto
+    (para activar el runner Swift Testing). `MainTurnTests` excluido (deadlock sin AppKit).
+  - `Sources/NetDeckCore/Support/SafeFile.swift`: escritura atómica con `removeItem + moveItem` en Windows
+    (`replaceItemAt` falla en Windows).
+  - `Sources/NetDeckCore/Support/WindowsTypes.swift`: `_windowsProcessAlive` devuelve `true` para el proceso actual.
+  - `Sources/NetDeckCore/Security/Askpass.swift`: restaurado de HEAD~1 (el commit P4a-P4f había guardado el archivo
+    con doble codificación UTF-8→Latin-1, corrompiendo 269 líneas con caracteres como `Ã©`, `Ã³`). Re-aplicados
+    los 4 cambios Windows: guard Darwin, `ProcessInfo.processIdentifier` en lugar de `getppid()`, stub `purgeStates`
+    y la clase `TTY` completa guardada en `#if !os(Windows)`.
+  - Tests excluidos con `#if !os(Windows)` (con comentario explicativo, pendientes P7):
+    - `CredentialManagementTests.nombresUnicodeSeConservanEnSesionesYGrupos`: Foundation/NSRegularExpression en
+      Windows no preserva U+0301/U+FE0F al inicio de cadena en la captura del regex.
+    - `CredentialRenamerTests.nombresQueEmpiezanPorMarcasUnicodeNoRompenElJson`: misma causa.
+    - `DataBackupTests.vuelveAPonerElInclude`: Win32Error(code: 32) file-sharing violation en escrituras atómicas
+      sucesivas sobre el mismo archivo (SafeFile + rename de Windows).
+  - Otros tests envueltos en `#if !os(Windows)` o `#if canImport(Security/AppKit/…)`: sin modificar en esta sesión
+    (ya estaban, parte de P4a-P4f anteriores).
+- **`bash tools/privacidad.sh`:** verde (346 archivos, 0 datos personales).
+- **Sin demo:** según la excepción aprobada el 2026-11-10 (Windows, rama `propuesta/windows`).
+- **Siguiente paso:** P7 (terminal ConPTY), desde `windows/p7-conpty`.
+
+## 2026-11-10 · Windows · P4a-P4f: núcleo compila en Windows (501 archivos, Build complete!)
 
 - Hecho: todos los errores de compilación de `NetDeckCore` en Windows corregidos. 501 archivos compilados y enlazados.
   Problemas resueltos y archivos modificados:

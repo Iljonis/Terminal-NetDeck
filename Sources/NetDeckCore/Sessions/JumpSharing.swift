@@ -64,7 +64,7 @@ public struct JumpSharing: Hashable, Sendable {
         guard let last = parsed.last, parsed.count == hops.count,
               parsed.allSatisfy({ $0.isShellSafe && !$0.host.contains(":") }),      // (IPv6 en -J: sin multiplexar)
               Self.safePath.matches(socket), configFile.map(Self.safePath.matches) ?? true else { return nil }
-        var a = ["/usr/bin/ssh"] + ConnectionRoute.configOptions(configFile) + options(socket: socket)
+        var a = [SystemTools.ssh] + ConnectionRoute.configOptions(configFile) + options(socket: socket)
         if parsed.count > 1 { a += ["-J", parsed.dropLast().map(\.description).joined(separator: ",")] }
         if let u = last.user { a += ["-l", u] }
         if let p = last.port { a += ["-p", String(p)] }

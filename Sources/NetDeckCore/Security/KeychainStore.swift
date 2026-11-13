@@ -175,24 +175,107 @@ public struct KeychainStore: CredentialStore {
     }
 }
 
-#else
-// TODO P4d: implementar KeychainStore con Windows Credential Manager (CredWriteW/CredReadW de WinSDK)
+#elseif os(Windows)
+import WinSDK
+
+/// Administrador de credenciales de Windows (credenciales genéricas del usuario, cifradas por el sistema). El destino
+/// es «servicio:cuenta» (netdeck:AD, netdeck-ssh:usuario@equipo) y el secreto va en el blob, en UTF-8, por la API:
+/// nunca en argumentos, en un archivo ni en los registros.
 public struct KeychainStore: CredentialStore {
-    public static let tool = "cmdkey.exe"
     public init() {}
+
+    static func prefix(_ service: CredentialRef.Service) -> String { service.rawValue + ":" }
+    static func target(_ ref: CredentialRef) -> String { prefix(ref.service) + ref.account }
+
     public func password(for ref: CredentialRef) throws -> String? {
-        throw KeychainError(message: L("Llavero no disponible en Windows (TODO P4d)"))
+        guard let cred = try Self.read(ref) else { return nil }
+        defer { CredFree(cred) }
+        let size = Int(cred.pointee.CredentialBlobSize)
+        guard size > 0, let blob = cred.pointee.CredentialBlob else { return "" }
+        guard let pw = String(bytes: UnsafeBufferPointer(start: blob, count: size), encoding: .utf8) else {
+            throw KeychainError(message: L("no se entiende la contraseña que devuelve"))
+        }
+        return pw
     }
-    public func contains(_ ref: CredentialRef) -> Bool { false }
-    public func exists(_ ref: CredentialRef) throws -> Bool { false }
+
+    public func contains(_ ref: CredentialRef) -> Bool { (try? exists(ref)) ?? false }
+
+    public func exists(_ ref: CredentialRef) throws -> Bool {
+        guard let cred = try Self.read(ref) else { return false }
+        CredFree(cred)
+        return true
+    }
+
     public func save(_ password: String, for ref: CredentialRef) throws {
-        throw KeychainError(message: L("Llavero no disponible en Windows (TODO P4d)"))
+        try CredentialValidation.validate(password, for: ref)
+        var secret = Array(password.utf8)
+        defer { secret.withUnsafeMutableBytes { _ = memset($0.baseAddress, 0, $0.count) } }
+        let code: DWORD = secret.withUnsafeMutableBufferPointer { blob in
+            Self.target(ref).withCString(encodedAs: UTF16.self) { target in
+                ref.account.withCString(encodedAs: UTF16.self) { user in
+                    var cred = CREDENTIALW()
+                    cred.Type = DWORD(CRED_TYPE_GENERIC)
+                    cred.TargetName = UnsafeMutablePointer(mutating: target)
+                    cred.UserName = UnsafeMutablePointer(mutating: user)
+                    cred.CredentialBlobSize = DWORD(blob.count)
+                    cred.CredentialBlob = blob.baseAddress
+                    cred.Persist = DWORD(CRED_PERSIST_LOCAL_MACHINE)
+                    return CredWriteW(&cred, 0) ? 0 : GetLastError()
+                }
+            }
+        }
+        guard code == 0 else {
+            ErrorLog.error("llavero", "«\(ref)» no se ha guardado (CredWrite: error \(code))")
+            throw KeychainError(message: L("no se ha podido guardar la contraseña"))
+        }
     }
+
+    /// (El Administrador de credenciales no tiene un alta «sólo si no existe»: se mira antes, sin ser atómico.)
     public func create(_ password: String, for ref: CredentialRef) throws {
-        throw KeychainError(message: L("Llavero no disponible en Windows (TODO P4d)"))
+        guard try !exists(ref) else { throw KeychainError(message: L("Ya existe una contraseña con ese nombre o cuenta")) }
+        try save(password, for: ref)
     }
-    public func delete(_ ref: CredentialRef) throws {}
-    public func accounts(in service: CredentialRef.Service) throws -> [String] { [] }
+
+    public func delete(_ ref: CredentialRef) throws {
+        let code: DWORD = Self.target(ref).withCString(encodedAs: UTF16.self) {
+            CredDeleteW($0, DWORD(CRED_TYPE_GENERIC), 0) ? 0 : GetLastError()
+        }
+        guard code == 0 || code == DWORD(ERROR_NOT_FOUND) else { throw Self.failure(code) }
+    }
+
+    public func accounts(in service: CredentialRef.Service) throws -> [String] {
+        let prefix = Self.prefix(service)
+        var count: DWORD = 0
+        var list: UnsafeMutablePointer<PCREDENTIALW?>?
+        let code: DWORD = (prefix + "*").withCString(encodedAs: UTF16.self) {
+            CredEnumerateW($0, 0, &count, &list) ? 0 : GetLastError()
+        }
+        if code == DWORD(ERROR_NOT_FOUND) { return [] }
+        guard code == 0, let list else { throw Self.failure(code) }
+        defer { CredFree(list) }
+        var out = Set<String>()
+        for i in 0..<Int(count) {
+            guard let cred = list[i], cred.pointee.Type == DWORD(CRED_TYPE_GENERIC), let name = cred.pointee.TargetName else { continue }
+            let target = String(decodingCString: name, as: UTF16.self)
+            if target.hasPrefix(prefix) { out.insert(String(target.dropFirst(prefix.count))) }
+        }
+        return out.sorted()
+    }
+
+    /// nil si no está (ERROR_NOT_FOUND). Quien la recibe la libera con CredFree.
+    private static func read(_ ref: CredentialRef) throws -> PCREDENTIALW? {
+        var cred: PCREDENTIALW?
+        let code: DWORD = target(ref).withCString(encodedAs: UTF16.self) {
+            CredReadW($0, DWORD(CRED_TYPE_GENERIC), 0, &cred) ? 0 : GetLastError()
+        }
+        if code == DWORD(ERROR_NOT_FOUND) { return nil }
+        guard code == 0, let cred else { throw failure(code) }
+        return cred
+    }
+
+    private static func failure(_ code: DWORD) -> KeychainError {
+        KeychainError(message: L("error \(String(code)) del Administrador de credenciales de Windows"))
+    }
 }
 #endif
 

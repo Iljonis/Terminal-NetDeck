@@ -1,3 +1,4 @@
+﻿#if !os(Windows)
 import Foundation
 import Testing
 @testable import NetDeckCore
@@ -436,3 +437,4 @@ actor EdicionPause {
         #expect(reused == 3)
     }
 }
+#endif

@@ -12,7 +12,7 @@ import Testing
         let p = try SFTPPanel.route(for: t)
         #expect(p.transport == .sftp && p.target == t.target && p.jumpSpec == t.jumpSpec && p.sessionName == "core-01")
         let cmd = try #require(p.sftpSubsystemCommand(sharing: nil, configFile: "/etc/netdeck/ssh_config"))
-        #expect(cmd.executable == "/usr/bin/ssh")
+        #expect(cmd.executable == SystemTools.ssh)
         let a = cmd.arguments
         #expect(Array(a.prefix(2)) == ["-F", "/etc/netdeck/ssh_config"])
         #expect(a.contains("-J") && a[a.firstIndex(of: "-J")! + 1] == "admin@bastion:2200")

@@ -134,7 +134,7 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
             if let u = target.user { a += ["-l", u] }
             a += ["--", target.host]
         }
-        return ("/usr/bin/ssh", a + ["sftp"])
+        return (SystemTools.ssh, a + ["sftp"])
     }
 
     /// Por qué no se puede abrir la pestaña (falta el programa o el puerto serie), o nil. `exists`: para los tests.
@@ -208,14 +208,14 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
                 if let u = target.user { a += ["-l", u] }
                 a += ["--", target.host]
             }
-            return ("/usr/bin/ssh", a)
+            return (SystemTools.ssh, a)
         case .telnet:
             let telnet = [target.host] + (target.port.map { [String($0)] } ?? [])
             guard let last = jumps.last else { return ("/usr/bin/env", ["telnet"] + telnet) }
             var a = f + ["-t"]
             if let sharing, let socket = sharing.socket(for: jumps.map(\.description)) { a += sharing.options(socket: socket) }
             if jumps.count > 1 { a += ["-J", jumps.dropLast().map(\.description).joined(separator: ",")] }
-            return ("/usr/bin/ssh", a + ["--", last.description, "telnet"] + telnet)
+            return (SystemTools.ssh, a + ["--", last.description, "telnet"] + telnet)
         case .sftp:
             var a = f + jumpOptions(sharing, configFile: configFile)
             if let alias {
@@ -225,7 +225,7 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
                 let h = target.host.contains(":") ? "[\(target.host)]" : target.host       // (IPv6)
                 a += ["--", (target.user.map { "\($0)@" } ?? "") + h]
             }
-            return ("/usr/bin/sftp", a)
+            return (SystemTools.sftp, a)
         case .serial, .ftp, .local:
             return ("/usr/bin/false", [])
         }
