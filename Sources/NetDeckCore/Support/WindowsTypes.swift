@@ -1,5 +1,6 @@
 ﻿#if os(Windows)
 import Foundation
+import WinSDK
 
 // POSIX types and constants not available on Windows — defined here for API compatibility.
 public typealias pid_t = Int32
@@ -49,12 +50,30 @@ private func _fnmatch(_ p: Substring, _ s: Substring) -> Bool {
     return pi == p.endIndex && si == s.endIndex
 }
 
-// Process liveness check — used by CredentialLedger.
-// The current process is always alive; others stub as dead (TODO P4d: OpenProcess/GetExitCodeProcess from WinSDK).
-public func _windowsProcessAlive(_ pid: Int32) -> Bool {
-    if pid == ProcessInfo.processInfo.processIdentifier { return true }
-    return false
+// Process liveness check (P4a) — used by CredentialLedger (P4d) and Askpass (P4e).
+// macOS asks with kill(pid, 0); Windows has no signals: OpenProcess + GetExitCodeProcess.
+public enum ProcessAlive {
+    private static let queryLimitedInformation: DWORD = 0x1000   // PROCESS_QUERY_LIMITED_INFORMATION
+    private static let stillActive: DWORD = 259                  // STILL_ACTIVE
+    private static let accessDenied: DWORD = 5                   // ERROR_ACCESS_DENIED
+
+    /// Is `pid` still running? A process we are not allowed to open counts as alive (it exists), like EPERM on macOS.
+    public static func isAlive(_ pid: pid_t) -> Bool {
+        guard pid > 0 else { return false }
+        let id = DWORD(pid)
+        if id == GetCurrentProcessId() { return true }
+        guard let handle = OpenProcess(queryLimitedInformation, false, id) else {
+            return GetLastError() == accessDenied
+        }
+        defer { CloseHandle(handle) }
+        var code: DWORD = 0
+        guard GetExitCodeProcess(handle, &code) else { return false }
+        return code == stillActive
+    }
 }
+
+// Kept for the callers written before `ProcessAlive` existed (CredentialLedger, `kill(pid, 0)` below).
+public func _windowsProcessAlive(_ pid: Int32) -> Bool { ProcessAlive.isAlive(pid) }
 
 // lstat: POSIX stat without symlink following (Windows has no equivalent; uses regular stat)
 @discardableResult

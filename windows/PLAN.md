@@ -201,12 +201,12 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 
 ### P4a · Procesos hijos (M, fuerte)
 - `Remote/ChildProcess.swift`, `Sessions/Tunnels.swift` (lanzar y parar el ssh del túnel), un `ProcessAlive` nuevo.
-- [ ] Sustituir `posix_spawn` + `setsid` + `killpg` por `CreateProcessW` con un **Job Object** (al cerrar se mueren
+- [x] Sustituir `posix_spawn` + `setsid` + `killpg` por `CreateProcessW` con un **Job Object** (al cerrar se mueren
       también los hijos, como hoy el grupo de procesos) o por `Foundation.Process` si basta. Siempre con
       `CREATE_NO_WINDOW`: si no, una app con interfaz abre una consola por cada ssh.
-- [ ] Regla que no cambia: sólo se heredan stdin/stdout/stderr (`PROC_THREAD_ATTRIBUTE_HANDLE_LIST`).
-- [ ] `DispatchSourceProcess` no existe en Windows: esperar el fin con `WaitForSingleObject` en un hilo.
-- [ ] Un `ProcessAlive.isAlive(pid)` común (`kill(pid, 0)` en macOS; `OpenProcess` + `GetExitCodeProcess` en Windows)
+- [x] Regla que no cambia: sólo se heredan stdin/stdout/stderr (`PROC_THREAD_ATTRIBUTE_HANDLE_LIST`).
+- [x] `DispatchSourceProcess` no existe en Windows: esperar el fin con `WaitForSingleObject` en un hilo.
+- [x] Un `ProcessAlive.isAlive(pid)` común (`kill(pid, 0)` en macOS; `OpenProcess` + `GetExitCodeProcess` en Windows)
       que luego usan `CredentialLedger` (P4d) y `Askpass` (P4e).
 
 ### P4b · Rutas de los programas del sistema (S, normal; comparte `Tunnels`, `KnownHosts` con P4a/P4f)
@@ -254,15 +254,15 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 - `Support/SafeFile.swift`, `Support/AppPaths.swift`, `Support/DataBackup.swift`, `Support/DebugLog.swift`,
   `Support/ErrorLog.swift`, `Terminal/SessionLog.swift` (permisos), `Sessions/SessionFile.swift` (0600/0700),
   `Security/KnownHosts.swift` (0600). Comparte `SessionFile` y `KnownHosts` con P4b.
-- [ ] Todos los `.posixPermissions` (0600 / 0700) pasan a una ACL con sólo el usuario actual (y SYSTEM), sin herencia.
+- [x] Todos los `.posixPermissions` (0600 / 0700) pasan a una ACL con sólo el usuario actual (y SYSTEM), sin herencia.
       Es lo que pide el OpenSSH de Windows para `config` y claves (mensaje exacto en P1).
-- [ ] `AppPaths`: `%APPDATA%\Terminal NetDeck` (o lo que diga P1 sobre espacios en el `Include`); el `Include` en
+- [x] `AppPaths`: `%APPDATA%\Terminal NetDeck` (o lo que diga P1 sobre espacios en el `Include`); el `Include` en
       `%USERPROFILE%\.ssh\config` con la forma que P1 haya visto funcionar; `AppPaths.tilde` enseña `%USERPROFILE%`
       como `~`.
-- [ ] **`AppPaths.underTests`** detecta los tests por el nombre del proceso (`xctest`, `swiftpm-testing-helper`): en
+- [x] **`AppPaths.underTests`** detecta los tests por el nombre del proceso (`xctest`, `swiftpm-testing-helper`): en
       Windows el proceso se llama distinto y los tests escribirían en tu carpeta. Añadir el de Windows. Lo comprueba
       `losTestsNoEscribenEnTuCarpeta` (`AskpassGuardarTests`).
-- [ ] Escritura atómica: `SafeFile` ya usa `FileManager.replaceItemAt`. Primero comprobar qué hace Foundation en
+- [x] Escritura atómica: `SafeFile` ya usa `FileManager.replaceItemAt`. Primero comprobar qué hace Foundation en
       Windows (¿`ReplaceFileW`?) y sólo si no es atómico, escribirlo a mano.
 
 ### P4g · Puerto serie (M, normal)
@@ -294,11 +294,11 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
   [ci/windows-nucleo.yml](ci/windows-nucleo.yml) que compila el núcleo en `windows-latest`.
 - **Depende de:** P2 (puede activarse en cuanto haya algo que compilar). **Rama:** `windows/p5-ci`.
 - **Tareas:**
-  - [ ] Fijar la acción de instalación de Swift a un tag o commit (nunca `@main`) y comprobar sus parámetros actuales
+  - [x] Fijar la acción de instalación de Swift a un tag o commit (nunca `@main`) y comprobar sus parámetros actuales
         (pueden ser `branch`/`tag` o `swift-version`).
-  - [ ] Copiarlo a `.github/workflows/windows.yml`. La privacidad va en su propio job, **sin** `continue-on-error`; el de
+  - [x] Copiarlo a `.github/workflows/windows.yml`. La privacidad va en su propio job, **sin** `continue-on-error`; el de
         compilar, con `continue-on-error: true` hasta que P4 termine.
-  - [ ] `core.autocrlf false` antes del checkout (el runner de Windows convierte a CRLF por defecto).
+  - [x] `core.autocrlf false` antes del checkout (el runner de Windows convierte a CRLF por defecto).
 - **Salida:** la CI de Windows corre en cada PR de `propuesta/windows` y su resultado se apunta en ESTADO.md.
 
 ## P6 · Tests del núcleo en Windows (M, normal)
@@ -325,7 +325,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 - **Tareas:**
   - [x] Prototipo de consola (sin interfaz): lanzar `ssh.exe` dentro de una ConPTY, leer su salida, escribir la
         entrada y cambiar el tamaño (`ResizePseudoConsole`).
-  - [ ] Conectar esa salida al motor de terminal y comprobar con el búfer (como `BuferIncrementalTests`) que un
+  - [x] Conectar esa salida al motor de terminal y comprobar con el búfer (como `BuferIncrementalTests`) que un
         `show run` con paginador se lee bien.
   - [ ] Probar el autopass y la detección de prompts (`PasswordPrompt`, `CredentialPolicy`) con ese flujo.
   - [ ] Ojo: ConPTY reinterpreta algunas secuencias VT. Probar colores de 256 y 24 bits, el ratón y el título. Y telnet

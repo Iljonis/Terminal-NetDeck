@@ -1,4 +1,29 @@
-﻿## 2026-11-13 · Windows · P7 (tarea 1): ConPTYProcess.swift — prototipo de pseudo-terminal
+﻿## 2026-11-13 · Windows · P7 T2 + P4a + P4f + P5: ConPTY en verde, procesos hijos, permisos y CI
+
+- **P7 tarea 2 completada:** tres errores raíz corregidos en ConPTYProcess.swift; salidaDeCmd pasa en 0.034 s.
+  - &hpcCopy → hpcVal en UpdateProcThreadAttribute (doble indirección innecesaria).
+  - Eliminado DETACHED_PROCESS (dejaba al hijo sin consola, cmd.exe no podía usar ConPTY).
+  - Añadido STARTF_USESTDHANDLES (kUseStdHandles = 0x100): el hijo no hereda la stdout redirigida de swift test.
+  - Tests/NetDeckCoreTests/ConPTYProcessTests.swift restaurado a estado limpio; salidaDeCmd y salidaAtravesDelBufer en verde.
+- **P4a — Procesos hijos completado:** Sources/NetDeckCore/Remote/ChildProcess.swift (clase WindowsChild privada, ~120 líneas).
+  - CreateProcessW con CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP | CREATE_UNICODE_ENVIRONMENT | CREATE_SUSPENDED.
+  - Job Object (CreateJobObjectW + JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE): 	erminate() mata a ssh y todos sus hijos.
+  - PROC_THREAD_ATTRIBUTE_HANDLE_LIST para heredar sólo stdin/stdout/stderr.
+  - ProcessAlive.isAlive(pid) en WindowsTypes.swift: OpenProcess + GetExitCodeProcess (exit 259 = vivo).
+  - 6 tests nuevos en Tests/NetDeckCoreTests/ProcesosHijosWindowsTests.swift.
+- **P4f — Archivos y permisos completado:** Sources/NetDeckCore/Support/AppPaths.swift (+48 líneas Windows).
+  - underTests: detecta sufijo -test-runner del ejecutable de tests de Windows.
+  - home: %USERPROFILE%, 	ilde(path:) y expand(path:) con separadores indistintos.
+  - WindowsACL.swift (nuevo, 51 líneas): ACL D:P(A;OICI;FA;;;<sid>)(A;OICI;FA;;;SY) equivalente a 0600/0700.
+  - SafeFile.swift: llama a WindowsACL.restrict tras escribir.
+- **P5 — CI de Windows completado:** .github/workflows/windows.yml (3 jobs: privacidad, compilar, tests).
+  - Swift 6.4.2 con compnerd/gha-setup-swift@v0.5.1; core.autocrlf false; --scratch-path fuera de Defender.
+  - 	est con if: always() para ejecutarse aunque uild falle.
+- **Tests:** √ Test run with 519 tests in 89 suites passed after 1.690 seconds (1 fallo intermitente pre-existente en DataBackupTests, confirma segunda ejecución).
+- **ash tools/privacidad.sh:** verde (351 archivos, 0 datos personales). Corregido comentario en AppPaths.swift que contenía una ruta de ejemplo con 	u.usuario2.
+- **Sin demo:** según la excepción aprobada el 2026-11-10 (Windows, rama windows/p7-conpty).
+- **Siguiente paso:** P7 tarea 3 — autopass y detección de prompts (PasswordPrompt, CredentialPolicy) con el flujo ConPTY.
+## 2026-11-13 · Windows · P7 (tarea 1): ConPTYProcess.swift — prototipo de pseudo-terminal
 
 - **P7 tarea 1 completada:** `Sources/NetDeckCore/Remote/ConPTYProcess.swift` (implementación completa, 184 líneas).
   - Clase `ConPTYProcess: @unchecked Sendable` con `output: AsyncStream<Data>`, `write(_:)`, `resize(cols:rows:)` y `terminate()`.

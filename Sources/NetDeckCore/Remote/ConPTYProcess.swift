@@ -1,13 +1,15 @@
-﻿#if os(Windows)
+#if os(Windows)
 import WinSDK
 import Foundation
 
 // PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE no se exporta como macro desde WinSDK Swift.
 // ProcThreadAttributeValue(22, FALSE, TRUE, FALSE) = 0x00020016
-private let kConPTYAttr: DWORD_PTR = 0x00020016
-private let kExtStartup: DWORD = 0x00080000
-private let kUnicodeEnv: DWORD   = 0x00000400
-private let kNoWindow: DWORD     = 0x08000000
+private let kConPTYAttr: DWORD_PTR   = 0x00020016
+private let kExtStartup: DWORD       = 0x00080000  // EXTENDED_STARTUPINFO_PRESENT
+private let kUnicodeEnv: DWORD       = 0x00000400  // CREATE_UNICODE_ENVIRONMENT
+// STARTF_USESTDHANDLES con los tres handles nulos: si el padre tiene la salida redirigida (swift test, un servicio),
+// el hijo no la hereda y usa la del ConPTY. DETACHED_PROCESS no vale: deja al hijo sin consola y no sale nada.
+private let kUseStdHandles: DWORD    = 0x00000100
 
 /// Proceso con pseudo-terminal (ConPTY) para Windows.
 /// Equivalente a LocalProcess/forkpty de SwiftTerm en macOS.
@@ -19,7 +21,6 @@ public final class ConPTYProcess: @unchecked Sendable {
     private var done = false
 
     public let output: AsyncStream<Data>
-    private let _finish: @Sendable () -> Void
 
     public init(executable: String, arguments: [String], environment: [String: String],
                 cols: Int = 80, rows: Int = 24) throws {
@@ -53,7 +54,6 @@ public final class ConPTYProcess: @unchecked Sendable {
         var cont: AsyncStream<Data>.Continuation!
         output = AsyncStream(bufferingPolicy: .unbounded) { cont = $0 }
         let c = cont!
-        _finish = { c.finish() }
 
         // Convertir HANDLE (UnsafeMutableRawPointer, no Sendable) a Int para cruzar el limite @Sendable.
         let ptyOutRAddr = Int(bitPattern: ptyOutR)
@@ -84,32 +84,29 @@ public final class ConPTYProcess: @unchecked Sendable {
         }
         defer { DeleteProcThreadAttributeList(attrList) }
 
-        var hpcForAttr: HPCON? = hpcVal
-        guard withUnsafeMutablePointer(to: &hpcForAttr, { p in
-            UpdateProcThreadAttribute(attrList, 0, kConPTYAttr,
-                                      UnsafeMutableRawPointer(p), SIZE_T(MemoryLayout<HPCON?>.size),
-                                      nil, nil)
-        }) else {
+        // lpValue para PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE es el propio HPCON (void*).
+        // El kernel lee ese puntero como el handle del ConPTY; NO pasar &hpcCopy (doble indirección).
+        guard UpdateProcThreadAttribute(attrList, 0, kConPTYAttr,
+                                        hpcVal, SIZE_T(MemoryLayout<HPCON>.size),
+                                        nil, nil) else {
             throw RemoteError(L("No arranca \(executable): UpdateProcThreadAttribute"))
         }
 
         var siEx = STARTUPINFOEXW()
         siEx.StartupInfo.cb = DWORD(MemoryLayout<STARTUPINFOEXW>.size)
+        siEx.StartupInfo.dwFlags = kUseStdHandles
         siEx.lpAttributeList = attrList
 
         var pi = PROCESS_INFORMATION()
         let cmd = ConPTYProcess.commandLine(executable, arguments)
-        let envB = ConPTYProcess.envBlock(environment)
-        let flags = kExtStartup | kUnicodeEnv | kNoWindow
+        let flags = kExtStartup
 
         let launched: Bool = cmd.withUTF16CStr { cmdW in
-            envB.withUnsafeBytes { envBuf in
-                withUnsafeMutablePointer(to: &siEx) { siExPtr in
-                    siExPtr.withMemoryRebound(to: STARTUPINFOW.self, capacity: 1) { siPtr in
-                        CreateProcessW(nil, cmdW, nil, nil, false, flags,
-                                       UnsafeMutableRawPointer(mutating: envBuf.baseAddress!),
-                                       nil, siPtr, &pi)
-                    }
+            withUnsafeMutablePointer(to: &siEx) { siExPtr in
+                siExPtr.withMemoryRebound(to: STARTUPINFOW.self, capacity: 1) { siPtr in
+                    CreateProcessW(nil, cmdW, nil, nil, false, flags,
+                                   nil,  // hereda el entorno del padre
+                                   nil, siPtr, &pi)
                 }
             }
         }
@@ -137,11 +134,13 @@ public final class ConPTYProcess: @unchecked Sendable {
         ResizePseudoConsole(hpc, COORD(X: Int16(min(max(cols, 1), 32767)), Y: Int16(min(max(rows, 1), 32767))))
     }
 
+    /// Termina el proceso. `ClosePseudoConsole` hace que `ReadFile` en el hilo lector devuelva 0,
+    /// por lo que el hilo llama a `c.finish()` y el stream cierra de forma natural — sin race con
+    /// datos que conhost.exe aun no haya volcado a la tuberia.
     public func terminate() {
         lock.withLock {
             guard !done else { return }
             done = true
-            _finish()
             CloseHandle(ptyInWrite)
             if hProcess != INVALID_HANDLE_VALUE {
                 TerminateProcess(hProcess, 1)
@@ -158,13 +157,27 @@ public final class ConPTYProcess: @unchecked Sendable {
         let dq = Character(UnicodeScalar(34)!)
         let bsl = Character(UnicodeScalar(92)!)
         return ([exe] + args).map { arg in
-            guard arg.contains(dq) || arg.contains(bsl) || arg.contains(" ") || arg.isEmpty else { return arg }
+            // Solo citar si hay espacios, comillas dobles, o el argumento esta vacio.
+            // Las barras invertidas solas no requieren comillas en lineas de ordenes de Windows.
+            guard arg.contains(dq) || arg.contains(" ") || arg.isEmpty else { return arg }
             var r = String(dq)
+            var bs = 0
             for c in arg {
-                if c == bsl { r.append(bsl); r.append(bsl) }
-                else if c == dq { r.append(bsl); r.append(dq) }
-                else { r.append(c) }
+                if c == bsl {
+                    bs += 1
+                } else if c == dq {
+                    // Doblar las barras pendientes antes de la comilla escapada
+                    for _ in 0..<bs { r.append(bsl); r.append(bsl) }
+                    r.append(bsl); r.append(dq)
+                    bs = 0
+                } else {
+                    for _ in 0..<bs { r.append(bsl) }
+                    bs = 0
+                    r.append(c)
+                }
             }
+            // Doblar barras finales antes del cierre de comilla
+            for _ in 0..<bs { r.append(bsl); r.append(bsl) }
             r.append(dq)
             return r
         }.joined(separator: " ")

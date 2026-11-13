@@ -1,0 +1,97 @@
+﻿# CI de Windows (paso P5 de windows/PLAN.md). Sale del borrador windows/ci/windows-nucleo.yml.
+# Los tests van siempre con windows/scripts/test.ps1, nunca «swift test» a secas: escribiría en la carpeta del usuario.
+name: Windows (núcleo)
+
+on:
+  push:
+    branches: [propuesta/windows, 'windows/**']
+  pull_request:
+    branches: [propuesta/windows, 'windows/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # La misma versión que espera windows/scripts/test.ps1 (rutas …\Toolchains\6.4.2+Asserts): si cambia una, cambia la otra.
+  SWIFT_VERSION: swift-6.4.2-release
+  SWIFT_BUILD: 6.4.2-RELEASE
+
+jobs:
+  privacy:
+    name: Privacidad
+    # Sin continue-on-error: si aparece un dato personal, el PR se pone en rojo.
+    runs-on: windows-latest
+    steps:
+      - name: Sin conversión de fin de línea (si no, los .sh salen con CRLF)
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+      - name: Privacidad (nada personal en el repositorio)
+        shell: bash
+        run: bash tools/privacidad.sh
+
+  build:
+    name: Compilar NetDeckCore
+    runs-on: windows-latest
+    # Hasta que el paso P4 termine, que el núcleo no compile es lo esperado: no pone el PR en rojo.
+    continue-on-error: true
+    timeout-minutes: 60
+    steps:
+      - name: Sin conversión de fin de línea
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+      - name: Toolchain de Swift para Windows
+        uses: compnerd/gha-setup-swift@v0.5.1
+        with:
+          swift-version: ${{ env.SWIFT_VERSION }}
+          swift-build: ${{ env.SWIFT_BUILD }}
+      - name: Versión
+        run: swift --version
+      - name: Compilar el núcleo
+        # --scratch-path fuera de la carpeta del repositorio (Defender Controlled Folder Access) y
+        # -DOPENSSL_NO_ASM porque BoringSSL necesita NASM para el ensamblador en Windows.
+        run: |
+          $scratch = Join-Path $env:LOCALAPPDATA 'NetDeckBuild'
+          New-Item -ItemType Directory -Force $scratch | Out-Null
+          swift build --target NetDeckCore --scratch-path $scratch -Xcc -DOPENSSL_NO_ASM 2>&1 | Tee-Object (Join-Path $env:RUNNER_TEMP 'compilacion.txt')
+          exit $LASTEXITCODE
+      - name: Guardar el resultado
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compilacion-windows
+          path: ${{ runner.temp }}/compilacion.txt
+          if-no-files-found: ignore
+
+  test:
+    name: Tests del núcleo
+    needs: build
+    if: always()  # ejecutar aunque build falle
+    runs-on: windows-latest
+    # Hasta que el paso P6 esté completo, un test en rojo no pone el PR en rojo.
+    continue-on-error: true
+    timeout-minutes: 90
+    steps:
+      - name: Sin conversión de fin de línea
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+      - name: Toolchain de Swift para Windows
+        uses: compnerd/gha-setup-swift@v0.5.1
+        with:
+          swift-version: ${{ env.SWIFT_VERSION }}
+          swift-build: ${{ env.SWIFT_BUILD }}
+      - name: Tests (NETDECK_HOME temporal)
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/scripts/test.ps1 2>&1 | Tee-Object (Join-Path $env:RUNNER_TEMP 'tests.txt')
+          exit $LASTEXITCODE
+      - name: Guardar el resultado
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: tests-windows
+          path: ${{ runner.temp }}/tests.txt
+          if-no-files-found: ignore
