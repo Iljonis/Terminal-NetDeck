@@ -1,4 +1,16 @@
-﻿## 2026-11-15 · Windows · P4h (FTP): FTPClient.swift adapta TCPStream a Winsock2
+﻿## Sesión 2026-11-15 — P4e getppid()
+
+- Implementado `_windowsGetppid()` en `WindowsTypes.swift` con `CreateToolhelp32Snapshot` + `Process32FirstW`/`NextW`.
+- `stateFile()` en `Askpass.swift` usa `_windowsGetppid()` en Windows, igual que `getppid()` en macOS.
+- El SSH_ASKPASS exe separado queda bloqueado hasta P10 (packaging/MSIX).
+- **Siguiente:** P8 (interfaz WinUI 3) o lo que reste de P4.
+
+## Sesión 2026-11-15 — P4c + P4d notas ADR y seguridad
+
+- **P4c**: Anotada en `decisiones/0001-camino-para-windows.md` la alternativa futura para el bastión (ssh -W por pestaña o SSH propio).
+- **P4d**: Creado `decisiones/0002-credenciales-windows.md` con la diferencia de ACL entre `CredReadW` y el Llavero, para revisión en P9.
+- **Siguiente:** P4e getppid (implementar getppid() para Windows con CreateToolhelp32Snapshot).
+## 2026-11-15 · Windows · P4h (FTP): FTPClient.swift adapta TCPStream a Winsock2
 
 - **Completado:**
   - Sources/NetDeckCore/Remote/FTPClient.swift: nueva rama #elseif os(Windows) con implementación completa de TCPStream usando Winsock2 (WinSDK).

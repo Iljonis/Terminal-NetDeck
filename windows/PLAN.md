@@ -226,7 +226,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 - [x] Si P1 confirma que no hay ControlMaster, `JumpSharing.standard()` devuelve `nil` en Windows (ya es el camino de
       «se conecta como siempre, sin compartir», por `-J`) y se dice en la interfaz que en Windows cada pestaña entra en
       el bastión.
-- [ ] Anotar en la ADR la alternativa para más adelante (un único ssh al bastión con `-W` por pestaña, o un SSH propio).
+- [x] Anotar en la ADR la alternativa para más adelante (un único ssh al bastión con `-W` por pestaña, o un SSH propio). → `decisiones/0001-camino-para-windows.md`
 
 ### P4d · Credenciales (M, fuerte, `security-review`; después de P4a)
 - `Security/KeychainStore.swift` (usa `/usr/bin/security` para leer y guardar **y** `Security.framework`
@@ -237,16 +237,14 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 - [x] Reglas que no cambian: el secreto nunca en argumentos ni en `DebugLog`; las lecturas, fuera del hilo principal.
 - [x] `CredentialLedger`: `ProcessAlive` (de P4a) en vez de `kill(pid, 0)`, y el candado entre procesos `flock` pasa a
       `LockFileEx`. El bloqueo de 15 min y sus casos (raíz, «Contraseñas») no cambian.
-- [ ] Anotar para P9: en Windows cualquier proceso del mismo usuario puede leer la credencial con `CredReadW` sin que se
-      le pregunte (el Llavero tiene ACL por app). Es más débil y hay que decirlo.
+- [x] Anotar para P9: en Windows cualquier proceso del mismo usuario puede leer la credencial con `CredReadW` sin que se le pregunte (el Llavero tiene ACL por app). Es más débil y hay que decirlo. → `decisiones/0002-credenciales-windows.md`
 
 ### P4e · Askpass (M, fuerte; después de P4d)
 - `Security/Askpass.swift`.
 - [ ] Según P1: si `SSH_ASKPASS` funciona, el askpass sigue siendo un ejecutable al que ssh llama. Valorar un
       `netdeck-askpass.exe` de consola aparte en vez de la propia app: con MSIX/WinUI 3 puede que ssh no pueda lanzar el
-      ejecutable empaquetado por su ruta, y arrancar la app entera para cada pregunta es lento (comprobarlo en P10).
-- [ ] El archivo de estado se nombra con `getppid()` (no existe en Windows): el PID del padre con
-      `CreateToolhelp32Snapshot`, o pasar el PID por el entorno al lanzar ssh.
+      ejecutable empaquetado por su ruta, y arrancar la app entera para cada pregunta es lento (comprobarlo en P10). **Bloqueado por P10.**
+- [x] El archivo de estado se nombra con `getppid()` (no existe en Windows): implementado con `CreateToolhelp32Snapshot` → `_windowsGetppid()` en `WindowsTypes.swift`.
 - [x] La lectura de respaldo por `/dev/tty` y `tcgetattr` pasa a `CONIN$` con `SetConsoleMode` (sin eco).
 - [x] `purgeStates` usa `kill(pid, 0)`: `ProcessAlive`.
 

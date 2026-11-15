@@ -1,4 +1,4 @@
-# ADR-0001: Qué camino seguir para la versión de Windows
+﻿# ADR-0001: Qué camino seguir para la versión de Windows
 
 **Fecha:** 2026-11-10
 **Estado:** propuesta
@@ -65,6 +65,7 @@ En los dos casos se sigue usando el OpenSSH del sistema; un SSH propio queda fue
 
 ### Negativas
 - En Windows no se comparte la conexión al bastión mientras no haya ControlMaster ni un SSH propio.
+  - **Alternativa para más adelante:** un único `ssh -W %h %p` al bastión por pestaña como proxy fijo (sigue siendo OpenSSH del sistema, sin código propio) o un SSH propio (ADR aparte). Se reconsiderará cuando P8 esté en marcha y se sepa cuántas conexiones simultáneas al bastión soporta el caso de uso habitual.
 - La interfaz se hace dos veces (SwiftUI y la de Windows) y cada función visible hay que llevarla a mano.
 - La CI dobla: macOS y Windows.
 
