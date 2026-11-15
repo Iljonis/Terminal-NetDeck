@@ -280,7 +280,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
   `open(O_EXCL|O_NOFOLLOW)` y `lstat`, también lo usa la edición remota), `Terminal/SessionLog.swift`
   (`O_CLOEXEC|O_NOFOLLOW`), `Terminal/TerminalFont.swift` (`CoreText`), `Sessions/OpenWindows.swift` (`CoreGraphics`).
 - [x] Sockets de los túneles: Winsock (`WinSDK`), con la misma lógica.
-- [ ] FTP: Foundation de Windows no tiene un API de flujos TCP útil, así que Winsock o SwiftNIO, con la misma máquina
+- [x] FTP: Foundation de Windows no tiene un API de flujos TCP útil, así que Winsock o SwiftNIO, con la misma máquina
       de estados de FTP.
 - [x] `open(O_EXCL|O_NOFOLLOW)`: `CreateFileW` con `CREATE_NEW` y `FILE_FLAG_OPEN_REPARSE_POINT` (no seguir enlaces es
       una regla de seguridad, no se quita).

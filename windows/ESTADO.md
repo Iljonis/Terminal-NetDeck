@@ -1,4 +1,19 @@
-﻿## 2026-11-15 · Windows · P6 (tests nuevos): ACL, Administrador de credenciales y Job Objects
+﻿## 2026-11-15 · Windows · P4h (FTP): FTPClient.swift adapta TCPStream a Winsock2
+
+- **Completado:**
+  - Sources/NetDeckCore/Remote/FTPClient.swift: nueva rama #elseif os(Windows) con implementación completa de TCPStream usando Winsock2 (WinSDK).
+    - WSAStartup/WSACleanup, getaddrinfo/reeaddrinfo, socket/connect/closesocket.
+    - Conexión no bloqueante: ioctlsocket(FIONBIO) + WSAPoll con timeout configurable.
+    - WSAGetLastError/WSAEWOULDBLOCK para detectar progreso de connect no bloqueante.
+    - getsockopt(SO_ERROR) para verificar éxito tras WSAPoll.
+    - Cancelación segura via _FTPSocketHolder: el token de cancelación cierra el socket antes de que connectSocket() bloqueé en WSAPoll.
+    - send/ecv/shutdown usando WinSDK con Task.detached y withCheckedThrowingContinuation.
+  - Sources/NetDeckCore/Support/Ingles.swift: nueva clave "FTP: network initialisation failed".
+  - windows/PLAN.md: [x] en la tarea FTP de P4h.
+- **Tests:** 545/545 en verde. Privacidad ok (355 archivos, 0 datos personales).
+- **Sin demo:** según la excepción aprobada el 2026-11-10 (Windows, rama windows/p7-conpty).
+- **Commit:** d17a3b9 en windows/p7-conpty.
+## 2026-11-15 · Windows · P6 (tests nuevos): ACL, Administrador de credenciales y Job Objects
 
 - **Completado:**
   - `Tests/NetDeckCoreTests/WindowsACLTests.swift` (nuevo): 4 tests de `WindowsACL.restrict`.
