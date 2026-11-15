@@ -18,6 +18,36 @@ import SwiftTerm
         #expect(texto.contains("test-conpty"))
     }
 
+    /// La pregunta de contraseña sale de la pseudoconsola entre secuencias VT (borrado, cursor, título de ventana).
+    /// En el texto en bruto, `Askpass.secretQuestion` (busca en cualquier parte de la línea) la sigue reconociendo.
+    @Test func deteccionDePromptConPTY() async throws {
+        let proceso = try ConPTYProcess(executable: cmd, arguments: ["/c", "echo", "Password:"], environment: entorno)
+        defer { proceso.terminate() }
+        let datos = await recoger(proceso, plazo: .seconds(5)) { $0.range(of: Data("Password:".utf8)) != nil }
+        let texto = String(decoding: datos, as: UTF8.self)
+        #expect(texto.contains("Password:"))
+        let lineas = texto.components(separatedBy: .newlines)
+        #expect(lineas.contains { Askpass.secretQuestion.matches($0) },
+                "Askpass.secretQuestion debería reconocer la pregunta en la salida de ConPTY")
+    }
+
+    /// Lo mismo con `PasswordPrompt`, que es más estricto (la palabra al principio de la línea o tras un espacio): con
+    /// las secuencias VT quitadas reconoce la petición, su cuenta y su usuario, y sólo en esa línea.
+    @Test func promptDeContrasenaSinSecuenciasVT() async throws {
+        let proceso = try ConPTYProcess(executable: cmd, arguments: ["/c", "echo", "tu.usuario@core-01's", "password:"],
+                                        environment: entorno)
+        defer { proceso.terminate() }
+        let datos = await recoger(proceso, plazo: .seconds(5)) { $0.range(of: Data("password:".utf8)) != nil }
+        let lineas = sinVT(String(decoding: datos, as: UTF8.self)).components(separatedBy: .newlines)
+        let piden = lineas.filter(PasswordPrompt.asksForPassword)
+        #expect(piden.count == 1)
+        let peticion = PasswordPrompt.detect(cursorLine: try #require(piden.first), above: [])
+        #expect(peticion?.account == "tu.usuario@core-01")
+        #expect(peticion?.user == "tu.usuario")
+        #expect(peticion?.isChangeOrConfirm == false)
+        #expect(piden.allSatisfy(SecretPrompt.asks))
+    }
+
 #if canImport(SwiftTerm)
     @Test func salidaAtravesDelBufer() async throws {
         let proceso = try ConPTYProcess(executable: cmd, arguments: ["/c", "echo", "Gi0/0", "192.0.2.1", "up"],
@@ -58,6 +88,12 @@ import SwiftTerm
             if basta(datos) { break }
         }
         return datos
+    }
+
+    /// El texto sin las secuencias VT que mete la pseudoconsola: CSI (`ESC [ … letra`) y OSC (`ESC ] … BEL` o `ESC \`).
+    private func sinVT(_ texto: String) -> String {
+        texto.replacingOccurrences(of: #"\x1B\[[0-?]*[ -/]*[@-~]|\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)"#,
+                                   with: "", options: .regularExpression)
     }
 }
 
