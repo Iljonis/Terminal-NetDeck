@@ -1,4 +1,4 @@
-// Textos en inglés de la interfaz. Clave: el texto en castellano tal como está en `L("…")`, con %@ en lugar de
+﻿// Textos en inglés de la interfaz. Clave: el texto en castellano tal como está en `L("…")`, con %@ en lugar de
 // cada valor interpolado (y %% por cada %). Lo comprueba IdiomaTests: toda clave del código tiene que estar aquí.
 enum Ingles {
     static let textos: [String: String] = [
@@ -1800,6 +1800,8 @@ enum Ingles {
             "Can't find host “%@”",
         "FTP: el servidor no contesta (%@ s)":
             "FTP: the server doesn't answer (%@ s)",
+        "FTP: no se pudo inicializar la red":
+            "FTP: network initialisation failed",
         "Comprobar MD5":
             "Check MD5",
         "Al acabar cada archivo se vuelve a leer del destino y su MD5 tiene que ser el de lo leído del origen; si no, no se guarda. Con destino remoto tarda más (se lee dos veces).":
