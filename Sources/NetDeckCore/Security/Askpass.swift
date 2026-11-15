@@ -310,7 +310,7 @@ public enum Askpass {
     /// que repregunta tarde se queda, para no volver a darle la guardada que ya falló.
     static func purgeStates(in dir: URL, now: Date = Date(), alive: (pid_t) -> Bool = { pid in
         #if os(Windows)
-        return false
+        return ProcessAlive.isAlive(pid)
         #else
         return kill(pid, 0) == 0 || errno == EPERM
         #endif

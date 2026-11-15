@@ -1,4 +1,4 @@
-﻿#if os(Windows)
+#if os(Windows)
 import Foundation
 import WinSDK
 
@@ -79,11 +79,38 @@ public func _windowsProcessAlive(_ pid: Int32) -> Bool { ProcessAlive.isAlive(pi
 @discardableResult
 public func lstat(_ path: String, _ buf: UnsafeMutablePointer<stat>) -> Int32 { stat(path, buf) }
 
-// flock: POSIX advisory file locking (not on Windows) — no-op stubs (TODO P4f: use LockFile/UnlockFile).
-public let LOCK_EX: Int32 = 2
-public let LOCK_UN: Int32 = 8
-@discardableResult
-public func flock(_ fd: Int32, _ operation: Int32) -> Int32 { 0 }
+// Candado entre procesos (P4d): lo que en macOS hace open + flock(LOCK_EX) sobre un archivo. Windows no tiene flock y
+// LockFileEx pide un HANDLE, no un descriptor POSIX: se abre el archivo con CreateFileW y se bloquea su primer byte.
+// El candado es del HANDLE: otro proceso (el askpass) u otro HANDLE de este mismo proceso esperan hasta que se suelte,
+// y si el proceso muere Windows lo suelta al cerrar el HANDLE, igual que flock.
+public enum FileLock {
+    private static let genericReadWrite: DWORD = 0xC000_0000     // GENERIC_READ | GENERIC_WRITE
+    private static let shareAll: DWORD = 0x7                     // FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE
+    private static let openAlways: DWORD = 4                     // OPEN_ALWAYS
+    private static let attributeNormal: DWORD = 0x80             // FILE_ATTRIBUTE_NORMAL
+    private static let exclusiveLock: DWORD = 0x2                // LOCKFILE_EXCLUSIVE_LOCK
+
+    /// Abre (o crea) `path` y espera hasta tener el candado exclusivo. `nil` si no se puede abrir o bloquear.
+    public static func acquire(_ path: String) -> HANDLE? {
+        let handle = path.withCString(encodedAs: UTF16.self) {
+            CreateFileW($0, genericReadWrite, shareAll, nil, openAlways, attributeNormal, nil)
+        }
+        guard let handle, handle != INVALID_HANDLE_VALUE else { return nil }
+        var overlapped = OVERLAPPED()
+        guard LockFileEx(handle, exclusiveLock, 0, 1, 0, &overlapped) else {
+            CloseHandle(handle)
+            return nil
+        }
+        return handle
+    }
+
+    /// Suelta el candado y cierra el HANDLE.
+    public static func release(_ handle: HANDLE) {
+        var overlapped = OVERLAPPED()
+        UnlockFileEx(handle, 0, 1, 0, &overlapped)
+        CloseHandle(handle)
+    }
+}
 
 // kill: señal POSIX (no existe en Windows). Señal 0 comprueba si el proceso sigue vivo.
 // Las demás se ignoran (TODO P4f: usar TerminateProcess/OpenProcess de WinSDK).

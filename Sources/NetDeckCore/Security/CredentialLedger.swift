@@ -247,7 +247,12 @@ public final class DirectoryLedgerStorage: LedgerStorage, @unchecked Sendable {
     private let dir: URL
     private let threadLock = NSRecursiveLock()
     private var depth = 0
+    #if os(Windows)
+    /// HANDLE del candado (`FileLock`, con LockFileEx): en Windows no hay flock.
+    private var lockHandle: UnsafeMutableRawPointer?
+    #else
     private var lockFD: Int32 = -1
+    #endif
     /// Ya se ha apuntado un fallo al escribir (con la carpeta rota fallarían todas: una línea basta).
     private var reported = false
 
@@ -319,6 +324,19 @@ public final class DirectoryLedgerStorage: LedgerStorage, @unchecked Sendable {
     public func locked<T>(_ body: () throws -> T) rethrows -> T {
         threadLock.lock()
         defer { threadLock.unlock() }
+        #if os(Windows)
+        if depth == 0 {
+            lockHandle = FileLock.acquire(dir.appendingPathComponent(".candado").path)
+        }
+        depth += 1
+        defer {
+            depth -= 1
+            if depth == 0, let handle = lockHandle {
+                FileLock.release(handle)
+                lockHandle = nil
+            }
+        }
+        #else
         if depth == 0 {
             lockFD = open(dir.appendingPathComponent(".candado").path, O_CREAT | O_RDWR, 0o600)
             if lockFD >= 0 { flock(lockFD, LOCK_EX) }
@@ -332,6 +350,7 @@ public final class DirectoryLedgerStorage: LedgerStorage, @unchecked Sendable {
                 lockFD = -1
             }
         }
+        #endif
         return try body()
     }
 
