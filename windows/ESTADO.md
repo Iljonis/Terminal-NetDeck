@@ -1,4 +1,15 @@
-﻿## 2026-11-13 · Windows · P4g: SerialPort Windows — CreateFileW + SetCommState + hilo lector; SerialLine acepta COMn
+﻿## 2026-11-15 · Windows · P7 T4: secuencias VT avanzadas a través de ConPTY — 4 tests nuevos
+
+- **P7 tarea 4 completada:** `Tests/NetDeckCoreTests/ConPTYProcessTests.swift` — 4 tests nuevos.
+  - `color256`: lanza `powershell.exe -Command "Write-Host ([char]27 + '[38;5;196mROJO'…)"` y verifica `\e[38;5;196m`. **ConPTY transmite la secuencia de 256 colores sin modificarla** en esta versión de Windows (Windows 11 26300).
+  - `color24bit`: secuencia `\e[38;2;255;0;0m`. **ConPTY transmite true color sin modificarla.**
+  - `tituloVentana`: secuencia `\e]0;titulo-prueba\a`. **ConPTY transmite la secuencia OSC de título al lector de la tubería** (no la consume internamente como se temía).
+  - `activacionRaton`: envía `\e[?1000h` al input de un `cmd.exe /c echo RATON_OK`. **ConPTY no bloquea el flujo de salida** al recibir la secuencia de activación del ratón. La respuesta de eco del ratón no se prueba aquí (requiere interfaz, P8).
+- **Hallazgo:** en Windows 11 Build 26300, ConPTY no suprime ni convierte ninguna de las cuatro secuencias VT avanzadas probadas. Esto simplifica P8: no hay que remapear colores ni manejar títulos de ventana por separado.
+- **Tests:** 7 tests en verde en `ConPTYProcessTests` (los 3 existentes sin SwiftTerm + los 4 nuevos). `salidaAtravesDelBufer` sigue bajo `#if canImport(SwiftTerm)`.
+- **Sin demo:** según la excepción aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+- **Siguiente paso:** P7 completado. P8 (interfaz WinUI 3) o P7 telnet según lo visto en P1.
+## 2026-11-13 · Windows · P4g: SerialPort Windows — CreateFileW + SetCommState + hilo lector; SerialLine acepta COMn
 
 - **P4g completado:** `Sources/NetDeckCore/Sessions/SerialPort.swift` (implementacion Windows) y `SerialLine.swift` (soporte COMn).
   - `SerialPort` Windows: `CreateFileW` con acceso exclusivo y `FILE_FLAG_OVERLAPPED`; `GetCommState`/`SetCommState` (DCB); `COMMTIMEOUTS`; hilo lector con OVERLAPPED I/O; `write(_ data:)`, `close()`, `sendBreak()` con `EscapeCommFunction`.

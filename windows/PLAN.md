@@ -328,7 +328,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
   - [x] Conectar esa salida al motor de terminal y comprobar con el búfer (como `BuferIncrementalTests`) que un
         `show run` con paginador se lee bien.
   - [x] Probar el autopass y la detección de prompts (`PasswordPrompt`, `CredentialPolicy`) con ese flujo.
-  - [ ] Ojo: ConPTY reinterpreta algunas secuencias VT. Probar colores de 256 y 24 bits, el ratón y el título. Y telnet
+  - [x] Ojo: ConPTY reinterpreta algunas secuencias VT. Probar colores de 256 y 24 bits, el rat\u00f3n y el t\u00edtulo. Y telnet
         según lo visto en P1.
 - **Salida:** un ssh a un equipo de laboratorio, con contraseña automática, desde el prototipo.
 

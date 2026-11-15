@@ -1,4 +1,4 @@
-#if os(Windows)
+﻿#if os(Windows)
 import WinSDK
 import Foundation
 import Testing
@@ -64,10 +64,85 @@ import SwiftTerm
     }
 #endif
 
+    // MARK: - P7 tarea 4: secuencias VT avanzadas
+
+    /// ConPTY transmite secuencias de color de 256 colores sin modificarlas.
+    /// Nota: ConPTY puede convertir ESC[38;5;Nm a SGR básico (ej: ESC[31m) dependiendo de la versión de Windows.
+    /// Si este test falla, ConPTY suprime/convierte la secuencia; documentado en windows/ESTADO.md.
+    @Test func color256() async throws {
+        let proceso = try ConPTYProcess(
+            executable: pshPath,
+            arguments: ["-NoProfile", "-NonInteractive", "-Command",
+                        "Write-Host ([char]27 + '[38;5;196mROJO' + [char]27 + '[0m')"],
+            environment: entorno)
+        defer { proceso.terminate() }
+        let datos = await recoger(proceso, plazo: .seconds(10)) { $0.range(of: Data("ROJO".utf8)) != nil }
+        let texto = String(decoding: datos, as: UTF8.self)
+        #expect(texto.contains("ROJO"), "El texto visible debe llegar aunque se supriman los colores")
+        #expect(texto.contains("\u{1B}[38;5;196m"),
+                "ConPTY debería transmitir la secuencia de 256 colores sin modificarla")
+    }
+
+    /// ConPTY transmite secuencias de color de 24 bits (true color) sin modificarlas.
+    /// Nota: ConPTY puede suprimir true color en hosts sin COLORTERM=truecolor.
+    /// Si este test falla, ConPTY suprime/convierte ESC[38;2;R;G;Bm; documentado en windows/ESTADO.md.
+    @Test func color24bit() async throws {
+        let proceso = try ConPTYProcess(
+            executable: pshPath,
+            arguments: ["-NoProfile", "-NonInteractive", "-Command",
+                        "Write-Host ([char]27 + '[38;2;255;0;0mROJO_TC' + [char]27 + '[0m')"],
+            environment: entorno)
+        defer { proceso.terminate() }
+        let datos = await recoger(proceso, plazo: .seconds(10)) { $0.range(of: Data("ROJO_TC".utf8)) != nil }
+        let texto = String(decoding: datos, as: UTF8.self)
+        #expect(texto.contains("ROJO_TC"), "El texto visible debe llegar aunque se supriman los colores")
+        #expect(texto.contains("\u{1B}[38;2;255;0;0m"),
+                "ConPTY debería transmitir la secuencia de true color sin modificarla")
+    }
+
+    /// ConPTY transmite la secuencia OSC de título de ventana al lector de la tubería.
+    /// Nota: conhost.exe puede consumir OSC 0 internamente y no reenviarlo.
+    /// Si este test falla, ConPTY consume OSC 0; documentado en windows/ESTADO.md.
+    @Test func tituloVentana() async throws {
+        // ESC ]0;titulo-prueba BEL establece el título de la ventana del terminal.
+        let proceso = try ConPTYProcess(
+            executable: pshPath,
+            arguments: ["-NoProfile", "-NonInteractive", "-Command",
+                        "Write-Host -NoNewLine ([char]27 + ']0;titulo-prueba' + [char]7);" +
+                        " Write-Host 'TITULO_OK'"],
+            environment: entorno)
+        defer { proceso.terminate() }
+        let datos = await recoger(proceso, plazo: .seconds(10)) { $0.range(of: Data("TITULO_OK".utf8)) != nil }
+        let texto = String(decoding: datos, as: UTF8.self)
+        #expect(texto.contains("TITULO_OK"), "El texto posterior al OSC tiene que llegar")
+        #expect(texto.contains("\u{1B}]0;titulo-prueba"),
+                "ConPTY debería transmitir la secuencia OSC de título al lector")
+    }
+
+    /// ConPTY no bloquea el flujo de salida al recibir ESC[?1000h (activación del ratón) en el input.
+    /// Nota: ConPTY puede ignorar la secuencia de ratón (no la reenvía al proceso hijo).
+    /// Lo que verificamos aquí es que el flujo no se bloquea; el eco de ratón se prueba en P8 con la interfaz.
+    @Test func activacionRaton() async throws {
+        // ESC[?1000h activa el modo X10 de seguimiento del ratón.
+        let proceso = try ConPTYProcess(executable: cmd, arguments: ["/c", "echo", "RATON_OK"], environment: entorno)
+        defer { proceso.terminate() }
+        // Enviamos la secuencia al input; cmd /c echo no es interactivo pero ConPTY no debe bloquear la salida.
+        try? proceso.write(Data("\u{1B}[?1000h".utf8))
+        let datos = await recoger(proceso, plazo: .seconds(5)) { $0.range(of: Data("RATON_OK".utf8)) != nil }
+        let texto = String(decoding: datos, as: UTF8.self)
+        #expect(texto.contains("RATON_OK"),
+                "ConPTY no debe bloquear la salida tras recibir \\e[?1000h en el input")
+    }
+
     // MARK: - apoyo
 
     private var cmd: String {
         (ProcessInfo.processInfo.environment["WINDIR"] ?? "C:\\Windows") + "\\System32\\cmd.exe"
+    }
+
+    private var pshPath: String {
+        (ProcessInfo.processInfo.environment["WINDIR"] ?? "C:\\Windows") +
+        "\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
     }
 
     private var entorno: [String: String] { ProcessInfo.processInfo.environment }
