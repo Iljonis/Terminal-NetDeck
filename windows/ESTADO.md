@@ -1,3 +1,17 @@
+﻿## 2026-11-15 · Windows · P4e (parcial): TTY Windows con CONIN$/CONOUT$ en Askpass.swift
+
+- **P4e parcial completado:**
+  - `Security/Askpass.swift`: clase `TTY` Windows implementada — `CreateFileW(CONIN$/CONOUT$)`, `SetConsoleMode(0)` modo raw (sin eco, sin señales, sin procesamiento), `ReadConsoleW` carácter a carácter.
+  - Manejo de backspace con pares sustitutos UTF-16, Ctrl+U para borrar la línea, Ctrl+C para cancelar, Esc para rechazar (`yesNo` devuelve `false`).
+  - Bloque de imports cambiado: `#if os(Windows) import WinSDK #else import Darwin #endif`.
+  - `purgeStale`, `purgeStates` y `stateFile` confirmados ya adaptados a Windows (no requerían cambios nuevos).
+- **Sin completar en P4e:**
+  - `[ ]` Valorar `netdeck-askpass.exe` aparte (pendiente decisión arquitectura/P10).
+  - `[ ]` `getppid()` / stateFile: usa PID propio en lugar del PID padre; la implementación real requiere `CreateToolhelp32Snapshot` o pasar el PID por entorno al lanzar ssh.
+- **Tests:** 534 tests en verde (sin regresiones).
+- **Privacidad:** `bash tools/privacidad.sh` en verde (353 archivos, 0 datos personales).
+- **Sin demo:** según la excepción aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+
 ## 2026-11-15 · Windows · P4h (parcial): guards CoreGraphics/CoreText, O_EXCL→CreateFileW, UserDefaults
 
 - **P4h parcial completado:**

@@ -247,7 +247,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
       ejecutable empaquetado por su ruta, y arrancar la app entera para cada pregunta es lento (comprobarlo en P10).
 - [ ] El archivo de estado se nombra con `getppid()` (no existe en Windows): el PID del padre con
       `CreateToolhelp32Snapshot`, o pasar el PID por el entorno al lanzar ssh.
-- [ ] La lectura de respaldo por `/dev/tty` y `tcgetattr` pasa a `CONIN$` con `SetConsoleMode` (sin eco).
+- [x] La lectura de respaldo por `/dev/tty` y `tcgetattr` pasa a `CONIN$` con `SetConsoleMode` (sin eco).
 - [x] `purgeStates` usa `kill(pid, 0)`: `ProcessAlive`.
 
 ### P4f · Archivos del usuario y permisos (M, fuerte)

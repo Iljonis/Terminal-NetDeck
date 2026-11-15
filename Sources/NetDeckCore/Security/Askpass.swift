@@ -1,4 +1,6 @@
-#if !os(Windows)
+﻿#if os(Windows)
+import WinSDK
+#else
 import Darwin
 #endif
 import Foundation
@@ -673,12 +675,85 @@ final class TTY: AskpassUI {
     }
 }
 #else
-// TODO P4e: implementar TTY con SetConsoleMode/ReadConsoleInput de Windows
 final class TTY: AskpassUI {
-    init?() { return nil }
-    var reportsSaved: Bool { false }
-    func say(_ s: String) {}
-    func read(secret: Bool) -> String? { nil }
-    func yesNo(_ question: String, default d: Bool) -> Bool? { nil }
+    private static let genericRW:    DWORD = 0xC000_0000   // GENERIC_READ | GENERIC_WRITE
+    private static let shareRW:      DWORD = 0x0000_0003   // FILE_SHARE_READ | FILE_SHARE_WRITE
+    private static let openExisting: DWORD = 3             // OPEN_EXISTING
+
+    private let hIn:  HANDLE
+    private let hOut: HANDLE
+    private var lastWasEsc = false
+
+    init?() {
+        let hI = "CONIN$".withCString(encodedAs: UTF16.self) {
+            CreateFileW($0, TTY.genericRW, TTY.shareRW, nil, TTY.openExisting, 0, nil)
+        }
+        guard let hI, hI != INVALID_HANDLE_VALUE else { return nil }
+        let hO = "CONOUT$".withCString(encodedAs: UTF16.self) {
+            CreateFileW($0, TTY.genericRW, TTY.shareRW, nil, TTY.openExisting, 0, nil)
+        }
+        guard let hO, hO != INVALID_HANDLE_VALUE else { CloseHandle(hI); return nil }
+        hIn = hI; hOut = hO
+    }
+
+    deinit { CloseHandle(hIn); CloseHandle(hOut) }
+
+    func say(_ s: String) {
+        let u16 = Array(s.utf16)
+        u16.withUnsafeBufferPointer {
+            var n: DWORD = 0
+            WriteConsoleW(hOut, $0.baseAddress, DWORD($0.count), &n, nil)
+        }
+    }
+
+    func read(secret: Bool) -> String? { readLine(secret: secret, flush: false) }
+
+    private func readLine(secret: Bool, flush: Bool) -> String? {
+        var old: DWORD = 0
+        guard GetConsoleMode(hIn, &old) else { return nil }
+        SetConsoleMode(hIn, 0)                  // carácter a carácter, sin eco, sin señales
+        if flush { FlushConsoleInputBuffer(hIn) }
+        defer { SetConsoleMode(hIn, old); if secret { say("\n") } }
+        var chars: [WCHAR] = []
+        lastWasEsc = false
+        while true {
+            var wch: WCHAR = 0
+            var n: DWORD = 0
+            guard ReadConsoleW(hIn, &wch, 1, &n, nil), n == 1 else { return nil }
+            switch wch {
+            case 13, 10:    // CR / LF → fin de línea
+                return String(decoding: chars, as: UTF16.self)
+            case 3:         // Ctrl+C → cancelar
+                return nil
+            case 27:        // Esc
+                lastWasEsc = true; return nil
+            case 8, 0x7F:   // Retroceso / Supr
+                if !chars.isEmpty {
+                    if chars.count >= 2, chars.last! & 0xFC00 == 0xDC00 { chars.removeLast() }
+                    chars.removeLast()
+                    if !secret { say("\u{8} \u{8}") }
+                }
+            case 21:        // Ctrl+U – borrar la línea
+                let count = String(decoding: chars, as: UTF16.self).count
+                if !secret { say(String(repeating: "\u{8} \u{8}", count: count)) }
+                chars = []
+            default:
+                if wch >= 0x20 {
+                    chars.append(wch)
+                    if !secret { say(String(decoding: [wch], as: UTF16.self)) }
+                }
+            }
+        }
+    }
+
+    func yesNo(_ question: String, default d: Bool) -> Bool? {
+        say("\(Askpass.cyan)\(Askpass.marker) \(question) \(d ? L("[S/n]") : L("[s/N]")) (Esc = no)\(Askpass.reset) ")
+        guard let r = readLine(secret: false, flush: true)?.trimmingCharacters(in: .whitespaces).lowercased() else {
+            say("\n")
+            return lastWasEsc ? false : nil
+        }
+        say("\n")
+        return r.isEmpty ? d : ["s", "si", "sí", "y", "yes"].contains(r)
+    }
 }
 #endif
