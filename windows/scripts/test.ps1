@@ -56,7 +56,7 @@ try {
         '|SessionOrderTests|GroupTreeTests|SessionExportTests|SessionLogTests|PromptDeviceTests' +
         '|SSHConfigParserTests|RouteTests|UpdateCheckTests|LoopbackTests|TerminalEnvironmentTests' +
         '|LocalTerminalTests|SFTPPanelRouteTests|SFTPPanelStoreTests|RemoteEditTests|AskpassScopeTests' +
-        '|TerminalSelectionTests|ThemeOverridesTests|ThemeTests|ConPTYProcessTests|ProcesosHijosWindowsTests'
+        '|TerminalSelectionTests|ThemeOverridesTests|ThemeTests|ConPTYProcessTests|ProcesosHijosWindowsTests|SerialWindowsTests'
     $filtroExtra = if ($args -notcontains '--filter') { @('--filter', $suitesWindows) } else { @() }
     # -DOPENSSL_NO_ASM: BoringSSL necesita NASM para ASM en Windows; con este flag usa C puro.
     & $swift test --scratch-path $scratchPath -Xcc -DOPENSSL_NO_ASM @filtroExtra @args

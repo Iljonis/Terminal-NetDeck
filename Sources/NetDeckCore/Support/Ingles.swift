@@ -1307,6 +1307,8 @@ enum Ingles {
             "“%@”: a note can't start with @grupo or @clave-grupo",
         "Puerto serie no válido: «%@» (sólo /dev/cu.* o /dev/tty.*)":
             "Invalid serial port: “%@” (only /dev/cu.* or /dev/tty.*)",
+        "Puerto serie no válido: «%@» (sólo COMn)":
+            "Invalid serial port: “%@” (only COMn)",
         "Velocidad no admitida: %@": "Unsupported speed: %@",
         "Trama no admitida: «%@»": "Unsupported framing: “%@”",
         "No se puede abrir «%@»: %@": "Can't open “%@”: %@",
@@ -1699,8 +1701,6 @@ enum Ingles {
             "Connection lost",
         "FTP no disponible en Windows (TODO P4h)":
             "FTP not available on Windows (TODO P4h)",
-        "Serial no disponible en Windows (TODO P4g)":
-            "Serial not available on Windows (TODO P4g)",
         "Se suben a %@":
             "They're uploaded to %@",
         "Se sustituirá lo que haya en el servidor de destino.":

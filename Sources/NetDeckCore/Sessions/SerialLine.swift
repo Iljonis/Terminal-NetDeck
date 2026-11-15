@@ -14,6 +14,10 @@ public struct SerialLine: Hashable, Sendable, Codable {
     public static let speeds = [9600, 19200, 38400, 57600, 115200]
     /// Sólo /dev/cu.* o /dev/tty.*, sin espacios ni nada que una shell entienda.
     private static let deviceRule = Pattern(#"^/dev/(cu|tty)\.[A-Za-z0-9._-]+$"#, ignoreCase: false)
+    #if os(Windows)
+    /// En Windows, además, COMn (n >= 1): «COM1», «COM3», «COM15».
+    private static let deviceRuleWindows = Pattern(#"^COM[1-9][0-9]*$"#, ignoreCase: true)
+    #endif
 
     public init(device: String = "", speed: Int = 9600, dataBits: Int = 8, parity: Parity = .none, stopBits: Int = 1) {
         self.device = device
@@ -44,13 +48,32 @@ public struct SerialLine: Hashable, Sendable, Codable {
         return (d, par, st)
     }
 
-    public static func isValidDevice(_ d: String) -> Bool { deviceRule.matches(d) && !d.contains("..") }
+    public static func isValidDevice(_ d: String) -> Bool {
+        #if os(Windows)
+        // (las rutas /dev/* siguen valiendo como texto: un archivo de sesiones escrito en el Mac se lee igual)
+        if deviceRuleWindows.matches(d) { return true }
+        #endif
+        return deviceRule.matches(d) && !d.contains("..")
+    }
+
+    /// La ruta con la que se abre el dispositivo. En Windows, COMn pasa a «\\.\COMn»: sin ese prefijo, de COM10 en
+    /// adelante no se abre.
+    public var deviceForOpen: String {
+        #if os(Windows)
+        if Self.deviceRuleWindows.matches(device) { return #"\\.\"# + device.uppercased() }
+        #endif
+        return device
+    }
 
     public var isValid: Bool { problem == nil }
 
     /// Por qué no se puede abrir (antes de tocar el dispositivo), o nil.
     public var problem: String? {
+        #if os(Windows)
+        if !Self.isValidDevice(device) { return L("Puerto serie no válido: «\(device)» (sólo COMn)") }
+        #else
         if !Self.isValidDevice(device) { return L("Puerto serie no válido: «\(device)» (sólo /dev/cu.* o /dev/tty.*)") }
+        #endif
         if !Self.speeds.contains(speed) { return L("Velocidad no admitida: \(String(speed))") }
         if !(5...8).contains(dataBits) || !(1...2).contains(stopBits) { return L("Trama no admitida: «\(frame)»") }
         return nil
