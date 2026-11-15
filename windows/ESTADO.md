@@ -1,3 +1,15 @@
+## 2026-11-15 · Windows · P4h: Tunnels.swift adapta PortCheck a Winsock2
+
+- **Completado:**
+  - `Sessions/Tunnels.swift`: rama `#if os(Windows)` en `PortCheck.problem` y `PortCheck.isListening`;
+    usa `WSAStartup`/`WSACleanup` (defer), `getaddrinfo`/`freeaddrinfo`, `socket`/`closesocket`/`bind`/`connect`,
+    `INVALID_SOCKET`, `ioctlsocket(FIONBIO)` en lugar de `fcntl O_NONBLOCK`, `WSAPoll`/`WSAPOLLFD`/`POLLWRNORM`
+    en lugar de `poll`/`POLLOUT`, `WSAGetLastError()` con `WSAEADDRINUSE`/`WSAEACCES`/`WSAEADDRNOTAVAIL`/`WSAEWOULDBLOCK`;
+    sin `SO_NOSIGPIPE` (no existe en Windows); `Int32(IPPROTO_IPV6.rawValue)` para el cast de tipo WinSDK.
+  - `Support/Ingles.swift`: nueva clave `"«%@» no es una dirección de este equipo"` → `""%@" isn't an address on this machine"`.
+- **Tests:** 535/535 en verde. Privacidad ok.
+- **Commit:** `1d5de60` en `windows/p7-conpty`.
+- **Siguiente paso:** continuar con el plan — revisar P4h FTP si aplica, o siguiente paso de P5+.
 ## 2026-11-15 · Windows · P4g: SerialLine.devices() del registro (HARDWARE\DEVICEMAP\SERIALCOMM)
 
 - **Completado:**

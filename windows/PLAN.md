@@ -1,4 +1,4 @@
-﻿# Plan: Terminal NetDeck para Windows
+# Plan: Terminal NetDeck para Windows
 
 Plan por pasos para llevar Terminal NetDeck a Windows. Cada paso se puede hacer en frío, en otra sesión, sin leer los
 anteriores: trae su contexto, sus tareas, cómo se comprueba y cuándo está terminado. Se marca con `[x]` lo hecho y se
@@ -279,7 +279,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
   `SO_NOSIGPIPE`), `Remote/FTPClient.swift` (`Network.framework`), `Remote/Transfer.swift` (`LocalFileWriter`:
   `open(O_EXCL|O_NOFOLLOW)` y `lstat`, también lo usa la edición remota), `Terminal/SessionLog.swift`
   (`O_CLOEXEC|O_NOFOLLOW`), `Terminal/TerminalFont.swift` (`CoreText`), `Sessions/OpenWindows.swift` (`CoreGraphics`).
-- [ ] Sockets de los túneles: Winsock (`WinSDK`), con la misma lógica.
+- [x] Sockets de los túneles: Winsock (`WinSDK`), con la misma lógica.
 - [ ] FTP: Foundation de Windows no tiene un API de flujos TCP útil, así que Winsock o SwiftNIO, con la misma máquina
       de estados de FTP.
 - [x] `open(O_EXCL|O_NOFOLLOW)`: `CreateFileW` con `CREATE_NEW` y `FILE_FLAG_OPEN_REPARSE_POINT` (no seguir enlaces es
