@@ -302,7 +302,7 @@ public enum Askpass {
         purgeStates(in: dir)
         let id = session.flatMap(UUID.init(uuidString:))?.uuidString ?? "externa"
         #if os(Windows)
-        return dir.appendingPathComponent("ndapp-askpass.\(id).\(ProcessInfo.processInfo.processIdentifier)")
+        return dir.appendingPathComponent("ndapp-askpass.\(id).\(_windowsGetppid())")
         #else
         return dir.appendingPathComponent("ndapp-askpass.\(id).\(getppid())")
         #endif

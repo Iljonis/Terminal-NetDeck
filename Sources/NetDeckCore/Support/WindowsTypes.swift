@@ -1,4 +1,4 @@
-#if os(Windows)
+﻿#if os(Windows)
 import Foundation
 import WinSDK
 
@@ -138,5 +138,24 @@ public func _windowsOpenExclNoFollow(_ path: String) -> Int32 {
 public func kill(_ pid: pid_t, _ sig: Int32) -> Int32 {
     if sig == 0 { return _windowsProcessAlive(pid) ? 0 : -1 }
     return 0 // no-op: señales de terminación no implementadas
+}
+
+/// PID del proceso padre del proceso actual.
+/// Implementa la semantica de getppid() usando CreateToolhelp32Snapshot + Process32FirstW/NextW.
+/// Devuelve 0 si no se puede obtener (el proceso desaparecio antes de leerlo).
+func _windowsGetppid() -> pid_t {
+    let snapshot = CreateToolhelp32Snapshot(DWORD(TH32CS_SNAPPROCESS), 0)
+    guard snapshot != INVALID_HANDLE_VALUE else { return 0 }
+    defer { CloseHandle(snapshot) }
+    var entry = PROCESSENTRY32W()
+    entry.dwSize = DWORD(MemoryLayout<PROCESSENTRY32W>.size)
+    let selfPID = DWORD(ProcessInfo.processInfo.processIdentifier)
+    guard Process32FirstW(snapshot, &entry) else { return 0 }
+    repeat {
+        if entry.th32ProcessID == selfPID {
+            return pid_t(entry.th32ParentProcessID)
+        }
+    } while Process32NextW(snapshot, &entry)
+    return 0
 }
 #endif
