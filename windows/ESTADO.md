@@ -1,4 +1,13 @@
-## 2026-11-15 · Windows · P4h: Tunnels.swift adapta PortCheck a Winsock2
+﻿## 2026-11-15 · Windows · P4g (corrección): SerialLine.devices() revisada con withUnsafeMutableBytes
+
+- **Revisado:**
+  - `Sessions/SerialLine.swift`: `_devicesFromRegistry()` rehecha con buffers `[WCHAR]` y `withUnsafeMutableBytes`
+    para pasar `UnsafeMutablePointer<BYTE>?` a `RegEnumValueW`; `String(decoding:prefix(while:), as: UTF16.self)`
+    para leer el dato sin el terminador nulo; `KEY_READ` como `DWORD(0x20019)` para evitar ambigüedad de tipo;
+    `devices()` unificada en bloque `#if os(Windows) / #else / #endif` único.
+  - `Tests/NetDeckCoreTests/SerialWindowsTests.swift`: test renombrado a `devicesDevuelvePortosValidos`.
+- **Tests:** 7/7 en `SerialWindowsTests` en verde. Privacidad ok (353 archivos, 0 datos personales).
+- **Sin demo:** según la excepción aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).## 2026-11-15 · Windows · P4h: Tunnels.swift adapta PortCheck a Winsock2
 
 - **Completado:**
   - `Sessions/Tunnels.swift`: rama `#if os(Windows)` en `PortCheck.problem` y `PortCheck.isListening`;

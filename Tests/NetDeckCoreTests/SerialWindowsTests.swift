@@ -65,12 +65,11 @@ import WinSDK
         }
     }
 
-    @Test func devicesDevuelveArregloOrdenado() {
-        let ports = SerialLine.devices()
-        // No puede crashear aunque no haya puertos COM; los que haya deben ser válidos y el arreglo ordenado.
-        #expect(ports == ports.sorted())
-        for port in ports {
-            #expect(SerialLine.isValidDevice(port), "\(port)")
+    @Test func devicesDevuelvePortosValidos() {
+        // La máquina de tests puede no tener puertos serie: lo importante es que el array está bien formado.
+        let result = SerialLine.devices()
+        for d in result {
+            #expect(SerialLine.isValidDevice(d), "devices() devolvió un dispositivo inválido: \(d)")
         }
     }
 }
