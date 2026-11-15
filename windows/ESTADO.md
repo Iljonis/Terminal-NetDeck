@@ -1,4 +1,19 @@
-﻿## 2026-11-15 · Windows · P4e (parcial): TTY Windows con CONIN$/CONOUT$ en Askpass.swift
+## 2026-11-15 · Windows · P4g: SerialLine.devices() del registro (HARDWARE\DEVICEMAP\SERIALCOMM)
+
+- **Completado:**
+  - `Sessions/SerialLine.swift`: añadido `#if os(Windows) import WinSDK #endif`; `devices()` reestructurada con
+    `#if os(Windows) / #else / #endif`; rama Windows llama a `_devicesFromRegistry()` que abre
+    `HKLM\HARDWARE\DEVICEMAP\SERIALCOMM` con `RegOpenKeyExW`, enumera con `RegEnumValueW`, filtra con
+    `isValidDevice` y devuelve arreglo ordenado; devuelve `[]` si la clave no existe.
+  - `Tests/NetDeckCoreTests/SerialWindowsTests.swift`: añadido test `devicesDevuelveArregloOrdenado` —
+    verifica que el arreglo no rompe, está ordenado y todos sus elementos pasan `isValidDevice`.
+- **Tests:** no pudieron verificarse en esta sesión — `Tunnels.swift:437` falla por error del agente
+  paralelo `p4h-winsock-en-tunnels-s` (`IPPROTO` type mismatch); los archivos de esta tarea compilan sin
+  error (confirmado en la pasada de compilación parcial hasta el paso 50/55).
+- **Privacidad:** `bash tools/privacidad.sh` en verde (353 archivos, 0 datos personales).
+- **Commit:** `ac63293` en rama `windows/p7-conpty`.
+- **Sin demo:** según la excepción aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+## 2026-11-15 · Windows · P4e (parcial): TTY Windows con CONIN$/CONOUT$ en Askpass.swift
 
 - **P4e parcial completado:**
   - `Security/Askpass.swift`: clase `TTY` Windows implementada — `CreateFileW(CONIN$/CONOUT$)`, `SetConsoleMode(0)` modo raw (sin eco, sin señales, sin procesamiento), `ReadConsoleW` carácter a carácter.
