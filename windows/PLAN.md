@@ -282,11 +282,11 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 - [ ] Sockets de los túneles: Winsock (`WinSDK`), con la misma lógica.
 - [ ] FTP: Foundation de Windows no tiene un API de flujos TCP útil, así que Winsock o SwiftNIO, con la misma máquina
       de estados de FTP.
-- [ ] `open(O_EXCL|O_NOFOLLOW)`: `CreateFileW` con `CREATE_NEW` y `FILE_FLAG_OPEN_REPARSE_POINT` (no seguir enlaces es
+- [x] `open(O_EXCL|O_NOFOLLOW)`: `CreateFileW` con `CREATE_NEW` y `FILE_FLAG_OPEN_REPARSE_POINT` (no seguir enlaces es
       una regla de seguridad, no se quita).
-- [ ] `OpenWindows` sólo usa `CGRect/CGPoint/CGSize`, que Foundation de Windows ya tiene: `#if canImport(CoreGraphics)`.
-- [ ] `TerminalFont`: tras `#if canImport(CoreText)`, con lo que pida la interfaz en P8 (DirectWrite).
-- [ ] `UserDefaults` (idioma, historial): funciona en Windows, pero comprobar dónde guarda y que el askpass lo lee igual.
+- [x] `OpenWindows` sólo usa `CGRect/CGPoint/CGSize`, que Foundation de Windows ya tiene: `#if canImport(CoreGraphics)`.
+- [x] `TerminalFont`: tras `#if canImport(CoreText)`, con lo que pida la interfaz en P8 (DirectWrite).
+- [x] `UserDefaults` (idioma, historial): funciona en Windows, pero comprobar dónde guarda y que el askpass lo lee igual.
 
 ## P5 · CI de Windows (S, normal)
 

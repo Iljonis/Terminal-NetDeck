@@ -1,3 +1,17 @@
+## 2026-11-15 · Windows · P4h (parcial): guards CoreGraphics/CoreText, O_EXCL→CreateFileW, UserDefaults
+
+- **P4h parcial completado:**
+  - `Sessions/OpenWindows.swift`: ya tiene `#if canImport(CoreGraphics)` — compila sin CoreGraphics en Windows (CGRect/CGPoint/CGSize vienen de Foundation).
+  - `Terminal/TerminalFont.swift`: añadido `#else // TODO P8: DirectWrite #endif` en el bloque CoreText; el enum sigue existiendo vacío en Windows para que los callers compilen.
+  - `Remote/Transfer.swift` (`LocalFileWriter.init`): rama `#if os(Windows)` con `_windowsOpenExclNoFollow` — usa `CreateFileW(CREATE_NEW | FILE_FLAG_OPEN_REPARSE_POINT)` para O_EXCL + O_NOFOLLOW real.
+  - `Terminal/SessionLog.swift` (`SessionLogger.init`): misma rama Windows; los handles no se heredan por defecto (O_CLOEXEC innecesario).
+  - `Support/WindowsTypes.swift`: nueva función pública `_windowsOpenExclNoFollow` con DWORD tipados, errno mapeado vía `_errno().pointee`.
+  - `Support/Idioma.swift`: comentario `// Windows: UserDefaults guarda en HKCU\Software\Apple\... vía CFPreferences`.
+- **Excluido de esta sesión:** Winsock/FTP (muy grandes; ver P4h pendiente en PLAN.md).
+- **Tests:** 534 tests en verde (sin regresiones).
+- **Privacidad:** `bash tools/privacidad.sh` en verde (353 archivos, 0 datos personales).
+- **Sin demo:** según la excepción aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+
 ﻿## 2026-11-15 · Windows · P4b: shell local con PowerShell/cmd.exe y launchProblem para ssh.exe
 
 - **P4b completado:** dos tareas pendientes de la etapa P4b ahora en verde.
@@ -116,7 +130,9 @@
     - `FileManager.enumerator` no enumera `Sources/TerminalNetDeck` en Windows:
       `IdiomaTests.todoElCodigoEstaTraducido` → guarda `total > 100` (en macOS `> 400`).
     - CRLF + Win32Error en `CredentialRenamerTests`: regex del renamer no coincide con
-      `# @clave-grupo AD ` (trailing `` antes de `
+      `# @clave-grupo AD 
+` (trailing `
+` antes de `
 `).
   - Traducciones añadidas a `Ingles.swift`: `"Se ha perdido la conexion"`,
     `"FTP no disponible en Windows (TODO P4h)"`, `"Serial no disponible en Windows (TODO P4g)"`.

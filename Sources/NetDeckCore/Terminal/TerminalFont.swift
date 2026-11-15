@@ -43,6 +43,8 @@ public enum TerminalFont {
         let h = ceil((CTFontGetAscent(font) + CTFontGetDescent(font) + CTFontGetLeading(font)) * lineSpacing)
         return CGSize(width: max(1, (advance.width * scale).rounded() / scale), height: max(1, ceil(h * scale) / scale))
     }
+#else
+    // TODO P8: DirectWrite
 #endif
 
     // MARK: - tamano e interlineado

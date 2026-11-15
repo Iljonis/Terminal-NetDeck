@@ -277,7 +277,12 @@ public final class LocalFileWriter: RemoteWriter, @unchecked Sendable {
         self.url = url
         // (temporal con nombre único y O_EXCL: nunca abre ni pisa uno que ya esté, ni sigue un enlace)
         part = url.deletingLastPathComponent().appendingPathComponent(".\(url.lastPathComponent).\(UUID().uuidString.prefix(8)).part")
+        #if os(Windows)
+        // Windows: CREATE_NEW no sigue reparse points (O_NOFOLLOW); _open_osfhandle ya no hereda (O_CLOEXEC).
+        let fd = _windowsOpenExclNoFollow(part.path)
+        #else
         let fd = open(part.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600)
+        #endif
         guard fd >= 0 else {
             throw RemoteError(L("No se puede escribir en «\(url.deletingLastPathComponent().lastPathComponent)»"))
         }
