@@ -1,4 +1,21 @@
-﻿## 2026-11-15 · Windows · P4g (corrección): SerialLine.devices() revisada con withUnsafeMutableBytes
+﻿## 2026-11-15 · Windows · P6 (tests nuevos): ACL, Administrador de credenciales y Job Objects
+
+- **Completado:**
+  - `Tests/NetDeckCoreTests/WindowsACLTests.swift` (nuevo): 4 tests de `WindowsACL.restrict`.
+    - `restrictArchivoRetornaVerdadero`: crea un archivo temporal y verifica que `restrict` devuelve `true`.
+    - `restrictCarpetaRetornaVerdadero`: igual para directorios.
+    - `propietarioPuedeLeerTrasBlindar`: verifica que el propietario sigue leyendo el archivo tras blindarlo.
+    - `restriccionDejaExactamenteDosAces`: comprueba con `GetNamedSecurityInfoW`/`GetAce` que el DACL tiene 2 ACEs (usuario + SYSTEM).
+  - `Tests/NetDeckCoreTests/KeychainCredencialesWindowsTests.swift` (nuevo): 6 tests del Administrador de credenciales.
+    Cada test usa una cuenta distinta (`test-p6-rw`, `test-p6-del`, etc.) para evitar interferencias con tests paralelos.
+    Escribe, lee y borra credenciales de prueba; limpia con `defer`.
+  - `windows/scripts/test.ps1`: `WindowsACLTests` y `KeychainCredencialesWindowsTests` añadidos a `$suitesWindows`.
+  - `windows/PLAN.md`: `[x]` en «Tests nuevos para lo de Windows (ACL, Administrador de credenciales con un servicio de prueba, Job Objects)».
+  - Job Objects: ya cubiertos en `ProcesosHijosWindowsTests` (`terminarSeLlevaAlNieto` prueba que `terminate()` mata al árbol de procesos).
+- **Tests:** 10/10 en verde (`WindowsACLTests` + `KeychainCredencialesWindowsTests`). Privacidad ok (355 archivos, 0 datos personales).
+- **Sin demo:** según la excepción aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+
+## 2026-11-15 · Windows · P4g (corrección): SerialLine.devices() revisada con withUnsafeMutableBytes
 
 - **Revisado:**
   - `Sessions/SerialLine.swift`: `_devicesFromRegistry()` rehecha con buffers `[WCHAR]` y `withUnsafeMutableBytes`

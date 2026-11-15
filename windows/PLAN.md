@@ -1,4 +1,4 @@
-# Plan: Terminal NetDeck para Windows
+﻿# Plan: Terminal NetDeck para Windows
 
 Plan por pasos para llevar Terminal NetDeck a Windows. Cada paso se puede hacer en frío, en otra sesión, sin leer los
 anteriores: trae su contexto, sus tareas, cómo se comprueba y cuándo está terminado. Se marca con `[x]` lo hecho y se
@@ -311,7 +311,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
   - [x] `powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/scripts/test.ps1` y lista de los que fallan,
         por causa.
   - [x] Los que dependen de macOS de verdad: `@Test(.enabled(if: …))` o `#if os(macOS)`, nunca borrarlos.
-  - [ ] Tests nuevos para lo de Windows (ACL, Administrador de credenciales con un servicio de prueba, Job Objects).
+  - [x] Tests nuevos para lo de Windows (ACL, Administrador de credenciales con un servicio de prueba, Job Objects).
   - [ ] Activar `test.ps1` en la CI de Windows (P5).
 - **Salida:** los tests en verde en Windows (con `test.ps1`) y en macOS (`./test.sh`).
 
