@@ -1,4 +1,7 @@
-import Foundation
+﻿import Foundation
+#if os(Windows)
+import WinSDK
+#endif
 
 /// Puerto serie de una sesión de consola: «# @serie /dev/cu.usbserial-0001 9600 8N1». Lo abre la propia app
 /// (`SerialPort`, termios: velocidad, bits de datos, paridad y bits de parada, comprobados al abrir).
@@ -83,10 +86,47 @@ public struct SerialLine: Hashable, Sendable, Codable {
     public var frame: String { "\(dataBits)\(parity.rawValue)\(stopBits)" }
     public var annotation: String { "\(device) \(speed) \(frame)" }
 
+#if os(Windows)
+    /// Los puertos COM disponibles en el registro de Windows (HARDWARE\DEVICEMAP\SERIALCOMM).
+    public static func devices(in _: String = "/dev") -> [String] {
+        var hKey: HKEY?
+        let status = "HARDWARE\\DEVICEMAP\\SERIALCOMM".withCString(encodedAs: UTF16.self) { pwszKey in
+            RegOpenKeyExW(HKEY_LOCAL_MACHINE, pwszKey, 0, KEY_READ, &hKey)
+        }
+        guard status == ERROR_SUCCESS, let key = hKey else { return [] }
+        defer { _ = RegCloseKey(key) }
+
+        var ports: [String] = []
+        var index: DWORD = 0
+        while true {
+            var nameLen: DWORD = 256
+            var valueName = [WCHAR](repeating: 0, count: 256)
+            var dataLen: DWORD = 64
+            var data = [BYTE](repeating: 0, count: 64)
+            var valueType: DWORD = 0
+
+            let r = RegEnumValueW(key, index, &valueName, &nameLen, nil, &valueType, &data, &dataLen)
+            if r == ERROR_NO_MORE_ITEMS { break }
+            if r == ERROR_SUCCESS, valueType == REG_SZ {
+                let portName = data.withUnsafeBytes { rawBuf in
+                    rawBuf.withMemoryRebound(to: WCHAR.self) { wcharBuf in
+                        wcharBuf.baseAddress.map { String(decodingCString: $0, as: UTF16.self) } ?? ""
+                    }
+                }
+                if !portName.isEmpty, isValidDevice(portName) {
+                    ports.append(portName.uppercased())
+                }
+            }
+            index += 1
+        }
+        return ports.sorted()
+    }
+#else
     /// Los puertos /dev/cu.* de este Mac (adaptadores USB-serie, consolas…), sin los que no son de verdad.
     public static func devices(in dir: String = "/dev") -> [String] {
         ((try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? [])
             .filter { $0.hasPrefix("cu.") && $0 != "cu.Bluetooth-Incoming-Port" && $0 != "cu.debug-console" }
             .map { "\(dir)/\($0)" }.filter(isValidDevice).sorted()
     }
+#endif
 }

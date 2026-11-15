@@ -1,4 +1,4 @@
-#if os(Windows)
+﻿#if os(Windows)
 import Testing
 import Foundation
 import WinSDK
@@ -62,6 +62,15 @@ import WinSDK
         }
         #expect(throws: SerialPort.Failure.self) {
             _ = try SerialPort(SerialLine(device: "COM0"), queue: .main, onData: { _ in }, onClose: { _ in })
+        }
+    }
+
+    @Test func devicesDevuelveArregloOrdenado() {
+        let ports = SerialLine.devices()
+        // No puede crashear aunque no haya puertos COM; los que haya deben ser válidos y el arreglo ordenado.
+        #expect(ports == ports.sorted())
+        for port in ports {
+            #expect(SerialLine.isValidDevice(port), "\(port)")
         }
     }
 }
