@@ -1,4 +1,4 @@
-import Foundation
+﻿import Foundation
 import Testing
 @testable import NetDeckCore
 
@@ -88,7 +88,11 @@ private let config = """
         let core = try manager.route(to: #require(manager.profile(named: "core-01")))
         let h = try #require(try manager.typedHop(for: core))
         #expect(h.command(sharing: sharing).arguments == ["--", "bastion"])
+        #if os(Windows)
+        #expect(ConnectionRoute.local(shell: "/bin/zsh", allowed: ["/bin/zsh"]).command(sharing: sharing).arguments == [])
+        #else
         #expect(ConnectionRoute.local(shell: "/bin/zsh", allowed: ["/bin/zsh"]).command(sharing: sharing).arguments == ["-l"])
+        #endif
     }
 
     /// Lo que va al ProxyCommand pasa por la shell: con cualquier cosa rara, -J como siempre (ssh no usa shell para -J).

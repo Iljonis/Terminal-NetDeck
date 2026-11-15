@@ -1,4 +1,4 @@
-import Foundation
+﻿import Foundation
 import Testing
 @testable import NetDeckCore
 
@@ -128,7 +128,11 @@ private let kinds = """
         var bad = r
         bad.serial?.device = "/dev/cu.x;rm -rf ~"
         #expect(bad.launchProblem { _ in true } != nil)
+        #if os(Windows)
+        #expect(bad.command.executable == "")
+        #else
         #expect(bad.command.executable == "/usr/bin/false")
+        #endif
     }
 
     @Test func rutaDelPuertoSerieEstricta() {

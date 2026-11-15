@@ -360,13 +360,22 @@ private let config = """
         #expect(r.localShell == "/bin/bash")
         #expect(!r.isLoopback)                                           // (no es un ssh a este Mac: se guarda)
         #expect(r.sessionName == nil && r.jumps.isEmpty)
-        // (una shell que no está en /etc/shells, o ninguna: /bin/zsh)
-        #expect(ConnectionRoute.local(shell: "/tmp/x", allowed: ["/bin/zsh"]).localShell == "/bin/zsh")
-        #expect(ConnectionRoute.local(shell: nil, allowed: []).localShell == "/bin/zsh")
-        #expect(ConnectionRoute.loginShell("/bin/zsh", allowed: []) == "/bin/zsh")
+        // (una shell que no está en las permitidas, o ninguna: la del sistema)
+        #if os(Windows)
+        let shellFallback = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+        #else
+        let shellFallback = "/bin/zsh"
+        #endif
+        #expect(ConnectionRoute.local(shell: "/tmp/x", allowed: [shellFallback]).localShell == shellFallback)
+        #expect(ConnectionRoute.local(shell: nil, allowed: []).localShell == shellFallback)
+        #expect(ConnectionRoute.loginShell(shellFallback, allowed: []) == shellFallback)
         // (guardada en abiertas.json y leída de vuelta, sigue siendo local y de login)
         let back = try JSONDecoder().decode(ConnectionRoute.self, from: JSONEncoder().encode(r))
+        #if os(Windows)
+        #expect(back.isLocal && back.command.arguments == [])
+        #else
         #expect(back.isLocal && back.command.arguments == ["-l"])
+        #endif
         // (las guardadas antes, sin el campo, se siguen leyendo como remotas)
         let ssh = ConnectionRoute(title: "core-01", target: Endpoint(host: "192.0.2.11"))
         let old = #"{"title":"core-01","target":{"host":"192.0.2.11"},"jumps":[],"transport":"ssh"}"#

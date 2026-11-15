@@ -1,4 +1,4 @@
-import Foundation
+﻿import Foundation
 
 /// Cómo se llega a un equipo: los saltos resueltos y la orden que abre la pestaña.
 public struct ConnectionRoute: Hashable, Sendable, Codable {
@@ -147,18 +147,33 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
         }
         if transport == .ftp { return L("FTP no tiene consola: usa la vista gráfica") }
         let exe = command.executable
+        #if os(Windows)
+        return exists(exe) ? nil : L("No está ssh.exe en este PC")
+        #else
         return exists(exe) ? nil : L("No está \(exe) en este Mac")
+        #endif
     }
 
     /// Las shells de /etc/shells (las que macOS deja como shell de inicio).
     public static var systemShells: [String] {
-        ((try? String(contentsOfFile: "/etc/shells", encoding: .utf8)) ?? "").split(separator: "\n")
+        #if os(Windows)
+        return ["C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                "C:\\Windows\\System32\\cmd.exe"]
+        #else
+        return ((try? String(contentsOfFile: "/etc/shells", encoding: .utf8)) ?? "").split(separator: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }.filter { $0.hasPrefix("/") }
+        #endif
     }
 
     /// La shell si es una de las permitidas (la ruta guardada en abiertas.json no se ejecuta a ciegas); si no, /bin/zsh.
     public static func loginShell(_ shell: String?, allowed: [String]) -> String {
-        guard let shell, allowed.contains(shell) else { return "/bin/zsh" }
+        guard let shell, allowed.contains(shell) else {
+            #if os(Windows)
+            return "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+            #else
+            return "/bin/zsh"
+            #endif
+        }
         return shell
     }
 
@@ -197,7 +212,11 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     /// leen con «-F» (y ssh lo pasa a los saltos de -J y al ProxyCommand compartido).
     public func command(sharing: JumpSharing?, configFile: String? = nil) -> (executable: String, arguments: [String]) {
         let f = Self.configOptions(configFile)
+        #if os(Windows)
+        if isLocal { return (Self.loginShell(localShell, allowed: Self.systemShells), []) }
+        #else
         if isLocal { return (Self.loginShell(localShell, allowed: Self.systemShells), ["-l"]) }
+        #endif
         switch transport {
         case .ssh:
             var a = f + jumpOptions(sharing, configFile: configFile)
@@ -227,7 +246,11 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
             }
             return (SystemTools.sftp, a)
         case .serial, .ftp, .local:
+            #if os(Windows)
+            return ("", [])
+            #else
             return ("/usr/bin/false", [])
+            #endif
         }
     }
 

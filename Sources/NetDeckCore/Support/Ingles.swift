@@ -2,6 +2,7 @@
 // cada valor interpolado (y %% por cada %). Lo comprueba IdiomaTests: toda clave del código tiene que estar aquí.
 enum Ingles {
     static let textos: [String: String] = [
+        "No está ssh.exe en este PC": "ssh.exe not found on this PC",
         "Desconecta FTP y espera a que terminen las transferencias antes de renombrar": "Disconnect FTP and wait for transfers to finish before renaming",
         "Espera a que termine el renombrado de la credencial": "Wait for the credential rename to finish",
         "%@ (con nombre)": "%@ (named)",
