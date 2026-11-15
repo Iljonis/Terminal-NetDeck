@@ -1,4 +1,17 @@
-﻿## 2026-11-15 · Windows · P7 T4: secuencias VT avanzadas a través de ConPTY — 4 tests nuevos
+﻿## 2026-11-15 · Windows · P4b: shell local con PowerShell/cmd.exe y launchProblem para ssh.exe
+
+- **P4b completado:** dos tareas pendientes de la etapa P4b ahora en verde.
+  - `ConnectionRoute.systemShells`: en Windows devuelve `[powershell.exe, cmd.exe]` en lugar de leer `/etc/shells`.
+  - `ConnectionRoute.loginShell`: devuelve `powershell.exe` como shell de inicio en Windows (en lugar de `/bin/zsh`).
+  - `command(sharing:)`: sin flag `-l` en Windows para rutas locales (no existe en PowerShell/cmd.exe).
+  - `serial/ftp/local`: devuelven `("", [])` en Windows en lugar de `("/usr/bin/false", [])`.
+  - `launchProblem`: en Windows muestra `"No está ssh.exe en este PC"` con su `L("…")` e inglés.
+- **Tests actualizados:** `SessionTests`, `SessionKindTests`, `JumpSharingTests` con condicionales `#if os(Windows)`.
+- **534 tests:** 533 en verde + 1 fallo esporádico preexistente (Win32Error code:32 bloqueo de archivo, rota entre tests de escritura de temp).
+- **Privacidad:** `bash tools/privacidad.sh` en verde (353 archivos, 0 datos personales).
+- **Sin demo:** según la excepción aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+
+## 2026-11-15 · Windows · P7 T4: secuencias VT avanzadas a través de ConPTY — 4 tests nuevos
 
 - **P7 tarea 4 completada:** `Tests/NetDeckCoreTests/ConPTYProcessTests.swift` — 4 tests nuevos.
   - `color256`: lanza `powershell.exe -Command "Write-Host ([char]27 + '[38;5;196mROJO'…)"` y verifica `\e[38;5;196m`. **ConPTY transmite la secuencia de 256 colores sin modificarla** en esta versión de Windows (Windows 11 26300).

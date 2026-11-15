@@ -217,9 +217,9 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 - [x] Un sitio único para las rutas: en Windows, `%SystemRoot%\System32\OpenSSH\ssh.exe` etc. **Nunca buscarlos por el
       `PATH`** (es la misma regla que las rutas fijas de macOS; `/usr/bin/env telnet` ya es una búsqueda por `PATH` y en
       Windows pasa a `%SystemRoot%\System32\telnet.exe`).
-- [ ] Shell local: PowerShell o `cmd.exe` en lugar de `/etc/shells`, **sin** `-l` (no existe en esos dos). Las
+- [x] Shell local: PowerShell o `cmd.exe` en lugar de `/etc/shells`, **sin** `-l` (no existe en esos dos). Las
       pestañas sin orden (serie, FTP) no pueden usar `/usr/bin/false`: que no lancen nada.
-- [ ] `launchProblem`: «No está ssh.exe en este PC», con su `L("…")` e inglés.
+- [x] `launchProblem`: «No está ssh.exe en este PC», con su `L("…")` e inglés.
 
 ### P4c · Compartir el salto (M, fuerte; después de P4b)
 - `Sessions/JumpSharing.swift`, `Sessions/ConnectionRoute.swift` (`jumpOptions`).
