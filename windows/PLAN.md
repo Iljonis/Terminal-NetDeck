@@ -223,7 +223,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 
 ### P4c · Compartir el salto (M, fuerte; después de P4b)
 - `Sessions/JumpSharing.swift`, `Sessions/ConnectionRoute.swift` (`jumpOptions`).
-- [ ] Si P1 confirma que no hay ControlMaster, `JumpSharing.standard()` devuelve `nil` en Windows (ya es el camino de
+- [x] Si P1 confirma que no hay ControlMaster, `JumpSharing.standard()` devuelve `nil` en Windows (ya es el camino de
       «se conecta como siempre, sin compartir», por `-J`) y se dice en la interfaz que en Windows cada pestaña entra en
       el bastión.
 - [ ] Anotar en la ADR la alternativa para más adelante (un único ssh al bastión con `-W` por pestaña, o un SSH propio).
@@ -235,7 +235,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
       `CredEnumerateW`, tipo `CRED_TYPE_GENERIC`, persistencia `LOCAL_MACHINE`). Clave única: `TargetName =
       "Terminal NetDeck:<servicio>:<cuenta>"`. Límite del secreto: 2560 bytes (rechazar lo que pase, con su mensaje).
 - [x] Reglas que no cambian: el secreto nunca en argumentos ni en `DebugLog`; las lecturas, fuera del hilo principal.
-- [ ] `CredentialLedger`: `ProcessAlive` (de P4a) en vez de `kill(pid, 0)`, y el candado entre procesos `flock` pasa a
+- [x] `CredentialLedger`: `ProcessAlive` (de P4a) en vez de `kill(pid, 0)`, y el candado entre procesos `flock` pasa a
       `LockFileEx`. El bloqueo de 15 min y sus casos (raíz, «Contraseñas») no cambian.
 - [ ] Anotar para P9: en Windows cualquier proceso del mismo usuario puede leer la credencial con `CredReadW` sin que se
       le pregunte (el Llavero tiene ACL por app). Es más débil y hay que decirlo.
@@ -248,7 +248,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 - [ ] El archivo de estado se nombra con `getppid()` (no existe en Windows): el PID del padre con
       `CreateToolhelp32Snapshot`, o pasar el PID por el entorno al lanzar ssh.
 - [ ] La lectura de respaldo por `/dev/tty` y `tcgetattr` pasa a `CONIN$` con `SetConsoleMode` (sin eco).
-- [ ] `purgeStates` usa `kill(pid, 0)`: `ProcessAlive`.
+- [x] `purgeStates` usa `kill(pid, 0)`: `ProcessAlive`.
 
 ### P4f · Archivos del usuario y permisos (M, fuerte)
 - `Support/SafeFile.swift`, `Support/AppPaths.swift`, `Support/DataBackup.swift`, `Support/DebugLog.swift`,
@@ -267,12 +267,12 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 
 ### P4g · Puerto serie (M, normal)
 - `Sessions/SerialPort.swift`, `Sessions/SerialLine.swift`.
-- [ ] `\\.\COMn` con `CreateFileW`, `SetCommState` (velocidad, bits, paridad, parada, control de flujo) y
+- [x] `\\.\COMn` con `CreateFileW`, `SetCommState` (velocidad, bits, paridad, parada, control de flujo) y
       `SetCommTimeouts`; la lista de puertos, del registro (`HARDWARE\DEVICEMAP\SERIALCOMM`).
-- [ ] `SerialLine` sólo acepta `/dev/cu.*` y `/dev/tty.*`: en Windows tiene que aceptar `COMn` (y rechazar el resto).
+- [x] `SerialLine` sólo acepta `/dev/cu.*` y `/dev/tty.*`: en Windows tiene que aceptar `COMn` (y rechazar el resto).
       Decidir cómo se escribe en la anotación `# @serie` y que un archivo de sesiones hecho en el Mac no rompa en
       Windows (el puerto simplemente no estará).
-- [ ] Los textos de error («¿está conectado el adaptador USB-serie?») valen igual.
+- [x] Los textos de error («¿está conectado el adaptador USB-serie?») valen igual.
 
 ### P4h · Red y archivos de bajo nivel (M, normal)
 - `Sessions/Tunnels.swift` (comprobación de puertos con `getaddrinfo`, `bind`, `fcntl O_NONBLOCK`, `poll`,
@@ -327,7 +327,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
         entrada y cambiar el tamaño (`ResizePseudoConsole`).
   - [x] Conectar esa salida al motor de terminal y comprobar con el búfer (como `BuferIncrementalTests`) que un
         `show run` con paginador se lee bien.
-  - [ ] Probar el autopass y la detección de prompts (`PasswordPrompt`, `CredentialPolicy`) con ese flujo.
+  - [x] Probar el autopass y la detección de prompts (`PasswordPrompt`, `CredentialPolicy`) con ese flujo.
   - [ ] Ojo: ConPTY reinterpreta algunas secuencias VT. Probar colores de 256 y 24 bits, el ratón y el título. Y telnet
         según lo visto en P1.
 - **Salida:** un ssh a un equipo de laboratorio, con contraseña automática, desde el prototipo.

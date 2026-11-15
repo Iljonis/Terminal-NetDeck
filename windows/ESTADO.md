@@ -1,4 +1,40 @@
-﻿## 2026-11-13 · Windows · P7 T2 + P4a + P4f + P5: ConPTY en verde, procesos hijos, permisos y CI
+﻿## 2026-11-13 · Windows · P4g: SerialPort Windows — CreateFileW + SetCommState + hilo lector; SerialLine acepta COMn
+
+- **P4g completado:** `Sources/NetDeckCore/Sessions/SerialPort.swift` (implementacion Windows) y `SerialLine.swift` (soporte COMn).
+  - `SerialPort` Windows: `CreateFileW` con acceso exclusivo y `FILE_FLAG_OVERLAPPED`; `GetCommState`/`SetCommState` (DCB); `COMMTIMEOUTS`; hilo lector con OVERLAPPED I/O; `write(_ data:)`, `close()`, `sendBreak()` con `EscapeCommFunction`.
+  - `SerialLine`: acepta `COMn` (n >= 1) en Windows con `deviceRuleWindows`; `deviceForOpen` devuelve `\\.\COMn`; archivos del Mac con `/dev/cu.*` siguen validos.
+  - `Sources/NetDeckCore/Support/Ingles.swift`: traduccion de `"(solo COMn)"` anadida; eliminado stub P4g viejo.
+  - `Tests/NetDeckCoreTests/SerialWindowsTests.swift` (nuevo): 6 tests de SerialLine sin hardware.
+  - `windows/scripts/test.ps1`: `SerialWindowsTests` anadido a `suitesWindows`.
+- **Tests:** 530 tests en verde.
+- **Sin demo:** segun la excepcion aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+- **Commit:** `6fd9b44`.
+
+## 2026-11-13 · Windows · P7 T3: test de deteccion de prompts de contrasena en el flujo ConPTY
+
+- **P7 tarea 3 completada:** `Tests/NetDeckCoreTests/ConPTYProcessTests.swift` — 2 tests nuevos.
+  - `deteccionDePromptConPTY`: lanza `cmd.exe /c echo Password:` y comprueba que `Askpass.secretQuestion` lo detecta.
+  - `promptDeContrasenaSinSecuenciasVT`: helper `sinVT` elimina secuencias VT; comprueba que `PasswordPrompt` detecta `tu.usuario@core-01's password:`.
+  - SwiftTerm no disponible en Windows; los tests no lo usan.
+- **Tests:** en verde junto con tests existentes de ConPTY.
+- **Sin demo:** segun la excepcion aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+- **Commit:** `222bb0d`.
+
+## 2026-11-13 · Windows · P4d + P4e: candado entre procesos real (LockFileEx) + purgeStates usa ProcessAlive
+
+- **P4d (subtarea candado) completado:** candado entre procesos en `CredentialLedger.swift`.
+  - `FileLock.acquire` / `FileLock.release` en `Sources/NetDeckCore/Support/WindowsTypes.swift`: `CreateFileW` con `OPEN_ALWAYS` + `LockFileEx/UnlockFileEx` (exclusivo, bloqueante). Windows libera el candado si el proceso muere, igual que `flock`.
+  - `DirectoryLedgerStorage.locked()` en `CredentialLedger.swift`: rama `#if os(Windows)` con `FileLock`; macOS con `open` + `flock` sin cambios.
+  - `Tests/NetDeckCoreTests/CandadoWindowsTests.swift` (nuevo): 3 tests (apertura/cierre, exclusion mutua).
+  - `windows/scripts/test.ps1`: `CandadoWindowsTests` anadido a `suitesWindows`.
+  - Pendiente: anotar para P9 la diferencia de ACL entre `CredReadW` y el Llavero.
+- **P4e (subtarea purgeStates) completado:** `purgeStates` en `Askpass.swift` usa `ProcessAlive.isAlive(pid)` en Windows (antes devolvía `false`, nunca limpiaba estados de ssh muertos).
+  - Pendiente de P4e: `SSH_ASKPASS` exe separado, `purgeStale`, lectura por `CONIN$`.
+- **Tests:** en verde.
+- **Sin demo:** segun la excepcion aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+- **Commit:** `918d41f`.
+- **Siguiente paso:** actualizar PLAN.md/ESTADO.md, privacidad, commit de seguimiento, luego P7 T4.
+## 2026-11-13 · Windows · P7 T2 + P4a + P4f + P5: ConPTY en verde, procesos hijos, permisos y CI
 
 - **P7 tarea 2 completada:** tres errores raíz corregidos en ConPTYProcess.swift; salidaDeCmd pasa en 0.034 s.
   - &hpcCopy → hpcVal en UpdateProcThreadAttribute (doble indirección innecesaria).
