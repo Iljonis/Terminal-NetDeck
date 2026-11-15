@@ -1,4 +1,4 @@
-﻿// Textos en inglés de la interfaz. Clave: el texto en castellano tal como está en `L("…")`, con %@ en lugar de
+// Textos en inglés de la interfaz. Clave: el texto en castellano tal como está en `L("…")`, con %@ en lugar de
 // cada valor interpolado (y %% por cada %). Lo comprueba IdiomaTests: toda clave del código tiene que estar aquí.
 enum Ingles {
     static let textos: [String: String] = [
@@ -2145,6 +2145,7 @@ enum Ingles {
         "el puerto %@ ya está en uso en %@": "port %@ is already in use on %@",
         "sin permiso para escuchar en el puerto %@": "no permission to listen on port %@",
         "«%@» no es una dirección de este Mac": "“%@” isn't an address of this Mac",
+        "«%@» no es una dirección de este equipo": "“%@” isn't an address on this machine",
         "no se puede escuchar en %@:%@ (%@)": "can't listen on %@:%@ (%@)",
         "el puerto de escucha ya está en uso (Address already in use)": "the listen port is already in use (Address already in use)",
         "el servidor no deja abrir el puerto remoto (remote port forwarding failed: ¿ocupado, menor que 1024 o prohibido?)": "the server won't open the remote port (remote port forwarding failed: in use, below 1024 or forbidden?)",

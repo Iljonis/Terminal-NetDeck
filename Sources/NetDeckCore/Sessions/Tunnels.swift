@@ -1,4 +1,4 @@
-﻿#if os(Windows)
+#if os(Windows)
 import WinSDK
 public typealias UUID = Foundation.UUID  // Resolve WinSDK.UUID vs Foundation.UUID
 #else
@@ -413,7 +413,41 @@ public enum PortCheck {
     /// si está libre. Bind de prueba con SO_REUSEADDR, como hace ssh. «*»: todas las direcciones.
     public static func problem(address: String, port: Int) -> String? {
         #if os(Windows)
-        return nil // TODO P4h: implementar con Winsock2
+        var startup = WSADATA()
+        guard WSAStartup(0x0202, &startup) == 0 else { return L("no se encuentra la dirección «\(address)»") }
+        defer { WSACleanup() }
+        var hints = addrinfo()
+        hints.ai_socktype = SOCK_STREAM
+        hints.ai_flags = AI_PASSIVE
+        var list: UnsafeMutablePointer<addrinfo>?
+        let host: String? = address == "*" ? nil : address
+        guard getaddrinfo(host, String(port), &hints, &list) == 0, let first = list else {
+            return L("no se encuentra la dirección «\(address)»")
+        }
+        defer { freeaddrinfo(list) }
+        var p: UnsafeMutablePointer<addrinfo>? = first
+        while let ai = p {
+            p = ai.pointee.ai_next
+            let sock = socket(ai.pointee.ai_family, ai.pointee.ai_socktype, ai.pointee.ai_protocol)
+            guard sock != INVALID_SOCKET else { continue }
+            defer { closesocket(sock) }
+            var one: Int32 = 1
+            setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, Int32(MemoryLayout<Int32>.size))
+            if ai.pointee.ai_family == AF_INET6 {
+                setsockopt(sock, Int32(IPPROTO_IPV6.rawValue), IPV6_V6ONLY, &one, Int32(MemoryLayout<Int32>.size))
+            }
+            if bind(sock, ai.pointee.ai_addr, Int32(ai.pointee.ai_addrlen)) != 0 {
+                let e = WSAGetLastError()
+                if e == WSAEADDRNOTAVAIL && ai.pointee.ai_family == AF_INET6 && host == nil { continue }
+                switch e {
+                case WSAEADDRINUSE:    return L("el puerto \(String(port)) ya está en uso en \(address)")
+                case WSAEACCES:        return L("sin permiso para escuchar en el puerto \(String(port))")
+                case WSAEADDRNOTAVAIL: return L("«\(address)» no es una dirección de este equipo")
+                default:               return L("no se puede escuchar en \(address):\(String(port)) (\(String(e)))")
+                }
+            }
+        }
+        return nil
         #else
         var hints = addrinfo()
         hints.ai_socktype = SOCK_STREAM
@@ -453,7 +487,34 @@ public enum PortCheck {
     /// ¿Alguien escucha ya en `address:port`? (conexión de prueba; «*» y 0.0.0.0 se prueban en 127.0.0.1, «::» en ::1)
     public static func isListening(address: String, port: Int, timeout: Int32 = 300) -> Bool {
         #if os(Windows)
-        return false // TODO P4h: implementar con Winsock2
+        let a = address == "*" || address == "0.0.0.0" ? "127.0.0.1" : address == "::" ? "::1" : address
+        var startup = WSADATA()
+        guard WSAStartup(0x0202, &startup) == 0 else { return false }
+        defer { WSACleanup() }
+        var hints = addrinfo()
+        hints.ai_socktype = SOCK_STREAM
+        var list: UnsafeMutablePointer<addrinfo>?
+        guard getaddrinfo(a, String(port), &hints, &list) == 0, let first = list else { return false }
+        defer { freeaddrinfo(list) }
+        var p: UnsafeMutablePointer<addrinfo>? = first
+        while let ai = p {
+            p = ai.pointee.ai_next
+            let sock = socket(ai.pointee.ai_family, ai.pointee.ai_socktype, ai.pointee.ai_protocol)
+            guard sock != INVALID_SOCKET else { continue }
+            defer { closesocket(sock) }
+            var mode: UInt32 = 1
+            ioctlsocket(sock, FIONBIO, &mode)
+            if connect(sock, ai.pointee.ai_addr, Int32(ai.pointee.ai_addrlen)) == 0 { return true }
+            guard WSAGetLastError() == WSAEWOULDBLOCK else { continue }
+            var pfd = WSAPOLLFD()
+            pfd.fd = sock
+            pfd.events = Int16(POLLWRNORM)
+            pfd.revents = 0
+            guard WSAPoll(&pfd, 1, timeout) == 1 else { continue }
+            var err: Int32 = 0, len: Int32 = Int32(MemoryLayout<Int32>.size)
+            if getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &len) == 0, err == 0 { return true }
+        }
+        return false
         #else
         let a = address == "*" || address == "0.0.0.0" ? "127.0.0.1" : address == "::" ? "::1" : address
         var hints = addrinfo()
