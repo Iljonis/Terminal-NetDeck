@@ -1,0 +1,276 @@
+import Foundation
+import NetDeckCore
+import WinSDK
+import WinUI
+
+@main
+final class NetDeckWindows: SwiftApplication {
+    private var window: Window?
+    private let tabs = StackPanel()
+    private let destination = TextBox()
+    private let surface = Border()
+    private let screen = TextBlock()
+    private let status = TextBlock()
+    private let closeButton = Button()
+    private var terminals: [PestanaTerminal] = []
+    private weak var selected: PestanaTerminal?
+    private var sessions: SessionManager!
+    private let sidebar = StackPanel()
+
+    override func onLaunched(_ args: LaunchActivatedEventArgs) {
+        let window = Window()
+        self.window = window
+        window.title = "Terminal NetDeck"
+
+        let isDemo = ProcessInfo.processInfo.environment["NETDECK_DESKTOP_DEMO"] == "1"
+        MainActor.assumeIsolated {
+            sessions = SessionManager()
+            if isDemo { sessions.loadSamples() } else { sessions.load() }
+        }
+
+        // Rejilla raiz: barra lateral | area principal
+        let root = Grid()
+        let colLateral = ColumnDefinition()
+        colLateral.width = GridLength(value: 200, gridUnitType: .pixel)
+        let colPrincipal = ColumnDefinition()
+        colPrincipal.width = GridLength(value: 1, gridUnitType: .star)
+        root.columnDefinitions.append(colLateral)
+        root.columnDefinitions.append(colPrincipal)
+
+        // Barra lateral
+        sidebar.orientation = .vertical
+        sidebar.spacing = 2
+        sidebar.margin = Thickness(left: 0, top: 8, right: 0, bottom: 8)
+        buildSidebar()
+        let sideScroll = ScrollViewer()
+        sideScroll.content = sidebar
+        sideScroll.verticalScrollBarVisibility = .auto
+        sideScroll.horizontalScrollBarVisibility = .disabled
+        Grid.setColumn(sideScroll, Int32(0))
+        root.children.append(sideScroll)
+
+        // Area principal (barra de herramientas + pestanas + terminal + estado)
+        let layout = Grid()
+        layout.margin = Thickness(left: 16, top: 12, right: 16, bottom: 12)
+        Grid.setColumn(layout, Int32(1))
+
+        let toolbar = StackPanel()
+        toolbar.orientation = .horizontal
+        toolbar.spacing = 8
+        let local = Button()
+        local.content = L("Terminal local")
+        local.click.addHandler { [weak self] _, _ in self?.open(.local()) }
+        destination.placeholderText = "SSH \u{00B7} admin@core-01"
+        destination.minWidth = 220
+        destination.keyDown.addHandler { [weak self] _, args in
+            guard let args, args.key.rawValue == 13 else { return }
+            args.handled = true
+            self?.connect()
+        }
+        let connect = Button()
+        connect.content = L("Conectar")
+        connect.click.addHandler { [weak self] _, _ in self?.connect() }
+        closeButton.content = L("Cerrar pesta\u{00F1}a")
+        closeButton.click.addHandler { [weak self] _, _ in self?.closeSelected() }
+        for (control, id) in [(local as Control, "NuevaLocal"), (destination, "DestinoSSH"),
+                              (connect, "ConectarSSH"), (closeButton, "CerrarPestana")] {
+            AutomationProperties.setAutomationId(control, id)
+            toolbar.children.append(control)
+        }
+
+        tabs.orientation = .horizontal
+        tabs.spacing = 6
+        let tabStrip = ScrollViewer()
+        tabStrip.horizontalScrollBarVisibility = .auto
+        tabStrip.verticalScrollBarVisibility = .disabled
+        tabStrip.content = tabs
+
+        screen.fontFamily = FontFamily("Consolas")
+        screen.fontSize = 15
+        screen.lineHeight = 19
+        screen.isTextSelectionEnabled = true
+        surface.padding = Thickness(left: 10, top: 8, right: 10, bottom: 8)
+        AutomationProperties.setAutomationId(screen, "PantallaTerminal")
+        AutomationProperties.setAutomationId(status, "EstadoTerminal")
+        surface.child = screen
+        surface.isTabStop = true
+        surface.pointerPressed.addHandler { [weak self] _, _ in self?.focusTerminal() }
+        surface.sizeChanged.addHandler { [weak self] _, _ in self?.resize() }
+        surface.keyDown.addHandler { [weak self] _, args in
+            guard let self, let args, let bytes = self.keySequence(args.key.rawValue),
+                  let selected = self.selected, !selected.closed else { return }
+            args.handled = true
+            selected.write(bytes)
+        }
+        surface.characterReceived.addHandler { [weak self] _, args in
+            guard let args, let selected = self?.selected, !selected.closed else { return }
+            let text = String(args.character)
+            guard text.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else { return }
+            args.handled = true
+            selected.write(text)
+        }
+
+        for (index, view) in [toolbar as FrameworkElement, tabStrip, surface, status].enumerated() {
+            let row = RowDefinition()
+            row.height = GridLength(value: 1, gridUnitType: index == 2 ? .star : .auto)
+            layout.rowDefinitions.append(row)
+            Grid.setRow(view, Int32(index))
+            layout.children.append(view)
+        }
+
+        root.children.append(layout)
+        window.content = root
+        do {
+            try window.activate()
+            open(.local())
+        } catch {
+            print(error.localizedDescription)
+        }
+    }
+
+    override func onShutdown() {
+        for session in terminals { session.close() }
+    }
+
+    private func buildSidebar() {
+        sidebar.children.clear()
+        let grupos = MainActor.assumeIsolated { sessions.groups }
+        for (nombreGrupo, perfiles) in grupos {
+            let header = TextBlock()
+            header.text = nombreGrupo.uppercased()
+            header.fontSize = 10
+            header.margin = Thickness(left: 8, top: 10, right: 8, bottom: 2)
+            header.opacity = 0.6
+            sidebar.children.append(header)
+            for perfil in perfiles {
+                let btn = Button()
+                let icono: String
+                switch perfil.transport {
+                case .ssh:    icono = "SSH"
+                case .telnet: icono = "Tel"
+                case .sftp:   icono = "SFTP"
+                case .ftp:    icono = "FTP"
+                case .serial: icono = "COM"
+                case .local:  icono = "Loc"
+                }
+                let etiqueta = StackPanel()
+                etiqueta.orientation = .horizontal
+                etiqueta.spacing = 6
+                let tipo = TextBlock()
+                tipo.text = icono
+                tipo.fontSize = 9
+                tipo.opacity = 0.5
+                tipo.minWidth = 24
+                let nombre = TextBlock()
+                nombre.text = perfil.name
+                etiqueta.children.append(tipo)
+                etiqueta.children.append(nombre)
+                btn.content = etiqueta
+                btn.horizontalAlignment = .stretch
+                btn.margin = Thickness(left: 4, top: 1, right: 4, bottom: 1)
+                AutomationProperties.setAutomationId(btn, "Sesion_\(perfil.name)")
+                btn.click.addHandler { [weak self] _, _ in
+                    self?.openProfile(perfil)
+                }
+                sidebar.children.append(btn)
+            }
+        }
+    }
+
+    private func openProfile(_ perfil: SessionProfile) {
+        do {
+            let ruta = try MainActor.assumeIsolated { try sessions.route(to: perfil) }
+            open(ruta)
+        } catch {
+            status.text = L("No se puede abrir \u{00AB}\(perfil.name)\u{00BB}: \(error.localizedDescription)")
+        }
+    }
+
+    private func connect() {
+        guard let target = Endpoint(parsing: destination.text), target.isShellSafe else {
+            status.text = L("Destino no v\u{00E1}lido: \u{00AB}\(destination.text)\u{00BB}")
+            return
+        }
+        open(ConnectionRoute(title: target.description, target: target))
+    }
+
+    private func open(_ route: ConnectionRoute) {
+        do {
+            if let problem = route.launchProblem() { throw RemoteError(problem) }
+            let session = try PestanaTerminal(route: route)
+            let queue = window?.dispatcherQueue
+            terminals.append(session)
+            select(session)
+            session.observe(enqueue: { action in
+                (try? queue?.tryEnqueue { action() }) == true
+            }, changed: { [weak self, weak session] in
+                guard let self, self.selected === session else { return }
+                self.render()
+            })
+        } catch {
+            status.text = L("No se puede abrir \u{00AB}\(route.title)\u{00BB}: \(error.localizedDescription)")
+        }
+    }
+
+    private func select(_ session: PestanaTerminal?) {
+        selected = session
+        tabs.children.clear()
+        for candidate in terminals {
+            let tab = RadioButton()
+            tab.content = candidate.title
+            tab.groupName = "terminales"
+            tab.isChecked = candidate === session
+            tab.click.addHandler { [weak self, weak candidate] _, _ in self?.select(candidate) }
+            tabs.children.append(tab)
+        }
+        closeButton.isEnabled = session != nil
+        resize()
+        render()
+        focusTerminal()
+    }
+
+    private func closeSelected() {
+        guard let selected, let index = terminals.firstIndex(where: { $0 === selected }) else { return }
+        selected.close()
+        terminals.remove(at: index)
+        select(terminals.isEmpty ? nil : terminals[min(index, terminals.count - 1)])
+    }
+
+    private func render() {
+        screen.text = selected?.screen ?? ""
+        status.text = selected?.closed == true ? L("Conexi\u{00F3}n cerrada") : ""
+    }
+
+    private func focusTerminal() { _ = try? surface.focus(.programmatic) }
+
+    private func resize() {
+        guard surface.actualWidth > 20, surface.actualHeight > 16 else { return }
+        selected?.resize(cols: max(2, Int((surface.actualWidth - 20) / 8.25)),
+                         rows: max(2, Int((surface.actualHeight - 16) / 19)))
+        render()
+    }
+
+    private func keySequence(_ key: Int32) -> String? {
+        if GetKeyState(Int32(VK_CONTROL)) < 0, GetKeyState(Int32(VK_MENU)) >= 0, (65...90).contains(key),
+           let scalar = UnicodeScalar(Int(key - 64)) {
+            return String(scalar)
+        }
+        let arrowPrefix = selected?.terminal.applicationCursor == true ? "\u{1b}O" : "\u{1b}["
+        switch key {
+        case 8: return "\u{7f}"
+        case 9: return "\t"
+        case 13: return "\r"
+        case 27: return "\u{1b}"
+        case 33: return "\u{1b}[5~"
+        case 34: return "\u{1b}[6~"
+        case 35: return arrowPrefix + "F"
+        case 36: return arrowPrefix + "H"
+        case 37: return arrowPrefix + "D"
+        case 38: return arrowPrefix + "A"
+        case 39: return arrowPrefix + "C"
+        case 40: return arrowPrefix + "B"
+        case 46: return "\u{1b}[3~"
+        default: return nil
+        }
+    }
+}
