@@ -25,7 +25,7 @@ $env:SWIFTTERM_BUILD_TAG = $pin.state.version
 $env:SWIFTTERM_BUILD_COMMIT = $pin.state.revision
 $env:SWIFTTERM_BUILD_DIRTY = 'false'
 
-$build = @('--package-path', $package, '--scratch-path', $scratch, '-Xcc', '-DOPENSSL_NO_ASM')
+$build = @('--package-path', $package, '--scratch-path', $scratch, '--force-resolved-versions', '-Xcc', '-DOPENSSL_NO_ASM')
 & $swift build @build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -33,11 +33,11 @@ $products = & $swift build @build --show-bin-path
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 # SwiftPM crea .bundle, pero WinAppSDK 0.1.2 busca el bootstrapper en .resources.
 $bundle = 'swift-windowsappsdk_CWinAppSDK'
-$bootstrap = Get-ChildItem -LiteralPath (Join-Path $products "$bundle.bundle") -Recurse -Filter 'Microsoft.WindowsAppRuntime.Bootstrap.dll' |
-    Select-Object -First 1 -ExpandProperty FullName
-if (!$bootstrap) { throw 'Falta el bootstrapper de Windows App SDK.' }
 $resources = Join-Path $products "$bundle.resources"
 New-Item -ItemType Directory -Force $resources | Out-Null
+$bootstrap = (Get-ChildItem -LiteralPath (Join-Path $products "$bundle.bundle") -Recurse -Filter 'Microsoft.WindowsAppRuntime.Bootstrap.dll' |
+    Select-Object -First 1 -ExpandProperty FullName)
+if (!$bootstrap -or !(Test-Path $bootstrap)) { throw 'Falta el bootstrapper de Windows App SDK.' }
 Copy-Item -LiteralPath $bootstrap -Destination $resources -Force
 $app = Join-Path $products 'NetDeckWindows.exe'
 Write-Host $app

@@ -1,3 +1,42 @@
+## 2026-11-16 · Windows · P8: bootstrapper corregido, app lanzando (por Claude)
+
+**Por Claude.** La app NetDeckWindows.exe lanza correctamente en modo demo. Dos bugs resueltos.
+
+### Bug 1: SPM rev-parse ^{commit} en Windows
+
+- Causa: SPM pasa args a git por cmd.exe, que trata ^ como escape y lo elimina.
+  Git recibe 3.15.1{commit} y falla con "Needed a single revision".
+- Fix: --force-resolved-versions en swift build (usa commit hashes de Package.resolved directamente).
+- Fix adicional: rutas POSIX en 11 × .git/objects/info/alternates corregidas a rutas Windows
+  (/home/jonay/ → C:/Users/jonay/).
+
+### Bug 2: DDLM de Windows App Runtime 1.5 ausente
+
+- Causa: el bootstrapper MddBootstrapInitialize2 requiere el paquete DDLM además del Framework.
+  Solo estaban instalados Framework (5001.373.1736.0) y Main; DDLM ausente.
+- Fix: instalado Microsoft.WinAppRuntime.DDLM.5001.373.1736.0-x6 desde
+  NuGet microsoft.windowsappsdk/1.5.250108004 MSIX (tools/MSIX/win10-x64/).
+
+### Resultado
+
+- Build complete! (2.15 s — build incremental).
+- NetDeckWindows.exe corre sin crash. Info: Unhandled DEC Private Mode Set (DECSET) con 9001
+  (normal, es SwiftTerm en modo ConPTY).
+
+### Cambios en este commit (fix-bootstrapper-p8)
+
+- windows/scripts/desktop.ps1:
+  - Revertido el bootstrapper lookup para usar el DLL del .bundle (no del paquete instalado).
+  - Añadido --force-resolved-versions al comando swift build.
+- windows/Desktop/Sources/NetDeckWindows/PestanaTerminal.swift (nuevo):
+  - TerminalDelegate que conecta ConPTYProcess con SwiftTerm Terminal.
+  - Lectura async del output, write, resize, close.
+
+### Pendiente de P8
+
+- Verificación visual de la barra lateral.
+- Editor de sesión, explorador SFTP/FTP, Ajustes, temas, menús y atajos, MultiExec, Túneles.
+
 ## 2026-11-16 · Windows · P8: barra lateral SessionManager compilando
 
 **Por Claude.** Build complete y demo corriendo en modo barra lateral.
