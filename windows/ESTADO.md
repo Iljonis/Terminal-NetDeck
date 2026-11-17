@@ -1,3 +1,13 @@
+## 2026-11-17 · Windows · P8: aviso claro para FTP (por Claude)
+
+**Por Claude.** Pequeño ajuste sobre el explorador SFTP. Compila (`Build complete!`) y la app arranca en demo.
+
+- `open(_:)` (`NetDeckWindows.swift`): si `route.transport == .ftp`, la barra de estado dice «FTP no disponible aún en la
+  versión de Windows» en lugar del «FTP no tiene consola» de `launchProblem`, que confundía. FTP en Windows sigue pendiente
+  (`TCPStream.start()` lanza «FTP no disponible en Windows (TODO P4h)»).
+- `Ingles.swift`: el texto en inglés.
+- Sin probar con una sesión FTP real en la interfaz: sólo compila y arranca.
+
 ## 2026-11-17 · Windows · P8: explorador SFTP (por Claude)
 
 **Por Claude.** Explorador SFTP en el área principal. Compila (`Build complete!`) y está probado de verdad en la demo

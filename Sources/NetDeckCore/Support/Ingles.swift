@@ -2471,5 +2471,6 @@ enum Ingles {
         "Subido «%@»": "Uploaded “%@”",
         "No se puede subir «%@»: %@": "Can’t upload “%@”: %@",
         "Abrir explorador SFTP": "Open SFTP browser",
+        "FTP no disponible aún en la versión de Windows": "FTP isn’t available yet in the Windows version",
 ]
 }

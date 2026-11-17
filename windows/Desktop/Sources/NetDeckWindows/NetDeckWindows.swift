@@ -559,6 +559,10 @@ final class NetDeckWindows: SwiftApplication {
             openSFTP(route)
             return
         }
+        if route.transport == .ftp {
+            status.text = L("FTP no disponible a\u{00FA}n en la versi\u{00F3}n de Windows")
+            return
+        }
         do {
             if let problem = route.launchProblem() { throw RemoteError(problem) }
             let session = try PestanaTerminal(route: route)
