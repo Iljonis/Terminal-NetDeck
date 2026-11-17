@@ -1,3 +1,32 @@
+## 2026-11-17 · Windows · P10: informe del paquete, la firma y el actualizador (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`, que sale de `windows/p9-seguridad` con la ADR-0003 de `windows/p8-terminal` fusionada (`d5c3ca8`). El worktree
+sigue en `C:\Users\<usuario>\NetDeck-P9`. **P10 no está completo**: la «Salida» del plan (un instalador firmado que se instala en un Windows limpio y se
+actualiza desde una release de prueba) no se ha podido alcanzar; está hecho lo que se puede escribir y probar sin WiX, sin certificado y sin release.
+
+### Commits
+- `1828288` AppxManifest.xml del Sparse Package (validado con `makeappx pack`; iconos provisionales).
+- `01a5bc3` instalador WiX 4 (`windows/installer/`): `.wxs`, scripts de registro y preparación de la carpeta. **`.wxs` sin compilar.**
+- `4e038c2` `UpdateChecker`, 9 tests, textos en inglés y botón «Buscar actualizaciones» en Ajustes.
+
+### Qué falta para cerrar P10
+1. **Compilar el `.msi`** con WiX 4 (`dotnet tool install --global wix`) y probarlo en un Windows limpio (instalar, registrar el Sparse Package, actualizar, desinstalar).
+2. Un **build Release** para el instalador (el Debug pesa 376 MB).
+3. El `.msix` firmado del Sparse Package (`makeappx pack /nv` + `signtool`) y el `Publisher` igual al Subject del certificado.
+4. **Firma Authenticode** (Azure Code Signing o un certificado): decisión y coste del autor; hasta entonces el actualizador rechaza instaladores sin firma
+   (salvo `NETDECK_UPDATE_ALLOW_UNSIGNED=1` en pruebas).
+5. En el actualizador: **fijar el firmante** y comprobar que el `.msi` es esta app y la versión anunciada (el equivalente al `validate` de macOS).
+6. **El workflow de Release de Windows** (`.github/workflows/`, de Codex; no se ha tocado y no existe todavía) y añadir `UpdateCheckerWindowsTests` a la
+   lista de suites de `windows/scripts/test.ps1` (tampoco se ha tocado).
+7. El **askpass de P4e** dentro del instalador (ADR-0003).
+8. Decidir la **versión de Windows**: se pidió 0.9.0 y la última release es la 1.0.0.
+9. Registro del Sparse Package para todos los usuarios (hoy sólo para quien instala).
+
+### Nota de proceso
+En el commit del actualizador, `tools/privacidad.sh` falló (una URL de prueba con usuario delante del servidor parecía un correo) y se comitó igual, porque la tubería
+`| tail` enmascaró el código de salida; se detectó justo después y se enmendó el commit local (sin publicar) con la privacidad ya en verde. Los demás commits de
+esta serie la tenían en verde. Hay que comprobar el código de salida, no sólo leer la última línea.
+
 ## 2026-11-17 · Windows · P10: actualizador (UpdateChecker) y botón «Buscar actualizaciones» (por Claude)
 
 **Por Claude.** `Sources/NetDeckCore/Update/UpdateChecker.swift` (todo bajo `#if os(Windows)`), su suite de tests y la interfaz. Compila y la app

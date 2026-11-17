@@ -365,7 +365,15 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 - **Contexto:** en macOS hay un `.dmg` que se comprueba con sha256, id, versión y `codesign --verify`, y nada se
   instala sin el clic en «Actualizar ahora». En Windows hay que hacer lo mismo.
 - **Depende de:** P8. **Rama:** `windows/p10-paquete`.
-- **Tareas:**
+- **Hecho en P10** (rama `windows/p10-paquete`; el detalle y lo que falta, en `windows/ESTADO.md`):
+  - [x] ADR-0003: opción B (instalador WiX + Sparse Package) y firma con Azure Code Signing (propuesta, la acepta el autor).
+  - [x] `windows/Desktop/AppxManifest.xml` del Sparse Package, validado con `makeappx pack` (`1828288`).
+  - [x] `windows/installer/NetDeckWindows.wxs` y `preparar-instalador.ps1`; la app arranca desde la carpeta preparada, pero **el `.msi` no se
+        ha compilado** (WiX 4 no estaba instalado) (`01a5bc3`).
+  - [x] `UpdateChecker` (sólo Windows): sólo enlaces https de github.com del repositorio, sha256 y firma con `WinVerifyTrust`, y nada sin clic;
+        botón «Buscar actualizaciones» en Ajustes (`4e038c2`). Falta fijar el firmante y comprobar que el `.msi` es esta app y la versión anunciada.
+  - El workflow de Release de Windows (`.github/workflows/`) lo gestiona Codex: no se ha tocado y todavía no existe.
+- **Tareas** (siguen abiertas: la «Salida» pide un instalador firmado instalado en un Windows limpio):
   - [ ] Paquete MSIX o instalador (decidirlo con una ADR nueva; comprobar que ssh.exe puede lanzar el askpass desde la
         instalación elegida, ver P4e) y su workflow de Release en `windows-latest`.
   - [ ] **Firma Authenticode**: sin certificado, SmartScreen avisa al instalar. Opciones: certificado de firma de código
