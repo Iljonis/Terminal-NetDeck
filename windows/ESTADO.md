@@ -1,3 +1,36 @@
+## 2026-11-17 · Windows · P9: informe de seguridad (por Claude)
+
+**Por Claude.** Rama `windows/p9-seguridad`, salida de `windows/p8-terminal` en `652d840`. Cuatro commits, suite completa en verde
+(549 tests). Los puntos de `windows/PLAN.md` hechos están marcados `[x]`.
+
+### Hecho
+- **Importación de sesiones** (`68bf80d`): `safeExtra` filtra con lista blanca, así que `ProxyCommand`, `LocalCommand`,
+  `KnownHostsCommand` e `IdentityAgent` se descartan siempre, con rutas de Windows o sin ellas; no hacía falta código nuevo.
+  Se añaden tests con rutas `C:\`, `%VAR%` y tuberías, y un test que falla si alguien amplía la lista con una opción que
+  ejecuta código.
+- **Prefijos peligrosos** (`68bf80d`): nombre, equipo y usuario con `-` ya se rechazaban (`isValidName`, `Endpoint`,
+  `problems()`); ahora con test. `/` no se rechaza: `ssh.exe -G /x` lo toma como un nombre literal.
+- **Entorno** (`00d96c3`): `TerminalEnvironment.prepare` quita `SSH_ASKPASS`, `SSH_ASKPASS_REQUIRE`, `GIT_SSH` y `GIT_SSH_COMMAND` en
+  Windows, sólo para ssh y sin tocar las shells locales; `USERPROFILE`, `APPDATA` y `LOCALAPPDATA` se conservan.
+- **Credenciales** (`3d62b39`): ADR 0004. El almacén de Windows ya existía (P4d); la ADR documenta la diferencia con el Llavero y
+  matiza la ADR-0002.
+
+### Pendiente
+- **Flujo de askpass en Windows** y sus pruebas (P4e/P10): hoy sólo claves y agente. La ADR 0004 lo explica.
+- **Aviso en la pantalla de «Contraseñas»** de que en Windows la barrera es el perfil de usuario (P8/P9; esa pantalla no existe
+  todavía en la interfaz de Windows).
+- Evaluar DPAPI como capa extra sobre el Administrador de credenciales, y revisar la frase de la ADR-0002.
+- **No se ha hecho la revisión formal** con la skill `security-review` ni `ecc:security-reviewer`: la «Salida» de P9 («informe sin
+  hallazgos graves abiertos») sigue abierta.
+- Los tests de NetDeckCore tienen **fallos intermitentes** ajenos a esto (ver la entrada de túneles de P8): conviene mirarlos
+  antes de dar P6 por cerrado.
+
+### Rama y entorno
+- Esta rama no lleva el commit `03796ed` (ADR-0003) que otra sesión hizo en `windows/p8-terminal` después: al fusionar habrá
+  que traer P8 primero o resolver `ESTADO.md` y `decisiones/README.md`.
+- El worktree está en `C:\Users\<usuario>\NetDeck-P9`, fuera de `AppData\Local` (el MSIX de Claude redirige allí las carpetas
+  nuevas).
+
 ## 2026-11-17 · Windows · P9: ADR 0004, credenciales en Windows (por Claude)
 
 **Por Claude.** Rama `windows/p9-seguridad`. Documentación: `windows/decisiones/0004-credenciales-p9.md` (propuesta) y su fila en

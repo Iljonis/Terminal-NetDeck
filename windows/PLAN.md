@@ -348,14 +348,16 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 
 - **Depende de:** P4, P8. **Rama:** `windows/p9-seguridad`.
 - **Tareas (skill `security-review` y agente `ecc:security-reviewer`):**
-  - [ ] `SessionImporter.safeExtra` sigue quitando las opciones que ejecutan órdenes; comprobar también las rutas de
+  - [x] `SessionImporter.safeExtra` sigue quitando las opciones que ejecutan órdenes; comprobar también las rutas de
         Windows (`ProxyCommand C:\…`, `LocalCommand`, `KnownHostsCommand`).
-  - [ ] Nombres, equipos y usuarios que empiezan por `-` se siguen rechazando. Ojo con `/`: en Windows algunos
-        programas lo leen como opción.
-  - [ ] `TerminalEnvironment` quita `LANG`, `LANGUAGE` y `LC_*` y pone `LC_CTYPE=C.UTF-8`; el resto del entorno pasa,
+  - [x] Nombres, equipos y usuarios que empiezan por `-` se siguen rechazando. Ojo con `/`: en Windows algunos
+        programas lo leen como opción. (Hecho en P9: tests de `-`; `ssh.exe` toma `/x` como un nombre literal, no como
+        opción, así que no se rechaza.)
+  - [x] `TerminalEnvironment` quita `LANG`, `LANGUAGE` y `LC_*` y pone `LC_CTYPE=C.UTF-8`; el resto del entorno pasa,
         igual que en macOS. Comprobar que en Windows no hay variables propias que cambien el comportamiento de ssh.
   - [ ] Credenciales, askpass y bloqueo de 15 min: las mismas pruebas que en macOS. Documentar la diferencia de
-        `CredReadW` frente a la ACL del Llavero (P4d).
+        `CredReadW` frente a la ACL del Llavero (P4d). (P9: documentado en la ADR 0004; las pruebas del askpass y del bloqueo en Windows
+        siguen pendientes de P4e/P10.)
 - **Salida:** informe sin hallazgos graves abiertos.
 
 ## P10 · Paquete, firma y actualizaciones (M-L, fuerte)
