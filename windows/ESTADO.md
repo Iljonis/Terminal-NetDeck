@@ -1,3 +1,13 @@
+## 2026-11-17 · Windows · P14: editor avanzado de pasos, 6 modos de botón y traducciones
+
+Rama `windows/p14-escritorio`. Continuación del commit anterior.
+
+- **Editor avanzado de pasos de macro** (`PanelMacros`): botón «Pasos avanzados →» alterna entre la caja de texto simple y un editor visual con ComboBox de pasos, botones Añadir / Eliminar / ↑ / ↓, selector de tipo de paso (`Enviar`, `Esperar prompt`, `Esperar texto`, `Pausa`), campo de texto y campo de segundos. Las macros con pasos avanzados existentes abren directamente en modo avanzado; las simples se pueden convertir y viceversa.
+- **6 modos de botón de órdenes** (`PanelBotones`): el desplegable ahora muestra los 6 modos (`run`, `type`, `pass`, `clave`, `login`, `session`). El encabezado de la orden cambia según el modo; el atajo de teclado (`F5`, `S-F5`, `M-F5`, `C-F5`) se guarda y se muestra.
+- **Ejecución de `.clave` / `.pass` / `.login`** (`NetDeckWindows.swift`): `.clave` escribe la contraseña literal si el cursor ya muestra un prompt de contraseña; `.pass` la lee del Llavero Windows (CredReadW) y la envía igual; `.login` lanza `loginSequence` en background, que espera el prompt de usuario (hasta 30 s), envía el usuario, espera el prompt de contraseña (30 s) y envía la contraseña; `AbortSwitch` y `pararAutomatizacion` permiten cancelar.
+- **Traducciones** (`Ingles.swift`): 20 nuevas entradas para las cadenas de los modos de botón y del editor avanzado de pasos.
+- Privacidad en verde. Tests del núcleo pendientes de verificar (no se ejecutaron en esta sesión).
+
 ## 2026-11-17 · Windows · Renderizado completo del terminal (fondos ANSI, cursor, filtro)
 
 Rama `windows/p14-escritorio`. Commit `c6b4085`.

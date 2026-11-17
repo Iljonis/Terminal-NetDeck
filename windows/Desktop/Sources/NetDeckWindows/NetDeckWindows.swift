@@ -647,6 +647,94 @@ final class NetDeckWindows: SwiftApplication {
             openProfile(profile)
             return
         }
+
+        if button.mode == .clave {
+            guard let tab = selected, !tab.closed, !tab.route.isLocal,
+                  [.ssh, .telnet].contains(tab.route.transport) else {
+                status.text = L("No hay pestañas SSH o Telnet abiertas")
+                return
+            }
+            let io = makeTerminalInput(tab)
+            guard MainActor.assumeIsolated({ SecretPrompt.asks(io.cursorLine) }) else {
+                status.text = L("Espera a que la sesión pida «Password:»")
+                return
+            }
+            showPanel(nil)
+            tab.write(button.command + "\r")
+            status.text = L("Contraseña enviada")
+            return
+        }
+
+        if button.mode == .pass {
+            guard let tab = selected, !tab.closed, !tab.route.isLocal,
+                  [.ssh, .telnet].contains(tab.route.transport) else {
+                status.text = L("No hay pestañas SSH o Telnet abiertas")
+                return
+            }
+            let io = makeTerminalInput(tab)
+            guard MainActor.assumeIsolated({ SecretPrompt.asks(io.cursorLine) }) else {
+                status.text = L("Espera a que la sesión pida «Password:»")
+                return
+            }
+            let credName = button.command
+            let ref = CredentialRef(service: .named, account: credName)
+            Task { @MainActor [weak self, weak tab] in
+                guard let self, let tab, !tab.closed else { return }
+                do {
+                    guard let password = try KeychainStore().password(for: ref) else {
+                        self.status.text = L("🔑 «%@» no está en el Llavero").replacingOccurrences(of: "%@", with: credName)
+                        return
+                    }
+                    self.showPanel(nil)
+                    tab.write(password + "\r")
+                    self.status.text = L("Contraseña enviada")
+                } catch {
+                    self.status.text = L("Llavero: %@").replacingOccurrences(of: "%@", with: error.localizedDescription)
+                }
+            }
+            return
+        }
+
+        if button.mode == .login {
+            guard let tab = selected, !tab.closed, !tab.route.isLocal,
+                  [.ssh, .telnet].contains(tab.route.transport) else {
+                status.text = L("No hay pestañas SSH o Telnet abiertas")
+                return
+            }
+            guard let (user, credName) = CommandButton.loginParts(button.command) else {
+                status.text = L("El botón login necesita «usuario / nombre-de-la-contraseña»")
+                return
+            }
+            guard automatizacionActiva == nil else {
+                status.text = L("Ya hay un envío en curso")
+                return
+            }
+            let ref = CredentialRef(service: .named, account: credName)
+            let bname = button.name
+            Task { @MainActor [weak self, weak tab] in
+                guard let self, let tab, !tab.closed else { return }
+                do {
+                    guard let password = try KeychainStore().password(for: ref) else {
+                        self.status.text = L("🔑 «%@» no está en el Llavero").replacingOccurrences(of: "%@", with: credName)
+                        return
+                    }
+                    let abort = AbortSwitch()
+                    self.automatizacionActiva = (tab, abort)
+                    self.pararAutomatizacion.visibility = .visible
+                    self.showPanel(nil)
+                    self.status.text = L("Login «%@»").replacingOccurrences(of: "%@", with: bname) + L(" · Esc para cortar")
+                    let io = self.makeTerminalInput(tab)
+                    let result = await self.loginSequence(user: user, password: password, io: io, abort: abort)
+                    self.automatizacionActiva = nil
+                    self.pararAutomatizacion.visibility = .collapsed
+                    self.status.text = result
+                } catch {
+                    self.status.text = L("Llavero: %@").replacingOccurrences(of: "%@", with: error.localizedDescription)
+                }
+            }
+            return
+        }
+
         guard let tab = selected, !tab.closed, !tab.route.isLocal,
               [.ssh, .telnet].contains(tab.route.transport) else {
             status.text = L("No hay pestañas SSH o Telnet abiertas")
@@ -661,6 +749,24 @@ final class NetDeckWindows: SwiftApplication {
             self.applyCommandButton(button, text: command, to: tab)
         }
         showPanel(confirmarBoton.view)
+    }
+
+    private func loginSequence(user: String, password: String, io: EntradaMacro, abort: AbortSwitch) async -> String {
+        let start = Date()
+        while !PasswordPrompt.isLoginLine(io.cursorLine) {
+            if abort.isTripped { return L("⎋ Cancelado: no se envía nada más") }
+            if Date().timeIntervalSince(start) > 30 { return L("✗ sin prompt de usuario en 30s") }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        io.send(bytes: Array((user + "\r").utf8))
+        let start2 = Date()
+        while !SecretPrompt.asks(io.cursorLine) {
+            if abort.isTripped { return L("⎋ Cancelado: no se envía nada más") }
+            if Date().timeIntervalSince(start2) > 30 { return L("✗ sin prompt de contraseña en 30s") }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        io.send(bytes: Array((password + "\r").utf8))
+        return L("✓ login completado")
     }
 
     private static func esUnaLinea(_ value: String) -> Bool {
