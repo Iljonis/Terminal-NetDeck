@@ -1,3 +1,31 @@
+## 2026-11-17 · Windows · P8: explorador SFTP (por Claude)
+
+**Por Claude.** Explorador SFTP en el área principal. Compila (`Build complete!`) y está probado de verdad en la demo
+contra un servidor SFTP local: listar, entrar en una carpeta, descargar con doble clic y subir un archivo.
+
+### Qué hay
+- `windows/Desktop/Sources/NetDeckWindows/ExploradorSFTP.swift` (nuevo): `ExploradorSFTP` con ruta actual, «⬆ Arriba»,
+  «Actualizar», «Cerrar», lista con icono, nombre, tamaño y fecha, subida por ruta local y barra de estado con el
+  progreso. Usa lo que ya había en NetDeckCore: `SFTPFileSystem`, `Transfer.copy`, `LocalFileWriter` (descarga sin pisar
+  nada, con «.part») y `AtomicRemoteWriter` (subida sin pisar un archivo existente). No hizo falta tocar `Sources/`.
+- `NetDeckWindows.swift`: botón 📂 en la barra lateral junto a cada sesión SSH o SFTP (`SFTP_<nombre>`);
+  `open(_:)` abre el explorador si `route.transport == .sftp`; `openSFTP(_:)`, `openSFTPProfile(_:)`.
+- Descarga a `Descargas` del usuario (`~/Downloads` si Foundation no la da), con nombre único («a (2).txt»). El nombre lo
+  decide el servidor: se limpia (`localName`) de rutas y de caracteres que Windows no admite.
+- Para probar sin red: en la demo, `NETDECK_SFTP_SERVER` apunta a un `sftp-server` local (Git for Windows trae
+  `usr/lib/ssh/sftp-server.exe`), como el gancho `NETDECK_SNAPSHOT` del Mac.
+- `Ingles.swift`: textos nuevos en inglés.
+
+### Notas
+- La tarea hablaba de `SFTPClient` y `route.target == .sftp(...)`: el núcleo tiene `SFTPFileSystem` y el tipo va en
+  `route.transport`.
+- No hay selector de archivos nativo (`FilePicker`) en swift-winui 0.1.1 a mano: la subida pide la ruta en un cuadro de
+  texto (admite comillas).
+- **Sin probar con ssh real:** la conexión por ssh (`sftpSubsystemCommand`) compila y se construye igual que en el Mac, pero
+  la contraseña por teclado necesita el askpass de Windows (P4e/P10): de momento sólo claves y agente.
+- FTP no está en el explorador: `FTPClient` existe en el núcleo pero pide contraseña y credenciales (P9).
+- Una sola conexión a la vez: abrir otra cierra la anterior.
+
 ## 2026-11-17 · Windows · P8: pegado seguro y MultiExec (por Claude)
 
 **Por Claude.** Botones «Pegar» y «MultiExec» en la barra de herramientas, después de «Cerrar pestaña». Compila

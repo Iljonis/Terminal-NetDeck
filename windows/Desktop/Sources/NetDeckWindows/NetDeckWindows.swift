@@ -21,6 +21,7 @@ final class NetDeckWindows: SwiftApplication {
     private let ajustes = PanelAjustes()
     private let pegado = PanelTexto(idPrefix: "PegarSeguro")
     private let multi = PanelTexto(idPrefix: "MultiExec")
+    private let explorador = ExploradorSFTP()
     private var settings = AjustesTerminal.cargar()
     private var rootView: Grid?
     /// Tamano de letra respecto a 15 pt (celda de 8,25 x 19 px): para calcular columnas y filas.
@@ -171,6 +172,12 @@ final class NetDeckWindows: SwiftApplication {
         editor.onCancel = { [weak self] in self?.hideEditor() }
         Grid.setRow(ajustes.view, Int32(2))
         layout.children.append(ajustes.view)
+        Grid.setRow(explorador.view, Int32(2))
+        layout.children.append(explorador.view)
+        explorador.onClose = { [weak self] in self?.showPanel(nil) }
+        explorador.enqueue = { [weak self] action in
+            _ = try? self?.window?.dispatcherQueue?.tryEnqueue { action() }
+        }
         for panel in [pegado, multi] {
             Grid.setRow(panel.view, Int32(2))
             layout.children.append(panel.view)
@@ -220,6 +227,9 @@ final class NetDeckWindows: SwiftApplication {
                 colEditar.width = GridLength(value: 1, gridUnitType: .auto)
                 fila.columnDefinitions.append(colNombre)
                 fila.columnDefinitions.append(colEditar)
+                let colSFTP = ColumnDefinition()
+                colSFTP.width = GridLength(value: 1, gridUnitType: .auto)
+                fila.columnDefinitions.append(colSFTP)
                 let btn = Button()
                 let icono: String
                 switch perfil.transport {
@@ -258,6 +268,15 @@ final class NetDeckWindows: SwiftApplication {
                 Grid.setColumn(editar, Int32(1))
                 fila.children.append(btn)
                 fila.children.append(editar)
+                if perfil.transport == .ssh || perfil.transport == .sftp {
+                    let carpeta = Button()
+                    carpeta.content = "\u{1F4C2}"
+                    carpeta.margin = Thickness(left: 0, top: 1, right: 4, bottom: 1)
+                    AutomationProperties.setAutomationId(carpeta, "SFTP_\(perfil.name)")
+                    carpeta.click.addHandler { [weak self] _, _ in self?.openSFTPProfile(perfil) }
+                    Grid.setColumn(carpeta, Int32(2))
+                    fila.children.append(carpeta)
+                }
                 sidebar.children.append(fila)
             }
         }
@@ -295,6 +314,7 @@ final class NetDeckWindows: SwiftApplication {
         ajustes.view.visibility = panel === ajustes.view ? .visible : .collapsed
         pegado.view.visibility = panel === pegado.view ? .visible : .collapsed
         multi.view.visibility = panel === multi.view ? .visible : .collapsed
+        explorador.view.visibility = panel === explorador.view ? .visible : .collapsed
         if panel == nil { focusTerminal() }
     }
 
@@ -499,6 +519,33 @@ final class NetDeckWindows: SwiftApplication {
         }
     }
 
+    /// El explorador de una sesion SSH o SFTP del ssh_config.
+    private func openSFTPProfile(_ perfil: SessionProfile) {
+        do {
+            var ruta = try MainActor.assumeIsolated { try sessions.route(to: perfil) }
+            if ruta.transport == .ssh { ruta = try SFTPPanel.route(for: ruta) }
+            openSFTP(ruta)
+        } catch {
+            status.text = L("No se puede abrir \u{00AB}\(perfil.name)\u{00BB}: \(error.localizedDescription)")
+        }
+    }
+
+    /// Abre el explorador SFTP (ssh con el subsistema sftp) en el area principal.
+    private func openSFTP(_ route: ConnectionRoute) {
+        // (como en el terminal, la demo no lee el ssh_config del usuario; NETDECK_SFTP_SERVER habla SFTP sin ssh ni red,
+        // para probar el explorador con un sftp-server local)
+        let dev = isDemo ? ProcessInfo.processInfo.environment["NETDECK_SFTP_SERVER"] : nil
+        guard let command = dev.map({ ($0, [String]()) })
+                ?? route.sftpSubsystemCommand(sharing: nil, configFile: isDemo ? "NUL" : nil) else {
+            status.text = L("Equipo no v\u{00E1}lido: \u{00AB}\(route.target.host)\u{00BB}")
+            return
+        }
+        let environment = TerminalEnvironment.prepare(ProcessInfo.processInfo.environment, forSSH: true, sendLocale: false)
+        status.text = ""
+        explorador.connect(label: route.title, executable: command.0, arguments: command.1, environment: environment)
+        showPanel(explorador.view)
+    }
+
     private func connect() {
         guard let target = Endpoint(parsing: destination.text), target.isShellSafe else {
             status.text = L("Destino no v\u{00E1}lido: \u{00AB}\(destination.text)\u{00BB}")
@@ -508,6 +555,10 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     private func open(_ route: ConnectionRoute) {
+        if route.transport == .sftp {
+            openSFTP(route)
+            return
+        }
         do {
             if let problem = route.launchProblem() { throw RemoteError(problem) }
             let session = try PestanaTerminal(route: route)
