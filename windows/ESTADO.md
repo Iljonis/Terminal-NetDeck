@@ -1,3 +1,20 @@
+## 2026-11-17 · Windows · P8: warnings de Sendability en ExploradorSFTP (por Claude)
+
+**Por Claude.** Corregidos los dos avisos «reference to captured var 'self' in concurrently-executing code» que serían
+errores en Swift 6. `Build complete!` sin avisos del compilador (sólo queda el del enlace simbólico `debug`, del entorno).
+
+- Causa: los closures de progreso de `Transfer.copy` (descarga, línea ~210, y subida, ~244) usaban el `self` de
+  `[weak self]`, que es una variable, dentro de un closure `@Sendable`.
+- Arreglo (`ExploradorSFTP.swift`): cada tarea copia `let owner = self` antes de `Transfer.copy` y el closure usa `owner`; la
+  clase pasa a `@unchecked Sendable`, con el motivo escrito: sus controles sólo se tocan en el hilo de WinUI (lo que llega de
+  las tareas pasa por `deliver` y `enqueue`). No se usa `Task { @MainActor … }`: en Windows no se sabe si el actor principal
+  se vacía con el bucle de WinUI, y `enqueue` (el `DispatcherQueue`) ya hace ese papel.
+- Sin cambios de comportamiento; la interfaz del explorador no se ha vuelto a probar.
+
+### Aviso para quien compile
+La app lanzada por `desktop.ps1 -Demo` aparece a veces como `NETDEC~1.EXE` (nombre corto) y `taskkill /IM NetDeckWindows.exe`
+no la encuentra: el enlazador falla con «unable to remove file: permission denied». Cerrarla por PID (`Stop-Process -Id`).
+
 ## 2026-11-17 · Windows · P8: asistente de inicio (por Claude)
 
 **Por Claude.** Asistente de la primera vez en el área principal. Compila (`Build complete!`) y está probado de verdad,

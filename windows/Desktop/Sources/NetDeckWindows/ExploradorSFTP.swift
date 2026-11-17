@@ -5,7 +5,9 @@ import struct UWP.Color
 
 /// Explorador SFTP en el area principal: carpeta actual, subir un nivel, actualizar, entrar en carpetas y descargar
 /// (doble clic) y subir un archivo por su ruta local. Usa `SFTPFileSystem` y `Transfer` de NetDeckCore.
-final class ExploradorSFTP {
+/// `@unchecked Sendable`: los controles solo se tocan en el hilo de WinUI (todo lo que llega de las tareas pasa por
+/// `deliver` y `enqueue`); el resto del estado se cambia desde ese mismo hilo.
+final class ExploradorSFTP: @unchecked Sendable {
     let view = ScrollViewer()
     var onClose: (() -> Void)?
     /// Ejecuta una accion en el hilo de WinUI (lo pone la ventana).
@@ -199,6 +201,7 @@ final class ExploradorSFTP {
         let destination = Self.uniqueURL(Self.downloads.appendingPathComponent(local))
         setStatus(L("Descargando \u{00AB}\(entry.name)\u{00BB}\u{2026}"))
         task = Task { [weak self] in
+            let owner = self          // (`self` de [weak self] es una variable: no se puede capturar en el closure de progreso)
             var reader: (any RemoteReader)?
             do {
                 try FileManager.default.createDirectory(at: Self.downloads, withIntermediateDirectories: true)
@@ -207,7 +210,7 @@ final class ExploradorSFTP {
                 reader = source
                 let writer = try LocalFileWriter(url: destination)
                 try await Transfer.copy(from: source, to: writer) { sent in
-                    self?.deliver(gen) { $0.setStatus(Self.progress(L("Descargando \u{00AB}\(entry.name)\u{00BB}"), sent, total)) }
+                    owner?.deliver(gen) { $0.setStatus(Self.progress(L("Descargando \u{00AB}\(entry.name)\u{00BB}"), sent, total)) }
                 }
                 await source.close()
                 self?.deliver(gen) { $0.setStatus(L("Descargado en \(destination.lastPathComponent)") + " \u{00B7} " + Self.downloads.lastPathComponent) }
@@ -235,13 +238,14 @@ final class ExploradorSFTP {
         let total = ((try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber)?.int64Value ?? 0
         setStatus(L("Subiendo \u{00AB}\(name)\u{00BB}\u{2026}"))
         task = Task { [weak self] in
+            let owner = self
             var reader: LocalFileReader?
             do {
                 let source = try LocalFileReader(url: url)
                 reader = source
                 let writer = try await AtomicRemoteWriter.open(fs, remote, verify: false, createOnly: true)
                 try await Transfer.copy(from: source, to: writer) { sent in
-                    self?.deliver(gen) { $0.setStatus(Self.progress(L("Subiendo \u{00AB}\(name)\u{00BB}"), sent, total)) }
+                    owner?.deliver(gen) { $0.setStatus(Self.progress(L("Subiendo \u{00AB}\(name)\u{00BB}"), sent, total)) }
                 }
                 await source.close()
                 let entries = try await fs.list(folder)
