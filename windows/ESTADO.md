@@ -1,3 +1,25 @@
+## 2026-11-17 · Windows · P9: importación de sesiones y prefijos peligrosos (por Claude)
+
+**Por Claude.** Rama `windows/p9-seguridad`. Sólo tests: el código de la tarea ya estaba cubierto, y añadir el filtro pedido
+habría sido código muerto.
+
+- `SessionImporter.safeExtra` filtra con una **lista blanca** (`allowedOptions`). `ProxyCommand`, `LocalCommand`,
+  `KnownHostsCommand` e `IdentityAgent` no están en ella, así que se descartan siempre, con o sin ruta de Windows; un
+  filtro adicional por `C:\` o `%VAR%` después del `guard` nunca se ejecutaría. Para proteger de verdad, los tests nuevos
+  (`SessionFileTests.swift`):
+  - `alImportarSeQuitanLasOpcionesQueEjecutanTambienConRutasDeWindows`: las cuatro opciones con rutas `C:\…`, `%USERPROFILE%`
+    y `\.\pipe\…`, y `PermitLocalCommand`, quedan fuera.
+  - `laListaBlancaDeImportacionNoTieneOpcionesQueEjecutenOAbranOtroBloque`: falla si alguien añade a `allowedOptions` una
+    opción que ejecuta código, abre otro bloque o toca reenvíos y `known_hosts` (`ProxyCommand`, `Include`, `Match`,
+    `LocalForward`, `StrictHostKeyChecking`…).
+- Prefijos peligrosos, ya rechazados y ahora con test (`nombresEquiposYUsuariosConPrefijoDeOpcionSeRechazan`):
+  `EditableSession.isValidName` exige que el primer carácter sea alfanumérico o `_` (rechaza `-`, `/`, `.`);
+  `Endpoint(parsing:)` rechaza equipo o usuario con `-`; `SessionFile.problems()` rechaza equipo, usuario y salto con `-`.
+- **No** se rechaza el prefijo `/` en equipo o usuario: `ssh.exe` sólo trata `-` como opción (no hay opciones con `/`), así
+  que no hay un riesgo concreto. Si se quiere, es una regla de validez de nombres de equipo, no de seguridad.
+- Entorno: el worktree está en `C:\Users\<usuario>\NetDeck-P9`, fuera de `AppData\Local`: el MSIX de Claude redirige a su caché
+  las carpetas nuevas que se crean ahí y otros programas (Python) no las veían.
+
 ## 2026-11-17 · Windows · P8: warnings de Sendability en ExploradorSFTP (por Claude)
 
 **Por Claude.** Corregidos los dos avisos «reference to captured var 'self' in concurrently-executing code» que serían

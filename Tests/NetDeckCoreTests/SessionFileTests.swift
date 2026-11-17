@@ -203,6 +203,40 @@ private let netdeckFile = """
                 == ["ServerAliveInterval 5", "Compression yes", "Ciphers aes256-ctr", "ConnectTimeout 10"])
     }
 
+    /// P9 (Windows): lo que un export ajeno trae con rutas de Windows no se cuela por ningún camino. No hace falta un filtro
+    /// aparte para rutas: estas opciones no están en `allowedOptions`, y este test lo vigila.
+    @Test func alImportarSeQuitanLasOpcionesQueEjecutanTambienConRutasDeWindows() {
+        let extra = [#"ProxyCommand C:\Windows\System32\cmd.exe /c nc %h %p"#, #"LocalCommand %USERPROFILE%\x.bat"#,
+                     #"KnownHostsCommand C:\tools\kh.exe %H"#, #"IdentityAgent \.\pipe\openssh-ssh-agent"#,
+                     #"PermitLocalCommand yes"#, "ServerAliveInterval 30"]
+        #expect(SessionImporter.safeExtra(extra, session: "x") == ["ServerAliveInterval 30"])
+    }
+
+    @Test func laListaBlancaDeImportacionNoTieneOpcionesQueEjecutenOAbranOtroBloque() {
+        let peligrosas: Set<String> = [
+            "proxycommand", "localcommand", "permitlocalcommand", "knownhostscommand", "identityagent", "include", "match",
+            "host", "proxyjump", "localforward", "remoteforward", "dynamicforward", "sendenv", "setenv", "forwardagent",
+            "userknownhostsfile", "globalknownhostsfile", "stricthostkeychecking", "pkcs11provider", "securitykeyprovider",
+        ]
+        #expect(SessionImporter.allowedOptions.isDisjoint(with: peligrosas))
+    }
+
+    /// Un nombre, equipo o usuario que empieza por «-» llegaría a ssh como una opción («-oProxyCommand=…»).
+    @Test func nombresEquiposYUsuariosConPrefijoDeOpcionSeRechazan() {
+        for nombre in ["-oProxyCommand=x", "-", "/etc/passwd", ".oculto"] { #expect(!EditableSession.isValidName(nombre)) }
+        #expect(Endpoint(parsing: "-oProxyCommand=calc") == nil)
+        #expect(Endpoint(parsing: "admin@-oProxyCommand=calc") == nil)
+        #expect(Endpoint(parsing: "-x@servidor") == nil)
+        for (host, user) in [("-oProxyCommand=calc", "admin"), ("192.0.2.1", "-oProxyCommand=calc")] {
+            var s = EditableSession(group: "G", name: "ok")
+            s.host = host
+            s.user = user
+            var f = SessionFile()
+            f.sessions = [s]
+            #expect(!f.problems().isEmpty)
+        }
+    }
+
     @Test func importarUnJSONConOpcionesMaliciosasNoInyectaNada() throws {
         let json = #"""
             {"formato":"netdeck-sesiones","version":1,"sesiones":[
