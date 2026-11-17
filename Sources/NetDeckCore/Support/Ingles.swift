@@ -2532,5 +2532,7 @@ enum Ingles {
         "«%@» renombrado a «%@»": "“%@” renamed to “%@”",
         "Carpeta «%@» creada": "Folder “%@” created",
         "«%@» borrado": "“%@” deleted",
+        "Colores del terminal": "Terminal colours",
+        "(Predeterminado)": "(Default)",
 ]
 }

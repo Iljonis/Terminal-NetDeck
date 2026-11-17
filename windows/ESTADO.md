@@ -1,3 +1,17 @@
+## 2026-11-17 · Windows · P12: los temas de NetDeckCore en el terminal (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. Los 85 temas de NetDeck se aplican ya al terminal de Windows. Compila sin avisos y está **probado en pantalla** (capturas): se elige el tema en Ajustes, y se ven el fondo, el texto, los colores ANSI (`Write-Host -ForegroundColor …`, el resaltado de PSReadLine)
+y una pestaña nueva con el mismo tema; «(Predeterminado)» vuelve al aspecto del sistema.
+
+- **No hizo falta un delegado ni secuencias OSC:** `SwiftTerm.Terminal` expone `installPalette(colors:)`, `foregroundColor`, `backgroundColor` y `cursorColor`; `PestanaTerminal.apply(palette:)` los pone.
+- **Pero el terminal de Windows pintaba el texto en un `TextBlock` liso, y con eso la paleta no se veía.** Ahora, con un tema, `PestanaTerminal.coloredLines` agrupa cada línea en trozos del mismo color de texto (lee `getCharData` y `Attribute.fg`: ANSI 16, 256 y color verdadero) y la ventana los pinta con un `Run` por trozo
+  (sólo si cambia algo desde la última vez). **Límites:** sólo el color del texto; no se pinta el fondo por celda, ni negrita, subrayado, inversa (selecciones de PSReadLine) ni el cursor. Sin tema se queda como antes, texto liso.
+- `TemasTerminal.swift` (nuevo): la carpeta de temas (`Temas` junto al exe, o `NETDECK_TEMAS` en desarrollo), `ThemeLibrary` de NetDeckCore y `PaletaTerminal` (usa `Theme.solid`: sin transparencias). `Theme.all` no existe; es `ThemeLibrary(appDirectory:).all()`.
+- Ajustes: segundo selector «Colores del terminal» («(Predeterminado)» y los temas). **Guarda el id del tema** (no el nombre, que se traduce) bajo `ndTemaNombre`. Es independiente del tema de la ventana (Mica/claro/oscuro), que no se toca.
+- `preparar-instalador.ps1` copia la carpeta `Temas` del repositorio a la carpeta del instalador (sin ella, sólo estaría el tema original y los importados).
+- Documentación al día (README de Windows y de la raíz en castellano e inglés, CHANGELOG): los temas sólo colorean el terminal.
+- **Sin probar:** el rendimiento con salidas muy largas (se reconstruyen los `Run` en cada cambio de pantalla) y los temas con fondo claro en la ventana oscura. **Pendiente:** reinstalar la paleta al volver a «(Predeterminado)» (SwiftTerm no tiene un `reset` público; la ventana sí vuelve al aspecto de antes).
+
 ## 2026-11-17 · Windows · P10: el .msi va en la misma Release que el .dmg (borrador del workflow) (por Claude)
 
 **Por Claude.** Rama `windows/p10-paquete`. Decisión del autor: el `.msi` se adjunta a la Release del tag de macOS (`vX.Y.Z`, sin sufijo) y `UpdateChecker` no cambia (sigue con `releases/latest`).

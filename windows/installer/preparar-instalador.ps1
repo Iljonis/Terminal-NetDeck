@@ -1,7 +1,7 @@
 # Reune en una carpeta todo lo que lleva el instalador (la entrada de NetDeckWindows.wxs):
 #   - lo que compila windows/scripts/desktop.ps1: NetDeckWindows.exe, sus .dll y el bootstrapper de Windows App SDK
 #   - los .dll del runtime de Swift (la app los busca junto al exe; desktop.ps1 los pone en el PATH)
-#   - AppxManifest.xml y sus iconos, los scripts de registro del Sparse Package y, si existe, NetDeckSparse.msix
+#   - la carpeta Temas (los temas de color del terminal), AppxManifest.xml y sus iconos, los scripts de registro del Sparse Package y, si existe, NetDeckSparse.msix
 # Uso (desde la raiz del repo, tras compilar con desktop.ps1):
 #   powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/preparar-instalador.ps1 [-Destino carpeta]
 # Y despues:  wix build windows/installer/NetDeckWindows.wxs <carpeta>/../archivos.wxs -arch x64 -d SourceDir=<carpeta> -o NetDeckWindows.msi
@@ -48,6 +48,8 @@ Get-ChildItem -LiteralPath $Runtime -Filter '*.dll' -File | Copy-Item -Destinati
 
 # Sparse Package
 $desktop = Join-Path $repo 'windows/Desktop'
+# Los temas de color del terminal (NetDeckCore los busca en «Temas», junto al exe)
+Copy-Item (Join-Path $repo 'Temas') (Join-Path $Destino 'Temas') -Recurse -Force
 Copy-Item (Join-Path $desktop 'AppxManifest.xml') $Destino -Force
 Copy-Item (Join-Path $desktop 'Assets') (Join-Path $Destino 'Assets') -Recurse -Force
 Copy-Item (Join-Path $PSScriptRoot 'registrar-sparse.ps1'), (Join-Path $PSScriptRoot 'quitar-sparse.ps1') $Destino -Force

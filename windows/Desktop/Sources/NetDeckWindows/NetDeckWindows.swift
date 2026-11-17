@@ -31,6 +31,10 @@ final class NetDeckWindows: SwiftApplication {
     private var rootView: Grid?
     /// Tamano de letra respecto a 15 pt (celda de 8,25 x 19 px): para calcular columnas y filas.
     private var fontScale = 1.0
+    /// Colores del tema elegido para el terminal (nil: los del sistema, texto liso).
+    private var paleta: PaletaTerminal?
+    private var pintado: [[SegmentoColor]] = []
+    private var pinceles: [RGB: SolidColorBrush] = [:]
     private var pasteFull = ""
     /// Sesiones editables en memoria: en modo demo es la unica copia (no se escribe a disco).
     private var library = SessionFile()
@@ -590,6 +594,51 @@ final class NetDeckWindows: SwiftApplication {
         select(terminals[(index + step + terminals.count) % terminals.count])
     }
 
+    // MARK: - tema de colores del terminal
+
+    /// Los colores del tema (de NetDeckCore) en la superficie del terminal, en su paleta y en el texto, por trozos de color.
+    private func applyTerminalTheme(_ id: String) {
+        paleta = TemasTerminal.tema(id: id).map(PaletaTerminal.init(tema:))
+        pintado = []
+        if let paleta {
+            surface.background = brush(paleta.fondo)
+            screen.foreground = brush(paleta.texto)
+        } else {
+            surface.background = nil
+            _ = try? screen.clearValue(TextBlock.foregroundProperty)
+        }
+        for tab in terminals { tab.apply(palette: paleta) }
+        render()
+    }
+
+    private func brush(_ c: RGB) -> SolidColorBrush {
+        if let known = pinceles[c] { return known }
+        func channel(_ v: Double) -> UInt8 { UInt8(max(0, min(255, v.rounded()))) }
+        let made = SolidColorBrush(Color(a: 255, r: channel(c.r), g: channel(c.g), b: channel(c.b)))
+        pinceles[c] = made
+        return made
+    }
+
+    /// Pinta la pantalla con un `Run` por trozo de color; si no ha cambiado nada desde la ultima vez, no toca nada.
+    private func paint(_ lines: [[SegmentoColor]]) {
+        guard lines != pintado else { return }
+        pintado = lines
+        screen.text = ""
+        for (index, line) in lines.enumerated() {
+            for (position, segment) in line.enumerated() {
+                let run = Run()
+                run.text = segment.texto + (position == line.count - 1 && index < lines.count - 1 ? "\n" : "")
+                if let color = segment.color { run.foreground = brush(color) }
+                screen.inlines.append(run)
+            }
+            if line.isEmpty && index < lines.count - 1 {
+                let run = Run()
+                run.text = "\n"
+                screen.inlines.append(run)
+            }
+        }
+    }
+
     // MARK: - ajustes
 
     private func showAjustes() {
@@ -616,6 +665,7 @@ final class NetDeckWindows: SwiftApplication {
         fontScale = Double(a.tamano) / 15
         let theme: Int32 = a.tema == "Claro" ? 1 : (a.tema == "Oscuro" ? 2 : 0)
         rootView?.requestedTheme = ElementTheme(rawValue: theme)
+        applyTerminalTheme(a.temaTerminal)
         // Mica solo con «Sistema»; con Claro u Oscuro, fondo liso. (Mica pide Windows 11.)
         window?.systemBackdrop = a.tema == "Sistema (Mica)" ? MicaBackdrop() : nil
         // Sin Mica la ventana no pinta fondo propio: Claro y Oscuro lo ponen a mano.
@@ -741,6 +791,7 @@ final class NetDeckWindows: SwiftApplication {
             let session = try PestanaTerminal(route: route)
             let queue = window?.dispatcherQueue
             terminals.append(session)
+            session.apply(palette: paleta)
             select(session)
             session.observe(enqueue: { action in
                 (try? queue?.tryEnqueue { action() }) == true
@@ -778,7 +829,12 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     private func render() {
-        screen.text = selected?.screen ?? ""
+        if let paleta, let selected {
+            paint(selected.coloredLines(paleta))
+        } else {
+            pintado = []
+            screen.text = selected?.screen ?? ""
+        }
         status.text = selected?.closed == true ? L("Conexi\u{00F3}n cerrada") : ""
     }
 

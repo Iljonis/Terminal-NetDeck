@@ -55,6 +55,39 @@ final class PestanaTerminal: TerminalDelegate {
         }.joined(separator: "\n")
     }
 
+    /// Pone los colores de un tema en el terminal (paleta ANSI, texto, fondo y cursor). nil: no toca nada.
+    func apply(palette: PaletaTerminal?) {
+        guard let palette else { return }
+        terminal.installPalette(colors: palette.ansi.map(PaletaTerminal.swiftTerm))
+        terminal.foregroundColor = PaletaTerminal.swiftTerm(palette.texto)
+        terminal.backgroundColor = PaletaTerminal.swiftTerm(palette.fondo)
+        terminal.cursorColor = PaletaTerminal.swiftTerm(palette.cursor)
+    }
+
+    /// La pantalla por lineas y trozos del mismo color de texto (sin los espacios del final de cada linea). Los trozos de color por
+    /// defecto llevan color nil. Solo cuenta el color del TEXTO: ni el fondo de cada celda ni negrita, subrayado o inversa.
+    func coloredLines(_ palette: PaletaTerminal) -> [[SegmentoColor]] {
+        (0..<terminal.rows).map { row in
+            var segments: [SegmentoColor] = []
+            for col in 0..<terminal.cols {
+                guard let cell = terminal.getCharData(col: col, row: row), cell.width != 0 else { continue }   // (0: la mitad de un ancho doble)
+                let letter = cell.getCharacter()
+                let character = letter == "\u{0}" ? " " : String(letter)
+                let color = palette.color(cell.attribute.fg)
+                if let last = segments.last, last.color == color {
+                    segments[segments.count - 1].texto += character
+                } else {
+                    segments.append(SegmentoColor(texto: character, color: color))
+                }
+            }
+            while let last = segments.last {
+                let trimmed = String(last.texto.reversed().drop { $0 == " " }.reversed())
+                if trimmed.isEmpty { segments.removeLast() } else { segments[segments.count - 1].texto = trimmed; break }
+            }
+            return segments
+        }
+    }
+
     func write(_ text: String) {
         guard !closed, !text.isEmpty else { return }
         terminal.sendUserInput(Array(text.utf8)[...])

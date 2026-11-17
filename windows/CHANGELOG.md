@@ -14,7 +14,7 @@ decidir si la de Windows sigue el 1.0.0 de macOS antes de publicarla (ver [ESTAD
 - Explorador SFTP (listar, descargar, subir)
 - Túneles SSH (crear, iniciar, parar)
 - Editor de sesiones (nombre, grupo, equipo, usuario, puerto, tipo)
-- Ajustes (fuente, tamaño, tema: Mica / Claro / Oscuro)
+- Ajustes (fuente, tamaño, tema: Mica / Claro / Oscuro) y colores del terminal con los 85 temas de NetDeck
 - Pegado seguro con confirmación
 - MultiExec: escribir en todas las pestañas a la vez
 - Asistente de primer arranque
@@ -34,4 +34,4 @@ decidir si la de Windows sigue el 1.0.0 de macOS antes de publicarla (ver [ESTAD
 
 - Primera versión pública de Windows. La versión macOS es 1.0.0.
 - Limitaciones conocidas: la contraseña por teclado en las conexiones de la app necesita el askpass de Windows (de momento, claves y agente); FTP aún
-  no está disponible; la terminal pinta texto plano; los 85 temas de macOS no están.
+  no está disponible; los temas de macOS sólo colorean el terminal (texto por trozos, sin fondo por celda ni negrita), no la interfaz.

@@ -620,7 +620,7 @@ installer yet. See [`windows/README.md`](windows/README.md) for installation, ke
 What already works on Windows: an SSH terminal with tabs (ConPTY), an SFTP browser, SSH tunnels, a session editor, settings (font, size and a
 Mica, light or dark theme), safe paste, MultiExec, a first-run assistant and an updater that checks the sha256 and the signature. The rest of this
 README describes the macOS version; Windows still lacks, among other things, keyboard-typed passwords in the app's connections (keys and the SSH
-agent work for now), FTP, output highlighting and the 85 themes.
+agent work for now), FTP and output highlighting (the 85 themes only colour the terminal).
 
 ## For developers
 

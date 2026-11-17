@@ -12,6 +12,8 @@ struct AjustesTerminal: Equatable {
     var fuente = "Consolas"
     var tamano = 15
     var tema = "Sistema (Mica)"
+    /// Id del tema de colores del terminal (los de NetDeckCore); vacio = sin tema. Clave ndTemaNombre.
+    var temaTerminal = ""
 
     static func cargar(_ defaults: UserDefaults = .standard) -> AjustesTerminal {
         var a = AjustesTerminal()
@@ -19,6 +21,7 @@ struct AjustesTerminal: Equatable {
         let t = defaults.integer(forKey: "ndTamano")
         if tamanos.contains(t) { a.tamano = t }
         if let m = defaults.string(forKey: "ndTema"), temas.contains(m) { a.tema = m }
+        a.temaTerminal = defaults.string(forKey: TemasTerminal.clave) ?? ""
         return a
     }
 
@@ -26,6 +29,7 @@ struct AjustesTerminal: Equatable {
         defaults.set(fuente, forKey: "ndFuente")
         defaults.set(tamano, forKey: "ndTamano")
         defaults.set(tema, forKey: "ndTema")
+        defaults.set(temaTerminal, forKey: TemasTerminal.clave)
         defaults.synchronize()   // (en Windows no se vuelca solo: sin esto se pierde si la app se cierra a la fuerza)
     }
 }
@@ -43,6 +47,9 @@ final class PanelAjustes {
     private let tamano = Slider()
     private let tamanoTexto = TextBlock()
     private let tema = ComboBox()
+    private let temaTerminal = ComboBox()
+    /// Los ids de los temas del combo (el primero, «», es «Predeterminado»).
+    private var temaIds: [String] = [""]
     private let saveButton = Button()
     private let cancelButton = Button()
     private var loading = false
@@ -64,6 +71,7 @@ final class PanelAjustes {
         for name in AjustesTerminal.temas { tema.items.append(L(nombre: name)) }
         fuente.minWidth = 200
         tema.minWidth = 200
+        temaTerminal.minWidth = 260
         tamano.minimum = Double(AjustesTerminal.tamanos.lowerBound)
         tamano.maximum = Double(AjustesTerminal.tamanos.upperBound)
         tamano.minWidth = 200
@@ -79,6 +87,7 @@ final class PanelAjustes {
             (L("Fuente del terminal"), fuente, "Ajustes_Fuente"),
             (L("Tama\u{00F1}o de fuente"), sizeRow, ""),
             (L("Tema"), tema, "Ajustes_Tema"),
+            (L("Colores del terminal"), temaTerminal, "Ajustes_TemaTerminal"),
         ]
         for (label, control, id) in fields {
             let caption = TextBlock()
@@ -134,6 +143,16 @@ final class PanelAjustes {
         fuente.selectedIndex = Int32(AjustesTerminal.fuentes.firstIndex(of: settings.fuente) ?? 0)
         tema.selectedIndex = Int32(AjustesTerminal.temas.firstIndex(of: settings.tema) ?? 0)
         tamano.value = Double(settings.tamano)
+        // (los temas se leen al abrir el panel: por si se ha importado alguno)
+        let themes = TemasTerminal.disponibles()
+        temaTerminal.items.clear()
+        temaTerminal.items.append(L("(Predeterminado)"))
+        temaIds = [""]
+        for theme in themes {
+            temaTerminal.items.append(theme.name)
+            temaIds.append(theme.id)
+        }
+        temaTerminal.selectedIndex = Int32(temaIds.firstIndex(of: settings.temaTerminal) ?? 0)
         loading = false
         showSize()
     }
@@ -155,6 +174,8 @@ final class PanelAjustes {
         let t = Int(tema.selectedIndex)
         if AjustesTerminal.temas.indices.contains(t) { settings.tema = AjustesTerminal.temas[t] }
         settings.tamano = currentSize
+        let c = Int(temaTerminal.selectedIndex)
+        if temaIds.indices.contains(c) { settings.temaTerminal = temaIds[c] }
         onSave?(settings)
     }
 }

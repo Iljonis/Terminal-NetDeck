@@ -619,7 +619,7 @@ Consulta [`windows/README.md`](windows/README.md) para los detalles de instalaci
 Lo que ya funciona en Windows: terminal SSH con pestañas (ConPTY), explorador SFTP, túneles SSH, editor de sesiones, ajustes (fuente, tamaño y
 tema Mica, claro u oscuro), pegado seguro, MultiExec, asistente de primer arranque y un actualizador que comprueba el sha256 y la firma. Lo demás de
 este README describe la versión de macOS; en Windows todavía faltan, entre otras cosas, la contraseña por teclado en las conexiones de la app (de
-momento, claves y agente), FTP, el resaltado de la salida y los 85 temas.
+momento, claves y agente), FTP y el resaltado de la salida (los 85 temas sólo colorean el terminal).
 
 ## Para desarrolladores
 

@@ -39,7 +39,7 @@ y puerto, opcionales) y un «todo listo». Puedes saltártelo con «Omitir» y a
 - **Túneles SSH** (botón «Túneles», `Ctrl+T`): reenvío local, remoto o SOCKS; se inician y se paran uno a uno y se guardan en `%APPDATA%\Terminal NetDeck\tuneles.json`.
 - **Pegado seguro**: pegar varias líneas enseña antes una vista previa, para no ejecutar sin querer cada línea.
 - **MultiExec**: un mismo comando a todas las pestañas SSH y Telnet abiertas.
-- **Ajustes** (`Ctrl+,`): fuente (Consolas, Courier New, Cascadia Code o Cascadia Mono), tamaño de letra y tema (sistema con Mica, claro u oscuro).
+- **Ajustes** (`Ctrl+,`): fuente (Consolas, Courier New, Cascadia Code o Cascadia Mono), tamaño de letra, tema de la ventana (sistema con Mica, claro u oscuro) y **colores del terminal**: los 85 temas de NetDeck (fondo, texto y los 16 colores ANSI; «(Predeterminado)» deja los del sistema).
 - **Actualizaciones**: «Buscar actualizaciones» en Ajustes consulta la última release de GitHub. Nada se comprueba ni se instala sin tu clic y el instalador
   se descarga solo de `github.com`, con comprobación del sha256 y de la firma antes de lanzarlo.
 
@@ -62,8 +62,8 @@ y puerto, opcionales) y un «todo listo». Puedes saltártelo con «Omitir» y a
   agente de ssh. En la terminal puedes escribirla a mano como siempre. Las contraseñas guardadas usan el Administrador de credenciales de Windows
   ([ADR-0004](decisiones/0004-credenciales-p9.md)), pero la app aún no tiene pantalla para gestionarlas.
 - **FTP** aún no está disponible en Windows; el tipo existe, pero abrir una sesión FTP sólo avisa.
-- La terminal pinta **texto plano**: sin colores ni selección con el ratón todavía.
-- Los 85 temas de la versión de macOS no están: aquí sólo hay Mica, claro y oscuro.
+- La terminal pinta texto: con un tema de colores, cada trozo con su color de texto, pero sin fondo por celda, negrita ni subrayado, y sin colores si no eliges tema.
+- Los 85 temas de la versión de macOS sólo se aplican a los colores del terminal; la interfaz sigue siendo Mica, claro u oscuro.
 
 ## Desinstalar
 
