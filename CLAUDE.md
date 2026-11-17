@@ -52,11 +52,18 @@ núcleo compilando en Windows (desde el paso P2), los tests con `windows/scripts
 - Autor `Jonay <jonayrr.jr@gmail.com>` (git config local del repo). Nunca el correo corporativo ni una línea de coautor.
 - Mensajes en castellano: un título corto, una línea en blanco y viñetas con el porqué.
 - Forzar un push (`--force`) o mover un tag, sólo si el autor lo pide expresamente.
+## Windows (port en curso)
+- El código Windows vive en `windows/`. Todo lo nuevo va tras `#if os(Windows)` o en archivos exclusivos del
+  target `NetDeckWindows`. El código de macOS no se toca.
+- **No usar Edit/Write de Claude en Windows** — generan archivos `.tmp` con BOM. Usar en su lugar:
+  `[System.IO.File]::WriteAllText(path, content, (New-Object System.Text.UTF8Encoding $false))`.
+- **No tocar** `.github/workflows/` ni `windows/scripts/test.ps1` — los gestiona Codex (CI).
+- Rama activa: `windows/p10-paquete`. Estado y próximos pasos: `windows/ESTADO.md`.
 
 ## Más detalle (léelo cuando el trabajo lo toque)
 - docs/agentes/agentes.md: qué agente o skill usar y cómo se fusiona su trabajo. Los agentes, para trabajo grande y
   revisiones.
 - docs/agentes/publicar.md: cambio de versión, tag y Release (con Claude, skill `netdeck-publicar`).
 - docs/agentes/arquitectura.md · docs/agentes/idiomas.md · docs/agentes/comandos.md.
-- windows/CLAUDE.md: propuesta de versión para Windows (rama `propuesta/windows`). **Si trabajas desde Windows,
+- `windows/CLAUDE.md`: guía completa del port Windows (ramas `windows/*`). **Si trabajas desde Windows,
   léelo antes de nada**: allí no hay `./test.sh` ni demo y cambian los comandos.
