@@ -16,6 +16,9 @@ struct AjustesTerminal: Equatable {
     var temaTerminal = ""
     var divisionApilada = false
     var interlineado = 1.0
+    var filtro = ScreenFilter.none.rawValue
+    var intensidad = ScreenFilter.defaultIntensity
+    var resaltado = false
 
     static func cargar(_ defaults: UserDefaults = .standard) -> AjustesTerminal {
         var a = AjustesTerminal()
@@ -27,6 +30,9 @@ struct AjustesTerminal: Equatable {
         a.divisionApilada = defaults.bool(forKey: "ndDivisionApilada")
         let interlineado = defaults.double(forKey: "ndInterlineado")
         if (1...1.5).contains(interlineado) { a.interlineado = interlineado }
+        a.filtro = defaults.string(forKey: "ndFiltroTerminal") ?? ScreenFilter.none.rawValue
+        if let value = defaults.object(forKey: "ndFiltroIntensidad") as? Double { a.intensidad = ScreenFilter.intensity(value) }
+        a.resaltado = defaults.bool(forKey: "ndResaltadoTerminal")
         return a
     }
 
@@ -37,6 +43,9 @@ struct AjustesTerminal: Equatable {
         defaults.set(temaTerminal, forKey: TemasTerminal.clave)
         defaults.set(divisionApilada, forKey: "ndDivisionApilada")
         defaults.set(interlineado, forKey: "ndInterlineado")
+        defaults.set(filtro, forKey: "ndFiltroTerminal")
+        defaults.set(intensidad, forKey: "ndFiltroIntensidad")
+        defaults.set(resaltado, forKey: "ndResaltadoTerminal")
         defaults.synchronize()   // (en Windows no se vuelca solo: sin esto se pierde si la app se cierra a la fuerza)
     }
 }
@@ -46,6 +55,7 @@ final class PanelAjustes {
     let view = ScrollViewer()
     var onSave: ((AjustesTerminal) -> Void)?
     var onCancel: (() -> Void)?
+    var onHighlight: (() -> Void)?
     /// «Buscar actualizaciones»: la ventana hace la consulta y avisa con `setUpdateStatus`.
     var onCheckUpdates: (() -> Void)?
     private let updateText = TextBlock()
@@ -57,6 +67,10 @@ final class PanelAjustes {
     private let temaTerminal = ComboBox()
     private let orientacion = ComboBox()
     private let interlineado = Slider()
+    private let filtro = ComboBox()
+    private let intensidad = Slider()
+    private let resaltado = CheckBox()
+    private let filtros = [ScreenFilter.automatic] + ScreenFilter.allCases.map(\.rawValue)
     /// Los ids de los temas del combo (el primero, «», es «Predeterminado»).
     private var temaIds: [String] = [""]
     private let saveButton = Button()
@@ -84,6 +98,15 @@ final class PanelAjustes {
         interlineado.maximum = 1.5
         interlineado.stepFrequency = 0.1
         interlineado.minWidth = 200
+        filtro.items.append(L("Automático"))
+        for effect in ScreenFilter.allCases { filtro.items.append(effect.name) }
+        intensidad.minimum = ScreenFilter.intensityRange.lowerBound
+        intensidad.maximum = ScreenFilter.intensityRange.upperBound
+        intensidad.stepFrequency = 0.1
+        resaltado.content = L("Activar resaltado")
+        let reglas = Button()
+        reglas.content = L("Editar reglas de resaltado")
+        reglas.click.addHandler { [weak self] _, _ in self?.onHighlight?() }
         fuente.minWidth = 200
         tema.minWidth = 200
         temaTerminal.minWidth = 260
@@ -105,6 +128,8 @@ final class PanelAjustes {
             (L("Orientación de la vista dividida"), orientacion, "Ajustes_Orientacion"),
             (L("Tema"), tema, "Ajustes_Tema"),
             (L("Colores del terminal"), temaTerminal, "Ajustes_TemaTerminal"),
+            (L("Filtro de pantalla"), filtro, "Ajustes_Filtro"),
+            (L("Intensidad"), intensidad, "Ajustes_Intensidad"),
         ]
         for (label, control, id) in fields {
             let caption = TextBlock()
@@ -119,6 +144,8 @@ final class PanelAjustes {
             box.children.append(control)
             form.children.append(box)
         }
+        form.children.append(resaltado)
+        form.children.append(reglas)
         AutomationProperties.setAutomationId(tamano, "Ajustes_Tamano")
 
         saveButton.content = L("Guardar")
@@ -162,6 +189,9 @@ final class PanelAjustes {
         tamano.value = Double(settings.tamano)
         interlineado.value = settings.interlineado
         orientacion.selectedIndex = settings.divisionApilada ? 1 : 0
+        filtro.selectedIndex = Int32(filtros.firstIndex(of: settings.filtro) ?? 1)
+        intensidad.value = settings.intensidad
+        resaltado.isChecked = settings.resaltado
         // (los temas se leen al abrir el panel: por si se ha importado alguno)
         let themes = TemasTerminal.disponibles()
         temaTerminal.items.clear()
@@ -195,6 +225,10 @@ final class PanelAjustes {
         settings.tamano = currentSize
         settings.interlineado = interlineado.value
         settings.divisionApilada = orientacion.selectedIndex == 1
+        let filtroIndex = Int(filtro.selectedIndex)
+        if filtros.indices.contains(filtroIndex) { settings.filtro = filtros[filtroIndex] }
+        settings.intensidad = intensidad.value
+        settings.resaltado = resaltado.isChecked == true
         let c = Int(temaTerminal.selectedIndex)
         if temaIds.indices.contains(c) { settings.temaTerminal = temaIds[c] }
         onSave?(settings)

@@ -2428,6 +2428,11 @@ enum Ingles {
         // 1.0.0 · fuentes
         "Automático: el del tema (%@ pt)": "Automatic: the theme’s (%@ pt)",
         "Interlineado": "Line spacing",
+        "El archivo de resaltado necesita una sección rules": "The highlight file needs a rules section",
+        "Reglas de resaltado guardadas": "Highlight rules saved",
+        "Reglas en formato ChromaTerm YAML": "Rules in ChromaTerm YAML format",
+        "Editar reglas de resaltado": "Edit highlight rules",
+        "Activar resaltado": "Enable highlighting",
         "Editar": "Edit",
         "Devolver pestaña": "Return tab",
         "Mover pestaña a otra ventana": "Move tab to another window",

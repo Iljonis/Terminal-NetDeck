@@ -51,6 +51,7 @@ Get-ChildItem -LiteralPath $Runtime -Filter '*.dll' -File | Copy-Item -Destinati
 $desktop = Join-Path $repo 'windows/Desktop'
 # Los temas de color del terminal (NetDeckCore los busca en «Temas», junto al exe)
 Copy-Item (Join-Path $repo 'Temas') (Join-Path $Destino 'Temas') -Recurse -Force
+Copy-Item (Join-Path $repo 'Resaltado') (Join-Path $Destino 'Resaltado') -Recurse -Force
 Copy-Item (Join-Path $desktop 'AppxManifest.xml') $Destino -Force
 Copy-Item (Join-Path $desktop 'Assets') (Join-Path $Destino 'Assets') -Recurse -Force
 Copy-Item (Join-Path $PSScriptRoot 'registrar-sparse.ps1'), (Join-Path $PSScriptRoot 'quitar-sparse.ps1') $Destino -Force

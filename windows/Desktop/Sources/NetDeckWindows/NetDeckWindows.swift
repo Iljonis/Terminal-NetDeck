@@ -1,6 +1,7 @@
 import Foundation
 import NetDeckCore
 import struct UWP.Color
+import struct WindowsFoundation.Size
 import WinSDK
 import WinUI
 
@@ -37,6 +38,11 @@ final class NetDeckWindows: SwiftApplication {
     private let sidebar = StackPanel()
     private let editor = PanelEditorSesion()
     private let ajustes = PanelAjustes()
+    private let reglas = PanelTexto(idPrefix: "Resaltado")
+    private var resaltadoDemo: String?
+    private var highlightConfig: HighlightConfig?
+    private var screenLook: ScreenLook?
+    private let paletaBase = PaletaTerminal(tema: Theme.builtIn)
     private let pegado = PanelTexto(idPrefix: "PegarSeguro")
     private let multi = PanelTexto(idPrefix: "MultiExec")
     private let explorador = ExploradorSFTP()
@@ -58,8 +64,8 @@ final class NetDeckWindows: SwiftApplication {
     private var tunnelManager: TunnelManager!
     private var settings = AjustesTerminal.cargar()
     private var rootView: Grid?
-    /// Tamano de letra respecto a 15 pt (celda de 8,25 x 19 px): para calcular columnas y filas.
-    private var fontScale = 1.0
+    /// Ancho medido de la fuente monoespaciada para las columnas de ConPTY.
+    private var anchoCelda = 8.25
     /// Colores del tema elegido para el terminal (nil: los del sistema, texto liso).
     private var paleta: PaletaTerminal?
     private var pinceles: [RGB: SolidColorBrush] = [:]
@@ -290,7 +296,7 @@ final class NetDeckWindows: SwiftApplication {
         }
         Grid.setRow(asistente.view, Int32(2))
         layout.children.append(asistente.view)
-        for panel in [pegado, multi, actualizacion, macroConfirm, confirmarBoton] {
+        for panel in [pegado, multi, actualizacion, macroConfirm, confirmarBoton, reglas] {
             Grid.setRow(panel.view, Int32(2))
             layout.children.append(panel.view)
             panel.onCancel = { [weak self] in self?.showPanel(nil) }
@@ -323,6 +329,9 @@ final class NetDeckWindows: SwiftApplication {
         macros.onRecord = { [weak self] in self?.startRecording() }
         macros.onDelete = { [weak self] in self?.confirmMacroDeletion($0) }
         macroConfirm.onCancel = { [weak self] in self?.showMacros() }
+        reglas.onConfirm = { [weak self] in self?.saveHighlightRules($0) }
+        reglas.onCancel = { [weak self] in self?.showAjustes() }
+        ajustes.onHighlight = { [weak self] in self?.showHighlightRules() }
         ajustes.onCheckUpdates = { [weak self] in self?.checkUpdates() }
         ajustes.onSave = { [weak self] new in self?.saveAjustes(new) }
         ajustes.onCancel = { [weak self] in self?.hideAjustes() }
@@ -459,6 +468,7 @@ final class NetDeckWindows: SwiftApplication {
         terminalGrid.visibility = panel == nil ? .visible : .collapsed
         editor.view.visibility = panel === editor.view ? .visible : .collapsed
         ajustes.view.visibility = panel === ajustes.view ? .visible : .collapsed
+        reglas.view.visibility = panel === reglas.view ? .visible : .collapsed
         pegado.view.visibility = panel === pegado.view ? .visible : .collapsed
         if panel !== pegado.view { pendingPaste = nil }
         multi.view.visibility = panel === multi.view ? .visible : .collapsed
@@ -1105,9 +1115,18 @@ final class NetDeckWindows: SwiftApplication {
 
     /// Los colores del tema (de NetDeckCore) en la superficie del terminal, en su paleta y en el texto, por trozos de color.
     private func applyTerminalTheme(_ id: String) {
-        paleta = TemasTerminal.tema(id: id).map(PaletaTerminal.init(tema:))
+        let theme = TemasTerminal.tema(id: id)
+        paleta = theme.map(PaletaTerminal.init(tema:))
+        var contraste = HIGHCONTRASTW()
+        contraste.cbSize = UINT(MemoryLayout<HIGHCONTRASTW>.size)
+        let contrasteActivo = SystemParametersInfoW(UINT(SPI_GETHIGHCONTRAST), contraste.cbSize, &contraste, 0)
+            && contraste.dwFlags & DWORD(HCF_HIGHCONTRASTON) != 0
+        let choice = ScreenFilter.resolve(choice: settings.filtro, on: true, theme: theme?.screenFilter,
+                                          calm: contrasteActivo)
+        screenLook = choice.look(intensity: settings.intensidad, text: paleta?.texto ?? paletaBase.texto)
         for vista in vistas {
             vista.invalidate()
+            vista.filtro.apply(screenLook)
             vista.surface.background = paleta.map { brush($0.fondo) } ?? brushTransparente
             if let paleta { vista.screen.foreground = brush(paleta.texto) }
             else { _ = try? vista.screen.clearValue(TextBlock.foregroundProperty) }
@@ -1131,6 +1150,61 @@ final class NetDeckWindows: SwiftApplication {
 
     // MARK: - ajustes
 
+    private var highlightURL: URL { AppPaths.support.appendingPathComponent("resaltado.yml") }
+
+    private func highlightText() throws -> String {
+        if let resaltadoDemo { return resaltadoDemo }
+        if !isDemo, let custom = try SafeFile.read(highlightURL) { return custom }
+        let exe = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
+        let bundled = exe.appendingPathComponent("Resaltado/netdeck.yml")
+        return try SafeFile.read(bundled) ?? "rules:\n"
+    }
+
+    private func reloadHighlight() {
+        do {
+            highlightConfig = settings.resaltado ? try HighlightConfig(text: highlightText()) : nil
+        } catch {
+            highlightConfig = nil
+            status.text = error.localizedDescription
+        }
+        for tab in terminals { tab.resaltar(highlightConfig) }
+        for detached in ventanasPestana.values { detached.session.resaltar(highlightConfig) }
+    }
+
+    private func showHighlightRules() {
+        do {
+            reglas.show(title: L("Editar reglas de resaltado"), hint: L("Reglas en formato ChromaTerm YAML"),
+                        text: try highlightText(), editable: true, confirmTitle: L("Guardar"))
+            showPanel(reglas.view)
+        } catch {
+            status.text = error.localizedDescription
+        }
+    }
+
+    private func saveHighlightRules(_ text: String) {
+        do {
+            let source = text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+            guard source.split(whereSeparator: \.isNewline).contains(where: { $0.trimmingCharacters(in: .whitespaces) == "rules:" }) else {
+                throw RemoteError(L("El archivo de resaltado necesita una sección rules"))
+            }
+            let parsed = try HighlightConfig(text: source)
+            if let problem = parsed.problems.first { throw RemoteError(problem) }
+            if isDemo { resaltadoDemo = source } else {
+                _ = AppPaths.ensure(highlightURL.deletingLastPathComponent())
+                try SafeFile.backup(highlightURL)
+                try SafeFile.write(source, to: highlightURL)
+            }
+            settings.resaltado = true
+            if !isDemo { settings.guardar() }
+            reloadHighlight()
+            render()
+            showAjustes()
+            status.text = L("Reglas de resaltado guardadas")
+        } catch {
+            status.text = L("No se puede guardar: \(error.localizedDescription)")
+        }
+    }
+
     private func showAjustes() {
         status.text = ""
         ajustes.show(settings)
@@ -1150,15 +1224,23 @@ final class NetDeckWindows: SwiftApplication {
 
     /// Fuente y tamano al terminal; el tema, a la ventana (Sistema = el de Windows).
     private func applySettings(_ a: AjustesTerminal) {
+        let medidor = TextBlock()
+        medidor.fontFamily = FontFamily(a.fuente)
+        medidor.fontSize = Double(a.tamano)
+        medidor.text = String(repeating: "M", count: 16)
+        _ = try? medidor.measure(Size(width: 1000, height: 200))
+        let medida = Double(medidor.desiredSize.width) / 16
+        anchoCelda = medida > 0 ? medida : 8.25 * Double(a.tamano) / 15
         for vista in vistas {
+            vista.cellSize(width: anchoCelda, height: alturaLinea)
             vista.screen.fontFamily = FontFamily(a.fuente)
             vista.screen.fontSize = Double(a.tamano)
             vista.screen.lineHeight = alturaLinea
         }
-        fontScale = Double(a.tamano) / 15
         updateSplitLayout()
         let theme: Int32 = a.tema == "Claro" ? 1 : (a.tema == "Oscuro" ? 2 : 0)
         rootView?.requestedTheme = ElementTheme(rawValue: theme)
+        reloadHighlight()
         applyTerminalTheme(a.temaTerminal)
         for tab in ventanasPestana.values { resizeDetached(tab) }
         // Mica solo con «Sistema»; con Claro u Oscuro, fondo liso. (Mica pide Windows 11.)
@@ -1295,6 +1377,7 @@ final class NetDeckWindows: SwiftApplication {
             let queue = window?.dispatcherQueue
             terminals.append(session)
             session.apply(palette: paleta)
+            session.resaltar(highlightConfig)
             select(session)
             session.observe(enqueue: { action in
                 (try? queue?.tryEnqueue { action() }) == true
@@ -1475,6 +1558,8 @@ final class NetDeckWindows: SwiftApplication {
     private func styleDetached(_ detached: VentanaPestana) {
         let vista = detached.vista
         vista.invalidate()
+        vista.filtro.apply(screenLook)
+        vista.cellSize(width: anchoCelda, height: alturaLinea)
         vista.screen.fontFamily = FontFamily(settings.fuente)
         vista.screen.fontSize = Double(settings.tamano)
         vista.screen.lineHeight = alturaLinea
@@ -1484,13 +1569,13 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     private func renderDetached(_ detached: VentanaPestana) {
-        detached.vista.render(detached.session, palette: paleta, brush: brush)
+        detached.vista.render(detached.session, palette: paleta ?? paletaBase, cursorActive: true, brush: brush)
     }
 
     private func resizeDetached(_ detached: VentanaPestana) {
         let surface = detached.vista.surface
         guard surface.actualWidth > 20, surface.actualHeight > 16 else { return }
-        detached.session.resize(cols: max(2, Int((surface.actualWidth - 20) / (8.25 * fontScale))),
+        detached.session.resize(cols: max(2, Int((surface.actualWidth - 20) / anchoCelda)),
                                 rows: max(2, Int((surface.actualHeight - 16) / alturaLinea)))
         renderDetached(detached)
     }
@@ -1535,7 +1620,7 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     private func render(_ index: Int) {
-        vistas[index].render(terminalesVisibles[index], palette: paleta, brush: brush)
+        vistas[index].render(terminalesVisibles[index], palette: paleta ?? paletaBase, cursorActive: index == panelActivo, brush: brush)
     }
 
     private func focusTerminal() { _ = try? vistas[panelActivo].surface.focus(.programmatic) }
@@ -1549,7 +1634,7 @@ final class NetDeckWindows: SwiftApplication {
     private func resize(_ index: Int) {
         let surface = vistas[index].surface
         guard let tab = terminalesVisibles[index], surface.actualWidth > 20, surface.actualHeight > 16 else { return }
-        let cols = max(2, Int((surface.actualWidth - 20) / (8.25 * fontScale)))
+        let cols = max(2, Int((surface.actualWidth - 20) / anchoCelda))
         let rows = max(2, Int((surface.actualHeight - 16) / alturaLinea))
         if let grabando, grabando.tab === tab, (cols, rows) != (tab.terminal.cols, tab.terminal.rows) {
             MainActor.assumeIsolated { grabando.recorder.bufferRealigned() }

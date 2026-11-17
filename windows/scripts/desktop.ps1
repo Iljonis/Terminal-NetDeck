@@ -40,6 +40,9 @@ $bootstrap = (Get-ChildItem -LiteralPath (Join-Path $products "$bundle.bundle") 
     Select-Object -First 1 -ExpandProperty FullName)
 if (!$bootstrap -or !(Test-Path $bootstrap)) { throw 'Falta el bootstrapper de Windows App SDK.' }
 Copy-Item -LiteralPath $bootstrap -Destination $resources -Force
+foreach ($assets in @('Temas', 'Resaltado')) {
+    Copy-Item -LiteralPath (Join-Path $repo $assets) -Destination $products -Recurse -Force
+}
 $app = Join-Path $products 'NetDeckWindows.exe'
 Write-Host $app
 

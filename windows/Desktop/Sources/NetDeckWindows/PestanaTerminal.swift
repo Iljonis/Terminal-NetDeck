@@ -10,9 +10,11 @@ final class PestanaTerminal: TerminalDelegate {
     private let id = UUID()
     private let process: ConPTYProcess
     private let input = DispatchQueue(label: "netdeck.windows.terminal")
+    private var resaltador: Highlighter?
     private var reader: Task<Void, Never>?
     private(set) var revision = 0
     private(set) var closed = false
+    private(set) var cursorVisible = true
     private(set) lazy var terminal = Terminal(delegate: self)
 
     init(route: ConnectionRoute, config: URL?) throws {
@@ -45,7 +47,7 @@ final class PestanaTerminal: TerminalDelegate {
             for await data in output {
                 guard !Task.isCancelled, enqueue({ [weak self] in
                     guard let self, !self.closed else { return }
-                    self.terminal.feed(byteArray: Array(data))
+                    self.terminal.feed(byteArray: self.resaltador?.process(data) ?? Array(data))
                     self.revision &+= 1
                     changed()
                 }) else { return }
@@ -91,8 +93,20 @@ final class PestanaTerminal: TerminalDelegate {
         terminal.cursorColor = PaletaTerminal.swiftTerm(palette.cursor)
     }
 
-    /// La pantalla por lineas y trozos del mismo color de texto (sin los espacios del final de cada linea). Los trozos de color por
-    /// defecto llevan color nil. Solo cuenta el color del TEXTO: ni el fondo de cada celda ni negrita, subrayado o inversa.
+    func resaltar(_ config: HighlightConfig?) {
+        guard let config else {
+            resaltador = nil
+            return
+        }
+        if let resaltador {
+            resaltador.rules = config.rules
+            resaltador.palette = config.palette
+        } else {
+            resaltador = Highlighter(rules: config.rules, palette: config.palette)
+        }
+    }
+
+    /// Agrupa celdas contiguas con el mismo estilo de texto.
     func coloredLines(_ palette: PaletaTerminal) -> [[SegmentoColor]] {
         (0..<terminal.rows).map { row in
             var segments: [SegmentoColor] = []
@@ -100,16 +114,30 @@ final class PestanaTerminal: TerminalDelegate {
                 guard let cell = terminal.getCharData(col: col, row: row), cell.width != 0 else { continue }   // (0: la mitad de un ancho doble)
                 let letter = cell.getCharacter()
                 let character = letter == "\u{0}" ? " " : String(letter)
+                let style = cell.attribute.style
                 let color = palette.color(cell.attribute.fg)
-                if let last = segments.last, last.color == color {
+                let fondo = cell.attribute.bg == .defaultInvertedColor ? nil : palette.color(cell.attribute.bg)
+                let inverso = style.contains(.inverse)
+                let segment = SegmentoColor(texto: character, color: inverso ? fondo ?? palette.fondo : color,
+                                            fondo: inverso ? color ?? palette.texto : fondo,
+                                            columnas: Int(cell.width), bold: style.contains(.bold),
+                                            italic: style.contains(.italic), underline: style.contains(.underline))
+                if let last = segments.last, last.mismoEstilo(segment) {
                     segments[segments.count - 1].texto += character
+                    segments[segments.count - 1].columnas += segment.columnas
                 } else {
-                    segments.append(SegmentoColor(texto: character, color: color))
+                    segments.append(segment)
                 }
             }
-            while let last = segments.last {
+            while let last = segments.last, last.fondo == nil {
                 let trimmed = String(last.texto.reversed().drop { $0 == " " }.reversed())
-                if trimmed.isEmpty { segments.removeLast() } else { segments[segments.count - 1].texto = trimmed; break }
+                if trimmed.isEmpty {
+                    segments.removeLast()
+                } else {
+                    segments[segments.count - 1].texto = trimmed
+                    segments[segments.count - 1].columnas -= last.texto.count - trimmed.count
+                    break
+                }
             }
             return segments
         }
@@ -127,6 +155,9 @@ final class PestanaTerminal: TerminalDelegate {
             .replacingOccurrences(of: "\r\n", with: "\r").replacingOccurrences(of: "\n", with: "\r")
         write(terminal.bracketedPasteMode ? "\u{1b}[200~" + plain + "\u{1b}[201~" : plain)
     }
+
+    func showCursor(source: Terminal) { cursorVisible = true }
+    func hideCursor(source: Terminal) { cursorVisible = false }
 
     func send(source: Terminal, data: ArraySlice<UInt8>) {
         guard !closed, !data.isEmpty else { return }

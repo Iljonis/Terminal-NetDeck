@@ -30,6 +30,15 @@ enum TemasTerminal {
 struct SegmentoColor: Equatable {
     var texto: String
     var color: RGB?
+    var fondo: RGB?
+    var columnas: Int
+    var bold: Bool
+    var italic: Bool
+    var underline: Bool
+
+    func mismoEstilo(_ other: Self) -> Bool {
+        color == other.color && fondo == other.fondo && bold == other.bold && italic == other.italic && underline == other.underline
+    }
 }
 
 /// Los colores de un tema para el terminal: fondo, texto, cursor y los 16 ANSI (todos opacos).
