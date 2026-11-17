@@ -1,3 +1,14 @@
+## 2026-11-17 · Windows · P10: el Windows App Runtime sigue siendo un prerrequisito que se comprueba (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. Decisión: **opción 2**. El `.msi` no descarga ni incluye el Windows App Runtime 1.5; sigue comprobándolo (la `Launch` de P10) y avisa con el enlace, y `windows/README.md` lo cuenta como requisito.
+El razonamiento está como comentario en `NetDeckWindows.wxs` (cerca de `WINAPPRUNTIME_INSTALLED`). El `.wxs` sigue compilando y pasando ICE.
+
+- **Por qué no la descarga en una `CustomAction`:** sería bajar y ejecutar un `.exe` de internet con permisos de administrador dentro de una acción diferida de MSI. Las reglas del actualizador (ADR-0003) lo exigen con sha256 y firma verificados;
+  Microsoft no publica un sha256 estable para el enlace «latest», y fijar el firmante es código que aquí no se puede probar (instalar pide elevación). Sin red o con proxy fallaría a mitad con un error de MSI poco claro.
+  Incluir los 64 MB en el `.msi` tampoco es mejor: hay que renovarlo con cada parche del runtime.
+- **Qué sería lo correcto:** un bundle de **WiX Burn** (`WixToolset.Bal.wixext`) con un `ExePackage` para `WindowsAppRuntimeInstall-x64.exe`, con `DetectCondition`, hash y firma fijados e interfaz con reintentos. Cuando el instalador se pruebe en un Windows limpio y haya firma.
+- Nota: el commit `51634ab` («guía Windows a `CLAUDE.md` y `AGENTS.md`») no es de esta sesión; lo hizo otra, y por eso la entrada de P11 de más abajo lo da por pendiente.
+
 ## 2026-11-17 · Windows · P10: borrador del workflow de Release de Windows (por Claude)
 
 **Por Claude.** Rama `windows/p10-paquete`. **El workflow NO está activo**: se escribió como borrador en `windows/ci/windows-release.yml` (igual que `windows-nucleo.yml`), no en `.github/workflows/`.

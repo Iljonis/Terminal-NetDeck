@@ -75,6 +75,17 @@
       en 1 o 0. Va como Binary (con ScriptSourceFile, WiX lo guarda en la columna Target, de 255 caracteres, y ICE03 avisa del desbordamiento). Return="ignore": si el propio script falla, la propiedad queda en 0.
       SKIP_WINAPPRUNTIME_CHECK=1 se salta la comprobacion (por si el script no puede ejecutarse en algun equipo).
     -->
+    <!--
+      DECISION (P10): el Windows App Runtime 1.5 es un PRERREQUISITO que el instalador COMPRUEBA, no que descarga ni incluye. Se valoro que una CustomAction
+      lo bajase de https://aka.ms/windowsappsdk/1.5/latest/windowsappruntimeinstall-x64.exe y lo ejecutase cuando WINAPPRUNTIME_INSTALLED = "0", y se descarto por ahora:
+       - Seria bajar y ejecutar un .exe de internet con permisos de administrador dentro de una accion diferida de MSI. Las reglas del actualizador (ADR-0003) lo
+         exigen con sha256 y firma verificados; Microsoft no publica un sha256 estable para el enlace «latest», y fijar el firmante (Microsoft Corporation) es codigo
+         que aqui no se puede probar: instalar el .msi pide elevacion y registraria cosas en el equipo.
+       - Sin red, o con un proxy, fallaria a mitad de la instalacion con un error de MSI poco claro (una accion diferida no puede mostrar mensajes utiles).
+       - Incluir los 64 MB del instalador dentro del .msi tampoco es mejor: hay que actualizarlo con cada parche del runtime.
+      Lo correcto, cuando se pruebe el instalador en un Windows limpio y haya firma, es un bundle de WiX Burn (extension WixToolset.Bal.wixext) con un ExePackage para
+      WindowsAppRuntimeInstall-x64.exe: DetectCondition, Hash y firma fijados, interfaz y reintentos. Mientras tanto, este aviso con el enlace y windows/README.md.
+    -->
     <Property Id="WINAPPRUNTIME_INSTALLED" Value="0" Secure="yes" />
     <Property Id="SKIP_WINAPPRUNTIME_CHECK" Value="0" Secure="yes" />
     <Binary Id="DetectarRuntimeJs" SourceFile="$(sys.SOURCEFILEDIR)detectar-runtime.js" />
