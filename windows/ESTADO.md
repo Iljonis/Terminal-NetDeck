@@ -1,3 +1,32 @@
+## 2026-11-17 · Windows · P8: atajos de teclado (por Claude)
+
+**Por Claude.** Atajos globales de la ventana principal. Compila (`Build complete!`) y se han probado de verdad en la
+demo: enviando las teclas a la ventana y mirando capturas.
+
+### Qué hay
+- `NetDeckWindows.swift`: `previewKeyDown` en la rejilla raíz (fase de túnel, antes de que el terminal reciba la tecla) y
+  `shortcut(_:)`:
+  - **Ctrl+N**: terminal local nueva (como el botón «Terminal local»). **Ctrl+Mayús+N**: editor de sesión nueva.
+  - **Ctrl+W**: cierra la pestaña activa.
+  - **Ctrl+Tab / Ctrl+Mayús+Tab**: pestaña siguiente / anterior (da la vuelta).
+  - **Ctrl+,**: abre Ajustes.
+  - Si hay un panel (editor o ajustes) abierto, N, W y Tab lo cierran y vuelven al terminal.
+- Comprobado en la demo: Ctrl+N abre una segunda pestaña, Ctrl+W la cierra, Ctrl+, abre Ajustes; «+ Nueva sesión» abre
+  el editor, y Guardar con un nombre añade la sesión a la barra lateral con el aviso «Sesión «x» guardada».
+
+### Notas y problemas conocidos
+- **Ctrl+N y Ctrl+W ya no llegan al terminal** (en la shell son «siguiente en el historial» y «borrar palabra»). Es lo que
+  pide la tarea; si molesta, cambiar `shortcut(_:)` para exigir además Mayús o reservarlos al terminal.
+- El campo Nombre del editor **no recibe el foco** al abrirse (`focus(.programmatic)` no surte efecto, ni diferido con el
+  `DispatcherQueue`): hay que hacer clic en él.
+- **Las consultas de UI Automation (`FindAll` sobre el árbol de la ventana) cierran la app** con acceso no válido en
+  `Microsoft.UI.Xaml.dll` (0xc0000005). Con la app en reposo y con teclas y clics no pasa. Hay que investigarlo antes de
+  automatizar pruebas de interfaz con UIA (P8, `windows-desktop-e2e`).
+- La lista de sesiones del editor en modo real y el guardado real (`file.save()`, con `ssh -G`) siguen sin probarse.
+
+### Siguiente
+Explorador SFTP/FTP, temas de NetDeckCore, MultiExec y Túneles.
+
 ## 2026-11-17 · Windows · P8: panel de Ajustes (por Claude)
 
 **Por Claude.** Panel de Ajustes con fuente, tamaño y tema. Compila (`Build complete!`) y la app arranca en modo demo

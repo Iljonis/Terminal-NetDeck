@@ -96,8 +96,10 @@ final class PanelEditorSesion {
         summary.text = session.summary
         kind.selectedIndex = Int32(Self.kinds.firstIndex(of: session.kind) ?? 0)
         loading = false
-        _ = try? name.focus(.programmatic)
     }
+
+    /// Foco en el nombre (con el panel ya visible: antes no lo recibe).
+    func focusName() { _ = try? name.focus(.programmatic) }
 
     private func kindChanged() {
         guard !loading else { return }

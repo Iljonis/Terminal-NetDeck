@@ -164,6 +164,11 @@ final class NetDeckWindows: SwiftApplication {
         ajustes.onCancel = { [weak self] in self?.hideAjustes() }
 
         root.children.append(layout)
+        // Atajos: en la fase de tunel (previewKeyDown), antes de que el terminal reciba la tecla.
+        root.previewKeyDown.addHandler { [weak self] _, args in
+            guard let self, let args, self.shortcut(args.key.rawValue) else { return }
+            args.handled = true
+        }
         window.content = root
         rootView = root
         applySettings(settings)
@@ -260,6 +265,7 @@ final class NetDeckWindows: SwiftApplication {
         status.text = ""
         editor.show(session, original: original)
         showPanel(editor.view)
+        _ = try? window?.dispatcherQueue?.tryEnqueue { [weak self] in self?.editor.focusName() }
     }
 
     private func hideEditor() { showPanel(nil) }
@@ -270,6 +276,36 @@ final class NetDeckWindows: SwiftApplication {
         editor.view.visibility = panel === editor.view ? .visible : .collapsed
         ajustes.view.visibility = panel === ajustes.view ? .visible : .collapsed
         if panel == nil { focusTerminal() }
+    }
+
+    // MARK: - atajos
+
+    /// Ctrl+N terminal local, Ctrl+Mayus+N sesion nueva, Ctrl+W cierra la pestana, Ctrl+Tab / Ctrl+Mayus+Tab
+    /// cambian de pestana, Ctrl+, abre Ajustes. Devuelve true si la tecla era un atajo.
+    private func shortcut(_ key: Int32) -> Bool {
+        guard GetKeyState(Int32(VK_CONTROL)) < 0, GetKeyState(Int32(VK_MENU)) >= 0 else { return false }
+        let shift = GetKeyState(Int32(VK_SHIFT)) < 0
+        switch key {
+        case 78:
+            if shift { newSession() } else { showPanel(nil); open(.local()) }
+        case 87:
+            showPanel(nil)
+            closeSelected()
+        case 9:
+            showPanel(nil)
+            cycleTab(shift ? -1 : 1)
+        case 188:
+            showAjustes()
+        default:
+            return false
+        }
+        return true
+    }
+
+    private func cycleTab(_ step: Int) {
+        guard terminals.count > 1, let selected,
+              let index = terminals.firstIndex(where: { $0 === selected }) else { return }
+        select(terminals[(index + step + terminals.count) % terminals.count])
     }
 
     // MARK: - ajustes
