@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Manifiesto del Sparse Package de Terminal NetDeck (ADR-0003, opcion B). Da identidad de paquete al NetDeckWindows.exe
+  que vive en la carpeta de instalacion (ExternalLocation): no se instala un MSIX completo ni hay sandbox.
+
+  Se instala junto a NetDeckWindows.exe (windows/installer/NetDeckWindows.wxs). Registro, por usuario:
+      Add-AppxPackage -Path NetDeckSparse.msix -ExternalLocation "C:\Program Files\Terminal NetDeck"
+  (el .msix lo genera `makeappx pack /nv` con este manifiesto y se firma; windows/installer/registrar-sparse.ps1 hace el
+  registro). Sin firma solo vale en modo desarrollador: Add-AppxPackage -Register AppxManifest.xml -ExternalLocation <carpeta>.
+
+  PENDIENTE antes de publicar:
+   - Publisher: debe ser EXACTAMENTE el Subject del certificado de firma (con Azure Code Signing, el de la cuenta).
+   - Los iconos de Assets son provisionales (un color liso): faltan los de la app.
+   - Version: la misma que el .wxs y que UpdateChecker.currentVersion.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap10 rescap">
+
+  <Identity Name="Iljonis.TerminalNetDeck"
+            Publisher="CN=TerminalNetDeck"
+            Version="0.9.0.0"
+            ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Terminal NetDeck</DisplayName>
+    <PublisherDisplayName>Iljonis</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <uap10:AllowExternalContent>true</uap10:AllowExternalContent>
+  </Properties>
+
+  <Resources>
+    <Resource Language="es-es" />
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Dependencies>
+    <!-- 10.0.19041 (Windows 10 2004): la primera version con paquetes de ubicacion externa (Sparse Package). -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Capabilities>
+    <!-- Sin sandbox: ConPTY, ssh.exe y los archivos del usuario funcionan igual que sin paquete. -->
+    <rescap:Capability Name="runFullTrust" />
+    <!-- Sin ella, el sistema redirige AppData y el registro a una copia privada del paquete (rompe ~/.ssh y NETDECK_HOME). -->
+    <rescap:Capability Name="unvirtualizedResources" />
+  </Capabilities>
+
+  <Applications>
+    <Application Id="TerminalNetDeck"
+                 Executable="NetDeckWindows.exe"
+                 uap10:TrustLevel="mediumIL"
+                 uap10:RuntimeBehavior="win32App">
+      <uap:VisualElements DisplayName="Terminal NetDeck"
+                          Description="Gestor de sesiones SSH, SFTP y tuneles"
+                          BackgroundColor="transparent"
+                          Square150x150Logo="Assets\Square150x150Logo.png"
+                          Square44x44Logo="Assets\Square44x44Logo.png"
+                          AppListEntry="none" />
+    </Application>
+  </Applications>
+</Package>

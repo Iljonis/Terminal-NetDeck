@@ -1,3 +1,22 @@
+## 2026-11-17 · Windows · P10: AppxManifest.xml del Sparse Package (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete` (sale de `windows/p9-seguridad`, con la ADR-0003 traída de `windows/p8-terminal`).
+
+- `windows/Desktop/AppxManifest.xml`: identidad `Iljonis.TerminalNetDeck`, versión `0.9.0.0`, x64, `Publisher="CN=TerminalNetDeck"`
+  (provisional), aplicación `NetDeckWindows.exe` con `runFullTrust`, y `Windows.Desktop` desde 10.0.19041.0. **Validado con
+  `makeappx pack /nv`** (empaqueta bien). No se ha registrado en este equipo (sin firma sólo vale en modo desarrollador).
+- Dos diferencias con el encargo, las dos por lo que dijo `makeappx` o la documentación:
+  - **`MinVersion` 10.0.19041.0** y no 17763: los paquetes de ubicación externa (Sparse Package) empiezan en Windows 10 2004.
+  - **Capacidad `unvirtualizedResources`**: `makeappx` rechaza el manifiesto sin ella. Además evita que el sistema redirija
+    `AppData` y el registro a una copia privada del paquete (el mismo efecto que rompe otras herramientas aquí).
+- Registro correcto: `Add-AppxPackage -Path NetDeckSparse.msix -ExternalLocation <carpeta>` (el .msix se genera con
+  `makeappx pack /nv` y se firma) o, sin firma y con el modo desarrollador, `Add-AppxPackage -Register AppxManifest.xml
+  -ExternalLocation <carpeta>`. La sintaxis `--ExternalLocation … --Path AppxManifest.xml` del encargo no existe en PowerShell.
+- `windows/Desktop/Assets/*.png`: tres iconos **provisionales** (un color liso, el índigo del tema NetDeck); no hay icono de la
+  app en el repositorio. Pendiente antes de publicar: iconos, `Publisher` igual al Subject del certificado y firma.
+- **Versión:** 0.9.0 como se pidió, pero `CHANGELOG.md` ya publica 1.0.0 (macOS). Hay que decidir cuál es la versión de
+  Windows antes del primer lanzamiento y cambiarla a la vez en el manifiesto, el `.wxs` y `UpdateChecker.currentVersion`.
+
 ## 2026-11-17 · Windows · P9: informe de seguridad (por Claude)
 
 **Por Claude.** Rama `windows/p9-seguridad`, salida de `windows/p8-terminal` en `652d840`. Cuatro commits, suite completa en verde
