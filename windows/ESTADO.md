@@ -1,3 +1,34 @@
+## 2026-11-17 · Windows · P8: panel de túneles SSH (por Claude)
+
+**Por Claude.** Panel de túneles en el área principal. Compila (`Build complete!`) y está probado en la demo con capturas:
+crear, iniciar y detener un túnel. Dos fallos de `TunnelManager` en Windows corregidos en el núcleo.
+
+### Qué hay
+- `windows/Desktop/Sources/NetDeckWindows/PanelTuneles.swift` (nuevo): lista con nombre, tipo, `forwardSpec`, estado y
+  botones ▶ Iniciar / ■ Detener, ✎ y ✕; botón «+ Nuevo túnel» y formulario (nombre, sesión, equipo, tipo, puerto de
+  escucha, destino, puerto de destino, «escuchar fuera de este equipo»). Datos de `TunnelLibrary` (`tuneles.json`); en la
+  demo, sólo en memoria.
+- `NetDeckWindows.swift`: botón «Túneles» (id `Tuneles`) y **Ctrl+T**. Usa el `TunnelManager` del núcleo (preflight `ssh -G`,
+  vigilancia y parada), no un `ChildProcess` a mano: `startTunnel`, `stopTunnel`, `tunnelChanged`; al salir se paran todos.
+- `Ingles.swift`: textos nuevos en inglés.
+
+### Correcciones en el núcleo (`Sources/NetDeckCore/Sessions/Tunnels.swift`)
+1. **`ssh -G` en Windows devuelve líneas con `\r\n`** y `split(separator: "\n")` no parte ese grafema: la comprobación previa
+   fallaba siempre con «ssh -G ha devuelto una configuración incompleta». Ahora `split(whereSeparator: \.isNewline)`
+   (igual en macOS).
+2. **`TunnelProcess` (rama `#if os(Windows)`)**: el `terminationHandler` daba el proceso por terminado y anulaba la lectura
+   antes de vaciar la tubería. Ahora lee lo que queda y luego fija el estado; la lógica de añadir salida pasa a
+   `appendOutput(_:)`. macOS no cambia.
+
+### Notas
+- Probado: iniciar pasa el preflight y queda «Iniciando…»; Detener lo para y quita el ssh. Sin probar un túnel realmente
+  activo (no hay un servidor ssh al que llegar) ni un túnel remoto o SOCKS.
+- La contraseña por teclado sigue sin askpass en Windows (P4e/P10): de momento claves y agente.
+- Los tests (`test.ps1`, 545) pasan, pero **hay fallos intermitentes ajenos a los túneles**: en 4 ejecuciones, una dio 545/545,
+  otra 5 fallos en `DataBackupTests.copiaAntesDeGuardar` (que pasa aislado) y otra 1 en
+  `SessionFileTests.importarUnJSONConOpcionesMaliciosasNoInyectaNada` («You don't have permission», código 513). Parecen
+  carreras de permisos de archivos temporales en Windows al correr en paralelo; hay que investigarlo (P6).
+
 ## 2026-11-17 · Windows · P8: aviso claro para FTP (por Claude)
 
 **Por Claude.** Pequeño ajuste sobre el explorador SFTP. Compila (`Build complete!`) y la app arranca en demo.

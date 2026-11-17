@@ -248,7 +248,7 @@ public struct Tunnel: Codable, Hashable, Sendable, Identifiable {
     }
 
     static func configurationProblem(_ output: String) -> String? {
-        let fields = output.split(separator: "\n").map { $0.split(whereSeparator: \.isWhitespace).map(String.init) }
+        let fields = output.split(whereSeparator: \.isNewline).map { $0.split(whereSeparator: \.isWhitespace).map(String.init) }
         if fields.contains(where: { ["localforward", "remoteforward", "dynamicforward"].contains($0.first?.lowercased() ?? "") }) {
             return L("El ssh_config añade LocalForward, RemoteForward o DynamicForward a esta conexión. Usa una sesión sin reenvíos heredados para iniciar sólo este túnel.")
         }
@@ -663,22 +663,19 @@ public final class TunnelProcess: @unchecked Sendable {
             guard let self else { return }
             let d = h.availableData
             guard !d.isEmpty else { h.readabilityHandler = nil; return }
-            self.lock.withLock {
-                let limit = self.captureOutput ? 1_048_576 : 8000
-                if self.captureOutput {
-                    if self.output.count + d.count > limit { self.truncated = true }
-                    let take = min(d.count, max(0, limit - self.output.count))
-                    if take > 0 { self.output.append(d.prefix(take)) }
-                } else {
-                    self.output.append(contentsOf: d)
-                    if self.output.count > limit { self.output = Data(self.output.suffix(4000)) }
-                }
-            }
+            self.lock.withLock { self.appendOutput(d) }
         }
         windowsProcess = proc
         proc.terminationHandler = { [weak self] p in
-            self?.lock.withLock { self?.status = p.terminationStatus }
-            self?.stderr.readabilityHandler = nil
+            guard let self else { return }
+            self.stderr.readabilityHandler = nil
+            // (lo que quedaba por leer, antes de dar el proceso por terminado: si no, `exited` podia ser true con la
+            // salida a medias y «ssh -G» parecia incompleto)
+            let rest = (try? self.stderr.readToEnd()) ?? nil
+            self.lock.withLock {
+                if let rest, !rest.isEmpty { self.appendOutput(rest) }
+                self.status = p.terminationStatus
+            }
         }
         #else
         let fd = stderr.fileDescriptor
@@ -694,6 +691,21 @@ public final class TunnelProcess: @unchecked Sendable {
         reap()                                                 // (también si salió antes de instalar el aviso)
         #endif
     }
+
+    #if os(Windows)
+    /// Con el candado tomado: añade lo leido, con el mismo tope que en macOS.
+    private func appendOutput(_ d: Data) {
+        let limit = captureOutput ? 1_048_576 : 8000
+        if captureOutput {
+            if output.count + d.count > limit { truncated = true }
+            let take = min(d.count, max(0, limit - output.count))
+            if take > 0 { output.append(d.prefix(take)) }
+        } else {
+            output.append(contentsOf: d)
+            if output.count > limit { output = Data(output.suffix(4000)) }
+        }
+    }
+    #endif
 
     #if !os(Windows)
     // (con lock: el lector y la recogida final nunca compiten por la tubería; no se espera un EOF de un nieto)

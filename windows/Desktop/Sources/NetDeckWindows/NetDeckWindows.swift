@@ -22,6 +22,8 @@ final class NetDeckWindows: SwiftApplication {
     private let pegado = PanelTexto(idPrefix: "PegarSeguro")
     private let multi = PanelTexto(idPrefix: "MultiExec")
     private let explorador = ExploradorSFTP()
+    private let tuneles = PanelTuneles()
+    private var tunnelManager: TunnelManager!
     private var settings = AjustesTerminal.cargar()
     private var rootView: Grid?
     /// Tamano de letra respecto a 15 pt (celda de 8,25 x 19 px): para calcular columnas y filas.
@@ -38,6 +40,8 @@ final class NetDeckWindows: SwiftApplication {
 
         MainActor.assumeIsolated {
             sessions = SessionManager()
+            tunnelManager = TunnelManager()
+            tunnelManager.onChange = { [weak self] id, state in self?.tunnelChanged(id, state) }
             if isDemo {
                 sessions.loadSamples()
                 library.sessions = sessions.profiles.map(NetDeckWindows.editable(from:))
@@ -115,12 +119,15 @@ final class NetDeckWindows: SwiftApplication {
         let multiButton = Button()
         multiButton.content = L("MultiExec")
         multiButton.click.addHandler { [weak self] _, _ in self?.multiExec() }
+        let tunnelButton = Button()
+        tunnelButton.content = L("T\u{00FA}neles")
+        tunnelButton.click.addHandler { [weak self] _, _ in self?.showTuneles() }
         let gear = Button()
         gear.content = "\u{2699}"
         gear.click.addHandler { [weak self] _, _ in self?.showAjustes() }
         for (control, id) in [(local as Control, "NuevaLocal"), (destination, "DestinoSSH"),
                               (connect, "ConectarSSH"), (closeButton, "CerrarPestana"),
-                              (paste, "PegarSeguro"), (multiButton, "MultiExec"),
+                              (paste, "PegarSeguro"), (multiButton, "MultiExec"), (tunnelButton, "Tuneles"),
                               (gear, "Ajustes")] {
             AutomationProperties.setAutomationId(control, id)
             toolbar.children.append(control)
@@ -178,6 +185,25 @@ final class NetDeckWindows: SwiftApplication {
         explorador.enqueue = { [weak self] action in
             _ = try? self?.window?.dispatcherQueue?.tryEnqueue { action() }
         }
+        Grid.setRow(tuneles.view, Int32(2))
+        layout.children.append(tuneles.view)
+        tuneles.persist = !isDemo
+        tuneles.onClose = { [weak self] in self?.showPanel(nil) }
+        tuneles.sessionNames = { [weak self] in
+            guard let self else { return [] }
+            return MainActor.assumeIsolated {
+                self.sessions.profiles.filter { $0.transport == .ssh || $0.transport == .sftp }.map(\.name)
+            }
+        }
+        tuneles.stateOf = { [weak self] id in
+            guard let self else { return .stopped }
+            return MainActor.assumeIsolated { self.tunnelManager.state(id) }
+        }
+        tuneles.onStart = { [weak self] tunnel in self?.startTunnel(tunnel) }
+        tuneles.onStop = { [weak self] id in self?.stopTunnel(id) }
+        tuneles.onForget = { [weak self] id in
+            Task { [weak self] in await self?.tunnelManager.forget(id) }
+        }
         for panel in [pegado, multi] {
             Grid.setRow(panel.view, Int32(2))
             layout.children.append(panel.view)
@@ -207,6 +233,7 @@ final class NetDeckWindows: SwiftApplication {
 
     override func onShutdown() {
         for session in terminals { session.close() }
+        MainActor.assumeIsolated { tunnelManager.stopAll() }
     }
 
     private func buildSidebar() {
@@ -315,6 +342,7 @@ final class NetDeckWindows: SwiftApplication {
         pegado.view.visibility = panel === pegado.view ? .visible : .collapsed
         multi.view.visibility = panel === multi.view ? .visible : .collapsed
         explorador.view.visibility = panel === explorador.view ? .visible : .collapsed
+        tuneles.view.visibility = panel === tuneles.view ? .visible : .collapsed
         if panel == nil { focusTerminal() }
     }
 
@@ -387,6 +415,50 @@ final class NetDeckWindows: SwiftApplication {
         status.text = L("Comando enviado a \(targets.count) pesta\u{00F1}as")
     }
 
+    // MARK: - tuneles
+
+    private func showTuneles() {
+        status.text = ""
+        tuneles.show()
+        showPanel(tuneles.view)
+    }
+
+    /// Inicia un tunel guardado (solo desde un clic): ruta de su sesion o del equipo escrito, y ssh sin shell.
+    private func startTunnel(_ tunnel: Tunnel) {
+        do {
+            let route = try MainActor.assumeIsolated { try tunnel.route(using: sessions) }
+            let arguments = try tunnel.arguments(route: route, sharing: nil, configFile: isDemo ? "NUL" : nil)
+            let environment = TerminalEnvironment.prepare(ProcessInfo.processInfo.environment, forSSH: true, sendLocale: false)
+            MainActor.assumeIsolated {
+                tunnelManager.start(tunnel, executable: SystemTools.ssh, arguments: arguments, environment: environment)
+            }
+        } catch {
+            MainActor.assumeIsolated { tunnelManager.markFailed(tunnel.id, error.localizedDescription) }
+        }
+        tuneles.refresh()
+    }
+
+    private func stopTunnel(_ id: Tunnel.ID) {
+        Task { [weak self] in
+            await self?.tunnelManager.stop(id)
+            _ = try? self?.window?.dispatcherQueue?.tryEnqueue { self?.tuneles.refresh() }
+        }
+    }
+
+    /// Cambio de estado de un tunel: repinta la lista (en el hilo de WinUI) y avisa en el panel.
+    private func tunnelChanged(_ id: Tunnel.ID, _ state: TunnelState) {
+        _ = try? window?.dispatcherQueue?.tryEnqueue { [weak self] in
+            guard let self else { return }
+            let name = self.tuneles.library.tunnel(id)?.name ?? "?"
+            switch state {
+            case .active: self.tuneles.setStatus(L("T\u{00FA}nel \u{00AB}\(name)\u{00BB} activo"))
+            case .failed(let why): self.tuneles.setStatus(L("No se puede iniciar el t\u{00FA}nel \u{00AB}\(name)\u{00BB}: \(why)"))
+            default: break
+            }
+            self.tuneles.refresh()
+        }
+    }
+
     // MARK: - atajos
 
     /// Ctrl+N terminal local, Ctrl+Mayus+N sesion nueva, Ctrl+W cierra la pestana, Ctrl+Tab / Ctrl+Mayus+Tab
@@ -403,6 +475,8 @@ final class NetDeckWindows: SwiftApplication {
         case 9:
             showPanel(nil)
             cycleTab(shift ? -1 : 1)
+        case 84:
+            showTuneles()
         case 188:
             showAjustes()
         default:
