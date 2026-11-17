@@ -1,3 +1,14 @@
+## 2026-11-17 · Windows · Renderizado completo del terminal (fondos ANSI, cursor, filtro)
+
+Rama `windows/p14-escritorio`. Commit `c6b4085`.
+
+- **Fondos por celda:** `VistaTerminal` dibuja un `Border` en un `Canvas` dedicado para cada celda con fondo explícito (incluye la inversa y los fondos de selección de PSReadLine).
+- **Cursor de línea:** capa `cursorLayer` con un `Border` de 2 px de ancho en la posición del cursor de SwiftTerm; se oculta/muestra por las secuencias ANSI correspondientes.
+- **Negrita, cursiva, subrayado:** `Run.fontWeight`, `Run.fontStyle` y `Run.textDecorations` en cada trozo de texto; `coloredLines` los extrae de `cell.attribute.style`.
+- **Inversa:** `coloredLines` intercambia fg/bg cuando `style.contains(.inverse)`; cubre las selecciones del prompt de PSReadLine.
+- **Filtro de pantalla:** `FiltroTerminal` (nuevo) aplica las capas de `ScreenLook` (escáner, rejilla, fósforo, holograma, viñeta, tinte) sobre el terminal sin bloquear el ratón ni el teclado. `PanelAjustes` tiene selector de filtro, intensidad y la lectura del contraste alto de Windows.
+- **Resaltador:** `Highlighter` del núcleo se activa/desactiva por pestaña; `PanelAjustes` permite editarlo con un editor YAML; el archivo `Resaltado/netdeck.yml` se incluye en el instalador y en el directorio de desarrollo. Los fondos de resaltado también se ven con el nuevo renderizado.
+- Verificado en la sesión anterior en pantalla: todas estas funciones (CRT, neonqa con magenta) pasaron las pruebas visuales. Los tests del núcleo dieron 551 en verde.
 ## 2026-11-17 · Windows · Arrastre y ventanas de terminal
 
 Se pueden reordenar las pestañas arrastrándolas. El menú contextual mueve una pestaña activa a una ventana separada, con su ConPTY y su búfer intactos. «Devolver pestaña» la trae de vuelta a la ventana principal. Comprobados el orden tras arrastrar, la escritura en la ventana separada y la conservación de su salida al volver.
