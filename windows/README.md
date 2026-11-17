@@ -11,8 +11,10 @@ escribe las sesiones en el mismo formato de `ssh_config` que la de macOS.
 - **Windows 10 versión 2004 (10.0.19041) o superior**, 64 bits (x64). Windows 11 funciona igual y usa el fondo Mica.
 - **Cliente OpenSSH** (`ssh.exe`), que Windows trae de serie en *Configuración → Aplicaciones → Características opcionales*. Las sesiones SSH, el
   explorador SFTP y los túneles lo usan.
-- **Windows App Runtime 1.5 (x64)**: la interfaz lo necesita. **El instalador todavía no lo lleva** (pendiente, ver [ESTADO.md](ESTADO.md)); hasta
-  entonces hay que instalarlo aparte desde la [página de Microsoft](https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads).
+- **Windows App Runtime 1.5 (x64)** (el Framework y su DDLM): la interfaz lo necesita. **El instalador no lo incluye, pero lo comprueba**: si falta, se
+  detiene antes de copiar nada y muestra un aviso con el enlace de descarga
+  (<https://aka.ms/windowsappsdk/1.5/latest/windowsappruntimeinstall-x64.exe>). Instálalo y vuelve a ejecutar el instalador. Si la comprobación
+  fallara en tu equipo, se salta con `SKIP_WINAPPRUNTIME_CHECK=1` al instalar por línea de órdenes.
 
 ## Instalación
 

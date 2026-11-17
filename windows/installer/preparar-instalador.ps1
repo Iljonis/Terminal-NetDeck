@@ -12,6 +12,13 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+# detectar-runtime.js lleva detectar-runtime.ps1 codificado en base64: que no se desincronicen (si falla, ver la cabecera de detectar-runtime.ps1).
+$deteccion = (Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot 'detectar-runtime.ps1')) -replace "`r`n", "`n"
+$esperado = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($deteccion))
+$js = Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot 'detectar-runtime.js')
+if ($js -notmatch '-EncodedCommand ([A-Za-z0-9+/=]+)' -or $Matches[1] -ne $esperado) {
+    throw 'detectar-runtime.js no lleva la version actual de detectar-runtime.ps1 en base64: regenerala (ver la cabecera de ese script).'
+}
 if (!(Test-Path (Join-Path $Productos 'NetDeckWindows.exe'))) { throw "Falta NetDeckWindows.exe en ${Productos}: compila antes con windows/scripts/desktop.ps1." }
 if (!(Test-Path $Runtime)) { throw "Falta el runtime de Swift en ${Runtime}." }
 

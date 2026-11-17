@@ -22,6 +22,7 @@ decidir si la de Windows sigue el 1.0.0 de macOS antes de publicarla (ver [ESTAD
 - Almacén de credenciales Windows (Administrador de credenciales)
 - Atajos de teclado: `Ctrl+N`, `Ctrl+W`, `Ctrl+Tab`, `Ctrl+T` y `Ctrl+,`
 - Instalador `.msi` (WiX 4) y Sparse Package; compila, pero todavía no se ha probado instalado ni está firmado
+- El instalador comprueba que está el Windows App Runtime 1.5 y, si falta, se detiene con el enlace para instalarlo (no lo incluye)
 
 ### Seguridad
 

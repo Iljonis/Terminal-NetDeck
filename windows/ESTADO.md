@@ -1,3 +1,24 @@
+## 2026-11-17 · Windows · P10: el instalador comprueba el Windows App Runtime 1.5 (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. El `.msi` no incluye el Windows App Runtime (sería un bundle de Burn), pero **lo comprueba antes de instalar y se detiene con un aviso**.
+El `.wxs` con la `Launch` compila (`wix build` sin errores ni avisos) y **pasa la validación ICE** (`wix msi validate`, código 0, sin avisos).
+
+- **Cómo:** `Launch Condition="Installed OR WINAPPRUNTIME_INSTALLED = "1" OR SKIP_WINAPPRUNTIME_CHECK = "1""` y una `CustomAction` de JScript (`detectar-runtime.js`, como
+  `Binary` + `JScriptCall`) que ejecuta `detectar-runtime.ps1` y deja `WINAPPRUNTIME_INSTALLED` en 1 o 0. Se programa en 99, justo antes de `LaunchConditions` (100), en
+  `InstallUISequence` y en `InstallExecuteSequence` (comprobado leyendo las tablas del `.msi`). El script va codificado en base64 en el `.js`; `preparar-instalador.ps1`
+  falla si dejan de coincidir (probado).
+- **Qué se comprueba:** el paquete Framework `Microsoft.WindowsAppRuntime.1.5` x64 **y** su DDLM (`Microsoft.WinAppRuntime.DDLM.500*-x6`), que es justo lo que faltaba en P8. Probado aquí:
+  presente → sale con 0 y escribe `WAR-OK`; versión inexistente → 1; versión con Framework pero sin DDLM (1.6, 1.8…) → 1.
+- **Tres cosas del encargo que no funcionaban:**
+  - **La clave `HKLM\SOFTWARE\Microsoft\WindowsAppRuntime\1.5` no existe** (ni aquí, donde el runtime está instalado): hay que mirar los paquetes AppX.
+  - **`https://aka.ms/windowsappruntimeinstall` redirige a bing.com**; el enlace que sirve (64 MB) y que instala la 1.5 es
+    `https://aka.ms/windowsappsdk/1.5/latest/windowsappruntimeinstall-x64.exe`, y es el que lleva el aviso.
+  - **WiX 4 no admite el script en línea**, y con `ScriptSourceFile` guarda el texto en la columna `Target` de `CustomAction` (255 caracteres): ICE03 avisó del desbordamiento. Por eso va como `Binary`.
+- **Sin probar:** que el instalador **se detenga de verdad** en un equipo sin el runtime y que muestre el mensaje: instalar el `.msi` pide elevación y habría copiado 376 MB y registrado un paquete en este equipo.
+  Lo comprobado es el contenido del `.msi` (tablas), la validación ICE y el comando de detección por separado. También falta ver el mensaje en el cuadro de error de MSI (lleva saltos de línea).
+- `SKIP_WINAPPRUNTIME_CHECK=1` se salta la comprobación (por si PowerShell no puede ejecutarse en algún equipo).
+- `windows/README.md` y `windows/CHANGELOG.md` actualizados. Sigue pendiente: probar el `.msi` en un Windows limpio, firmar y el build Release.
+
 ## 2026-11-17 · Windows · P11: documentación de Windows y próximos pasos (por Claude)
 
 **Por Claude.** Rama `windows/p10-paquete`. La documentación propia de Windows está hecha; **P11 no está completo** (ver abajo).

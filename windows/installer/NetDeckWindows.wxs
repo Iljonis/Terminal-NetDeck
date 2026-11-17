@@ -64,7 +64,26 @@
     <CustomAction Id="QuitarSparse" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="yes" Return="ignore"
                   ExeCommand="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File quitar-sparse.ps1" />
 
+    <!--
+      Windows App Runtime 1.5 (Framework x64 y DDLM): la app no arranca sin el. MSI no sabe de paquetes AppX ni hay una clave de registro
+      estable (HKLM/SOFTWARE/Microsoft/WindowsAppRuntime/1.5 no existe), asi que un CustomAction de JScript ejecuta detectar-runtime.ps1
+      (codificado en base64 dentro de detectar-runtime.js; preparar-instalador.ps1 comprueba que coincide) y deja WINAPPRUNTIME_INSTALLED
+      en 1 o 0. Va como Binary (con ScriptSourceFile, WiX lo guarda en la columna Target, de 255 caracteres, y ICE03 avisa del desbordamiento). Return="ignore": si el propio script falla, la propiedad queda en 0.
+      SKIP_WINAPPRUNTIME_CHECK=1 se salta la comprobacion (por si el script no puede ejecutarse en algun equipo).
+    -->
+    <Property Id="WINAPPRUNTIME_INSTALLED" Value="0" Secure="yes" />
+    <Property Id="SKIP_WINAPPRUNTIME_CHECK" Value="0" Secure="yes" />
+    <Binary Id="DetectarRuntimeJs" SourceFile="detectar-runtime.js" />
+    <CustomAction Id="DetectarWindowsAppRuntime" BinaryRef="DetectarRuntimeJs" JScriptCall="DetectarWindowsAppRuntime"
+                  Execute="immediate" Return="ignore" />
+    <Launch Condition="Installed OR WINAPPRUNTIME_INSTALLED = &quot;1&quot; OR SKIP_WINAPPRUNTIME_CHECK = &quot;1&quot;"
+            Message="Terminal NetDeck necesita el Windows App Runtime 1.5.&#10;Descárgalo en: https://aka.ms/windowsappsdk/1.5/latest/windowsappruntimeinstall-x64.exe&#10;Instálalo y vuelve a ejecutar este instalador." />
+    <InstallUISequence>
+      <Custom Action="DetectarWindowsAppRuntime" Before="LaunchConditions" Condition="NOT Installed" />
+    </InstallUISequence>
+
     <InstallExecuteSequence>
+      <Custom Action="DetectarWindowsAppRuntime" Before="LaunchConditions" Condition="NOT Installed" />
       <Custom Action="RegistrarSparse" After="InstallFiles" Condition="NOT REMOVE" />
       <Custom Action="QuitarSparse" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot;" />
     </InstallExecuteSequence>
