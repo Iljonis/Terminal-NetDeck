@@ -1,3 +1,18 @@
+## 2026-11-17 · Windows · P9: ADR 0004, credenciales en Windows (por Claude)
+
+**Por Claude.** Rama `windows/p9-seguridad`. Documentación: `windows/decisiones/0004-credenciales-p9.md` (propuesta) y su fila en
+`windows/decisiones/README.md`. La ADR describe lo que el código hace de verdad, y eso corrige tres cosas del encargo:
+
+- **La implementación de Windows ya existe** (P4d): `KeychainStore` usa `CredWriteW`, `CredReadW`, `CredDeleteW` y
+  `CredEnumerateW`, `CRED_TYPE_GENERIC` y `CRED_PERSIST_LOCAL_MACHINE`, con tests (`KeychainCredencialesWindowsTests`). Lo
+  pendiente es el flujo con askpass (P4e/P10) y el aviso en la pantalla de «Contraseñas».
+- **macOS no usa `SecItemAdd` ni una «ACL 0600»**: lee y guarda con `/usr/bin/security`, y las contraseñas confían en esa
+  herramienta (por eso no sale el aviso por app). La ADR lo anota y **matiza la ADR-0002**: la distancia real entre las dos
+  plataformas es menor que «ACL por app frente a nada».
+- **El bloqueo de 15 minutos no es un `Timer` que borre una caché**: es el `CredentialLedger` (`blockWindow`), con marcas
+  con fecha sin secretos, igual en las dos plataformas. `CredReadW` no caduca.
+- DPAPI protege frente a otros usuarios y al disco apagado, no frente a otros procesos del mismo usuario: así queda escrito.
+
 ## 2026-11-17 · Windows · P9: TerminalEnvironment sin variables de ssh ajenas (por Claude)
 
 **Por Claude.** Rama `windows/p9-seguridad`. Suite completa: 549 tests en verde (546 + los 3 de la tarea 1 + 1 de ésta).
