@@ -71,6 +71,14 @@ import Testing
 
 @Suite struct FTPParseTests {
     /// Respuestas de varias líneas (Pure-FTPd empieza el saludo con «220---------- Welcome…»).
+    #if os(Windows)
+    @Test func mlsdConFinalesCRLF() {
+        let bytes = Data("type=dir; carpeta\r\ntype=file; ejemplo.txt\r\n".utf8)
+        let entries = FTPParse.windowsListingLines(bytes).compactMap { FTPParse.mlsd($0, in: "/") }
+        #expect(entries.map(\.name) == ["carpeta", "ejemplo.txt"])
+    }
+    #endif
+
     @Test func respuestasDeVariasLineas() throws {
         let start = try FTPParse.replyStart("220---------- Welcome to Pure-FTPd ----------")
         #expect(start.code == 220 && start.more && start.text == "--------- Welcome to Pure-FTPd ----------")

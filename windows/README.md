@@ -40,7 +40,8 @@ y puerto, opcionales) y un «todo listo». Puedes saltártelo con «Omitir» y a
 - **Contraseñas SSH**: las pestañas pueden usar una contraseña de esa cuenta guardada en el Administrador de credenciales de Windows.
   Si falta o falla, puedes escribirla en la pestaña sin eco y elegir si se guarda. [ADR-0004](decisiones/0004-credenciales-p9.md).
 - **Explorador SFTP** (el botón 📂 de cada sesión): lista, entra en carpetas, descarga con doble clic a *Descargas* y sube un archivo escribiendo su ruta.
-  No pisa archivos que ya existen.
+  Permite renombrar, borrar, crear carpetas y, desde el menú contextual, mover, calcular MD5 y editar archivos UTF-8. Si la versión remota cambia durante la edición, conserva la copia local.
+- **Explorador FTP**: acceso directo con usuario y contraseña, navegación, descarga y operaciones de carpeta. El panel avisa de que FTP transmite la contraseña sin cifrar.
 - **Túneles SSH** (botón «Túneles», `Ctrl+T`): reenvío local, remoto o SOCKS; se inician y se paran uno a uno y se guardan en `%APPDATA%\Terminal NetDeck\tuneles.json`.
 - **Pegado seguro** (`Ctrl+Mayús+V`): revisa las líneas y envíalas una a una en SSH o Telnet. Se detiene ante errores, paginadores o solicitudes de contraseña.
 - **Macros** (`Ctrl+M`): guarda una lista de órdenes, una por línea, y reprodúcela en la pestaña SSH o Telnet activa desde su prompt.
@@ -71,7 +72,7 @@ y puerto, opcionales) y un «todo listo». Puedes saltártelo con «Omitir» y a
 
 - Las contraseñas asistidas están disponibles en las pestañas SSH. El explorador SFTP y los túneles quedan fuera de este flujo.
 - El panel de macros permite crear listas de órdenes y reproducir macros del formato de NetDeck. Quedan pendientes la grabación y la edición de macros en Windows.
-- **FTP** aún no está disponible en Windows; el tipo existe, pero abrir una sesión FTP sólo avisa.
+- En FTP, la subida y el renombrado están pendientes de un mecanismo que evite sobrescribir otro archivo.
 - La terminal pinta texto: con un tema de colores, cada trozo con su color de texto, pero sin fondo por celda, negrita ni subrayado, y sin colores si no eliges tema.
 - Los 85 temas de la versión de macOS sólo se aplican a los colores del terminal; la interfaz sigue siendo Mica, claro u oscuro.
 

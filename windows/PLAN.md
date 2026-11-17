@@ -415,7 +415,8 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 ## Paridad restante y distribución
 
 - [ ] Terminal: completar atributos de texto, resaltado configurable, filtros y menús contextuales.
-- [ ] Archivos: completar mover, hash, menús y edición remota en SFTP, e integrar el cliente FTP en el explorador.
+- [x] Archivos: mover, MD5, menú contextual y edición de texto UTF-8 en SFTP. Exploración y descarga FTP.
+- [ ] Completar subida y renombrado FTP con garantías de conservación de archivos.
 - [ ] Túneles y credenciales: comprobar los flujos pendientes de la auditoría, incluido askpass con salto.
 - [ ] Distribución: versión de publicación, instalador firmado y prueba de instalación, actualización y desinstalación en Windows limpio.
 

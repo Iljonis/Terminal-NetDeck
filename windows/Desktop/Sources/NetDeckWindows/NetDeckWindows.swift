@@ -33,6 +33,7 @@ final class NetDeckWindows: SwiftApplication {
     private let pegado = PanelTexto(idPrefix: "PegarSeguro")
     private let multi = PanelTexto(idPrefix: "MultiExec")
     private let explorador = ExploradorSFTP()
+    private let accesoFTP = PanelAccesoFTP()
     private let macros = PanelMacros()
     private let macroConfirm = PanelTexto(idPrefix: "MacroConfirmar")
     private var macrosDemo = MacroLibrary()
@@ -232,6 +233,14 @@ final class NetDeckWindows: SwiftApplication {
         editor.onCancel = { [weak self] in self?.hideEditor() }
         Grid.setRow(ajustes.view, Int32(2))
         layout.children.append(ajustes.view)
+        Grid.setRow(accesoFTP.view, Int32(2))
+        layout.children.append(accesoFTP.view)
+        accesoFTP.onCancel = { [weak self] in self?.showPanel(nil) }
+        accesoFTP.onConnect = { [weak self] route, user, password in
+            guard let self else { return }
+            self.explorador.connectFTP(route: route, user: user, password: password)
+            self.showPanel(self.explorador.view)
+        }
         Grid.setRow(explorador.view, Int32(2))
         layout.children.append(explorador.view)
         explorador.onClose = { [weak self] in self?.showPanel(nil) }
@@ -424,6 +433,8 @@ final class NetDeckWindows: SwiftApplication {
         pegado.view.visibility = panel === pegado.view ? .visible : .collapsed
         if panel !== pegado.view { pendingPaste = nil }
         multi.view.visibility = panel === multi.view ? .visible : .collapsed
+        accesoFTP.view.visibility = panel === accesoFTP.view ? .visible : .collapsed
+        if panel !== accesoFTP.view { accesoFTP.clear() }
         explorador.view.visibility = panel === explorador.view ? .visible : .collapsed
         tuneles.view.visibility = panel === tuneles.view ? .visible : .collapsed
         asistente.view.visibility = panel === asistente.view ? .visible : .collapsed
@@ -1057,7 +1068,13 @@ final class NetDeckWindows: SwiftApplication {
             return nil
         }
         if route.transport == .ftp {
-            status.text = L("FTP no disponible a\u{00FA}n en la versi\u{00F3}n de Windows")
+            guard route.jumps.isEmpty else {
+                status.text = L("FTP requiere una conexión directa")
+                return nil
+            }
+            status.text = ""
+            accesoFTP.show(route)
+            showPanel(accesoFTP.view)
             return nil
         }
         do {

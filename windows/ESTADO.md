@@ -1,3 +1,11 @@
+## 2026-11-17 · Windows · Explorador FTP y operaciones SFTP
+
+El explorador usa `RemoteFileSystem` para conectar a una sesión FTP directa. Pide la contraseña en un campo oculto e informa de que FTP no cifra. FTP permite listar y descargar, crear carpetas, borrar y calcular MD5. La subida y el renombrado requieren que el servidor permita publicar sin sobrescribir y quedan disponibles en SFTP.
+
+El menú contextual de SFTP añade mover a otra carpeta, calcular MD5 y editar archivos de texto UTF-8. El editor usa `RemoteEdit`, compara la versión remota antes de publicar y conserva la copia local si hay conflicto. Se corrigió la lectura de los listados FTP con terminación CRLF en Windows.
+
+Probados el acceso y listado FTP en un servidor local, y el MD5, la edición, el conflicto y el traslado sobre SFTP. Compilación y 551 tests en verde, incluida la regresión de los listados CRLF.
+
 ## 2026-11-17 · Windows · Pegado seguro con espera por orden
 
 `Ctrl+Mayús+V` y «Pegar» permiten revisar un bloque completo antes de enviarlo a la pestaña SSH o Telnet que estaba activa al abrir la revisión. Usa `SafePaster`, exige un prompt de partida y muestra el resultado. Esc, Ctrl+C o «Detener envío» lo cortan. El terminal local conserva el pegado con vista previa.

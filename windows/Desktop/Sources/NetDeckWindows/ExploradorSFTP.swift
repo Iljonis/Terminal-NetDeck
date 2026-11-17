@@ -4,7 +4,7 @@ import WinUI
 import struct UWP.Color
 
 /// Explorador SFTP en el area principal: carpeta actual, subir un nivel, actualizar, entrar en carpetas y descargar
-/// (doble clic) y subir un archivo por su ruta local. Usa `SFTPFileSystem` y `Transfer` de NetDeckCore.
+/// (doble clic) y subir un archivo por su ruta local. Usa `RemoteFileSystem` y `Transfer` de NetDeckCore.
 /// `@unchecked Sendable`: los controles solo se tocan en el hilo de WinUI (todo lo que llega de las tareas pasa por
 /// `deliver` y `enqueue`); el resto del estado se cambia desde ese mismo hilo.
 final class ExploradorSFTP: @unchecked Sendable {
@@ -17,7 +17,11 @@ final class ExploradorSFTP: @unchecked Sendable {
     private let pathText = TextBlock()
     private let list = StackPanel()
     private let statusText = TextBlock()
+    private let uploadBar = StackPanel()
     private let uploadBox = TextBox()
+    private let editor = PanelTexto(idPrefix: "SFTP_Editar")
+    private var edicion: (file: RemoteEditFile, original: String, crlf: Bool)?
+    private var guardandoEdicion = false
     // Barra de accion (renombrar, carpeta nueva y borrar): sin ContentDialog, como el resto de la interfaz.
     private let actionBar = StackPanel()
     private let actionCaption = TextBlock()
@@ -27,10 +31,11 @@ final class ExploradorSFTP: @unchecked Sendable {
 
     private enum PendingAction {
         case rename(RemoteEntry)
+        case move(RemoteEntry)
         case newFolder
         case delete(RemoteEntry)
     }
-    private var fs: SFTPFileSystem?
+    private var fs: (any RemoteFileSystem)?
     private var current = "/"
     private var generation = 0
     private var task: Task<Void, Never>?
@@ -42,6 +47,7 @@ final class ExploradorSFTP: @unchecked Sendable {
         root.margin = Thickness(left: 8, top: 4, right: 8, bottom: 8)
 
         title.fontSize = 20
+        statusText.isTextSelectionEnabled = true
         pathText.opacity = 0.8
         pathText.isTextSelectionEnabled = true
         AutomationProperties.setAutomationId(pathText, "SFTP_Ruta")
@@ -102,9 +108,8 @@ final class ExploradorSFTP: @unchecked Sendable {
         actionCaption.verticalAlignment = .center
         for item in [actionCaption as FrameworkElement, actionBox, actionConfirm, actionCancel] { actionBar.children.append(item) }
 
-        let upload = StackPanel()
-        upload.orientation = .horizontal
-        upload.spacing = 8
+        uploadBar.orientation = .horizontal
+        uploadBar.spacing = 8
         uploadBox.placeholderText = L("Ruta del archivo local")
         uploadBox.minWidth = 360
         let uploadButton = Button()
@@ -112,15 +117,17 @@ final class ExploradorSFTP: @unchecked Sendable {
         uploadButton.click.addHandler { [weak self] _, _ in self?.upload() }
         AutomationProperties.setAutomationId(uploadBox, "SFTP_RutaLocal")
         AutomationProperties.setAutomationId(uploadButton, "SFTP_Subir")
-        upload.children.append(uploadBox)
-        upload.children.append(uploadButton)
+        uploadBar.children.append(uploadBox)
+        uploadBar.children.append(uploadButton)
 
         let hint = TextBlock()
         hint.text = L("Doble clic: abrir carpeta o descargar archivo")
         hint.fontSize = 11
         hint.opacity = 0.6
 
-        for item in [title as FrameworkElement, header, actionBar, pathText, hint, list, upload, statusText] {
+        editor.onConfirm = { [weak self] in self?.saveEdit($0) }
+        editor.onCancel = { [weak self] in self?.closeEditor() }
+        for item in [title as FrameworkElement, header, actionBar, pathText, editor.view, hint, list, uploadBar, statusText] {
             root.children.append(item)
         }
         view.content = root
@@ -132,30 +139,55 @@ final class ExploradorSFTP: @unchecked Sendable {
     // MARK: - conexion
 
     func connect(label: String, executable: String, arguments: [String], environment: [String: String]) {
+        connect(label: label, protocolName: L("Explorador SFTP")) {
+            try await SFTPFileSystem.connect(label: label, executable: executable, arguments: arguments,
+                                             environment: environment)
+        }
+    }
+
+    func connectFTP(route: ConnectionRoute, user: String, password: String) {
+        connect(label: route.title, protocolName: L("Explorador FTP")) {
+            try await FTPFileSystem.connect(label: route.title, host: route.target.host, port: route.target.port,
+                                            user: user, password: password)
+        }
+    }
+
+    private func connect(label: String, protocolName: String,
+                         open: @escaping @Sendable () async throws -> any RemoteFileSystem) {
         disconnect()
-        generation += 1
         let gen = generation
-        title.text = L("Explorador SFTP") + " \u{00B7} " + label
+        title.text = protocolName + " · " + label
         pathText.text = ""
         list.children.clear()
-        setStatus(L("Conectando\u{2026}"))
+        uploadBar.visibility = .collapsed
+        setStatus(L("Conectando…"))
         task = Task { [weak self] in
+            var connection: (any RemoteFileSystem)?
             do {
-                let fs = try await SFTPFileSystem.connect(label: label, executable: executable, arguments: arguments,
-                                                          environment: environment)
+                let fs = try await open()
+                connection = fs
                 let home = try await fs.home()
                 let entries = try await fs.list(home)
-                self?.deliver(gen, orElse: { Task { await fs.close() } }) { me in
+                guard let self else { await fs.close(); return }
+                self.deliver(gen, orElse: { Task { await fs.close() } }) { me in
                     me.fs = fs
+                    me.uploadBar.visibility = fs.renameDoesNotOverwrite ? .visible : .collapsed
                     me.show(path: home, entries: entries)
                 }
             } catch {
+                await connection?.close()
                 self?.deliver(gen) { $0.setStatus(L("No se puede conectar: \(error.localizedDescription)")) }
             }
         }
     }
 
     func disconnect() {
+        if let edicion, !guardandoEdicion { RemoteEdit.discard(edicion.file) }
+        edicion = nil
+        guardandoEdicion = false
+        editor.view.visibility = .collapsed
+        list.visibility = .visible
+        cancelAction()
         generation += 1
         task?.cancel()
         task = nil
@@ -174,7 +206,7 @@ final class ExploradorSFTP: @unchecked Sendable {
     // MARK: - listado
 
     private func navigate(_ path: String) {
-        guard let fs else { return }
+        guard edicion == nil, let fs else { return }
         let gen = generation
         setStatus(L("Leyendo\u{2026}"))
         task = Task { [weak self] in
@@ -217,6 +249,7 @@ final class ExploradorSFTP: @unchecked Sendable {
         }
         let rename = Button()
         rename.content = "\u{270E}"
+        rename.isEnabled = fs?.renameDoesNotOverwrite == true
         rename.margin = Thickness(left: 8, top: 0, right: 0, bottom: 0)
         rename.click.addHandler { [weak self] _, _ in self?.beginRename(entry) }
         let remove = Button()
@@ -234,6 +267,26 @@ final class ExploradorSFTP: @unchecked Sendable {
         border.padding = Thickness(left: 6, top: 4, right: 6, bottom: 4)
         border.background = SolidColorBrush(Color(a: 0, r: 0, g: 0, b: 0))   // transparente pero con clic
         AutomationProperties.setAutomationId(border, "SFTP_Fila_\(entry.name)")
+        let menu = MenuFlyout()
+        if fs?.renameDoesNotOverwrite == true {
+            let mover = MenuFlyoutItem()
+            mover.text = L("Mover a otra carpeta")
+            mover.click.addHandler { [weak self] _, _ in self?.beginMove(entry) }
+            menu.items.append(mover)
+        }
+        if entry.kind == .file {
+            if fs?.renameDoesNotOverwrite == true {
+                let editar = MenuFlyoutItem()
+                editar.text = L("Editar archivo remoto")
+                editar.click.addHandler { [weak self] _, _ in self?.beginEdit(entry) }
+                menu.items.append(editar)
+            }
+            let md5 = MenuFlyoutItem()
+            md5.text = L("Calcular MD5")
+            md5.click.addHandler { [weak self] _, _ in self?.digest(entry) }
+            menu.items.append(md5)
+        }
+        if menu.items.size > 0 { border.contextFlyout = menu }
         border.doubleTapped.addHandler { [weak self] _, _ in
             guard let self else { return }
             if entry.isDirectory { self.navigate(entry.path) } else { self.download(entry) }
@@ -252,7 +305,124 @@ final class ExploradorSFTP: @unchecked Sendable {
         showActionBar()
     }
 
+    private func beginEdit(_ entry: RemoteEntry) {
+        guard edicion == nil, let fs, fs.renameDoesNotOverwrite, Self.localName(entry.name) != nil else { return }
+        let gen = generation
+        cancelAction()
+        setStatus(L("Abriendo «\(entry.name)»…"))
+        task = Task { [weak self] in
+            var downloaded: RemoteEditFile?
+            do {
+                let file = try await RemoteEdit.download(fs, entry.path, into: RemoteEdit.workspace)
+                downloaded = file
+                let data = try Data(contentsOf: file.local)
+                guard let text = String(data: data, encoding: .utf8) else {
+                    throw RemoteError(L("El archivo no es texto UTF-8"))
+                }
+                guard let self else { RemoteEdit.discard(file); return }
+                self.deliver(gen, orElse: { RemoteEdit.discard(file) }) { me in
+                    if let anterior = me.edicion { RemoteEdit.discard(anterior.file) }
+                    me.edicion = (file, Self.lineasLF(text), text.contains("\r\n"))
+                    me.editor.show(title: L("Editar «\(file.name)»"), hint: L("Guardar compara la versión del servidor antes de subir."),
+                                   text: text, editable: true, confirmTitle: L("Guardar"))
+                    me.editor.view.visibility = .visible
+                    me.list.visibility = .collapsed
+                    me.setStatus("")
+                }
+            } catch {
+                if let downloaded { RemoteEdit.discard(downloaded) }
+                self?.deliver(gen) { $0.setStatus(error.localizedDescription) }
+            }
+        }
+    }
+
+    private func saveEdit(_ text: String) {
+        guard !guardandoEdicion, let fs, let edit = edicion else { return }
+        let normalizado = Self.lineasLF(text)
+        if normalizado == edit.original && (try? RemoteEdit.localDigest(edit.file)) == edit.file.syncedMD5 {
+            closeEditor()
+            return
+        }
+        var contenido = edit.crlf ? normalizado.replacingOccurrences(of: "\n", with: "\r\n") : normalizado
+        if edit.original.hasPrefix("\u{feff}"), !contenido.hasPrefix("\u{feff}") { contenido = "\u{feff}" + contenido }
+        guard Int64(contenido.utf8.count) <= RemoteEdit.maxSize, !contenido.contains("\0") else {
+            setStatus(L("El texto supera el límite de edición o contiene caracteres NUL"))
+            return
+        }
+        guardandoEdicion = true
+        let gen = generation
+        let archivo = edit.file
+        let texto = contenido
+        let folder = current
+        setStatus(L("Trabajando…"))
+        task = Task { [weak self] in
+            do {
+                try Task.checkCancellation()
+                try SafeFile.write(texto, to: archivo.local)
+                let result = try await RemoteEdit.upload(fs, archivo)
+                let entries: [RemoteEntry]?
+                if case .uploaded = result { entries = try? await fs.list(folder) } else { entries = nil }
+                self?.deliver(gen) { me in
+                    me.guardandoEdicion = false
+                    switch result {
+                    case .uploaded(let uploaded):
+                        RemoteEdit.discard(uploaded)
+                        me.edicion = nil
+                        me.closeEditor()
+                        if let entries { me.show(path: folder, entries: entries) }
+                        me.setStatus(L("Subido «\(uploaded.name)»"))
+                    case .unchanged:
+                        me.closeEditor()
+                    case .conflict:
+                        me.setStatus(L("El archivo remoto cambió. Tu copia se conserva en \(AppPaths.tilde(archivo.local.path))."))
+                    }
+                }
+            } catch {
+                self?.deliver(gen) {
+                    $0.guardandoEdicion = false
+                    $0.setStatus(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func closeEditor() {
+        guard !guardandoEdicion else { return }
+        if let edicion { RemoteEdit.discard(edicion.file) }
+        edicion = nil
+        editor.view.visibility = .collapsed
+        list.visibility = .visible
+    }
+
+    private static func lineasLF(_ text: String) -> String {
+        text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+    }
+
+    private func beginMove(_ entry: RemoteEntry) {
+        pendingAction = .move(entry)
+        actionCaption.text = L("Carpeta de destino para «\(entry.name)»")
+        actionBox.text = current
+        actionBox.visibility = .visible
+        actionConfirm.content = L("Mover")
+        showActionBar()
+    }
+
+    private func digest(_ entry: RemoteEntry) {
+        guard let fs else { return }
+        let gen = generation
+        setStatus(L("Calculando MD5…"))
+        task = Task { [weak self] in
+            do {
+                let sum = try await TransferDigest.of(try await fs.openRead(entry.path))
+                self?.deliver(gen) { $0.setStatus(L("MD5 de «\(entry.name)»") + ": " + sum) }
+            } catch {
+                self?.deliver(gen) { $0.setStatus(error.localizedDescription) }
+            }
+        }
+    }
+
     private func beginNewFolder() {
+        guard edicion == nil else { return }
         pendingAction = .newFolder
         actionCaption.text = L("Nombre de la carpeta nueva")
         actionBox.text = ""
@@ -291,6 +461,13 @@ final class ExploradorSFTP: @unchecked Sendable {
                 setStatus(typed == entry.name ? L("Es el mismo nombre") : L("Nombre no v\u{00E1}lido: \u{00AB}\(typed)\u{00BB}"))
                 return
             }
+        case .move(let entry):
+            guard fs.renameDoesNotOverwrite, typed.hasPrefix("/"),
+                  typed.split(separator: "/").allSatisfy({ RemotePath.isValidName(String($0)) }),
+                  RemotePath.join(typed, entry.name) != entry.path else {
+                setStatus(L("Escribe una carpeta absoluta distinta de la de origen"))
+                return
+            }
         case .newFolder:
             guard RemotePath.isValidName(typed) else {
                 setStatus(L("Nombre no v\u{00E1}lido: \u{00AB}\(typed)\u{00BB}"))
@@ -314,6 +491,17 @@ final class ExploradorSFTP: @unchecked Sendable {
                     if try await fs.lookup(target) != nil { throw RemoteError(L("Ya existe \u{00AB}\(typed)\u{00BB} en esta carpeta")) }
                     try await fs.rename(entry.path, to: target)
                     done = L("\u{00AB}\(entry.name)\u{00BB} renombrado a \u{00AB}\(typed)\u{00BB}")
+                case .move(let entry):
+                    failed = L("No se puede mover «\(entry.name)»")
+                    guard try await fs.lookup(typed) == .directory else {
+                        throw RemoteError(L("La carpeta de destino no existe"))
+                    }
+                    let destino = RemotePath.join(typed, entry.name)
+                    guard try await fs.lookup(destino) == nil else {
+                        throw RemoteError(L("Ya existe «\(entry.name)» en esta carpeta"))
+                    }
+                    try await fs.rename(entry.path, to: destino)
+                    done = L("«\(entry.name)» movido a «\(typed)»")
                 case .newFolder:
                     failed = L("No se puede crear la carpeta \u{00AB}\(typed)\u{00BB}")
                     if try await fs.lookup(target) != nil { throw RemoteError(L("Ya existe \u{00AB}\(typed)\u{00BB} en esta carpeta")) }
@@ -370,7 +558,11 @@ final class ExploradorSFTP: @unchecked Sendable {
     }
 
     private func upload() {
-        guard let fs else { return }
+        guard edicion == nil, let fs else { return }
+        guard fs.renameDoesNotOverwrite else {
+            setStatus(L("El servidor no permite subir sin riesgo de sobrescribir"))
+            return
+        }
         var text = uploadBox.text.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.count > 1, text.hasPrefix("\""), text.hasSuffix("\"") { text = String(text.dropFirst().dropLast()) }
         guard !text.isEmpty else { return }

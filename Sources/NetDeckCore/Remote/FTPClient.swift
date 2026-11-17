@@ -379,6 +379,13 @@ public enum FTPParse {
         return nil
     }
 
+    #if os(Windows)
+    static func windowsListingLines(_ raw: Data) -> [String] {
+        // CRLF es un solo Character. Buscar un LF suelto deja el listado completo como una única línea.
+        String(decoding: raw, as: UTF8.self).split(whereSeparator: \.isNewline).map(String.init)
+    }
+    #endif
+
     /// Una línea de MLSD: «type=dir;modify=20240101120000;UNIX.mode=0755; nombre».
     public static func mlsd(_ line: String, in dir: String) -> RemoteEntry? {
         guard let sp = line.firstIndex(of: " ") else { return nil }
@@ -727,8 +734,12 @@ public final class FTPFileSystem: RemoteFileSystem, @unchecked Sendable {
             } catch { data.cancel(); throw error }
             data.cancel()
             try await c.end()
+            #if os(Windows)
+            let lines = FTPParse.windowsListingLines(raw)
+            #else
             let lines = String(decoding: raw, as: UTF8.self).components(separatedBy: "\n")
                 .map { $0.hasSuffix("\r") ? String($0.dropLast()) : $0 }.filter { !$0.isEmpty }
+            #endif
             let entries = lines.compactMap { mlsd ? FTPParse.mlsd($0, in: path) : FTPParse.list($0, in: path) }
             return RemoteEntry.sorted(entries)
         }
