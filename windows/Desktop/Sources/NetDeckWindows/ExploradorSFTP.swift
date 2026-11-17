@@ -18,6 +18,18 @@ final class ExploradorSFTP: @unchecked Sendable {
     private let list = StackPanel()
     private let statusText = TextBlock()
     private let uploadBox = TextBox()
+    // Barra de accion (renombrar, carpeta nueva y borrar): sin ContentDialog, como el resto de la interfaz.
+    private let actionBar = StackPanel()
+    private let actionCaption = TextBlock()
+    private let actionBox = TextBox()
+    private let actionConfirm = Button()
+    private var pendingAction: PendingAction?
+
+    private enum PendingAction {
+        case rename(RemoteEntry)
+        case newFolder
+        case delete(RemoteEntry)
+    }
     private var fs: SFTPFileSystem?
     private var current = "/"
     private var generation = 0
@@ -54,6 +66,10 @@ final class ExploradorSFTP: @unchecked Sendable {
             self?.disconnect()
             self?.onClose?()
         }
+        let newFolder = Button()
+        newFolder.content = "+ " + L("Carpeta")
+        newFolder.click.addHandler { [weak self] _, _ in self?.beginNewFolder() }
+        AutomationProperties.setAutomationId(newFolder, "SFTP_NuevaCarpeta")
         AutomationProperties.setAutomationId(up, "SFTP_Arriba")
         AutomationProperties.setAutomationId(refresh, "SFTP_Actualizar")
         AutomationProperties.setAutomationId(close, "SFTP_Cerrar")
@@ -62,7 +78,29 @@ final class ExploradorSFTP: @unchecked Sendable {
         header.spacing = 8
         header.children.append(up)
         header.children.append(refresh)
+        header.children.append(newFolder)
         header.children.append(close)
+
+        actionBar.orientation = .horizontal
+        actionBar.spacing = 8
+        actionBar.visibility = .collapsed
+        actionBox.minWidth = 260
+        actionBox.keyDown.addHandler { [weak self] _, args in
+            guard let args, args.key.rawValue == 13 else { return }
+            args.handled = true
+            self?.confirmAction()
+        }
+        actionConfirm.click.addHandler { [weak self] _, _ in self?.confirmAction() }
+        let actionCancel = Button()
+        actionCancel.content = L("Cancelar")
+        actionCancel.click.addHandler { [weak self] _, _ in self?.cancelAction() }
+        AutomationProperties.setAutomationId(actionBox, "SFTP_Accion_Texto")
+        AutomationProperties.setAutomationId(actionConfirm, "SFTP_Accion_Confirmar")
+        AutomationProperties.setAutomationId(actionCancel, "SFTP_Accion_Cancelar")
+        actionCaption.textWrapping = .wrap
+        actionCaption.maxWidth = 360
+        actionCaption.verticalAlignment = .center
+        for item in [actionCaption as FrameworkElement, actionBox, actionConfirm, actionCancel] { actionBar.children.append(item) }
 
         let upload = StackPanel()
         upload.orientation = .horizontal
@@ -82,7 +120,7 @@ final class ExploradorSFTP: @unchecked Sendable {
         hint.fontSize = 11
         hint.opacity = 0.6
 
-        for item in [title as FrameworkElement, header, pathText, hint, list, upload, statusText] {
+        for item in [title as FrameworkElement, header, actionBar, pathText, hint, list, upload, statusText] {
             root.children.append(item)
         }
         view.content = root
@@ -160,7 +198,7 @@ final class ExploradorSFTP: @unchecked Sendable {
 
     private func row(for entry: RemoteEntry) -> FrameworkElement {
         let grid = Grid()
-        for (width, kind) in [(1.0, GridUnitType.star), (90.0, .pixel), (150.0, .pixel)] {
+        for (width, kind) in [(1.0, GridUnitType.star), (90.0, .pixel), (150.0, .pixel), (1.0, .auto), (1.0, .auto)] {
             let column = ColumnDefinition()
             column.width = GridLength(value: width, gridUnitType: kind)
             grid.columnDefinitions.append(column)
@@ -177,6 +215,20 @@ final class ExploradorSFTP: @unchecked Sendable {
             Grid.setColumn(cell, Int32(index))
             grid.children.append(cell)
         }
+        let rename = Button()
+        rename.content = "\u{270E}"
+        rename.margin = Thickness(left: 8, top: 0, right: 0, bottom: 0)
+        rename.click.addHandler { [weak self] _, _ in self?.beginRename(entry) }
+        let remove = Button()
+        remove.content = "\u{1F5D1}"
+        remove.margin = Thickness(left: 4, top: 0, right: 0, bottom: 0)
+        remove.click.addHandler { [weak self] _, _ in self?.beginDelete(entry) }
+        AutomationProperties.setAutomationId(rename, "SFTP_Renombrar_\(entry.name)")
+        AutomationProperties.setAutomationId(remove, "SFTP_Borrar_\(entry.name)")
+        Grid.setColumn(rename, Int32(3))
+        Grid.setColumn(remove, Int32(4))
+        grid.children.append(rename)
+        grid.children.append(remove)
         let border = Border()
         border.child = grid
         border.padding = Thickness(left: 6, top: 4, right: 6, bottom: 4)
@@ -187,6 +239,102 @@ final class ExploradorSFTP: @unchecked Sendable {
             if entry.isDirectory { self.navigate(entry.path) } else { self.download(entry) }
         }
         return border
+    }
+
+    // MARK: - renombrar, carpeta nueva y borrar
+
+    private func beginRename(_ entry: RemoteEntry) {
+        pendingAction = .rename(entry)
+        actionCaption.text = L("Nuevo nombre de \u{00AB}\(entry.name)\u{00BB}")
+        actionBox.text = entry.name
+        actionBox.visibility = .visible
+        actionConfirm.content = L("Renombrar")
+        showActionBar()
+    }
+
+    private func beginNewFolder() {
+        pendingAction = .newFolder
+        actionCaption.text = L("Nombre de la carpeta nueva")
+        actionBox.text = ""
+        actionBox.visibility = .visible
+        actionConfirm.content = L("Crear")
+        showActionBar()
+    }
+
+    private func beginDelete(_ entry: RemoteEntry) {
+        pendingAction = .delete(entry)
+        actionCaption.text = L("\u{00BF}Borrar \u{00AB}\(entry.name)\u{00BB}?")
+            + (entry.kind == .directory ? " " + L("S\u{00F3}lo se borran carpetas vac\u{00ED}as.") : "")
+        actionBox.visibility = .collapsed
+        actionConfirm.content = L("Borrar")
+        showActionBar()
+    }
+
+    private func showActionBar() {
+        setStatus("")
+        actionBar.visibility = .visible
+        if actionBox.visibility == .visible { _ = try? actionBox.focus(.programmatic) }
+    }
+
+    private func cancelAction() {
+        pendingAction = nil
+        actionBar.visibility = .collapsed
+    }
+
+    /// Hace la operacion pendiente y recarga la carpeta; si falla, el motivo va a la barra de estado.
+    private func confirmAction() {
+        guard let fs, let action = pendingAction else { return }
+        let typed = actionBox.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch action {
+        case .rename(let entry):
+            guard RemotePath.isValidName(typed), typed != entry.name else {
+                setStatus(typed == entry.name ? L("Es el mismo nombre") : L("Nombre no v\u{00E1}lido: \u{00AB}\(typed)\u{00BB}"))
+                return
+            }
+        case .newFolder:
+            guard RemotePath.isValidName(typed) else {
+                setStatus(L("Nombre no v\u{00E1}lido: \u{00AB}\(typed)\u{00BB}"))
+                return
+            }
+        case .delete:
+            break
+        }
+        cancelAction()
+        let gen = generation
+        let folder = current
+        let target = RemotePath.join(folder, typed)
+        setStatus(L("Trabajando\u{2026}"))
+        task = Task { [weak self] in
+            var failed = ""
+            var done = ""
+            do {
+                switch action {
+                case .rename(let entry):
+                    failed = L("No se puede renombrar \u{00AB}\(entry.name)\u{00BB}")
+                    if try await fs.lookup(target) != nil { throw RemoteError(L("Ya existe \u{00AB}\(typed)\u{00BB} en esta carpeta")) }
+                    try await fs.rename(entry.path, to: target)
+                    done = L("\u{00AB}\(entry.name)\u{00BB} renombrado a \u{00AB}\(typed)\u{00BB}")
+                case .newFolder:
+                    failed = L("No se puede crear la carpeta \u{00AB}\(typed)\u{00BB}")
+                    if try await fs.lookup(target) != nil { throw RemoteError(L("Ya existe \u{00AB}\(typed)\u{00BB} en esta carpeta")) }
+                    try await fs.makeDirectory(target)
+                    done = L("Carpeta \u{00AB}\(typed)\u{00BB} creada")
+                case .delete(let entry):
+                    failed = L("No se puede borrar \u{00AB}\(entry.name)\u{00BB}")
+                    // (un enlace a una carpeta se borra como enlace, no como carpeta)
+                    try await fs.remove(entry.path, directory: entry.kind == .directory)
+                    done = L("\u{00AB}\(entry.name)\u{00BB} borrado")
+                }
+                let entries = try await fs.list(folder)
+                self?.deliver(gen) { me in
+                    me.show(path: folder, entries: entries)
+                    me.setStatus(done)
+                }
+            } catch {
+                let reason = error.localizedDescription
+                self?.deliver(gen) { $0.setStatus(failed + ": " + reason) }
+            }
+        }
     }
 
     // MARK: - descargar y subir

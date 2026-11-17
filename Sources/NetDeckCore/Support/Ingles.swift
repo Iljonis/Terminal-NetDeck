@@ -2520,5 +2520,17 @@ enum Ingles {
         "Instalador lanzado: cierra Terminal NetDeck para completar la actualización": "Installer launched: close Terminal NetDeck to complete the update",
         "No se ha podido lanzar el instalador": "Couldn’t launch the installer",
         "No se puede actualizar: %@": "Can’t update: %@",
+        "Nuevo nombre de «%@»": "New name for “%@”",
+        "Nombre de la carpeta nueva": "New folder name",
+        "Sólo se borran carpetas vacías.": "Only empty folders can be deleted.",
+        "Es el mismo nombre": "That’s the same name",
+        "Trabajando…": "Working…",
+        "No se puede renombrar «%@»": "Can’t rename “%@”",
+        "No se puede crear la carpeta «%@»": "Can’t create folder “%@”",
+        "No se puede borrar «%@»": "Can’t delete “%@”",
+        "Ya existe «%@» en esta carpeta": "“%@” already exists in this folder",
+        "«%@» renombrado a «%@»": "“%@” renamed to “%@”",
+        "Carpeta «%@» creada": "Folder “%@” created",
+        "«%@» borrado": "“%@” deleted",
 ]
 }

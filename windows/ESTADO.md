@@ -1,3 +1,16 @@
+## 2026-11-17 · Windows · P12: explorador SFTP, renombrar, carpeta nueva y borrar (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. `ExploradorSFTP.swift`: tres operaciones nuevas y recarga de la lista después de cada una. Compila sin avisos y está **probado de verdad** contra un `sftp-server` local
+(el de Git for Windows, con `NETDECK_SFTP_SERVER` en la demo), con capturas.
+
+- **API del núcleo:** `SFTPFileSystem` tiene `rename(_:to:)`, `makeDirectory(_:)` y `remove(_:directory:)` (todas `async throws`); no existen `mkdir` ni `remove(_:)` como decía el encargo.
+- **Renombrar** (✎ en cada fila), **borrar** (🗑) y **«+ Carpeta»** (cabecera) comparten una barra de acción bajo la cabecera: un texto y Confirmar/Cancelar (Intro confirma), o la pregunta «¿Borrar «x»?» con Borrar/Cancelar.
+  **Sin `ContentDialog`**, como en el resto de la interfaz (no hay uno sencillo en swift-winui 0.1.1).
+- Validación y errores: el nombre se valida con `RemotePath.isValidName` (sin `/`, sin `..`); si ya existe en la carpeta (`lookup`), se avisa en lugar de pisarlo. Los fallos van a la barra de estado con el motivo del servidor.
+- **Borrar no es recursivo:** una carpeta no vacía da «No se puede borrar «x»: Failure» (el servidor no explica más) y el aviso del diálogo ya lo anuncia («Sólo se borran carpetas vacías»). Un enlace a una carpeta se borra como enlace.
+- Probado: renombrar una carpeta, crear otra, borrar una carpeta vacía y el error al borrar una no vacía. **No probado:** borrar un archivo suelto (usa el mismo camino que la carpeta) ni nombres ya existentes.
+- `Ingles.swift`: 12 textos nuevos.
+
 ## 2026-11-17 · Windows · P10: el Windows App Runtime sigue siendo un prerrequisito que se comprueba (por Claude)
 
 **Por Claude.** Rama `windows/p10-paquete`. Decisión: **opción 2**. El `.msi` no descarga ni incluye el Windows App Runtime 1.5; sigue comprobándolo (la `Launch` de P10) y avisa con el enlace, y `windows/README.md` lo cuenta como requisito.
