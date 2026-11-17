@@ -1,3 +1,25 @@
+## 2026-11-17 · Windows · P10: instalador WiX (por Claude)
+
+**Por Claude.** `windows/installer/`. **El `.wxs` no se ha compilado**: WiX 4 (ni `dotnet`) no está instalado aquí; sólo se comprobó
+que el XML está bien formado. Lo demás sí se probó.
+
+- `NetDeckWindows.wxs` (WiX 4): instala en `C:\Program Files\Terminal NetDeck` (por máquina), `Files Include="$(var.SourceDir)\**"`
+  para el exe, los `.dll` de la app y del runtime de Swift y el manifiesto; acceso del menú Inicio y, opcional (nivel 2,
+  `ADDLOCAL=Principal,AccesoEscritorio`), el del escritorio; `MajorUpgrade`; `UpgradeCode` fijo (no se cambia nunca) y versión 0.9.0.
+- Registro del Sparse Package con dos `CustomAction` diferidas (`RegistrarSparse` tras `InstallFiles`, `QuitarSparse` antes de
+  `RemoveFiles` y al actualizar) que llaman a `registrar-sparse.ps1` y `quitar-sparse.ps1`. Diferencias con el encargo:
+  - **`Impersonate="yes"`** y no `"no"`: con `no` se ejecuta como SYSTEM y `Add-AppxPackage` registraría el paquete para SYSTEM, no para
+    el usuario que instala. Consecuencia: sólo queda registrado para quien instala; los demás usuarios no tienen identidad hasta
+    que se registre (pendiente: que la app lo haga al arrancar).
+  - **`Return="ignore"`** y scripts que nunca fallan: el registro es opcional y la app funciona sin identidad de paquete.
+  - Los scripts van aparte (un `deferred` no resuelve `[Propiedades]` y comillas en un atributo XML serían un infierno).
+- `preparar-instalador.ps1`: reúne en una carpeta lo que lleva el instalador (salida de `desktop.ps1`, los `.dll` del runtime de Swift,
+  manifiesto, iconos y scripts). Salvaguarda: sólo vacía su destino si está vacío o lo creó él.
+- **Probado:** el script genera 52 archivos (376 MB, con el build Debug) y **`NetDeckWindows.exe` arranca desde esa carpeta con el `PATH`
+  reducido a `System32`**: el instalador lleva todo lo que necesita. `makeappx` valida el manifiesto (entrada anterior).
+- **Pendiente:** compilar el `.msi` con WiX 4, instalarlo en un Windows limpio, un build Release (el Debug pesa y arrastra símbolos), el
+  `.msix` firmado del Sparse Package, el askpass de P4e dentro del instalador (ADR-0003) y la firma Authenticode.
+
 ## 2026-11-17 · Windows · P10: AppxManifest.xml del Sparse Package (por Claude)
 
 **Por Claude.** Rama `windows/p10-paquete` (sale de `windows/p9-seguridad`, con la ADR-0003 traída de `windows/p8-terminal`).

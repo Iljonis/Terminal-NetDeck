@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Instalador de Terminal NetDeck para Windows (WiX Toolset 4; ADR-0003, opcion B). Genera un .msi por maquina.
+
+  Antes de compilar, windows/installer/preparar-instalador.ps1 reune los archivos en una carpeta (SourceDir):
+      wix build windows/installer/NetDeckWindows.wxs -arch x64 -d SourceDir=<carpeta> -o NetDeckWindows.msi
+
+  Instala en C:\Program Files\Terminal NetDeck, crea el acceso del menu Inicio y, opcionalmente, el del escritorio
+  (ADDLOCAL=Principal,AccesoEscritorio), y registra el Sparse Package de windows/Desktop/AppxManifest.xml para el usuario
+  que instala. Quitar o actualizar lo desregistra antes de borrar los archivos.
+
+  SIN COMPILAR: WiX 4 no estaba instalado cuando se escribio (solo se comprobo que el XML esta bien formado). La version
+  (0.9.0) debe coincidir con AppxManifest.xml y con UpdateChecker.currentVersion. El UpgradeCode no se cambia nunca.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Terminal NetDeck"
+           Manufacturer="Iljonis"
+           Version="0.9.0"
+           UpgradeCode="864B0368-79B3-4687-8A69-102A5447C278"
+           Scope="perMachine"
+           Language="1034"
+           Compressed="yes">
+
+    <MajorUpgrade DowngradeErrorMessage="Ya hay una version mas reciente de Terminal NetDeck instalada." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Terminal NetDeck" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- Todo lo que prepara preparar-instalador.ps1: exe, dll de la app y del runtime de Swift, manifiesto, iconos, scripts. -->
+    <ComponentGroup Id="ArchivosDeLaApp" Directory="INSTALLFOLDER">
+      <Files Include="$(var.SourceDir)\**" />
+    </ComponentGroup>
+
+    <Component Id="AccesoMenuInicio" Directory="ProgramMenuFolder">
+      <Shortcut Id="AccesoMenuInicioDirecto" Name="Terminal NetDeck"
+                Target="[INSTALLFOLDER]NetDeckWindows.exe" WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKCU" Key="Software\Iljonis\TerminalNetDeck" Name="MenuInicio" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="AccesoEscritorioComp" Directory="DesktopFolder">
+      <Shortcut Id="AccesoEscritorioDirecto" Name="Terminal NetDeck"
+                Target="[INSTALLFOLDER]NetDeckWindows.exe" WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKCU" Key="Software\Iljonis\TerminalNetDeck" Name="Escritorio" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Feature Id="Principal" Title="Terminal NetDeck" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="ArchivosDeLaApp" />
+      <ComponentRef Id="AccesoMenuInicio" />
+    </Feature>
+    <!-- Nivel 2: no se instala por defecto (no hay pantalla de eleccion; ADDLOCAL=Principal,AccesoEscritorio lo activa). -->
+    <Feature Id="AccesoEscritorio" Title="Acceso directo en el escritorio" Level="2">
+      <ComponentRef Id="AccesoEscritorioComp" />
+    </Feature>
+
+    <!--
+      Registro del Sparse Package. Impersonate="yes": Add-AppxPackage registra para el USUARIO que ejecuta (con
+      Impersonate="no" seria para SYSTEM y la app no vera la identidad). Return="ignore": sin identidad la app funciona
+      igual. Un deferred no resuelve [Propiedades]: la carpeta de trabajo (Directory) es la de instalacion y los scripts
+      se localizan con $PSScriptRoot.
+    -->
+    <CustomAction Id="RegistrarSparse" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="yes" Return="ignore"
+                  ExeCommand="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File registrar-sparse.ps1" />
+    <CustomAction Id="QuitarSparse" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="yes" Return="ignore"
+                  ExeCommand="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File quitar-sparse.ps1" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RegistrarSparse" After="InstallFiles" Condition="NOT REMOVE" />
+      <Custom Action="QuitarSparse" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot;" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>
