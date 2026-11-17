@@ -390,6 +390,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
   [x] `windows/CHANGELOG.md` con la 0.9.0 (`6a864eb`). Siguen abiertas las tareas de abajo (README de la raíz, `docs/agentes/`, release).
 - **Tareas:**
   - [ ] README y README.en: quitar «no tiene versión para Windows», requisitos e instalación en Windows, capturas.
+        (Hecho en `README.md`: sección «Windows» y las tres frases que decían que no hay versión; **falta `README.en.md`** y las capturas.)
   - [ ] CHANGELOG, `docs/agentes/` (comandos y arquitectura de Windows) y la raíz CLAUDE.md / AGENTS.md.
   - [ ] Release con la skill `netdeck-publicar`, adaptada a dos sistemas.
 

@@ -1,3 +1,12 @@
+## 2026-11-17 · Windows · P11: el README de la raíz menciona Windows (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. `README.md` (raíz): sección nueva **«Windows»** (antes de «Para desarrolladores», que es donde está la compilación) con el enlace a
+`windows/README.md`, lo que ya funciona y lo que falta. El README no tenía una tabla de funciones; el único cuadro es la comparación con otras herramientas, y su fila «Sistemas» dice ahora
+«macOS (Windows en desarrollo)».
+
+- Había **tres frases que decían que no hay versión de Windows** (qué no es, el cuadro de comparación y las preguntas frecuentes): se han ajustado para que no se contradigan con la sección nueva.
+- **Falta `README.en.md`** (igual cambio, en inglés) y las capturas de Windows; siguen abiertos en el plan de P11.
+
 ## 2026-11-17 · Windows · P10: el instalador comprueba el Windows App Runtime 1.5 (por Claude)
 
 **Por Claude.** Rama `windows/p10-paquete`. El `.msi` no incluye el Windows App Runtime (sería un bundle de Burn), pero **lo comprueba antes de instalar y se detiene con un aviso**.
