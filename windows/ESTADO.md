@@ -62,6 +62,15 @@ y una pestaña nueva con el mismo tema; «(Predeterminado)» vuelve al aspecto d
 - Probado: renombrar una carpeta, crear otra, borrar una carpeta vacía y el error al borrar una no vacía. **No probado:** borrar un archivo suelto (usa el mismo camino que la carpeta) ni nombres ya existentes.
 - `Ingles.swift`: 12 textos nuevos.
 
+## 2026-11-17 · Windows · P15: iconos del paquete y del instalador
+
+Rama `windows/p15-iconos`, basada en `windows/p10-paquete`. Se ha adaptado el diseño de `tools/icono.swift` a los tres PNG del manifiesto. El icono de 150 px lleva el nombre NETDECK y los tamaños pequeños conservan el símbolo del terminal. El MSI incluye un ICO de 16 a 256 px y lo asigna a los accesos directos de Inicio y del escritorio y a la ficha de la aplicación instalada.
+
+- Comprobados los tamaños, la transparencia y los recursos del ICO. MakeAppx generó el Sparse Package y validó el manifiesto y sus recursos con el ejecutable de desarrollo.
+- El MSI, preparado con los productos Debug existentes, se compiló con WiX 4.0.6 y pasó ICE. Se verificaron las referencias de iconos en las tablas del MSI.
+- Privacidad en verde. El núcleo compiló y pasó 549 tests en 93 suites mediante `windows/scripts/test.ps1`.
+- Queda por comprobar el aspecto de los accesos tras instalar en un Windows limpio.
+
 ## 2026-11-17 · Windows · P10: el Windows App Runtime sigue siendo un prerrequisito que se comprueba (por Claude)
 
 **Por Claude.** Rama `windows/p10-paquete`. Decisión: **opción 2**. El `.msi` no descarga ni incluye el Windows App Runtime 1.5; sigue comprobándolo (la `Launch` de P10) y avisa con el enlace, y `windows/README.md` lo cuenta como requisito.

@@ -10,7 +10,6 @@
 
   PENDIENTE antes de publicar:
    - Publisher: debe ser EXACTAMENTE el Subject del certificado de firma (con Azure Code Signing, el de la cuenta).
-   - Los iconos de Assets son provisionales (un color liso): faltan los de la app.
    - Version: la misma que el .wxs y que UpdateChecker.currentVersion.
 -->
 <Package

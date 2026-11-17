@@ -28,6 +28,9 @@
     <MajorUpgrade DowngradeErrorMessage="Ya hay una version mas reciente de Terminal NetDeck instalada." />
     <MediaTemplate EmbedCab="yes" />
 
+    <Icon Id="NetDeckIcono" SourceFile="$(var.SourceDir)\Assets\NetDeck.ico" />
+    <Property Id="ARPPRODUCTICON" Value="NetDeckIcono" />
+
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="Terminal NetDeck" />
     </StandardDirectory>
@@ -38,13 +41,13 @@
          preparar-instalador.ps1 en archivos.wxs: WiX 4.0 no tiene el elemento Files. -->
     <Component Id="AccesoMenuInicio" Directory="ProgramMenuFolder">
       <Shortcut Id="AccesoMenuInicioDirecto" Name="Terminal NetDeck"
-                Target="[INSTALLFOLDER]NetDeckWindows.exe" WorkingDirectory="INSTALLFOLDER" />
+                Target="[INSTALLFOLDER]NetDeckWindows.exe" WorkingDirectory="INSTALLFOLDER" Icon="NetDeckIcono" />
       <RegistryValue Root="HKCU" Key="Software\Iljonis\TerminalNetDeck" Name="MenuInicio" Type="integer" Value="1" KeyPath="yes" />
     </Component>
 
     <Component Id="AccesoEscritorioComp" Directory="DesktopFolder">
       <Shortcut Id="AccesoEscritorioDirecto" Name="Terminal NetDeck"
-                Target="[INSTALLFOLDER]NetDeckWindows.exe" WorkingDirectory="INSTALLFOLDER" />
+                Target="[INSTALLFOLDER]NetDeckWindows.exe" WorkingDirectory="INSTALLFOLDER" Icon="NetDeckIcono" />
       <RegistryValue Root="HKCU" Key="Software\Iljonis\TerminalNetDeck" Name="Escritorio" Type="integer" Value="1" KeyPath="yes" />
     </Component>
 

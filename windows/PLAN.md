@@ -394,6 +394,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
   - [ ] CHANGELOG, `docs/agentes/` (comandos y arquitectura de Windows) y la raíz CLAUDE.md / AGENTS.md.
         (Hecho: `windows/CHANGELOG.md` y `docs/agentes/windows.md` (`70eb3bd`). **Falta la raíz CLAUDE.md / AGENTS.md y completar `comandos.md` y
         `arquitectura.md` con lo de Windows**: son guías de agentes y las cambia el autor, no otra sesión.)
+  - [x] P15: aplicar la identidad visual de NetDeck a los recursos del paquete y a los accesos directos del MSI.
   - [ ] Release con la skill `netdeck-publicar`, adaptada a dos sistemas.
 
 ## P13 · Contraseñas SSH y panel de macros
