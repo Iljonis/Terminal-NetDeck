@@ -1,3 +1,15 @@
+## 2026-11-17 · Windows · P12: resumen (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. P12 hecho en sus dos bloques, probado en pantalla.
+
+- `373bc85` **explorador SFTP:** renombrar, carpeta nueva y borrar (con recarga). `def272a` **temas de NetDeckCore en el terminal:** paleta, fondo, texto y color por trozo de texto.
+- Entre los dos, `dc651f1`: el borrador del workflow sube el `.msi` a la Release del tag de macOS (decisión del autor), sin crearla.
+
+### Abierto
+- **Temas:** sólo el color del texto; falta el fondo por celda, la negrita, el subrayado, la inversa y el cursor. No se ha medido el rendimiento con salidas muy largas.
+- **SFTP:** borrar no es recursivo (una carpeta no vacía da error); no hay selección múltiple ni arrastrar y soltar.
+- Lo de antes: `.msi` en un Windows limpio, firma, activar el workflow (`WINDOWS_RELEASE=true` y copiarlo a `.github/workflows/`), `SSH_ASKPASS.exe`, versión de Windows (ahora igual a la del repositorio), `README.en`/capturas de Windows y `comandos.md`/`arquitectura.md`.
+
 ## 2026-11-17 · Windows · P12: los temas de NetDeckCore en el terminal (por Claude)
 
 **Por Claude.** Rama `windows/p10-paquete`. Los 85 temas de NetDeck se aplican ya al terminal de Windows. Compila sin avisos y está **probado en pantalla** (capturas): se elige el tema en Ajustes, y se ven el fondo, el texto, los colores ANSI (`Write-Host -ForegroundColor …`, el resaltado de PSReadLine)
