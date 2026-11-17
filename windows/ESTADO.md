@@ -1,3 +1,28 @@
+## 2026-11-17 · Windows · P11: estado de P11 y próximos pasos manuales (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. **P11 no está completado**: la documentación propia de Windows y los README están hechos, pero falta lo que sigue.
+
+### Hecho
+- `8bad8ab` `windows/README.md` (guía de instalación y uso) · `6a864eb` `windows/CHANGELOG.md` · `6ad3bb6` `README.md` de la raíz con la sección «Windows».
+- `811c44d` **`README.en.md`** de la raíz: misma sección y las mismas tres frases corregidas. Dice «en desarrollo», no «disponible» como en el borrador del encargo, porque todavía no hay release.
+- `70eb3bd` **`docs/agentes/windows.md`** (nuevo, sólo descriptivo): dónde vive el código y cómo se encadenan las ramas p8, p9 y p10. No se cambió ninguna guía existente de `docs/agentes/`.
+
+### Sin hacer, y por qué
+- **`CLAUDE.md` y `AGENTS.md` de la raíz** (el encargo de añadirles una guía de Windows): **no se han tocado**. Son archivos de instrucciones de agentes y no se editan por petición de otra sesión; lo decide
+  el autor. Ya existen `windows/CLAUDE.md` y `windows/AGENTS.md` con las reglas de Windows; la raíz sólo necesitaría un enlace a ellos. De lo que pedía el encargo, lo de no usar Edit/Write en Windows y no tocar
+  `.github/workflows/` ni `windows/scripts/test.ps1` es de este trabajo y no está en esos archivos.
+- `docs/agentes/comandos.md` y `arquitectura.md` no describen Windows todavía (se dejó para la misma revisión del autor).
+- **Capturas de Windows** para los README y **la release** con la skill `netdeck-publicar`, adaptada a dos sistemas.
+
+### Próximos pasos manuales antes del lanzamiento
+1. **Compilar e instalar el `.msi` en un Windows limpio** (instalar, aviso del runtime, Sparse Package, actualizar, desinstalar) y un build **Release**.
+2. **Firma Authenticode** (Azure Code Signing o un certificado): decisión y coste del autor.
+3. **Workflow de Release en GitHub Actions** (Codex) y añadir `UpdateCheckerWindowsTests` a la lista de suites de `windows/scripts/test.ps1`.
+4. **`SSH_ASKPASS.exe` (P4e)**: sin él no hay contraseña por teclado en las conexiones de la app.
+5. **Decidir la versión de Windows** (0.9.0 en el manifiesto, el `.wxs` y `UpdateChecker.currentVersion`; la última release es la 1.0.0) y cambiarla a la vez.
+6. Windows App Runtime 1.5: el instalador sólo lo comprueba; decidir si se incluye (bundle) o se deja como requisito.
+7. Fijar el firmante en el actualizador y los fallos intermitentes de tests de NetDeckCore (P6).
+
 ## 2026-11-17 · Windows · P11: el README de la raíz menciona Windows (por Claude)
 
 **Por Claude.** Rama `windows/p10-paquete`. `README.md` (raíz): sección nueva **«Windows»** (antes de «Para desarrolladores», que es donde está la compilación) con el enlace a
