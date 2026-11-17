@@ -2436,5 +2436,10 @@ enum Ingles {
         "Letra de la pestaña: %@ pt · ⌘0, la de siempre": "Tab text: %@ pt · ⌘0 for the usual size",
         "instalada": "installed",
         "%@ (se instalará)": "%@ (will be installed)",
+        "Editar sesión": "Edit session",
+        "El nombre es obligatorio y no puede llevar espacios ni * ? !": "The name is required and cannot contain spaces or * ? !",
+        "No se puede leer el archivo de sesiones: %@": "Can’t read the sessions file: %@",
+        "No se puede guardar: %@": "Can’t save: %@",
+        "Sesión «%@» guardada": "Session “%@” saved",
 ]
 }

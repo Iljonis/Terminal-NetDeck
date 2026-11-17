@@ -1,3 +1,32 @@
+## 2026-11-17 · Windows · P8: editor de sesión (por Claude)
+
+**Por Claude.** Panel para crear y editar sesiones en la ventana WinUI 3. Compila (`Build complete!`) y la app arranca
+en modo demo sin caerse.
+
+### Qué hay
+- `windows/Desktop/Sources/NetDeckWindows/EditorSesion.swift` (nuevo): `PanelEditorSesion` con nombre, grupo, equipo,
+  usuario, puerto, tipo (SSH, Telnet, SFTP, FTP, Serie, Local) y descripción; botones Guardar y Cancelar. Al cambiar el
+  tipo, el puerto pasa al del tipo nuevo (`EditableSession.setKind`).
+- `NetDeckWindows.swift`: botón «+ Nueva sesión» al pie de la barra lateral y botón ✎ junto a cada sesión. El panel
+  sustituye al terminal (`surface.visibility = .collapsed`).
+- Guardar valida con `EditableSession.isValidName` y `SessionFile.problems()` (nombre repetido, puerto, etc.) y muestra
+  el error en la barra de estado.
+  - **Demo** (`NETDECK_DESKTOP_DEMO=1`): sólo en memoria (`library`); la barra lateral se rehace con
+    `SessionManager(profiles:)`. No se escribe a disco.
+  - **Real**: lee `SessionFile.defaultURL`, sustituye o añade la sesión, `file.save()` y `sessions.load(from:)`. Al
+    arrancar, si existe ese archivo se carga en lugar de `~/.ssh/config`.
+- `Ingles.swift`: 5 textos nuevos en inglés.
+
+### Notas
+- Sin verificar con interfaz real: el guardado real (`file.save()` pasa por `ssh -G`) no se ha probado contra un
+  `NETDECK_HOME` temporal; sólo compila y la demo arranca.
+- El primer build tras interrumpirse dejó `*.objlib` a medias en `NetDeckDesktopBuild/out/Products` (error «A file with
+  the same name already exists»): se resolvió borrando esos `.objlib` y reconstruyendo (unos 5 min).
+- Se anonimizó una ruta personal que había en este archivo y hacía fallar `tools/privacidad.sh`.
+
+### Siguiente
+Ajustes (fuente, tamaño, tema) y atajos de teclado.
+
 ## 2026-11-16 · Windows · P8: bootstrapper corregido, app lanzando (por Claude)
 
 **Por Claude.** La app NetDeckWindows.exe lanza correctamente en modo demo. Dos bugs resueltos.
@@ -8,7 +37,7 @@
   Git recibe 3.15.1{commit} y falla con "Needed a single revision".
 - Fix: --force-resolved-versions en swift build (usa commit hashes de Package.resolved directamente).
 - Fix adicional: rutas POSIX en 11 × .git/objects/info/alternates corregidas a rutas Windows
-  (/home/jonay/ → C:/Users/jonay/).
+  (/home/<usuario>/ → C:/Users/<usuario>/).
 
 ### Bug 2: DDLM de Windows App Runtime 1.5 ausente
 

@@ -16,16 +16,26 @@ final class NetDeckWindows: SwiftApplication {
     private weak var selected: PestanaTerminal?
     private var sessions: SessionManager!
     private let sidebar = StackPanel()
+    private let editor = PanelEditorSesion()
+    /// Sesiones editables en memoria: en modo demo es la unica copia (no se escribe a disco).
+    private var library = SessionFile()
+    private let isDemo = ProcessInfo.processInfo.environment["NETDECK_DESKTOP_DEMO"] == "1"
 
     override func onLaunched(_ args: LaunchActivatedEventArgs) {
         let window = Window()
         self.window = window
         window.title = "Terminal NetDeck"
 
-        let isDemo = ProcessInfo.processInfo.environment["NETDECK_DESKTOP_DEMO"] == "1"
         MainActor.assumeIsolated {
             sessions = SessionManager()
-            if isDemo { sessions.loadSamples() } else { sessions.load() }
+            if isDemo {
+                sessions.loadSamples()
+                library.sessions = sessions.profiles.map(NetDeckWindows.editable(from:))
+            } else if FileManager.default.fileExists(atPath: SessionFile.defaultURL.path) {
+                sessions.load(from: SessionFile.defaultURL)
+            } else {
+                sessions.load()
+            }
         }
 
         // Rejilla raiz: barra lateral | area principal
@@ -46,8 +56,25 @@ final class NetDeckWindows: SwiftApplication {
         sideScroll.content = sidebar
         sideScroll.verticalScrollBarVisibility = .auto
         sideScroll.horizontalScrollBarVisibility = .disabled
-        Grid.setColumn(sideScroll, Int32(0))
-        root.children.append(sideScroll)
+        let addButton = Button()
+        addButton.content = "+ " + L("Nueva sesi\u{00F3}n")
+        addButton.horizontalAlignment = .stretch
+        addButton.margin = Thickness(left: 4, top: 4, right: 4, bottom: 8)
+        addButton.click.addHandler { [weak self] _, _ in self?.newSession() }
+        AutomationProperties.setAutomationId(addButton, "NuevaSesion")
+        let sideColumn = Grid()
+        let rowList = RowDefinition()
+        rowList.height = GridLength(value: 1, gridUnitType: .star)
+        let rowAdd = RowDefinition()
+        rowAdd.height = GridLength(value: 1, gridUnitType: .auto)
+        sideColumn.rowDefinitions.append(rowList)
+        sideColumn.rowDefinitions.append(rowAdd)
+        Grid.setRow(sideScroll, Int32(0))
+        Grid.setRow(addButton, Int32(1))
+        sideColumn.children.append(sideScroll)
+        sideColumn.children.append(addButton)
+        Grid.setColumn(sideColumn, Int32(0))
+        root.children.append(sideColumn)
 
         // Area principal (barra de herramientas + pestanas + terminal + estado)
         let layout = Grid()
@@ -118,6 +145,11 @@ final class NetDeckWindows: SwiftApplication {
             layout.children.append(view)
         }
 
+        Grid.setRow(editor.view, Int32(2))
+        layout.children.append(editor.view)
+        editor.onSave = { [weak self] session, original in self?.saveSession(session, replacing: original) ?? false }
+        editor.onCancel = { [weak self] in self?.hideEditor() }
+
         root.children.append(layout)
         window.content = root
         do {
@@ -143,6 +175,13 @@ final class NetDeckWindows: SwiftApplication {
             header.opacity = 0.6
             sidebar.children.append(header)
             for perfil in perfiles {
+                let fila = Grid()
+                let colNombre = ColumnDefinition()
+                colNombre.width = GridLength(value: 1, gridUnitType: .star)
+                let colEditar = ColumnDefinition()
+                colEditar.width = GridLength(value: 1, gridUnitType: .auto)
+                fila.columnDefinitions.append(colNombre)
+                fila.columnDefinitions.append(colEditar)
                 let btn = Button()
                 let icono: String
                 switch perfil.transport {
@@ -172,9 +211,103 @@ final class NetDeckWindows: SwiftApplication {
                 btn.click.addHandler { [weak self] _, _ in
                     self?.openProfile(perfil)
                 }
-                sidebar.children.append(btn)
+                let editar = Button()
+                editar.content = "\u{270E}"
+                editar.margin = Thickness(left: 0, top: 1, right: 4, bottom: 1)
+                AutomationProperties.setAutomationId(editar, "Editar_\(perfil.name)")
+                editar.click.addHandler { [weak self] _, _ in self?.editSession(perfil) }
+                Grid.setColumn(btn, Int32(0))
+                Grid.setColumn(editar, Int32(1))
+                fila.children.append(btn)
+                fila.children.append(editar)
+                sidebar.children.append(fila)
             }
         }
+    }
+
+    // MARK: - editor de sesion
+
+    private func newSession() {
+        var session = EditableSession.new(group: "General", name: "")
+        if let group = MainActor.assumeIsolated({ sessions.groups.first?.name }), group != "Sin grupo" {
+            session.group = group
+        }
+        showEditor(session, original: nil)
+    }
+
+    private func editSession(_ perfil: SessionProfile) {
+        let saved: EditableSession? = isDemo ? library.sessions.first { $0.name == perfil.name }
+            : (try? SessionFile(contentsOf: SessionFile.defaultURL))?.sessions.first { $0.name == perfil.name }
+        showEditor(saved ?? NetDeckWindows.editable(from: perfil), original: perfil.name)
+    }
+
+    private func showEditor(_ session: EditableSession, original: String?) {
+        status.text = ""
+        editor.show(session, original: original)
+        surface.visibility = .collapsed
+        editor.view.visibility = .visible
+    }
+
+    private func hideEditor() {
+        editor.view.visibility = .collapsed
+        surface.visibility = .visible
+        focusTerminal()
+    }
+
+    /// Guarda la sesion: en demo solo en memoria; en real, en el ssh_config de NetDeck. Devuelve true si se guardo.
+    private func saveSession(_ session: EditableSession, replacing original: String?) -> Bool {
+        guard EditableSession.isValidName(session.name) else {
+            status.text = L("El nombre es obligatorio y no puede llevar espacios ni * ? !")
+            return false
+        }
+        var file = SessionFile()
+        if isDemo {
+            file = library
+        } else if FileManager.default.fileExists(atPath: SessionFile.defaultURL.path) {
+            do { file = try SessionFile(contentsOf: SessionFile.defaultURL) } catch {
+                status.text = L("No se puede leer el archivo de sesiones: \(error.localizedDescription)")
+                return false
+            }
+        }
+        if let original, let index = file.sessions.firstIndex(where: { $0.name == original }) {
+            file.sessions[index] = session
+        } else {
+            file.sessions.append(session)
+        }
+        if let problem = file.problems().first {
+            status.text = problem
+            return false
+        }
+        if isDemo {
+            library = file
+            MainActor.assumeIsolated {
+                sessions = SessionManager(profiles: SSHConfigParser().parse(file.render()))
+            }
+        } else {
+            if let error = file.save() {
+                status.text = L("No se puede guardar: \(error)")
+                return false
+            }
+            MainActor.assumeIsolated { sessions.load(from: SessionFile.defaultURL) }
+        }
+        buildSidebar()
+        hideEditor()
+        status.text = L("Sesi\u{00F3}n \u{00AB}\(session.name)\u{00BB} guardada")
+        return true
+    }
+
+    /// Una sesion del ssh_config leido (sidebar) como sesion editable, para el modo demo o si no esta en el archivo.
+    private static func editable(from perfil: SessionProfile) -> EditableSession {
+        var session = EditableSession(group: perfil.group ?? "General", name: perfil.name)
+        session.kind = perfil.transport
+        session.host = perfil.hostName ?? ""
+        session.user = perfil.user ?? ""
+        session.port = perfil.port.map(String.init) ?? EditableSession.defaultPort(perfil.transport)
+        session.jump = perfil.proxyJump.joined(separator: ",")
+        session.summary = perfil.summary ?? ""
+        session.legacy = perfil.legacy
+        session.serial = perfil.serial ?? SerialLine()
+        return session
     }
 
     private func openProfile(_ perfil: SessionProfile) {
