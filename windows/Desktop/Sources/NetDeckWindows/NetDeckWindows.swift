@@ -19,10 +19,13 @@ final class NetDeckWindows: SwiftApplication {
     private let sidebar = StackPanel()
     private let editor = PanelEditorSesion()
     private let ajustes = PanelAjustes()
+    private let pegado = PanelTexto(idPrefix: "PegarSeguro")
+    private let multi = PanelTexto(idPrefix: "MultiExec")
     private var settings = AjustesTerminal.cargar()
     private var rootView: Grid?
     /// Tamano de letra respecto a 15 pt (celda de 8,25 x 19 px): para calcular columnas y filas.
     private var fontScale = 1.0
+    private var pasteFull = ""
     /// Sesiones editables en memoria: en modo demo es la unica copia (no se escribe a disco).
     private var library = SessionFile()
     private let isDemo = ProcessInfo.processInfo.environment["NETDECK_DESKTOP_DEMO"] == "1"
@@ -105,11 +108,18 @@ final class NetDeckWindows: SwiftApplication {
         connect.click.addHandler { [weak self] _, _ in self?.connect() }
         closeButton.content = L("Cerrar pesta\u{00F1}a")
         closeButton.click.addHandler { [weak self] _, _ in self?.closeSelected() }
+        let paste = Button()
+        paste.content = L("Pegar")
+        paste.click.addHandler { [weak self] _, _ in self?.safePaste() }
+        let multiButton = Button()
+        multiButton.content = L("MultiExec")
+        multiButton.click.addHandler { [weak self] _, _ in self?.multiExec() }
         let gear = Button()
         gear.content = "\u{2699}"
         gear.click.addHandler { [weak self] _, _ in self?.showAjustes() }
         for (control, id) in [(local as Control, "NuevaLocal"), (destination, "DestinoSSH"),
                               (connect, "ConectarSSH"), (closeButton, "CerrarPestana"),
+                              (paste, "PegarSeguro"), (multiButton, "MultiExec"),
                               (gear, "Ajustes")] {
             AutomationProperties.setAutomationId(control, id)
             toolbar.children.append(control)
@@ -161,6 +171,13 @@ final class NetDeckWindows: SwiftApplication {
         editor.onCancel = { [weak self] in self?.hideEditor() }
         Grid.setRow(ajustes.view, Int32(2))
         layout.children.append(ajustes.view)
+        for panel in [pegado, multi] {
+            Grid.setRow(panel.view, Int32(2))
+            layout.children.append(panel.view)
+            panel.onCancel = { [weak self] in self?.showPanel(nil) }
+        }
+        pegado.onConfirm = { [weak self] text in self?.confirmPaste(text) }
+        multi.onConfirm = { [weak self] text in self?.confirmMultiExec(text) }
         ajustes.onSave = { [weak self] new in self?.saveAjustes(new) }
         ajustes.onCancel = { [weak self] in self?.hideAjustes() }
 
@@ -276,7 +293,78 @@ final class NetDeckWindows: SwiftApplication {
         surface.visibility = panel == nil ? .visible : .collapsed
         editor.view.visibility = panel === editor.view ? .visible : .collapsed
         ajustes.view.visibility = panel === ajustes.view ? .visible : .collapsed
+        pegado.view.visibility = panel === pegado.view ? .visible : .collapsed
+        multi.view.visibility = panel === multi.view ? .visible : .collapsed
         if panel == nil { focusTerminal() }
+    }
+
+    // MARK: - pegado seguro y MultiExec
+
+    /// Texto del portapapeles (Win32: el WinRT es asincrono y no merece la pena aqui).
+    private func pasteboardText() -> String? {
+        guard OpenClipboard(nil) else { return nil }
+        defer { CloseClipboard() }
+        guard let handle = GetClipboardData(UINT(CF_UNICODETEXT)), let pointer = GlobalLock(handle) else { return nil }
+        defer { GlobalUnlock(handle) }
+        return String(decodingCString: pointer.assumingMemoryBound(to: UInt16.self), as: UTF16.self)
+    }
+
+    /// Una linea se pega directamente; varias, tras una vista previa (un pegado con saltos ejecutaria cada linea).
+    private func safePaste() {
+        guard let selected, !selected.closed else {
+            status.text = L("No hay ning\u{00FA}n terminal abierto")
+            return
+        }
+        guard let text = pasteboardText(), !text.isEmpty else {
+            status.text = L("El portapapeles no tiene texto")
+            return
+        }
+        let trimmed = text.trimmingCharacters(in: .newlines)
+        guard trimmed.contains(where: \.isNewline) else {
+            selected.paste(trimmed)
+            return
+        }
+        let lines = trimmed.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).count
+        let preview = trimmed.count > 2000 ? String(trimmed.prefix(2000)) + "\n\u{2026}" : trimmed
+        status.text = ""
+        pasteFull = trimmed
+        pegado.show(title: L("Pegar varias l\u{00ED}neas"),
+                    hint: L("Se van a pegar \(lines) l\u{00ED}neas (\(trimmed.count) caracteres). Rev\u{00ED}salas antes de enviarlas.")
+                        + (trimmed.count > 2000 ? " " + L("Se ven los primeros 2000 caracteres; se pega todo.") : ""),
+                    text: preview, editable: false)
+        showPanel(pegado.view)
+    }
+
+    private func confirmPaste(_ preview: String) {
+        showPanel(nil)
+        guard let selected, !selected.closed else { return }
+        selected.paste(pasteFull)
+        pasteFull = ""
+    }
+
+    /// Un mismo comando a todas las pestanas SSH y Telnet abiertas.
+    private func multiExec() {
+        status.text = ""
+        multi.show(title: L("MultiExec"),
+                   hint: L("El comando se env\u{00ED}a a todas las pesta\u{00F1}as SSH y Telnet abiertas."),
+                   text: "", editable: true)
+        showPanel(multi.view)
+    }
+
+    private func confirmMultiExec(_ text: String) {
+        let command = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !command.isEmpty else {
+            status.text = L("Escribe un comando")
+            return
+        }
+        let targets = terminals.filter { !$0.closed && !$0.route.isLocal && [.ssh, .telnet].contains($0.route.transport) }
+        showPanel(nil)
+        guard !targets.isEmpty else {
+            status.text = L("No hay pesta\u{00F1}as SSH o Telnet abiertas")
+            return
+        }
+        for tab in targets { tab.write(command.replacingOccurrences(of: "\n", with: "\r") + "\r") }
+        status.text = L("Comando enviado a \(targets.count) pesta\u{00F1}as")
     }
 
     // MARK: - atajos

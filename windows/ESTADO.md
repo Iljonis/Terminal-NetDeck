@@ -1,3 +1,27 @@
+## 2026-11-17 · Windows · P8: pegado seguro y MultiExec (por Claude)
+
+**Por Claude.** Botones «Pegar» y «MultiExec» en la barra de herramientas, después de «Cerrar pestaña». Compila
+(`Build complete!`); el pegado seguro está probado en la demo con capturas.
+
+### Qué hay
+- `PanelTexto.swift` (nuevo): panel de texto multilínea con Enviar y Cancelar en el área principal. **No se usa
+  `ContentDialog`**: en swift-winui 0.1.1 no hay un camino sencillo y síncrono, y el resto de la interfaz ya reparte el área
+  principal entre paneles (`showPanel`).
+- `safePaste()` (`NetDeckWindows.swift`, id `PegarSeguro`): lee el portapapeles con Win32 (`OpenClipboard`,
+  `GetClipboardData(CF_UNICODETEXT)`; la API WinRT `Clipboard` es asíncrona). Una línea se pega directamente; varias abren
+  la vista previa (hasta 2000 caracteres visibles; se pega todo). Se quitan los saltos finales para no ejecutar una línea
+  de más.
+- `PestanaTerminal.paste(_:)`: pega con Intro por cada salto y, si el programa lo pide, entre marcas de «pegado entre
+  corchetes»; quita los ESC del texto para que no pueda cerrar la marca antes de tiempo.
+- `multiExec()` (id `MultiExec`): un comando a todas las pestañas abiertas con `route.transport` SSH o Telnet
+  (`PestanaTerminal` guarda ahora su `route`). El resumen de a cuántas se envió va a la barra de estado.
+- `Ingles.swift`: textos nuevos en inglés.
+
+### Notas
+- Probado: pegar tres líneas desde el portapapeles las ejecuta en el shell local.
+- **Sin probar:** el envío de MultiExec a pestañas SSH/Telnet reales (en demo `ssh` no conecta a ningún sitio).
+- La tarea hablaba de `route.target` `.ssh(_)`/`.telnet(_,_)`: no existe; el tipo va en `route.transport`.
+
 ## 2026-11-17 · Windows · P8: tema Mica, claro y oscuro desde Ajustes (por Claude)
 
 **Por Claude.** El tema elegido en Ajustes se aplica de verdad a la ventana. Compila (`Build complete!`) y está probado en

@@ -6,6 +6,7 @@ import SwiftTerm
 /// El búfer se usa en el hilo de WinUI. Las escrituras y el cierre de ConPTY se ordenan en su propia cola.
 final class PestanaTerminal: TerminalDelegate {
     let title: String
+    let route: ConnectionRoute
     private let process: ConPTYProcess
     private let input = DispatchQueue(label: "netdeck.windows.terminal")
     private var reader: Task<Void, Never>?
@@ -14,6 +15,7 @@ final class PestanaTerminal: TerminalDelegate {
 
     init(route: ConnectionRoute) throws {
         title = route.title
+        self.route = route
         let demo = ProcessInfo.processInfo.environment["NETDECK_DESKTOP_DEMO"] == "1"
         let configFile = demo && !route.isLocal ? "NUL" : nil
         var command = route.command(sharing: nil, configFile: configFile)
@@ -56,6 +58,14 @@ final class PestanaTerminal: TerminalDelegate {
     func write(_ text: String) {
         guard !closed, !text.isEmpty else { return }
         terminal.sendUserInput(Array(text.utf8)[...])
+    }
+
+    /// Pega texto como lo haria un teclado: saltos de linea como Intro y, si el programa lo pide, entre marcas de
+    /// «pegado entre corchetes». Se quitan los ESC para que el texto no pueda cerrar la marca antes de tiempo.
+    func paste(_ text: String) {
+        let plain = text.replacingOccurrences(of: "\u{1b}", with: "")
+            .replacingOccurrences(of: "\r\n", with: "\r").replacingOccurrences(of: "\n", with: "\r")
+        write(terminal.bracketedPasteMode ? "\u{1b}[200~" + plain + "\u{1b}[201~" : plain)
     }
 
     func send(source: Terminal, data: ArraySlice<UInt8>) {

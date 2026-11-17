@@ -2445,5 +2445,14 @@ enum Ingles {
         "Fuente del terminal": "Terminal font",
         "Tamaño de fuente": "Font size",
         "Sistema (Mica)": "System (Mica)",
+        "No hay ningún terminal abierto": "No terminal is open",
+        "El portapapeles no tiene texto": "The clipboard has no text",
+        "Pegar varias líneas": "Paste multiple lines",
+        "Se van a pegar %@ líneas (%@ caracteres). Revísalas antes de enviarlas.": "%@ lines (%@ characters) will be pasted. Review them before sending.",
+        "Se ven los primeros 2000 caracteres; se pega todo.": "The first 2000 characters are shown; everything is pasted.",
+        "El comando se envía a todas las pestañas SSH y Telnet abiertas.": "The command is sent to every open SSH and Telnet tab.",
+        "Escribe un comando": "Enter a command",
+        "No hay pestañas SSH o Telnet abiertas": "No SSH or Telnet tabs are open",
+        "Comando enviado a %@ pestañas": "Command sent to %@ tabs",
 ]
 }
