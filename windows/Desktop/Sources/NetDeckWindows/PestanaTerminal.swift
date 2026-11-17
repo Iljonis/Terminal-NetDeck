@@ -62,9 +62,24 @@ final class PestanaTerminal: TerminalDelegate {
 
     var screen: String {
         (0..<terminal.rows).map {
-            terminal.getLine(row: $0)?.translateToString(trimRight: true,
-                                                        skipNullCellsFollowingWide: true) ?? ""
+            terminal.getLine(row: $0)?.textoWindows ?? ""
         }.joined(separator: "\n")
+    }
+
+    func buscarHistorial(_ consulta: String) -> (lines: [String], total: Int) {
+        let texto = consulta.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !texto.isEmpty else { return ([], 0) }
+        let primera = terminal.buffer.totalLinesTrimmed
+        let fin = primera + terminal.getTopVisibleRow() + terminal.rows
+        var lineas: [String] = []
+        var total = 0
+        // Primero las coincidencias recientes, incluidas las que ya han salido de la pantalla.
+        for fila in (primera..<fin).reversed() {
+            guard let linea = terminal.getScrollInvariantLine(row: fila)?.textoWindows, linea.localizedCaseInsensitiveContains(texto) else { continue }
+            total += 1
+            if lineas.count < 200 { lineas.append("\(fila + 1)  \(linea)") }
+        }
+        return (Array(lineas.reversed()), total)
     }
 
     /// Pone los colores de un tema en el terminal (paleta ANSI, texto, fondo y cursor). nil: no toca nada.
@@ -161,13 +176,19 @@ final class EntradaMacro: TerminalIO {
         let first = max(row, tab.terminal.buffer.totalLinesTrimmed)
         guard first <= last else { return [] }
         return (first...last).compactMap {
-            tab.terminal.getScrollInvariantLine(row: $0)?.translateToString(
-                trimRight: true, skipNullCellsFollowingWide: true
-            )
+            tab.terminal.getScrollInvariantLine(row: $0)?.textoWindows
         }
     }
 
     func send(bytes: [UInt8]) {
         tab.write(String(decoding: bytes, as: UTF8.self))
+    }
+}
+
+private extension BufferLine {
+    var textoWindows: String {
+        // SwiftTerm puede dejar NUL al redistribuir líneas. WinUI cortaría todo el TextBlock en ese carácter.
+        translateToString(trimRight: true, skipNullCellsFollowingWide: true)
+            .replacingOccurrences(of: "\0", with: " ")
     }
 }

@@ -403,6 +403,21 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 - [x] Añadir un panel de macros (`Ctrl+M`) para crear listas de órdenes y reproducir macros del formato de NetDeck en la pestaña activa.
 - [ ] Validar el ayudante a través de `-J` y después de instalar en un Windows limpio.
 
+## P14 · Terminal y productividad de escritorio
+
+- [x] Vista dividida con dos terminales activos y orientación configurable, y ajuste del interlineado.
+- [x] Guardar y restaurar espacios de trabajo, con sus pestañas y disposición.
+- [x] Buscar texto en el historial de una pestaña.
+- [ ] Completar macros y botones de órdenes, incluido el pegado seguro con resultado.
+- [ ] Reordenar pestañas por arrastre y moverlas entre ventanas.
+
+## Paridad restante y distribución
+
+- [ ] Terminal: completar atributos de texto, resaltado configurable, filtros y menús contextuales.
+- [ ] Archivos: completar mover, hash, menús y edición remota en SFTP, e integrar el cliente FTP en el explorador.
+- [ ] Túneles y credenciales: comprobar los flujos pendientes de la auditoría, incluido askpass con salto.
+- [ ] Distribución: versión de publicación, instalador firmado y prueba de instalación, actualización y desinstalación en Windows limpio.
+
 ---
 
 ## Cómo cambiar este plan

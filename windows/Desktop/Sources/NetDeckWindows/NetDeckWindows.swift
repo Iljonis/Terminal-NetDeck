@@ -9,8 +9,19 @@ final class NetDeckWindows: SwiftApplication {
     private var window: Window?
     private let tabs = StackPanel()
     private let destination = TextBox()
-    private let surface = Border()
-    private let screen = TextBlock()
+    private let terminalGrid = Grid()
+    private let columnas = [ColumnDefinition(), ColumnDefinition()]
+    private let filas = [RowDefinition(), RowDefinition()]
+    private let vistas = [VistaTerminal(id: "PantallaTerminal"), VistaTerminal(id: "PantallaTerminal2")]
+    private var terminalesVisibles: [PestanaTerminal?] = [nil, nil]
+    private var panelActivo = 0
+    private var divisionGuardadaApilada: Bool?
+    private let espacios = PanelEspacios()
+    private let buscarTerminal = PanelBuscarTerminal()
+    private weak var pestañaBuscada: PestanaTerminal?
+    private var espaciosDemo = WorkspaceLibrary()
+    private var panelDividido: Bool { terminalesVisibles[1] != nil }
+    private let dividir = Button()
     private let status = TextBlock()
     private let closeButton = Button()
     private var terminals: [PestanaTerminal] = []
@@ -38,7 +49,6 @@ final class NetDeckWindows: SwiftApplication {
     private var fontScale = 1.0
     /// Colores del tema elegido para el terminal (nil: los del sistema, texto liso).
     private var paleta: PaletaTerminal?
-    private var pintado: [[SegmentoColor]] = []
     private var pinceles: [RGB: SolidColorBrush] = [:]
     private var pasteFull = ""
     /// Sesiones editables en memoria: en modo demo es la unica copia (no se escribe a disco).
@@ -140,16 +150,30 @@ final class NetDeckWindows: SwiftApplication {
         pararMacro.content = L("Parar la macro")
         pararMacro.visibility = .collapsed
         pararMacro.click.addHandler { [weak self] _, _ in self?.macroActiva?.abort.trip() }
+        dividir.content = L("Dividir la pantalla")
+        dividir.click.addHandler { [weak self] _, _ in self?.toggleSplit() }
+        let workspaceButton = Button()
+        workspaceButton.content = L("Espacios")
+        workspaceButton.click.addHandler { [weak self] _, _ in self?.showWorkspaces() }
+        let searchButton = Button()
+        searchButton.content = L("Buscar")
+        searchButton.click.addHandler { [weak self] _, _ in self?.showTerminalSearch() }
         let gear = Button()
         gear.content = "\u{2699}"
         gear.click.addHandler { [weak self] _, _ in self?.showAjustes() }
         for (control, id) in [(local as Control, "NuevaLocal"), (destination, "DestinoSSH"),
                               (connect, "ConectarSSH"), (closeButton, "CerrarPestana"),
                               (paste, "PegarSeguro"), (multiButton, "MultiExec"), (tunnelButton, "Tuneles"),
-                              (macroButton, "Macros"), (pararMacro, "Macros_Parar"), (gear, "Ajustes")] {
+                              (macroButton, "Macros"), (pararMacro, "Macros_Parar"), (dividir, "DividirTerminal"),
+                              (workspaceButton, "Espacios"), (searchButton, "BuscarTerminal"), (gear, "Ajustes")] {
             AutomationProperties.setAutomationId(control, id)
             toolbar.children.append(control)
         }
+
+        let toolbarScroll = ScrollViewer()
+        toolbarScroll.horizontalScrollBarVisibility = .auto
+        toolbarScroll.verticalScrollBarVisibility = .disabled
+        toolbarScroll.content = toolbar
 
         tabs.orientation = .horizontal
         tabs.spacing = 6
@@ -158,39 +182,43 @@ final class NetDeckWindows: SwiftApplication {
         tabStrip.verticalScrollBarVisibility = .disabled
         tabStrip.content = tabs
 
-        screen.fontFamily = FontFamily("Consolas")
-        screen.fontSize = 15
-        screen.lineHeight = 19
-        screen.isTextSelectionEnabled = true
-        surface.padding = Thickness(left: 10, top: 8, right: 10, bottom: 8)
-        AutomationProperties.setAutomationId(screen, "PantallaTerminal")
         AutomationProperties.setAutomationId(status, "EstadoTerminal")
-        surface.child = screen
-        surface.isTabStop = true
-        surface.pointerPressed.addHandler { [weak self] _, _ in self?.focusTerminal() }
-        surface.sizeChanged.addHandler { [weak self] _, _ in self?.resize() }
-        surface.keyDown.addHandler { [weak self] _, args in
-            guard let self, let args, let bytes = self.keySequence(args.key.rawValue),
-                  let selected = self.selected, !selected.closed else { return }
-            args.handled = true
-            if self.macroActiva?.tab === selected, AbortKey.isAbort(bytes.utf8) {
-                self.macroActiva?.abort.trip()
-                if bytes == "\u{1b}" { return }
-            } else if self.macroActiva?.tab === selected {
-                return
+        for columna in columnas { terminalGrid.columnDefinitions.append(columna) }
+        for fila in filas { terminalGrid.rowDefinitions.append(fila) }
+        for (index, vista) in vistas.enumerated() {
+            let surface = vista.surface
+            terminalGrid.children.append(surface)
+            surface.pointerPressed.addHandler { [weak self] _, _ in
+                guard let self, let tab = self.terminalesVisibles[index] else { return }
+                if index == self.panelActivo { self.focusTerminal() } else { self.select(tab) }
             }
-            selected.write(bytes)
+            surface.gotFocus.addHandler { [weak self] _, _ in
+                guard let self, index != self.panelActivo, let tab = self.terminalesVisibles[index] else { return }
+                self.select(tab, focus: false)
+            }
+            surface.sizeChanged.addHandler { [weak self] _, _ in self?.resize(index) }
+            surface.keyDown.addHandler { [weak self] _, args in
+                guard let self, let args, let tab = self.terminalesVisibles[index], !tab.closed,
+                      let bytes = self.keySequence(args.key.rawValue, tab: tab) else { return }
+                args.handled = true
+                if self.macroActiva?.tab === tab {
+                    guard AbortKey.isAbort(bytes.utf8) else { return }
+                    self.macroActiva?.abort.trip()
+                    if bytes == "\u{1b}" { return }
+                }
+                tab.write(bytes)
+            }
+            surface.characterReceived.addHandler { [weak self] _, args in
+                guard let self, let args, let tab = self.terminalesVisibles[index], !tab.closed else { return }
+                let text = String(args.character)
+                guard text.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else { return }
+                args.handled = true
+                if self.macroActiva?.tab !== tab { tab.write(text) }
+            }
         }
-        surface.characterReceived.addHandler { [weak self] _, args in
-            guard let args, let selected = self?.selected, !selected.closed else { return }
-            let text = String(args.character)
-            guard selected !== self?.macroActiva?.tab else { args.handled = true; return }
-            guard text.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else { return }
-            args.handled = true
-            selected.write(text)
-        }
+        updateSplitLayout()
 
-        for (index, view) in [toolbar as FrameworkElement, tabStrip, surface, status].enumerated() {
+        for (index, view) in [toolbarScroll as FrameworkElement, tabStrip, terminalGrid, status].enumerated() {
             let row = RowDefinition()
             row.height = GridLength(value: 1, gridUnitType: index == 2 ? .star : .auto)
             layout.rowDefinitions.append(row)
@@ -239,6 +267,19 @@ final class NetDeckWindows: SwiftApplication {
         pegado.onConfirm = { [weak self] text in self?.confirmPaste(text) }
         multi.onConfirm = { [weak self] text in self?.confirmMultiExec(text) }
         actualizacion.onConfirm = { [weak self] _ in self?.installUpdate() }
+        for view in [espacios.view, buscarTerminal.view] {
+            Grid.setRow(view, Int32(2))
+            layout.children.append(view)
+        }
+        espacios.onOpen = { [weak self] in self?.restoreWorkspace($0) }
+        espacios.onSave = { [weak self] in self?.saveWorkspace($0) }
+        espacios.onClose = { [weak self] in self?.showPanel(nil) }
+        buscarTerminal.onSearch = { [weak self] consulta in
+            guard let self, let tab = self.pestañaBuscada else { return }
+            let coincidencias = tab.buscarHistorial(consulta)
+            self.buscarTerminal.show(lines: coincidencias.lines, total: coincidencias.total)
+        }
+        buscarTerminal.onClose = { [weak self] in self?.showPanel(nil) }
         Grid.setRow(macros.view, Int32(2))
         layout.children.append(macros.view)
         macros.onClose = { [weak self] in self?.showPanel(nil) }
@@ -377,7 +418,7 @@ final class NetDeckWindows: SwiftApplication {
 
     /// El area principal muestra el terminal o uno de los paneles (editor, ajustes), nunca varios a la vez.
     private func showPanel(_ panel: ScrollViewer?) {
-        surface.visibility = panel == nil ? .visible : .collapsed
+        terminalGrid.visibility = panel == nil ? .visible : .collapsed
         editor.view.visibility = panel === editor.view ? .visible : .collapsed
         ajustes.view.visibility = panel === ajustes.view ? .visible : .collapsed
         pegado.view.visibility = panel === pegado.view ? .visible : .collapsed
@@ -386,6 +427,8 @@ final class NetDeckWindows: SwiftApplication {
         tuneles.view.visibility = panel === tuneles.view ? .visible : .collapsed
         asistente.view.visibility = panel === asistente.view ? .visible : .collapsed
         actualizacion.view.visibility = panel === actualizacion.view ? .visible : .collapsed
+        espacios.view.visibility = panel === espacios.view ? .visible : .collapsed
+        buscarTerminal.view.visibility = panel === buscarTerminal.view ? .visible : .collapsed
         macros.view.visibility = panel === macros.view ? .visible : .collapsed
         macroConfirm.view.visibility = panel === macroConfirm.view ? .visible : .collapsed
         if panel !== macroConfirm.view { macroConfirm.onConfirm = nil }
@@ -561,6 +604,79 @@ final class NetDeckWindows: SwiftApplication {
         }
     }
 
+    // MARK: - espacios e historial
+
+    private func showTerminalSearch() {
+        guard let selected else { return }
+        pestañaBuscada = selected
+        buscarTerminal.reset(title: selected.title)
+        status.text = ""
+        showPanel(buscarTerminal.view)
+    }
+
+    private func showWorkspaces() {
+        do {
+            espacios.show(isDemo ? espaciosDemo : try WorkspaceLibrary.load())
+            status.text = ""
+            showPanel(espacios.view)
+        } catch {
+            status.text = error.localizedDescription
+        }
+    }
+
+    private func saveWorkspace(_ nombre: String) {
+        do {
+            let current = terminals.filter { !$0.closed }
+            let entries = current.map { WorkspaceTab(route: $0.route) }
+            let ids = Dictionary(uniqueKeysWithValues: zip(current.map(ObjectIdentifier.init), entries.map(\.id)))
+            let active = selected.flatMap { ids[ObjectIdentifier($0)] }
+            let panes = terminalesVisibles.compactMap { $0.flatMap { ids[ObjectIdentifier($0)] } }
+            let apilada = divisionGuardadaApilada ?? settings.divisionApilada
+            let layout = panes.count == 2 ? (apilada ? "stack2" : "side2") : nil
+            let workspace = Workspace(name: nombre.trimmingCharacters(in: .whitespacesAndNewlines),
+                                      tabs: entries, selected: active, layout: layout, panes: panes)
+            var lib = isDemo ? espaciosDemo : try WorkspaceLibrary.load()
+            lib.workspaces.append(workspace)
+            if let problem = lib.problem { throw WorkspaceError(problem) }
+            if isDemo { espaciosDemo = lib } else { try lib.save() }
+            espacios.show(lib, selected: workspace.id)
+            status.text = L("Espacio «\(workspace.name)» guardado")
+        } catch {
+            status.text = L("No se puede guardar: \(error.localizedDescription)")
+        }
+    }
+
+    private func restoreWorkspace(_ workspace: Workspace) {
+        do {
+            let resolved = try MainActor.assumeIsolated { try workspace.resolve(using: sessions) }
+            var restored: [WorkspaceTab.ID: PestanaTerminal] = [:]
+            for entry in resolved.tabs where entry.route.isLocal || entry.route.transport == .ssh {
+                restored[entry.id] = open(entry.route)
+            }
+            guard let selected = workspace.selected.flatMap({ restored[$0] })
+                ?? resolved.tabs.lazy.compactMap({ restored[$0.id] }).first else {
+                status.text = L("No se ha podido abrir ninguna pestaña del espacio")
+                return
+            }
+            let panes = workspace.panes.compactMap { restored[$0] }
+            if panes.count >= 2, let i = panes.prefix(2).firstIndex(where: { $0 === selected }) {
+                terminalesVisibles = [panes[0], panes[1]]
+                panelActivo = i
+                divisionGuardadaApilada = workspace.layout == "stack2"
+            } else {
+                terminalesVisibles = [selected, nil]
+                panelActivo = 0
+                divisionGuardadaApilada = nil
+            }
+            updateSplitLayout()
+            showPanel(nil)
+            select(selected)
+            status.text = L("Pestañas restauradas: \(restored.count) de \(workspace.tabs.count)")
+        } catch {
+            status.text = error.localizedDescription
+        }
+    }
+
     // MARK: - actualizaciones
 
     /// Lleva `body` al hilo de WinUI (las tareas de la red acaban en otro).
@@ -705,6 +821,12 @@ final class NetDeckWindows: SwiftApplication {
         case 9:
             showPanel(nil)
             cycleTab(shift ? -1 : 1)
+        case 68 where shift:
+            toggleSplit()
+        case 69 where shift:
+            showWorkspaces()
+        case 70 where terminalGrid.visibility == .visible:
+            showTerminalSearch()
         case 77:
             showMacros()
         case 84:
@@ -728,13 +850,11 @@ final class NetDeckWindows: SwiftApplication {
     /// Los colores del tema (de NetDeckCore) en la superficie del terminal, en su paleta y en el texto, por trozos de color.
     private func applyTerminalTheme(_ id: String) {
         paleta = TemasTerminal.tema(id: id).map(PaletaTerminal.init(tema:))
-        pintado = []
-        if let paleta {
-            surface.background = brush(paleta.fondo)
-            screen.foreground = brush(paleta.texto)
-        } else {
-            surface.background = nil
-            _ = try? screen.clearValue(TextBlock.foregroundProperty)
+        for vista in vistas {
+            vista.invalidate()
+            vista.surface.background = paleta.map { brush($0.fondo) } ?? brushTransparente
+            if let paleta { vista.screen.foreground = brush(paleta.texto) }
+            else { _ = try? vista.screen.clearValue(TextBlock.foregroundProperty) }
         }
         for tab in terminals { tab.apply(palette: paleta) }
         render()
@@ -746,26 +866,6 @@ final class NetDeckWindows: SwiftApplication {
         let made = SolidColorBrush(Color(a: 255, r: channel(c.r), g: channel(c.g), b: channel(c.b)))
         pinceles[c] = made
         return made
-    }
-
-    /// Pinta la pantalla con un `Run` por trozo de color; si no ha cambiado nada desde la ultima vez, no toca nada.
-    private func paint(_ lines: [[SegmentoColor]]) {
-        guard lines != pintado else { return }
-        pintado = lines
-        screen.text = ""
-        for (index, line) in lines.enumerated() {
-            for (position, segment) in line.enumerated() {
-                let run = Run()
-                run.text = segment.texto + (position == line.count - 1 && index < lines.count - 1 ? "\n" : "")
-                if let color = segment.color { run.foreground = brush(color) }
-                screen.inlines.append(run)
-            }
-            if line.isEmpty && index < lines.count - 1 {
-                let run = Run()
-                run.text = "\n"
-                screen.inlines.append(run)
-            }
-        }
     }
 
     // MARK: - ajustes
@@ -780,7 +880,8 @@ final class NetDeckWindows: SwiftApplication {
 
     private func saveAjustes(_ new: AjustesTerminal) {
         settings = new
-        new.guardar()
+        if !isDemo { new.guardar() }
+        divisionGuardadaApilada = nil
         applySettings(new)
         hideAjustes()
         status.text = L("Ajustes guardados")
@@ -788,10 +889,13 @@ final class NetDeckWindows: SwiftApplication {
 
     /// Fuente y tamano al terminal; el tema, a la ventana (Sistema = el de Windows).
     private func applySettings(_ a: AjustesTerminal) {
-        screen.fontFamily = FontFamily(a.fuente)
-        screen.fontSize = Double(a.tamano)
-        screen.lineHeight = (Double(a.tamano) * 19 / 15).rounded()
+        for vista in vistas {
+            vista.screen.fontFamily = FontFamily(a.fuente)
+            vista.screen.fontSize = Double(a.tamano)
+            vista.screen.lineHeight = alturaLinea
+        }
         fontScale = Double(a.tamano) / 15
+        updateSplitLayout()
         let theme: Int32 = a.tema == "Claro" ? 1 : (a.tema == "Oscuro" ? 2 : 0)
         rootView?.requestedTheme = ElementTheme(rawValue: theme)
         applyTerminalTheme(a.temaTerminal)
@@ -906,14 +1010,15 @@ final class NetDeckWindows: SwiftApplication {
         open(ConnectionRoute(title: target.description, target: target))
     }
 
-    private func open(_ route: ConnectionRoute) {
+    @discardableResult
+    private func open(_ route: ConnectionRoute) -> PestanaTerminal? {
         if route.transport == .sftp {
             openSFTP(route)
-            return
+            return nil
         }
         if route.transport == .ftp {
             status.text = L("FTP no disponible a\u{00FA}n en la versi\u{00F3}n de Windows")
-            return
+            return nil
         }
         do {
             if let problem = route.launchProblem() { throw RemoteError(problem) }
@@ -928,16 +1033,23 @@ final class NetDeckWindows: SwiftApplication {
             }, changed: { [weak self, weak session] in
                 guard let self, let session else { return }
                 if session.closed, self.macroActiva?.tab === session { self.macroActiva?.abort.trip() }
-                guard self.selected === session else { return }
-                self.render()
-                if session.closed { self.status.text = L("Conexión cerrada") }
+                guard let index = self.terminalesVisibles.firstIndex(where: { $0 === session }) else { return }
+                self.render(index)
+                if self.selected === session, session.closed { self.status.text = L("Conexión cerrada") }
             })
+            return session
         } catch {
             status.text = L("No se puede abrir \u{00AB}\(route.title)\u{00BB}: \(error.localizedDescription)")
+            return nil
         }
     }
 
-    private func select(_ session: PestanaTerminal?) {
+    private func select(_ session: PestanaTerminal?, focus: Bool = true) {
+        if let session, let index = terminalesVisibles.firstIndex(where: { $0 === session }) {
+            panelActivo = index
+        } else {
+            terminalesVisibles[panelActivo] = session
+        }
         selected = session
         status.text = session?.closed == true ? L("Conexión cerrada") : ""
         tabs.children.clear()
@@ -952,7 +1064,7 @@ final class NetDeckWindows: SwiftApplication {
         closeButton.isEnabled = session != nil
         resize()
         render()
-        focusTerminal()
+        if focus { focusTerminal() }
     }
 
     private func closeSelected() {
@@ -960,33 +1072,82 @@ final class NetDeckWindows: SwiftApplication {
         if macroActiva?.tab === selected { macroActiva?.abort.trip() }
         selected.close()
         terminals.remove(at: index)
-        select(terminals.isEmpty ? nil : terminals[min(index, terminals.count - 1)])
-    }
-
-    private func render() {
-        if let paleta, let selected {
-            paint(selected.coloredLines(paleta))
+        if panelDividido {
+            let otra = terminalesVisibles[1 - panelActivo]
+            terminalesVisibles = [otra, nil]
+            panelActivo = 0
+            updateSplitLayout()
+            select(otra)
         } else {
-            pintado = []
-            screen.text = selected?.screen ?? ""
+            select(terminals.isEmpty ? nil : terminals[min(index, terminals.count - 1)])
         }
     }
 
-    private func focusTerminal() { _ = try? surface.focus(.programmatic) }
-
-    private func resize() {
-        guard surface.actualWidth > 20, surface.actualHeight > 16 else { return }
-        selected?.resize(cols: max(2, Int((surface.actualWidth - 20) / (8.25 * fontScale))),
-                         rows: max(2, Int((surface.actualHeight - 16) / (19 * fontScale))))
-        render()
+    private func toggleSplit() {
+        guard let selected else { return }
+        divisionGuardadaApilada = nil
+        if panelDividido {
+            terminalesVisibles = [selected, nil]
+            panelActivo = 0
+        } else {
+            guard let otra = terminals.first(where: { $0 !== selected && !$0.closed }) else {
+                status.text = L("Abre otra pestaña para dividir la pantalla")
+                return
+            }
+            terminalesVisibles = [selected, otra]
+            panelActivo = 0
+        }
+        updateSplitLayout()
+        showPanel(nil)
+        select(selected)
     }
 
-    private func keySequence(_ key: Int32) -> String? {
+    private func updateSplitLayout() {
+        let apilada = divisionGuardadaApilada ?? settings.divisionApilada
+        filas[0].height = GridLength(value: 1, gridUnitType: .star)
+        columnas[0].width = GridLength(value: 1, gridUnitType: .star)
+        filas[1].height = GridLength(value: panelDividido && apilada ? 1 : 0, gridUnitType: .star)
+        columnas[1].width = GridLength(value: panelDividido && !apilada ? 1 : 0, gridUnitType: .star)
+        let otra = vistas[1].surface
+        Grid.setRow(otra, apilada ? 1 : 0)
+        Grid.setColumn(otra, apilada ? 0 : 1)
+        otra.margin = Thickness(left: apilada ? 0 : 4, top: apilada ? 4 : 0, right: 0, bottom: 0)
+        otra.visibility = panelDividido ? .visible : .collapsed
+        dividir.content = panelDividido ? L("Cerrar división") : L("Dividir la pantalla")
+    }
+
+    private let brushTransparente = SolidColorBrush(Color(a: 0, r: 0, g: 0, b: 0))
+
+    private func render() {
+        for index in vistas.indices { render(index) }
+    }
+
+    private func render(_ index: Int) {
+        vistas[index].render(terminalesVisibles[index], palette: paleta, brush: brush)
+    }
+
+    private func focusTerminal() { _ = try? vistas[panelActivo].surface.focus(.programmatic) }
+
+    private var alturaLinea: Double { (Double(settings.tamano) * 19 / 15 * settings.interlineado).rounded() }
+
+    private func resize() {
+        for index in vistas.indices { resize(index) }
+    }
+
+    private func resize(_ index: Int) {
+        let surface = vistas[index].surface
+        guard let tab = terminalesVisibles[index], surface.actualWidth > 20, surface.actualHeight > 16 else { return }
+        tab.resize(cols: max(2, Int((surface.actualWidth - 20) / (8.25 * fontScale))),
+                   rows: max(2, Int((surface.actualHeight - 16) / alturaLinea)))
+        render(index)
+    }
+
+    private func keySequence(_ key: Int32, tab: PestanaTerminal) -> String? {
         if GetKeyState(Int32(VK_CONTROL)) < 0, GetKeyState(Int32(VK_MENU)) >= 0, (65...90).contains(key),
            let scalar = UnicodeScalar(Int(key - 64)) {
             return String(scalar)
         }
-        let arrowPrefix = selected?.terminal.applicationCursor == true ? "\u{1b}O" : "\u{1b}["
+        let arrowPrefix = tab.terminal.applicationCursor ? "\u{1b}O" : "\u{1b}["
         switch key {
         case 8: return "\u{7f}"
         case 9: return "\t"

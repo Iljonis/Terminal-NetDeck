@@ -14,6 +14,8 @@ struct AjustesTerminal: Equatable {
     var tema = "Sistema (Mica)"
     /// Id del tema de colores del terminal (los de NetDeckCore); vacio = sin tema. Clave ndTemaNombre.
     var temaTerminal = ""
+    var divisionApilada = false
+    var interlineado = 1.0
 
     static func cargar(_ defaults: UserDefaults = .standard) -> AjustesTerminal {
         var a = AjustesTerminal()
@@ -22,6 +24,9 @@ struct AjustesTerminal: Equatable {
         if tamanos.contains(t) { a.tamano = t }
         if let m = defaults.string(forKey: "ndTema"), temas.contains(m) { a.tema = m }
         a.temaTerminal = defaults.string(forKey: TemasTerminal.clave) ?? ""
+        a.divisionApilada = defaults.bool(forKey: "ndDivisionApilada")
+        let interlineado = defaults.double(forKey: "ndInterlineado")
+        if (1...1.5).contains(interlineado) { a.interlineado = interlineado }
         return a
     }
 
@@ -30,6 +35,8 @@ struct AjustesTerminal: Equatable {
         defaults.set(tamano, forKey: "ndTamano")
         defaults.set(tema, forKey: "ndTema")
         defaults.set(temaTerminal, forKey: TemasTerminal.clave)
+        defaults.set(divisionApilada, forKey: "ndDivisionApilada")
+        defaults.set(interlineado, forKey: "ndInterlineado")
         defaults.synchronize()   // (en Windows no se vuelca solo: sin esto se pierde si la app se cierra a la fuerza)
     }
 }
@@ -48,6 +55,8 @@ final class PanelAjustes {
     private let tamanoTexto = TextBlock()
     private let tema = ComboBox()
     private let temaTerminal = ComboBox()
+    private let orientacion = ComboBox()
+    private let interlineado = Slider()
     /// Los ids de los temas del combo (el primero, «», es «Predeterminado»).
     private var temaIds: [String] = [""]
     private let saveButton = Button()
@@ -69,6 +78,12 @@ final class PanelAjustes {
 
         for name in AjustesTerminal.fuentes { fuente.items.append(name) }
         for name in AjustesTerminal.temas { tema.items.append(L(nombre: name)) }
+        orientacion.items.append(L("Lado a lado"))
+        orientacion.items.append(L("Arriba y abajo"))
+        interlineado.minimum = 1
+        interlineado.maximum = 1.5
+        interlineado.stepFrequency = 0.1
+        interlineado.minWidth = 200
         fuente.minWidth = 200
         tema.minWidth = 200
         temaTerminal.minWidth = 260
@@ -86,6 +101,8 @@ final class PanelAjustes {
         let fields: [(String, FrameworkElement, String)] = [
             (L("Fuente del terminal"), fuente, "Ajustes_Fuente"),
             (L("Tama\u{00F1}o de fuente"), sizeRow, ""),
+            (L("Interlineado"), interlineado, "Ajustes_Interlineado"),
+            (L("Orientación de la vista dividida"), orientacion, "Ajustes_Orientacion"),
             (L("Tema"), tema, "Ajustes_Tema"),
             (L("Colores del terminal"), temaTerminal, "Ajustes_TemaTerminal"),
         ]
@@ -143,6 +160,8 @@ final class PanelAjustes {
         fuente.selectedIndex = Int32(AjustesTerminal.fuentes.firstIndex(of: settings.fuente) ?? 0)
         tema.selectedIndex = Int32(AjustesTerminal.temas.firstIndex(of: settings.tema) ?? 0)
         tamano.value = Double(settings.tamano)
+        interlineado.value = settings.interlineado
+        orientacion.selectedIndex = settings.divisionApilada ? 1 : 0
         // (los temas se leen al abrir el panel: por si se ha importado alguno)
         let themes = TemasTerminal.disponibles()
         temaTerminal.items.clear()
@@ -174,6 +193,8 @@ final class PanelAjustes {
         let t = Int(tema.selectedIndex)
         if AjustesTerminal.temas.indices.contains(t) { settings.tema = AjustesTerminal.temas[t] }
         settings.tamano = currentSize
+        settings.interlineado = interlineado.value
+        settings.divisionApilada = orientacion.selectedIndex == 1
         let c = Int(temaTerminal.selectedIndex)
         if temaIds.indices.contains(c) { settings.temaTerminal = temaIds[c] }
         onSave?(settings)

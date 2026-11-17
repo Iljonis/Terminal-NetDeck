@@ -34,6 +34,9 @@ y puerto, opcionales) y un «todo listo». Puedes saltártelo con «Omitir» y a
 - **Barra lateral de sesiones**, agrupadas, leídas de `%USERPROFILE%\.config\netdeck\ssh_config` (o de `~/.ssh/config` si no existe). **+ Nueva sesión** y el
   lápiz ✎ abren el editor: nombre, grupo, equipo, usuario, puerto, tipo (SSH, Telnet, SFTP, FTP, serie o local) y descripción.
 - **Terminal con pestañas**: una shell local o una sesión SSH, sobre ConPTY y `ssh.exe`. «Conectar» abre un destino escrito al momento (`usuario@equipo`).
+- **Vista dividida** (`Ctrl+Mayús+D`): con dos pestañas abiertas, muestra ambas a la vez. Haz clic en un panel o elige su pestaña para enviarle el teclado. Ajustes permite colocar los paneles en paralelo o uno encima del otro y cambiar el interlineado.
+- **Espacios de trabajo** (`Ctrl+Mayús+E`): guardan las pestañas abiertas y la disposición de dos paneles. Al restaurar se abren pestañas nuevas y se conservan las que ya estaban abiertas. Se restauran terminales locales y sesiones SSH.
+- **Buscar en el historial** (`Ctrl+F`): encuentra texto en el búfer disponible de la pestaña, aunque la línea ya no esté visible.
 - **Contraseñas SSH**: las pestañas pueden usar una contraseña de esa cuenta guardada en el Administrador de credenciales de Windows.
   Si falta o falla, puedes escribirla en la pestaña sin eco y elegir si se guarda. [ADR-0004](decisiones/0004-credenciales-p9.md).
 - **Explorador SFTP** (el botón 📂 de cada sesión): lista, entra en carpetas, descarga con doble clic a *Descargas* y sube un archivo escribiendo su ruta.
@@ -55,6 +58,9 @@ y puerto, opcionales) y un «todo listo». Puedes saltártelo con «Omitir» y a
 | `Ctrl+Mayús+N` | Abre el editor de una sesión nueva |
 | `Ctrl+W` | Cierra la pestaña activa |
 | `Ctrl+Tab` · `Ctrl+Mayús+Tab` | Pestaña siguiente · anterior |
+| `Ctrl+Mayús+D` | Activa o cierra la vista dividida |
+| `Ctrl+Mayús+E` | Abre los espacios de trabajo |
+| `Ctrl+F` | Busca en el historial de la pestaña |
 | `Ctrl+M` | Abre el panel de macros |
 | `Ctrl+T` | Abre los túneles SSH |
 | `Ctrl+,` | Abre los ajustes |
@@ -95,7 +101,7 @@ decisiones de arquitectura y el plan por fases. Está pensada para seguir el tra
 | Archivo | Qué es |
 |---|---|
 | [CLAUDE.md](CLAUDE.md) · [AGENTS.md](AGENTS.md) | Instrucciones para el agente que siga el trabajo en Windows (las dos iguales) |
-| [PLAN.md](PLAN.md) | El plan por pasos (P0…P13), cada uno con contexto, tareas, comprobación y criterio de salida |
+| [PLAN.md](PLAN.md) | El plan por pasos (P0…P14), cada uno con contexto, tareas, comprobación y criterio de salida |
 | [ESTADO.md](ESTADO.md) | Dónde se quedó el trabajo: cada sesión lo actualiza al terminar |
 | [ESTUDIO.md](ESTUDIO.md) | Viabilidad: qué se aprovecha del núcleo, qué hay que reescribir y qué hacen otros, con fuentes |
 | [decisiones/](decisiones/README.md) | Decisiones de arquitectura (ADR); la 0001, qué camino seguir, está «propuesta» |

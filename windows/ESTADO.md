@@ -1,3 +1,13 @@
+## 2026-11-17 · Windows · P14: vista dividida, espacios e historial
+
+Rama `windows/p14-escritorio`, con P13 y los iconos del instalador integrados.
+
+- Dos terminales interactivos y redimensionados por separado. El foco sigue al clic o a la pestaña elegida. Ajustes permite ponerlos en paralelo o apilados y cambiar el interlineado. La demo no guarda estos cambios en las preferencias reales.
+- El panel de espacios usa `WorkspaceLibrary`, guarda la disposición de dos paneles y restaura terminales locales y pestañas SSH como conexiones nuevas.
+- `Ctrl+F` busca en el historial disponible de la pestaña y muestra las últimas 200 líneas coincidentes, con su número de fila.
+- Se corrigió un truncamiento del texto de WinUI al redimensionar y encontrar NUL en el búfer de SwiftTerm.
+- Comprobados en pantalla el teclado y la salida en los dos paneles, la orientación apilada, guardar y restaurar un espacio de dos pestañas y buscar una cadena en el historial. El build compiló y la última pasada dio 550 tests en verde. La primera tuvo dos fallos intermitentes de archivos en suites preexistentes.
+
 ## 2026-11-17 · Windows · P13: askpass de pestañas SSH y panel de macros
 
 Rama `windows/p13-askpass-macros`, basada en P12 (`15089ec`).
