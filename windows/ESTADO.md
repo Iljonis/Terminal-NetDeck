@@ -1,3 +1,25 @@
+## 2026-11-17 · Windows · P8: panel de Ajustes (por Claude)
+
+**Por Claude.** Panel de Ajustes con fuente, tamaño y tema. Compila (`Build complete!`) y la app arranca en modo demo
+sin caerse.
+
+### Qué hay
+- `windows/Desktop/Sources/NetDeckWindows/PanelAjustes.swift` (nuevo): `AjustesTerminal` (carga y guarda en
+  `UserDefaults` con las claves `ndFuente`, `ndTamano` y `ndTema`) y `PanelAjustes`, con ComboBox de fuente (Consolas,
+  Courier New, Cascadia Code, Cascadia Mono), Slider de tamaño (10-20 pt) y ComboBox de tema (Sistema (Mica), Claro,
+  Oscuro). Botones Guardar y Cancelar. Ids de automatización: `Ajustes_Fuente`, `Ajustes_Tamano`, `Ajustes_Tema`,
+  `Ajustes_Guardar`, `Ajustes_Cancelar`.
+- `NetDeckWindows.swift`: botón ⚙ (`Ajustes`) en la barra de herramientas; `showPanel(_:)` reparte el área principal entre
+  terminal, editor de sesión y ajustes (nunca dos a la vez). Al guardar se aplican fuente y tamaño a `screen`, y el tema a
+  la ventana (`requestedTheme`: Claro, Oscuro o el de Windows). Las columnas y filas del terminal se calculan con el tamaño
+  de letra elegido.
+- `Ingles.swift`: textos nuevos en inglés.
+
+### Notas
+- Sin verificar con interfaz real: que los ajustes sobrevivan a un reinicio (`UserDefaults` en Windows) y el aspecto de
+  cada tema. La anchura de celda del terminal es aproximada (8,25 px a 15 pt, proporcional) y no se mide por fuente.
+- Los temas de color de NetDeckCore (`Theme`) no están conectados todavía: aquí «tema» es sólo claro/oscuro/sistema.
+
 ## 2026-11-17 · Windows · P8: editor de sesión (por Claude)
 
 **Por Claude.** Panel para crear y editar sesiones en la ventana WinUI 3. Compila (`Build complete!`) y la app arranca

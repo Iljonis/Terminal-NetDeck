@@ -2441,5 +2441,9 @@ enum Ingles {
         "No se puede leer el archivo de sesiones: %@": "Can’t read the sessions file: %@",
         "No se puede guardar: %@": "Can’t save: %@",
         "Sesión «%@» guardada": "Session “%@” saved",
+        "Ajustes guardados": "Settings saved",
+        "Fuente del terminal": "Terminal font",
+        "Tamaño de fuente": "Font size",
+        "Sistema (Mica)": "System (Mica)",
 ]
 }

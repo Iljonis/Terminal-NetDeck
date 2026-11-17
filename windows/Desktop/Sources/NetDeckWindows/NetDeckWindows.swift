@@ -17,6 +17,11 @@ final class NetDeckWindows: SwiftApplication {
     private var sessions: SessionManager!
     private let sidebar = StackPanel()
     private let editor = PanelEditorSesion()
+    private let ajustes = PanelAjustes()
+    private var settings = AjustesTerminal.cargar()
+    private var rootView: FrameworkElement?
+    /// Tamano de letra respecto a 15 pt (celda de 8,25 x 19 px): para calcular columnas y filas.
+    private var fontScale = 1.0
     /// Sesiones editables en memoria: en modo demo es la unica copia (no se escribe a disco).
     private var library = SessionFile()
     private let isDemo = ProcessInfo.processInfo.environment["NETDECK_DESKTOP_DEMO"] == "1"
@@ -99,8 +104,12 @@ final class NetDeckWindows: SwiftApplication {
         connect.click.addHandler { [weak self] _, _ in self?.connect() }
         closeButton.content = L("Cerrar pesta\u{00F1}a")
         closeButton.click.addHandler { [weak self] _, _ in self?.closeSelected() }
+        let gear = Button()
+        gear.content = "\u{2699}"
+        gear.click.addHandler { [weak self] _, _ in self?.showAjustes() }
         for (control, id) in [(local as Control, "NuevaLocal"), (destination, "DestinoSSH"),
-                              (connect, "ConectarSSH"), (closeButton, "CerrarPestana")] {
+                              (connect, "ConectarSSH"), (closeButton, "CerrarPestana"),
+                              (gear, "Ajustes")] {
             AutomationProperties.setAutomationId(control, id)
             toolbar.children.append(control)
         }
@@ -149,9 +158,15 @@ final class NetDeckWindows: SwiftApplication {
         layout.children.append(editor.view)
         editor.onSave = { [weak self] session, original in self?.saveSession(session, replacing: original) ?? false }
         editor.onCancel = { [weak self] in self?.hideEditor() }
+        Grid.setRow(ajustes.view, Int32(2))
+        layout.children.append(ajustes.view)
+        ajustes.onSave = { [weak self] new in self?.saveAjustes(new) }
+        ajustes.onCancel = { [weak self] in self?.hideAjustes() }
 
         root.children.append(layout)
         window.content = root
+        rootView = root
+        applySettings(settings)
         do {
             try window.activate()
             open(.local())
@@ -244,14 +259,46 @@ final class NetDeckWindows: SwiftApplication {
     private func showEditor(_ session: EditableSession, original: String?) {
         status.text = ""
         editor.show(session, original: original)
-        surface.visibility = .collapsed
-        editor.view.visibility = .visible
+        showPanel(editor.view)
     }
 
-    private func hideEditor() {
-        editor.view.visibility = .collapsed
-        surface.visibility = .visible
-        focusTerminal()
+    private func hideEditor() { showPanel(nil) }
+
+    /// El area principal muestra el terminal o uno de los paneles (editor, ajustes), nunca varios a la vez.
+    private func showPanel(_ panel: ScrollViewer?) {
+        surface.visibility = panel == nil ? .visible : .collapsed
+        editor.view.visibility = panel === editor.view ? .visible : .collapsed
+        ajustes.view.visibility = panel === ajustes.view ? .visible : .collapsed
+        if panel == nil { focusTerminal() }
+    }
+
+    // MARK: - ajustes
+
+    private func showAjustes() {
+        status.text = ""
+        ajustes.show(settings)
+        showPanel(ajustes.view)
+    }
+
+    private func hideAjustes() { showPanel(nil) }
+
+    private func saveAjustes(_ new: AjustesTerminal) {
+        settings = new
+        new.guardar()
+        applySettings(new)
+        hideAjustes()
+        status.text = L("Ajustes guardados")
+    }
+
+    /// Fuente y tamano al terminal; el tema, a la ventana (Sistema = el de Windows).
+    private func applySettings(_ a: AjustesTerminal) {
+        screen.fontFamily = FontFamily(a.fuente)
+        screen.fontSize = Double(a.tamano)
+        screen.lineHeight = (Double(a.tamano) * 19 / 15).rounded()
+        fontScale = Double(a.tamano) / 15
+        let theme: Int32 = a.tema == "Claro" ? 1 : (a.tema == "Oscuro" ? 2 : 0)
+        rootView?.requestedTheme = ElementTheme(rawValue: theme)
+        resize()
     }
 
     /// Guarda la sesion: en demo solo en memoria; en real, en el ssh_config de NetDeck. Devuelve true si se guardo.
@@ -378,8 +425,8 @@ final class NetDeckWindows: SwiftApplication {
 
     private func resize() {
         guard surface.actualWidth > 20, surface.actualHeight > 16 else { return }
-        selected?.resize(cols: max(2, Int((surface.actualWidth - 20) / 8.25)),
-                         rows: max(2, Int((surface.actualHeight - 16) / 19)))
+        selected?.resize(cols: max(2, Int((surface.actualWidth - 20) / (8.25 * fontScale))),
+                         rows: max(2, Int((surface.actualHeight - 16) / (19 * fontScale))))
         render()
     }
 
