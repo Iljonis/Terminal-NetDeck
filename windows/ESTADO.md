@@ -1,3 +1,36 @@
+## 2026-11-17 · Windows · P10: actualizador (UpdateChecker) y botón «Buscar actualizaciones» (por Claude)
+
+**Por Claude.** `Sources/NetDeckCore/Update/UpdateChecker.swift` (todo bajo `#if os(Windows)`), su suite de tests y la interfaz. Compila y la app
+arranca; 9 tests nuevos en verde y `IdiomaTests` en verde con los textos en inglés.
+
+### Qué hay
+- `UpdateChecker` (actor, `shared`): `checkForUpdates()` (como pedía, devuelve `nil` si hay error) y `check()` (lanza el motivo; lo usa la interfaz
+  para distinguir «al día» de «no se pudo comprobar»), `downloadAndVerify(_:)` y `launchInstaller(at:)`. Reutiliza `UpdateCheck` del núcleo
+  (`isNewer`, `sha256(of:)`): no se duplica la lógica de macOS.
+- **sha256:** el campo `digest` que GitHub publica en el asset y/o un asset `<instalador>.sha256`; si hay los dos y no coinciden, se rechaza; si
+  no hay ninguno, no se ofrece la actualización. (El encargo hablaba sólo de `.sha256`; `digest` es lo que ya usa el actualizador de macOS.)
+- **Enlaces:** sólo `https://github.com/Iljonis/Terminal-NetDeck/releases/download/…`, sin usuario, puerto ni «..»; el nombre del instalador se limpia
+  antes de escribirlo en la carpeta temporal.
+- **Firma:** `WinVerifyTrust` (revocación incluida) cargado de `wintrust.dll`: `WinSDK` no lo expone ni lo enlaza. Las estructuras se
+  comprueban por tamaño antes de usarlas y cualquier duda cuenta como firma inválida. **Probado con una DLL firmada de Microsoft (válida) y una sin
+  firma.** Un instalador sin firma se rechaza, salvo `NETDECK_UPDATE_ALLOW_UNSIGNED=1` (los instaladores de prueba del CI sin certificado).
+- `launchInstaller`: `ShellExecuteW` con `runas`; para un `.msi` lanza `msiexec.exe /i "<ruta>"` (más fiable que ejecutar el verbo sobre el `.msi`).
+- Interfaz: botón «Buscar actualizaciones» en Ajustes y un panel con las notas y «Descargar e instalar» (sin `ContentDialog`, como el resto). Nada se
+  comprueba ni descarga sin clic. `NETDECK_UPDATE_FAKE=1` en la demo enseña una actualización inventada, sin red, para probar la interfaz.
+- `Ingles.swift`: 19 textos nuevos.
+
+### Probado
+- Consulta real a la API de GitHub desde la app: responde y, como la última release (1.0.0, macOS) no trae un `.msi`, dice «al día».
+- Panel de actualización (con la inventada) y el error de descarga (404 → «No se puede actualizar: la descarga no ha terminado bien»).
+- **Sin probar:** una descarga y un lanzamiento de instalador reales (no existe todavía ninguna release con `.msi`).
+
+### Pendiente
+- **Fijar el firmante:** hoy se comprueba que la firma es válida y de confianza, no QUIEN firma; con Azure Code Signing hay que comparar el Subject.
+- **Que el instalador sea de esta app y de la versión anunciada** (como `UpdateCheck.validate` con el `.dmg`): leer `ProductCode`/`ProductVersion` del `.msi`.
+- `currentVersion` es 0.9.0 (como se pidió) y la última release publicada es la 1.0.0: hay que decidir la versión de Windows.
+- **`windows/scripts/test.ps1` sin filtro ejecuta una lista fija de suites**: `UpdateCheckerWindowsTests` no está en ella (y no se ha tocado ese archivo).
+  Se ejecuta con `--filter UpdateCheckerWindowsTests`; hay que añadirla a esa lista.
+
 ## 2026-11-17 · Windows · P10: instalador WiX (por Claude)
 
 **Por Claude.** `windows/installer/`. **El `.wxs` no se ha compilado**: WiX 4 (ni `dotnet`) no está instalado aquí; sólo se comprobó

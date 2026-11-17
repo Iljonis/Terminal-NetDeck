@@ -60,11 +60,11 @@ final class PanelTexto {
     }
 
     /// `editable`: el texto se puede cambiar (MultiExec); si no, es solo una vista previa (pegado).
-    func show(title: String, hint: String, text: String, editable: Bool) {
+    func show(title: String, hint: String, text: String, editable: Bool, confirmTitle: String? = nil) {
         self.title.text = title
         self.hint.text = hint
         box.text = text
         box.isReadOnly = !editable
-        confirmButton.content = L("Enviar")
+        confirmButton.content = confirmTitle ?? L("Enviar")
     }
 }

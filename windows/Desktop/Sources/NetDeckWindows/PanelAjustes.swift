@@ -35,6 +35,9 @@ final class PanelAjustes {
     let view = ScrollViewer()
     var onSave: ((AjustesTerminal) -> Void)?
     var onCancel: (() -> Void)?
+    /// «Buscar actualizaciones»: la ventana hace la consulta y avisa con `setUpdateStatus`.
+    var onCheckUpdates: (() -> Void)?
+    private let updateText = TextBlock()
 
     private let fuente = ComboBox()
     private let tamano = Slider()
@@ -106,6 +109,20 @@ final class PanelAjustes {
         buttons.children.append(cancelButton)
         form.children.append(buttons)
 
+        let updates = StackPanel()
+        updates.orientation = .vertical
+        updates.spacing = 4
+        updates.margin = Thickness(left: 0, top: 16, right: 0, bottom: 0)
+        let checkButton = Button()
+        checkButton.content = L("Buscar actualizaciones")
+        checkButton.click.addHandler { [weak self] _, _ in self?.onCheckUpdates?() }
+        AutomationProperties.setAutomationId(checkButton, "Ajustes_Actualizaciones")
+        AutomationProperties.setAutomationId(updateText, "Ajustes_EstadoActualizacion")
+        updateText.textWrapping = .wrap
+        updates.children.append(checkButton)
+        updates.children.append(updateText)
+        form.children.append(updates)
+
         view.content = form
         view.verticalScrollBarVisibility = .auto
         view.horizontalScrollBarVisibility = .disabled
@@ -120,6 +137,8 @@ final class PanelAjustes {
         loading = false
         showSize()
     }
+
+    func setUpdateStatus(_ text: String) { updateText.text = text }
 
     private var currentSize: Int {
         min(AjustesTerminal.tamanos.upperBound, max(AjustesTerminal.tamanos.lowerBound, Int(tamano.value.rounded())))

@@ -24,6 +24,8 @@ final class NetDeckWindows: SwiftApplication {
     private let explorador = ExploradorSFTP()
     private let tuneles = PanelTuneles()
     private let asistente = AsistenteInicio()
+    private let actualizacion = PanelTexto(idPrefix: "Actualizacion")
+    private var pendingUpdate: UpdateInfo?
     private var tunnelManager: TunnelManager!
     private var settings = AjustesTerminal.cargar()
     private var rootView: Grid?
@@ -207,13 +209,15 @@ final class NetDeckWindows: SwiftApplication {
         }
         Grid.setRow(asistente.view, Int32(2))
         layout.children.append(asistente.view)
-        for panel in [pegado, multi] {
+        for panel in [pegado, multi, actualizacion] {
             Grid.setRow(panel.view, Int32(2))
             layout.children.append(panel.view)
             panel.onCancel = { [weak self] in self?.showPanel(nil) }
         }
         pegado.onConfirm = { [weak self] text in self?.confirmPaste(text) }
         multi.onConfirm = { [weak self] text in self?.confirmMultiExec(text) }
+        actualizacion.onConfirm = { [weak self] _ in self?.installUpdate() }
+        ajustes.onCheckUpdates = { [weak self] in self?.checkUpdates() }
         ajustes.onSave = { [weak self] new in self?.saveAjustes(new) }
         ajustes.onCancel = { [weak self] in self?.hideAjustes() }
 
@@ -353,6 +357,7 @@ final class NetDeckWindows: SwiftApplication {
         explorador.view.visibility = panel === explorador.view ? .visible : .collapsed
         tuneles.view.visibility = panel === tuneles.view ? .visible : .collapsed
         asistente.view.visibility = panel === asistente.view ? .visible : .collapsed
+        actualizacion.view.visibility = panel === actualizacion.view ? .visible : .collapsed
         if panel == nil { focusTerminal() }
     }
 
@@ -423,6 +428,70 @@ final class NetDeckWindows: SwiftApplication {
         }
         for tab in targets { tab.write(command.replacingOccurrences(of: "\n", with: "\r") + "\r") }
         status.text = L("Comando enviado a \(targets.count) pesta\u{00F1}as")
+    }
+
+    // MARK: - actualizaciones
+
+    /// Lleva `body` al hilo de WinUI (las tareas de la red acaban en otro).
+    private func onUI(_ body: @escaping (NetDeckWindows) -> Void) {
+        _ = try? window?.dispatcherQueue?.tryEnqueue { [weak self] in
+            if let self { body(self) }
+        }
+    }
+
+    /// «Buscar actualizaciones»: sólo con el clic (nada se comprueba solo). Si hay una, se enseña con sus notas y el botón
+    /// «Descargar e instalar»; no se descarga nada antes.
+    private func checkUpdates() {
+        ajustes.setUpdateStatus(L("Buscando actualizaciones\u{2026}"))
+        // (solo para probar la interfaz: NETDECK_UPDATE_FAKE=1 en la demo enseña una actualizacion inventada, sin red)
+        if isDemo, ProcessInfo.processInfo.environment["NETDECK_UPDATE_FAKE"] == "1",
+           let url = URL(string: "https://github.com/Iljonis/Terminal-NetDeck/releases/download/v9.9.9/Terminal-NetDeck-9.9.9.msi") {
+            offerUpdate(UpdateInfo(version: "9.9.9", downloadURL: url, sha256: String(repeating: "0", count: 64),
+                                   releaseNotes: "Notas de prueba de la 9.9.9"))
+            return
+        }
+        Task { [weak self] in
+            do {
+                let found = try await UpdateChecker.shared.check()
+                self?.onUI { me in
+                    if let found { me.offerUpdate(found) }
+                    else { me.ajustes.setUpdateStatus(L("Est\u{00E1}s al d\u{00ED}a (versi\u{00F3}n \(UpdateChecker.currentVersion))")) }
+                }
+            } catch {
+                let reason = error.localizedDescription
+                self?.onUI { $0.ajustes.setUpdateStatus(L("No se puede comprobar: \(reason)")) }
+            }
+        }
+    }
+
+    private func offerUpdate(_ info: UpdateInfo) {
+        pendingUpdate = info
+        ajustes.setUpdateStatus("")
+        actualizacion.show(title: L("Actualizaci\u{00F3}n disponible: \(info.version)"),
+                           hint: L("Se descargar\u{00E1} de github.com, se comprobar\u{00E1}n el sha256 y la firma y Windows pedir\u{00E1} permisos de administrador. No se instala nada sin tu clic."),
+                           text: info.releaseNotes.isEmpty ? L("Sin notas de la versi\u{00F3}n") : info.releaseNotes,
+                           editable: false, confirmTitle: L("Descargar e instalar"))
+        showPanel(actualizacion.view)
+    }
+
+    private func installUpdate() {
+        guard let info = pendingUpdate else { return }
+        showPanel(nil)
+        status.text = L("Descargando la actualizaci\u{00F3}n\u{2026}")
+        Task { [weak self] in
+            do {
+                let installer = try await UpdateChecker.shared.downloadAndVerify(info)
+                let launched = UpdateChecker.shared.launchInstaller(at: installer)
+                self?.onUI { me in
+                    me.pendingUpdate = nil
+                    me.status.text = launched ? L("Instalador lanzado: cierra Terminal NetDeck para completar la actualizaci\u{00F3}n")
+                                              : L("No se ha podido lanzar el instalador")
+                }
+            } catch {
+                let reason = error.localizedDescription
+                self?.onUI { $0.status.text = L("No se puede actualizar: \(reason)") }
+            }
+        }
     }
 
     // MARK: - asistente de inicio
