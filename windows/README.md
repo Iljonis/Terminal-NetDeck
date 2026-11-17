@@ -46,6 +46,7 @@ y puerto, opcionales) y un «todo listo». Puedes saltártelo con «Omitir» y a
 - **Pegado seguro** (`Ctrl+Mayús+V`): revisa las líneas y envíalas una a una en SSH o Telnet. Se detiene ante errores, paginadores o solicitudes de contraseña.
 - **Macros** (`Ctrl+M`): guarda una lista de órdenes, una por línea, y reprodúcela en la pestaña SSH o Telnet activa desde su prompt.
   Pide confirmación para órdenes peligrosas y se detiene al detectar un error, un paginador o una petición de contraseña. Esc o «Detener envío» interrumpen la reproducción.
+- **Botones de órdenes** (`Ctrl+Mayús+B`): añade accesos para escribir una orden, ejecutarla con revisión o abrir una sesión guardada. Se guardan en el formato `botones.txt`.
 - **MultiExec**: un mismo comando a todas las pestañas SSH y Telnet abiertas.
 - **Ajustes** (`Ctrl+,`): fuente (Consolas, Courier New, Cascadia Code o Cascadia Mono), tamaño de letra, tema de la ventana (sistema con Mica, claro u oscuro) y **colores del terminal**: los 85 temas de NetDeck (fondo, texto y los 16 colores ANSI; «(Predeterminado)» deja los del sistema).
 - **Actualizaciones**: «Buscar actualizaciones» en Ajustes consulta la última release de GitHub. Nada se comprueba ni se instala sin tu clic y el instalador
@@ -71,7 +72,7 @@ y puerto, opcionales) y un «todo listo». Puedes saltártelo con «Omitir» y a
 ## Limitaciones de esta versión
 
 - Las contraseñas asistidas están disponibles en las pestañas SSH. El explorador SFTP y los túneles quedan fuera de este flujo.
-- El panel de macros permite crear listas de órdenes y reproducir macros del formato de NetDeck. Quedan pendientes la grabación y la edición de macros en Windows.
+- El panel de macros permite grabar y editar listas de órdenes. Los pasos avanzados se pueden reproducir y se conservan al editar el nombre. Los modos de contraseña y login de los botones siguen pendientes.
 - En FTP, la subida y el renombrado están pendientes de un mecanismo que evite sobrescribir otro archivo.
 - La terminal pinta texto: con un tema de colores, cada trozo con su color de texto, pero sin fondo por celda, negrita ni subrayado, y sin colores si no eliges tema.
 - Los 85 temas de la versión de macOS sólo se aplican a los colores del terminal; la interfaz sigue siendo Mica, claro u oscuro.

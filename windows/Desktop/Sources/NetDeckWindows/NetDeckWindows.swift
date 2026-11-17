@@ -34,7 +34,12 @@ final class NetDeckWindows: SwiftApplication {
     private let multi = PanelTexto(idPrefix: "MultiExec")
     private let explorador = ExploradorSFTP()
     private let accesoFTP = PanelAccesoFTP()
+    private let botones = PanelBotones()
+    private let confirmarBoton = PanelTexto(idPrefix: "Botones_Confirmar")
+    private var archivoBotones = ButtonFile()
     private let macros = PanelMacros()
+    private var grabando: (tab: PestanaTerminal, recorder: MacroRecorder, io: EntradaMacro)?
+    private let pararGrabacion = Button()
     private let macroConfirm = PanelTexto(idPrefix: "MacroConfirmar")
     private var macrosDemo = MacroLibrary()
     private var automatizacionActiva: (tab: PestanaTerminal, abort: AbortSwitch)?
@@ -145,12 +150,18 @@ final class NetDeckWindows: SwiftApplication {
         let tunnelButton = Button()
         tunnelButton.content = L("T\u{00FA}neles")
         tunnelButton.click.addHandler { [weak self] _, _ in self?.showTuneles() }
+        let commandButtons = Button()
+        commandButtons.content = L("Botones")
+        commandButtons.click.addHandler { [weak self] _, _ in self?.showCommandButtons() }
         let macroButton = Button()
         macroButton.content = L("Macros")
         macroButton.click.addHandler { [weak self] _, _ in self?.showMacros() }
         pararAutomatizacion.content = L("Detener envío")
         pararAutomatizacion.visibility = .collapsed
         pararAutomatizacion.click.addHandler { [weak self] _, _ in self?.automatizacionActiva?.abort.trip() }
+        pararGrabacion.content = L("Parar la grabación")
+        pararGrabacion.visibility = .collapsed
+        pararGrabacion.click.addHandler { [weak self] _, _ in self?.finishRecording() }
         dividir.content = L("Dividir la pantalla")
         dividir.click.addHandler { [weak self] _, _ in self?.toggleSplit() }
         let workspaceButton = Button()
@@ -165,8 +176,8 @@ final class NetDeckWindows: SwiftApplication {
         for (control, id) in [(local as Control, "NuevaLocal"), (destination, "DestinoSSH"),
                               (connect, "ConectarSSH"), (closeButton, "CerrarPestana"),
                               (paste, "PegarSeguro"), (multiButton, "MultiExec"), (tunnelButton, "Tuneles"),
-                              (macroButton, "Macros"), (pararAutomatizacion, "Macros_Parar"), (dividir, "DividirTerminal"),
-                              (workspaceButton, "Espacios"), (searchButton, "BuscarTerminal"), (gear, "Ajustes")] {
+                              (macroButton, "Macros"), (pararAutomatizacion, "Macros_Parar"), (pararGrabacion, "Macros_PararGrabacion"), (dividir, "DividirTerminal"),
+                              (workspaceButton, "Espacios"), (searchButton, "BuscarTerminal"), (commandButtons, "Botones"), (gear, "Ajustes")] {
             AutomationProperties.setAutomationId(control, id)
             toolbar.children.append(control)
         }
@@ -207,6 +218,7 @@ final class NetDeckWindows: SwiftApplication {
                     self.automatizacionActiva?.abort.trip()
                     if bytes == "\u{1b}" { return }
                 }
+                self.recordKeys(bytes, tab: tab)
                 tab.write(bytes)
             }
             surface.characterReceived.addHandler { [weak self] _, args in
@@ -214,7 +226,10 @@ final class NetDeckWindows: SwiftApplication {
                 let text = String(args.character)
                 guard text.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else { return }
                 args.handled = true
-                if self.automatizacionActiva?.tab !== tab { tab.write(text) }
+                if self.automatizacionActiva?.tab !== tab {
+                    self.recordKeys(text, tab: tab)
+                    tab.write(text)
+                }
             }
         }
         updateSplitLayout()
@@ -268,7 +283,7 @@ final class NetDeckWindows: SwiftApplication {
         }
         Grid.setRow(asistente.view, Int32(2))
         layout.children.append(asistente.view)
-        for panel in [pegado, multi, actualizacion, macroConfirm] {
+        for panel in [pegado, multi, actualizacion, macroConfirm, confirmarBoton] {
             Grid.setRow(panel.view, Int32(2))
             layout.children.append(panel.view)
             panel.onCancel = { [weak self] in self?.showPanel(nil) }
@@ -276,10 +291,14 @@ final class NetDeckWindows: SwiftApplication {
         pegado.onConfirm = { [weak self] _ in self?.confirmPaste() }
         multi.onConfirm = { [weak self] text in self?.confirmMultiExec(text) }
         actualizacion.onConfirm = { [weak self] _ in self?.installUpdate() }
-        for view in [espacios.view, buscarTerminal.view] {
+        for view in [espacios.view, buscarTerminal.view, botones.view] {
             Grid.setRow(view, Int32(2))
             layout.children.append(view)
         }
+        botones.onUse = { [weak self] in self?.useCommandButton($0) }
+        botones.onSave = { [weak self] button, replacing in self?.saveCommandButton(button, replacing: replacing) }
+        botones.onClose = { [weak self] in self?.showPanel(nil) }
+        confirmarBoton.onCancel = { [weak self] in self?.showCommandButtons() }
         espacios.onOpen = { [weak self] in self?.restoreWorkspace($0) }
         espacios.onSave = { [weak self] in self?.saveWorkspace($0) }
         espacios.onClose = { [weak self] in self?.showPanel(nil) }
@@ -294,6 +313,8 @@ final class NetDeckWindows: SwiftApplication {
         macros.onClose = { [weak self] in self?.showPanel(nil) }
         macros.onSave = { [weak self] in self?.saveMacro($0) }
         macros.onPlay = { [weak self] in self?.playMacro($0) }
+        macros.onRecord = { [weak self] in self?.startRecording() }
+        macros.onDelete = { [weak self] in self?.confirmMacroDeletion($0) }
         macroConfirm.onCancel = { [weak self] in self?.showMacros() }
         ajustes.onCheckUpdates = { [weak self] in self?.checkUpdates() }
         ajustes.onSave = { [weak self] new in self?.saveAjustes(new) }
@@ -439,6 +460,9 @@ final class NetDeckWindows: SwiftApplication {
         tuneles.view.visibility = panel === tuneles.view ? .visible : .collapsed
         asistente.view.visibility = panel === asistente.view ? .visible : .collapsed
         actualizacion.view.visibility = panel === actualizacion.view ? .visible : .collapsed
+        botones.view.visibility = panel === botones.view ? .visible : .collapsed
+        confirmarBoton.view.visibility = panel === confirmarBoton.view ? .visible : .collapsed
+        if panel !== confirmarBoton.view { confirmarBoton.onConfirm = nil }
         espacios.view.visibility = panel === espacios.view ? .visible : .collapsed
         buscarTerminal.view.visibility = panel === buscarTerminal.view ? .visible : .collapsed
         macros.view.visibility = panel === macros.view ? .visible : .collapsed
@@ -546,6 +570,107 @@ final class NetDeckWindows: SwiftApplication {
         status.text = L("Comando enviado a \(targets.count) pesta\u{00F1}as")
     }
 
+    // MARK: - botones de órdenes
+
+    private func readCommandButtons() throws -> ButtonFile {
+        if isDemo { return archivoBotones }
+        guard let text = try SafeFile.read(ButtonFile.defaultURL) else { return ButtonFile() }
+        return ButtonFile(text: text)
+    }
+
+    private func showCommandButtons() {
+        do {
+            archivoBotones = try readCommandButtons()
+            botones.show(archivoBotones)
+            status.text = archivoBotones.problems.first ?? ""
+            showPanel(botones.view)
+        } catch {
+            status.text = error.localizedDescription
+        }
+    }
+
+    private func saveCommandButton(_ button: CommandButton, replacing id: CommandButton.ID?) {
+        let fields = [button.group, button.name, button.command]
+        guard fields.allSatisfy(Self.esUnaLinea),
+              !button.group.contains(" :: "), !button.name.contains(" :: ") else {
+            status.text = L("Completa el grupo, el nombre y la orden en una sola línea")
+            return
+        }
+        do {
+            // Los UUID se generan al leer botones.txt. Se resuelve la edición por el valor original.
+            let original = id.flatMap { key in archivoBotones.buttons.first { $0.id == key } }
+            var file = try readCommandButtons()
+            guard file.problems.isEmpty else { throw RemoteError(file.problems[0]) }
+            if let original {
+                let indices = file.buttons.indices.filter { file.buttons[$0] == original }
+                guard indices.count == 1, let index = indices.first else {
+                    throw RemoteError(L("El archivo de botones cambió. Vuelve a abrir el panel."))
+                }
+                file.buttons[index] = button
+            } else {
+                file.buttons.append(button)
+            }
+            if !isDemo { try file.save() }
+            archivoBotones = file
+            botones.show(file, select: button)
+            status.text = L("Botón «\(button.name)» guardado")
+        } catch {
+            status.text = L("No se puede guardar: \(error.localizedDescription)")
+        }
+    }
+
+    private func useCommandButton(_ button: CommandButton) {
+        if button.mode == .session {
+            guard let profile = MainActor.assumeIsolated({ sessions.profile(named: button.command) }) else {
+                status.text = L("No existe la sesión «\(button.command)»")
+                return
+            }
+            showPanel(nil)
+            openProfile(profile)
+            return
+        }
+        guard let tab = selected, !tab.closed, !tab.route.isLocal,
+              [.ssh, .telnet].contains(tab.route.transport) else {
+            status.text = L("No hay pestañas SSH o Telnet abiertas")
+            return
+        }
+        let values = Dictionary(uniqueKeysWithValues: button.holes.map { ($0.name, $0.value) })
+        let preview = button.filled(values)
+        confirmarBoton.show(title: button.name, hint: tab.title, text: preview, editable: true,
+                           confirmTitle: button.mode == .type ? L("Escribir") : L("Revisar"))
+        confirmarBoton.onConfirm = { [weak self, weak tab] command in
+            guard let self, let tab, self.selected === tab, !tab.closed else { return }
+            self.applyCommandButton(button, text: command, to: tab)
+        }
+        showPanel(confirmarBoton.view)
+    }
+
+    private static func esUnaLinea(_ value: String) -> Bool {
+        !value.trimmingCharacters(in: .whitespaces).isEmpty
+            && !value.contains(where: \.isNewline)
+            && value.rangeOfCharacter(from: .controlCharacters) == nil
+    }
+
+    private func applyCommandButton(_ button: CommandButton, text: String, to tab: PestanaTerminal) {
+        guard Self.esUnaLinea(text) else {
+            status.text = L("Escribe un comando válido de una línea")
+            return
+        }
+        if button.mode == .type {
+            let io = makeTerminalInput(tab)
+            guard automatizacionActiva?.tab !== tab, grabando?.tab !== tab,
+                  MainActor.assumeIsolated({ PromptRule.isPrompt(io.cursorLine, custom: io.promptRule) }) else {
+                status.text = L("Espera al prompt de la sesión antes de enviar órdenes")
+                return
+            }
+            showPanel(nil)
+            tab.paste(text)
+        } else {
+            let command = CommandButton(group: button.group, mode: .run, name: button.name, command: text)
+            playMacro(Macro(name: button.name, steps: Macro.recorded(command.lines)))
+        }
+    }
+
     // MARK: - macros
 
     private func showMacros() {
@@ -566,11 +691,15 @@ final class NetDeckWindows: SwiftApplication {
             return
         }
         var library = loaded?.library ?? macrosDemo
-        guard library.uniqueName(macro.name) == macro.name else {
+        guard library.uniqueName(macro.name, except: macro.id) == macro.name else {
             status.text = L("ya hay una macro con ese nombre")
             return
         }
-        library.macros.append(macro)
+        if let index = library.macros.firstIndex(where: { $0.id == macro.id }) {
+            library.macros[index] = macro
+        } else {
+            library.macros.append(macro)
+        }
         do {
             if isDemo { macrosDemo = library } else { try library.save() }
             macros.clearDraft()
@@ -578,6 +707,72 @@ final class NetDeckWindows: SwiftApplication {
             status.text = L("✓ Macro «\(macro.name)» guardada")
         } catch {
             status.text = L("No se puede guardar: \(error.localizedDescription)")
+        }
+    }
+
+    private func confirmMacroDeletion(_ macro: Macro) {
+        macroConfirm.show(title: L("¿Borrar la macro «\(macro.name)»?"),
+                          hint: L("Queda una copia en macros.json.anterior."), text: "",
+                          editable: false, confirmTitle: L("Borrar"))
+        macroConfirm.onConfirm = { [weak self] _ in self?.deleteMacro(macro.id) }
+        showPanel(macroConfirm.view)
+    }
+
+    private func deleteMacro(_ id: Macro.ID) {
+        let loaded = isDemo ? nil : MacroLibrary.load()
+        if let error = loaded?.error {
+            status.text = error
+            return
+        }
+        var library = loaded?.library ?? macrosDemo
+        library.macros.removeAll { $0.id == id }
+        do {
+            if isDemo { macrosDemo = library } else { try library.save() }
+            macros.clearDraft()
+            showMacros()
+        } catch {
+            status.text = error.localizedDescription
+        }
+    }
+
+    private func makeTerminalInput(_ tab: PestanaTerminal) -> EntradaMacro {
+        MainActor.assumeIsolated {
+            let profile = tab.route.transientProfile ?? tab.route.sessionName.flatMap(sessions.profile(named:))?.terminal
+            return EntradaMacro(tab: tab, promptRule: profile.flatMap { PromptRule($0.prompt) })
+        }
+    }
+
+    private func startRecording() {
+        guard grabando == nil, let tab = selected, !tab.closed, !tab.route.isLocal,
+              [.ssh, .telnet].contains(tab.route.transport), automatizacionActiva?.tab !== tab else { return }
+        let io = makeTerminalInput(tab)
+        guard MainActor.assumeIsolated({ PromptRule.isPrompt(io.cursorLine, custom: io.promptRule) }) else {
+            status.text = L("Espera al prompt de la sesión antes de grabar")
+            return
+        }
+        let recorder = MainActor.assumeIsolated { MacroRecorder(allowScreenFallback: false, soloConexiones: true) }
+        grabando = (tab, recorder, io)
+        showPanel(nil)
+        pararGrabacion.visibility = .visible
+        status.text = L("● Grabando una macro en «\(tab.title)»: escribe las órdenes (las contraseñas no se graban)")
+    }
+
+    private func recordKeys(_ text: String, tab: PestanaTerminal) {
+        guard let recording = grabando, recording.tab === tab else { return }
+        MainActor.assumeIsolated { recording.recorder.feed(Array(text.utf8), from: recording.io) }
+    }
+
+    private func finishRecording() {
+        guard let recording = grabando else { return }
+        grabando = nil
+        pararGrabacion.visibility = .collapsed
+        let lines = MainActor.assumeIsolated { recording.recorder.lines }
+        showMacros()
+        if lines.isEmpty {
+            status.text = L("Grabación parada: no hay órdenes que guardar")
+        } else {
+            macros.recorded(lines)
+            status.text = L("■ Grabadas \(lines.count) órdenes")
         }
     }
 
@@ -617,12 +812,12 @@ final class NetDeckWindows: SwiftApplication {
         }
         guard selected === tab, !tab.closed else { return }
         let abort = AbortSwitch()
-        let prompt = MainActor.assumeIsolated {
-            let profile = tab.route.transientProfile ?? tab.route.sessionName.flatMap(sessions.profile(named:))?.terminal
-            return profile.flatMap { PromptRule($0.prompt) }
+        guard grabando?.tab !== tab else {
+            status.text = L("Para la grabación antes de enviar órdenes en esa pestaña")
+            return
         }
-        let io = MainActor.assumeIsolated { EntradaMacro(tab: tab, promptRule: prompt) }
-        guard MainActor.assumeIsolated({ PromptRule.isPrompt(io.cursorLine, custom: prompt) }) else {
+        let io = makeTerminalInput(tab)
+        guard MainActor.assumeIsolated({ PromptRule.isPrompt(io.cursorLine, custom: io.promptRule) }) else {
             status.text = L("Espera al prompt de la sesión antes de enviar órdenes")
             return
         }
@@ -870,6 +1065,8 @@ final class NetDeckWindows: SwiftApplication {
         case 9:
             showPanel(nil)
             cycleTab(shift ? -1 : 1)
+        case 66 where shift:
+            showCommandButtons()
         case 68 where shift:
             toggleSplit()
         case 69 where shift:
@@ -1090,6 +1287,7 @@ final class NetDeckWindows: SwiftApplication {
             }, changed: { [weak self, weak session] in
                 guard let self, let session else { return }
                 if session.closed, self.automatizacionActiva?.tab === session { self.automatizacionActiva?.abort.trip() }
+                if session.closed, self.grabando?.tab === session { self.finishRecording() }
                 guard let index = self.terminalesVisibles.firstIndex(where: { $0 === session }) else { return }
                 self.render(index)
                 if self.selected === session, session.closed { self.status.text = L("Conexión cerrada") }
@@ -1127,6 +1325,7 @@ final class NetDeckWindows: SwiftApplication {
     private func closeSelected() {
         guard let selected, let index = terminals.firstIndex(where: { $0 === selected }) else { return }
         if automatizacionActiva?.tab === selected { automatizacionActiva?.abort.trip() }
+        let acabaGrabacion = grabando?.tab === selected
         selected.close()
         terminals.remove(at: index)
         if panelDividido {
@@ -1138,6 +1337,7 @@ final class NetDeckWindows: SwiftApplication {
         } else {
             select(terminals.isEmpty ? nil : terminals[min(index, terminals.count - 1)])
         }
+        if acabaGrabacion { finishRecording() }
     }
 
     private func toggleSplit() {
@@ -1194,8 +1394,12 @@ final class NetDeckWindows: SwiftApplication {
     private func resize(_ index: Int) {
         let surface = vistas[index].surface
         guard let tab = terminalesVisibles[index], surface.actualWidth > 20, surface.actualHeight > 16 else { return }
-        tab.resize(cols: max(2, Int((surface.actualWidth - 20) / (8.25 * fontScale))),
-                   rows: max(2, Int((surface.actualHeight - 16) / alturaLinea)))
+        let cols = max(2, Int((surface.actualWidth - 20) / (8.25 * fontScale)))
+        let rows = max(2, Int((surface.actualHeight - 16) / alturaLinea))
+        if let grabando, grabando.tab === tab, (cols, rows) != (tab.terminal.cols, tab.terminal.rows) {
+            MainActor.assumeIsolated { grabando.recorder.bufferRealigned() }
+        }
+        tab.resize(cols: cols, rows: rows)
         render(index)
     }
 

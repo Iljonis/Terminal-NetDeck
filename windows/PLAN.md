@@ -401,7 +401,8 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 
 - [x] Integrar `NetDeckAskpass.exe` con el askpass de NetDeckCore en las pestañas SSH y empaquetarlo en el MSI.
 - [x] Añadir un panel de macros (`Ctrl+M`) para crear listas de órdenes y reproducir macros del formato de NetDeck en la pestaña activa.
-- [ ] Validar el ayudante a través de `-J` y después de instalar en un Windows limpio.
+- [x] Validar el ayudante a través de `-J` con cuentas independientes en bastión y destino.
+- [ ] Validar el ayudante después de instalar en un Windows limpio.
 
 ## P14 · Terminal y productividad de escritorio
 
@@ -409,7 +410,8 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 - [x] Guardar y restaurar espacios de trabajo, con sus pestañas y disposición.
 - [x] Buscar texto en el historial de una pestaña.
 - [x] Pegado seguro con vista previa, espera por orden y resultado.
-- [ ] Completar macros y botones de órdenes.
+- [x] Grabar, editar listas de órdenes y borrar macros. Crear y ejecutar botones de órdenes y sesiones.
+- [ ] Editor de pasos avanzados de macros, atajos de botones y modos de contraseña y login.
 - [ ] Reordenar pestañas por arrastre y moverlas entre ventanas.
 
 ## Paridad restante y distribución

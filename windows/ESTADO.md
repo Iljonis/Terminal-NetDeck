@@ -1,3 +1,9 @@
+## 2026-11-17 · Windows · Grabación de macros, botones y salto SSH
+
+Las macros admiten grabación del teclado con `MacroRecorder`, edición de órdenes simples, confirmación opcional y borrado con confirmación. Las macros existentes con pasos avanzados conservan esos pasos. Los botones de órdenes (`Ctrl+Mayús+B`) leen y guardan `botones.txt` y permiten escribir, ejecutar o abrir una sesión. Los modos de contraseña y login quedan pendientes.
+
+Verificados en pantalla la grabación de tres órdenes, la exclusión de una contraseña de prueba, editar el nombre de la macro y ejecutar un botón. OpenSSH entró en un bastión de prueba y en el destino mediante `ProxyJump`, usando dos credenciales guardadas de cuentas distintas. Compilación, privacidad y 551 tests del núcleo en verde.
+
 ## 2026-11-17 · Windows · Explorador FTP y operaciones SFTP
 
 El explorador usa `RemoteFileSystem` para conectar a una sesión FTP directa. Pide la contraseña en un campo oculto e informa de que FTP no cifra. FTP permite listar y descargar, crear carpetas, borrar y calcular MD5. La subida y el renombrado requieren que el servidor permita publicar sin sobrescribir y quedan disponibles en SFTP.
