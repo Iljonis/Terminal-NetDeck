@@ -1,3 +1,17 @@
+## 2026-11-17 · Windows · P10: el .msi va en la misma Release que el .dmg (borrador del workflow) (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. Decisión del autor: el `.msi` se adjunta a la Release del tag de macOS (`vX.Y.Z`, sin sufijo) y `UpdateChecker` no cambia (sigue con `releases/latest`).
+`windows/ci/windows-release.yml` (sigue siendo un **borrador** en `windows/ci/`, no en `.github/workflows/`) se ajustó a eso. Esto cierra el «a decidir» de la entrada del borrador.
+
+- Disparador `v*.*.*` (el mismo que `release.yml`) y a mano. En los tags sólo corre si la variable del repositorio `WINDOWS_RELEASE` vale `true` y el tag no acaba en `-windows`: un tag de sólo macOS no lo dispara ni lo pone en rojo.
+- La versión de Windows pasa a ser la del repositorio: el paso de versiones exige tag = `NetDeckWindows.wxs` = `AppxManifest.xml` = `UpdateChecker.currentVersion` (probado: pasa con `v0.9.0`; falla con `v0.9.0-windows` y con `v1.0.1` mientras las cuatro digan 0.9.0).
+  Hay que subir las cuatro a la vez al preparar una release, como `install.sh` en macOS. Con esto la pregunta «0.9.0 frente a 1.0.0» pasa a ser «con qué número sale la primera release con `.msi`».
+- **Cambio importante respecto al encargo: el job NO crea la Release, sólo le sube el `.msi`** (`gh release upload`, tras esperar hasta 60 minutos a que exista). El encargo proponía `softprops/action-gh-release`, que **crea la Release si no existe**, y decía que
+  «el workflow de macOS añadirá el .dmg»: no es así. `release.yml` acaba con `gh release create «tag» …dmg`, que **falla si la Release ya existe**; si Windows llegara antes, la release de macOS se rompería. Tampoco se pone título, notas ni `prerelease`
+  (las del `.dmg` quedan intactas); `--clobber` sólo para repetir el job. Se suben el `.msi` y su `.sha256`, que `UpdateChecker` usa.
+- Las notas de la Release ya no las pone este job: sólo se comprueba que `windows/CHANGELOG.md` tiene la sección de esa versión (probado, también el fallo).
+- Sin probar: el runner de GitHub y la espera/subida real (`gh` necesita autenticación y tocaría el repositorio del autor).
+
 ## 2026-11-17 · Windows · P12: explorador SFTP, renombrar, carpeta nueva y borrar (por Claude)
 
 **Por Claude.** Rama `windows/p10-paquete`. `ExploradorSFTP.swift`: tres operaciones nuevas y recarga de la lista después de cada una. Compila sin avisos y está **probado de verdad** contra un `sftp-server` local

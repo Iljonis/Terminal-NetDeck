@@ -1,21 +1,25 @@
 # BORRADOR (P10 de windows/PLAN.md): no está activo. Para activarlo, cópialo a .github/workflows/windows-release.yml (esa carpeta la gestiona
 # Codex; este archivo vive aquí, igual que windows-nucleo.yml, para no tocarla desde otra sesión). Revisa lo marcado con «REVISAR».
 #
-# Qué hace: con un tag «vX.Y.Z-windows» (o a mano, con «Run workflow») compila la app WinUI en Release, prepara la carpeta del instalador,
-# compila el .msi con WiX 4 y, con tag, lo sube a una Release de GitHub con las notas de windows/CHANGELOG.md.
+# Qué hace: con un tag «vX.Y.Z» (el MISMO tag que la Release de macOS, release.yml) compila la app WinUI en Release, prepara la carpeta del instalador, compila el .msi con
+# WiX 4 y lo SUBE a la Release de ese tag, junto al .dmg. A mano («Run workflow») hace lo mismo sin subir nada: deja el .msi como artefacto.
 #
-# SIN FIRMA: no hay certificado todavía. El .msi sale sin firmar y el actualizador de la app lo rechazará (a menos que se use
-# NETDECK_UPDATE_ALLOW_UNSIGNED=1 en pruebas). No hace falta ninguna variable «SKIP_AUTHENTICODE_CHECK»: nada la lee, y no hay paso de firma.
-# Cuando exista el certificado, la firma (signtool o Azure Trusted Signing) va entre «Compilar el .msi» y «Notas».
+# DECISION DEL AUTOR: el .msi va en la misma Release que el .dmg y el actualizador de Windows sigue usando `releases/latest` (sin cambios en UpdateChecker). Por eso la versión de Windows es la del repositorio:
+# el paso «La versión del tag…» exige que el tag, NetDeckWindows.wxs, AppxManifest.xml y UpdateChecker.currentVersion digan lo mismo, así que al preparar una release hay que subir las cuatro a la vez (como install.sh en macOS).
 #
-# REVISAR (decisión del autor): el actualizador de Windows pregunta por `releases/latest` y la de macOS (release.yml) también y espera el
-# .dmg ahí. Una Release aparte «vX.Y.Z-windows» marcada como prerelease NO pisa a la de macOS, pero tampoco la ve el actualizador de Windows:
-# habría que cambiar UpdateChecker para listar las releases y coger la última con un .msi, o subir el .msi a la misma Release que el .dmg.
+# ESTE JOB NO CREA LA RELEASE, SÓLO LE SUBE EL .msi: release.yml termina con `gh release create «tag»`, que FALLA si la Release ya existe. Si el job de Windows la creara antes (con softprops/action-gh-release
+# o gh release create), se rompería la release de macOS. Por eso espera a que macOS la cree (hasta 60 minutos) y entonces hace `gh release upload`.
+#
+# ACTIVACIÓN: el job sólo corre en los tags si la variable del repositorio WINDOWS_RELEASE vale «true»; mientras no, un tag de sólo-macOS no lo dispara (y no se pone en rojo por una versión de Windows que no toca).
+#
+# SIN FIRMA: no hay certificado todavía. El .msi sale sin firmar y el actualizador de la app lo rechazará (a menos que se use NETDECK_UPDATE_ALLOW_UNSIGNED=1 en pruebas). No hace falta ninguna variable
+# «SKIP_AUTHENTICODE_CHECK»: nada la lee, y no hay paso de firma. Cuando exista el certificado, la firma (signtool o Azure Trusted Signing) va entre «Compilar el .msi» y «Subir».
+
 name: Windows Release
 
 on:
   push:
-    tags: ['v*-windows']
+    tags: ['v*.*.*']          # (el mismo patrón que release.yml)
   workflow_dispatch:
 
 permissions:
@@ -34,6 +38,8 @@ env:
 jobs:
   release:
     name: Instalador de Windows
+    # En los tags, sólo si se ha activado (WINDOWS_RELEASE=true) y no es un tag suelto «…-windows»; a mano, siempre.
+    if: ${{ github.event_name == 'workflow_dispatch' || (vars.WINDOWS_RELEASE == 'true' && !endsWith(github.ref_name, '-windows')) }}
     runs-on: windows-latest
     timeout-minutes: 120
     steps:
@@ -63,7 +69,7 @@ jobs:
           $appx = [regex]::Match((Get-Content -Raw windows/Desktop/AppxManifest.xml), 'Version="(\d+\.\d+\.\d+)\.0"').Groups[1].Value
           $swift = [regex]::Match((Get-Content -Raw Sources/NetDeckCore/Update/UpdateChecker.swift), 'currentVersion = "([^"]+)"').Groups[1].Value
           if ($env:GITHUB_REF_TYPE -eq 'tag') {
-            if ($env:GITHUB_REF_NAME -notmatch '^v(\d+\.\d+\.\d+)-windows$') { throw "El tag $env:GITHUB_REF_NAME no es vX.Y.Z-windows" }
+            if ($env:GITHUB_REF_NAME -notmatch '^v(\d+\.\d+\.\d+)$') { throw "El tag $env:GITHUB_REF_NAME no es vX.Y.Z" }
             $version = $Matches[1]
           } else { $version = $wxs }            # (a mano: la del instalador)
           foreach ($par in @(@('NetDeckWindows.wxs', $wxs), @('AppxManifest.xml', $appx), @('UpdateChecker.currentVersion', $swift))) {
@@ -106,14 +112,13 @@ jobs:
           "$hash  $(Split-Path $msi -Leaf)" | Set-Content -Encoding ASCII "$msi.sha256"
           Add-Content -Encoding utf8 -Path $env:GITHUB_OUTPUT -Value "msi=$msi"
 
-      - name: Notas de esta versión (windows/CHANGELOG.md)
+      - name: windows/CHANGELOG.md tiene la sección de esta versión
+        # (las notas de la Release las pone macOS; aquí sólo se comprueba que la versión de Windows está documentada)
         shell: pwsh
         run: |
           $version = '${{ steps.version.outputs.version }}'
           $texto = Get-Content -Raw -Encoding UTF8 windows/CHANGELOG.md
-          $m = [regex]::Match($texto, "(?ms)^## $([regex]::Escape($version))\b.*?(?=^## |\z)")
-          if (-not $m.Success) { throw "windows/CHANGELOG.md no tiene una sección ## $version" }
-          $m.Value.Trim() | Set-Content -Encoding UTF8 (Join-Path $env:RUNNER_TEMP 'notas.md')
+          if ($texto -notmatch "(?m)^## $([regex]::Escape($version))\b") { throw "windows/CHANGELOG.md no tiene una sección ## $version" }
 
       - name: Guardar el instalador (también en las pruebas a mano)
         uses: actions/upload-artifact@v7
@@ -124,15 +129,21 @@ jobs:
             ${{ steps.msi.outputs.msi }}.sha256
           if-no-files-found: error
 
-      - name: Release
+      - name: Subir el .msi a la Release del tag (la crea release.yml de macOS)
         if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Terminal NetDeck para Windows ${{ steps.version.outputs.version }}
-          body_path: ${{ runner.temp }}/notas.md
-          files: |
-            ${{ steps.msi.outputs.msi }}
-            ${{ steps.msi.outputs.msi }}.sha256
-          # Sin firma y sin release pública todavía: prerelease, y que no sea «la última» (la de macOS manda en releases/latest).
-          prerelease: true
-          make_latest: false
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $encontrada = $false
+          for ($i = 0; $i -lt 60; $i++) {
+              gh release view $tag --json tagName 2>$null | Out-Null
+              if ($LASTEXITCODE -eq 0) { $encontrada = $true; break }
+              Write-Host "Todavía no existe la Release $tag (la crea macOS); espero un minuto ($($i + 1)/60)"
+              Start-Sleep -Seconds 60
+          }
+          if (-not $encontrada) { throw "La Release $tag no existe tras 60 minutos: ¿ha fallado release.yml (macOS)?" }
+          # --clobber: sólo para repetir este job; no toca ni el título ni las notas ni el .dmg.
+          gh release upload $tag '${{ steps.msi.outputs.msi }}' '${{ steps.msi.outputs.msi }}.sha256' --clobber
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
