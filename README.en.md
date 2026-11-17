@@ -47,7 +47,7 @@ that into one macOS app, built around one idea: **it should never play a trick o
 **Who it's for:** network, systems and NOC engineers who work from a Mac with routers, switches, firewalls and Linux
 servers over SSH, Telnet or the console port.
 
-**What it isn't:** it doesn't do remote desktop (RDP, VNC), there's no Windows or Linux version, and it has no full
+**What it isn't:** it doesn't do remote desktop (RDP, VNC), there's no Linux version (the [Windows](#windows) one is in development), and it has no full
 scripting language: macros, buttons and device lists cover that ground.
 
 ### Install in a minute
@@ -358,7 +358,7 @@ are looking for a SecureCRT or MobaXterm alternative on macOS, this is what each
 
 | | Terminal NetDeck | SecureCRT | MobaXterm | iTerm2 | Royal TSX |
 |---|:-:|:-:|:-:|:-:|:-:|
-| Platforms | macOS | macOS, Windows, Linux | Windows | macOS | macOS (Royal TS on Windows) |
+| Platforms | macOS (Windows in development) | macOS, Windows, Linux | Windows | macOS | macOS (Royal TS on Windows) |
 | Price | Free | Paid | Free (Home) and paid (Pro) | Free | Free with limits and paid |
 | Open source | ✅ MIT | ❌ | ❌ | ✅ GPL | ❌ |
 | Session manager with folders | ✅ | ✅ | ✅ | ➖ profiles | ✅ |
@@ -584,7 +584,7 @@ they turn off with the Mac's accessibility options.
 <summary><b>Does it run on an Intel Mac? On Windows or Linux?</b></summary>
 
 The `.dmg` is for Apple silicon Macs with macOS 15 or later. On an Intel Mac you can build it from source with
-`./install.sh` (it isn't tested on Intel). There is no Windows or Linux version: it's a native macOS app.
+`./install.sh` (it isn't tested on Intel). There is no Linux version. The Windows 10/11 one is in development and has no release yet (see [Windows](#windows)); this is a native macOS app.
 
 </details>
 
@@ -610,6 +610,17 @@ source, `./desinstalar.sh --todo` also removes themes and settings (the Keychain
 - [x] **Customisation:** 33 new themes, screen filters, your own colours in any theme and more control over the font.
 
 Missing something? [Suggest a feature](https://github.com/Iljonis/Terminal-NetDeck/issues/new/choose).
+
+## Windows
+
+Terminal NetDeck has a version for Windows 10 (2004 or later) and Windows 11 (x64) **in active development**: there is no public release or signed
+installer yet. See [`windows/README.md`](windows/README.md) for installation, keyboard shortcuts, building from source and known limitations
+(that guide is in Spanish).
+
+What already works on Windows: an SSH terminal with tabs (ConPTY), an SFTP browser, SSH tunnels, a session editor, settings (font, size and a
+Mica, light or dark theme), safe paste, MultiExec, a first-run assistant and an updater that checks the sha256 and the signature. The rest of this
+README describes the macOS version; Windows still lacks, among other things, keyboard-typed passwords in the app's connections (keys and the SSH
+agent work for now), FTP, output highlighting and the 85 themes.
 
 ## For developers
 
