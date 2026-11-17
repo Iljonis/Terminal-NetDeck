@@ -23,6 +23,7 @@ final class NetDeckWindows: SwiftApplication {
     private let multi = PanelTexto(idPrefix: "MultiExec")
     private let explorador = ExploradorSFTP()
     private let tuneles = PanelTuneles()
+    private let asistente = AsistenteInicio()
     private var tunnelManager: TunnelManager!
     private var settings = AjustesTerminal.cargar()
     private var rootView: Grid?
@@ -204,6 +205,8 @@ final class NetDeckWindows: SwiftApplication {
         tuneles.onForget = { [weak self] id in
             Task { [weak self] in await self?.tunnelManager.forget(id) }
         }
+        Grid.setRow(asistente.view, Int32(2))
+        layout.children.append(asistente.view)
         for panel in [pegado, multi] {
             Grid.setRow(panel.view, Int32(2))
             layout.children.append(panel.view)
@@ -226,6 +229,12 @@ final class NetDeckWindows: SwiftApplication {
         do {
             try window.activate()
             open(.local())
+            // Primera vez: sin sesiones guardadas y sin haber visto el asistente (nunca en la demo).
+            // NETDECK_ASISTENTE=1 lo fuerza para probarlo, sin marcarlo como visto.
+            let forced = ProcessInfo.processInfo.environment["NETDECK_ASISTENTE"] == "1"
+            let firstRun = !isDemo && !UserDefaults.standard.bool(forKey: "ndAsistenteVisto")
+                && MainActor.assumeIsolated { sessions.profiles.isEmpty }
+            if firstRun || forced { showAsistente(markSeen: !forced) }
         } catch {
             print(error.localizedDescription)
         }
@@ -343,6 +352,7 @@ final class NetDeckWindows: SwiftApplication {
         multi.view.visibility = panel === multi.view ? .visible : .collapsed
         explorador.view.visibility = panel === explorador.view ? .visible : .collapsed
         tuneles.view.visibility = panel === tuneles.view ? .visible : .collapsed
+        asistente.view.visibility = panel === asistente.view ? .visible : .collapsed
         if panel == nil { focusTerminal() }
     }
 
@@ -413,6 +423,26 @@ final class NetDeckWindows: SwiftApplication {
         }
         for tab in targets { tab.write(command.replacingOccurrences(of: "\n", with: "\r") + "\r") }
         status.text = L("Comando enviado a \(targets.count) pesta\u{00F1}as")
+    }
+
+    // MARK: - asistente de inicio
+
+    private func showAsistente(markSeen: Bool) {
+        asistente.onCreateSession = { [weak self] session in
+            guard let self else { return false }
+            let saved = self.saveSession(session, replacing: nil)
+            if saved { self.showPanel(self.asistente.view) }     // (guardar cierra los paneles: vuelve a «Todo listo»)
+            return saved
+        }
+        asistente.onDone = { [weak self] in
+            if markSeen {
+                UserDefaults.standard.set(true, forKey: "ndAsistenteVisto")
+                UserDefaults.standard.synchronize()
+            }
+            self?.showPanel(nil)
+        }
+        asistente.start()
+        showPanel(asistente.view)
     }
 
     // MARK: - tuneles

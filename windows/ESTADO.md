@@ -1,3 +1,26 @@
+## 2026-11-17 · Windows · P8: asistente de inicio (por Claude)
+
+**Por Claude.** Asistente de la primera vez en el área principal. Compila (`Build complete!`) y está probado de verdad,
+también el camino sin demo: arranca solo, crea la sesión y la escribe en el `ssh_config` de NetDeck.
+
+### Qué hay
+- `windows/Desktop/Sources/NetDeckWindows/AsistenteInicio.swift` (nuevo): tres pantallas, una a la vez. Bienvenida
+  («Siguiente →»); primera sesión (nombre y equipo obligatorios, usuario y puerto opcionales; «Crear sesión» u «Omitir»);
+  «¡Todo listo! Haz clic en tu sesión para conectar.» («Empezar»). Ids `Asistente_*`.
+- `NetDeckWindows.swift`: se muestra al arrancar si no es la demo, no existe `ndAsistenteVisto` en `UserDefaults` y no hay
+  sesiones. «Empezar» y «Omitir» lo marcan como visto. «Crear sesión» usa `saveSession` (la misma validación y guardado
+  que el editor) y vuelve a «Todo listo» (guardar cierra los paneles, así que se reabre el del asistente).
+- Sin `ContentDialog`, igual que el resto: son paneles del área principal.
+- Para probarlo: `NETDECK_ASISTENTE=1` lo fuerza (también en la demo) sin marcarlo como visto.
+- `Ingles.swift`: textos nuevos en inglés.
+
+### Probado
+- Demo forzada: las tres pantallas, el aviso de nombre y equipo vacíos y la sesión nueva en la barra lateral.
+- Sin demo, con un `NETDECK_HOME` temporal vacío: el asistente sale solo, «Crear sesión» escribe el `ssh_config`
+  (con la comprobación `ssh -G` del núcleo) y la barra lateral lo recarga. Esto prueba además el **guardado real del editor
+  de sesión**, que estaba pendiente.
+- Sin probar: que «Empezar» persista `ndAsistenteVisto` entre arranques (no se pulsó para no tocar los ajustes reales).
+
 ## 2026-11-17 · Windows · P8: panel de túneles SSH (por Claude)
 
 **Por Claude.** Panel de túneles en el área principal. Compila (`Build complete!`) y está probado en la demo con capturas:

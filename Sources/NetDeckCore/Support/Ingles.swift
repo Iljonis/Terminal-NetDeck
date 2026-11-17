@@ -2493,5 +2493,13 @@ enum Ingles {
         "Túnel «%@» guardado": "Tunnel “%@” saved",
         "No se pueden guardar los túneles: %@": "Can’t save the tunnels: %@",
         "No se puede iniciar el túnel «%@»: %@": "Can’t start tunnel “%@”: %@",
+        "Bienvenido a Terminal NetDeck": "Welcome to Terminal NetDeck",
+        "Aquí tienes tus servidores y equipos de red en la barra lateral: haz clic en uno para abrir una conexión, o en + para añadir otro. Puedes abrir varias pestañas, usar un explorador de archivos SFTP y crear túneles SSH.": "Your servers and network devices live in the sidebar: click one to open a connection, or + to add another. You can open several tabs, use an SFTP file browser and create SSH tunnels.",
+        "Tu primera sesión": "Your first session",
+        "Nombre y equipo son obligatorios; usuario y puerto, no. Puedes saltarte este paso y añadir sesiones más tarde.": "Name and host are required; user and port are optional. You can skip this step and add sessions later.",
+        "Crear sesión": "Create session",
+        "¡Todo listo!": "All set!",
+        "¡Todo listo! Haz clic en tu sesión para conectar.": "All set! Click your session to connect.",
+        "Escribe al menos un nombre y un equipo": "Enter at least a name and a host",
 ]
 }
