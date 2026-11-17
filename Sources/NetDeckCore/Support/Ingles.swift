@@ -2428,6 +2428,9 @@ enum Ingles {
         // 1.0.0 · fuentes
         "Automático: el del tema (%@ pt)": "Automatic: the theme’s (%@ pt)",
         "Interlineado": "Line spacing",
+        "Editar": "Edit",
+        "Devolver pestaña": "Return tab",
+        "Mover pestaña a otra ventana": "Move tab to another window",
         "Escribe un comando válido de una línea": "Enter a valid single-line command",
         "Botón «%@» guardado": "Button “%@” saved",
         "El archivo de botones cambió. Vuelve a abrir el panel.": "The button file changed. Reopen the panel.",

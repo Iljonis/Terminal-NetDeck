@@ -1,3 +1,9 @@
+## 2026-11-17 · Windows · Arrastre y ventanas de terminal
+
+Se pueden reordenar las pestañas arrastrándolas. El menú contextual mueve una pestaña activa a una ventana separada, con su ConPTY y su búfer intactos. «Devolver pestaña» la trae de vuelta a la ventana principal. Comprobados el orden tras arrastrar, la escritura en la ventana separada y la conservación de su salida al volver.
+
+Compilación y 551 tests en verde en la pasada secuencial. La pasada paralela anterior tuvo dos errores transitorios de archivos de prueba.
+
 ## 2026-11-17 · Windows · Grabación de macros, botones y salto SSH
 
 Las macros admiten grabación del teclado con `MacroRecorder`, edición de órdenes simples, confirmación opcional y borrado con confirmación. Las macros existentes con pasos avanzados conservan esos pasos. Los botones de órdenes (`Ctrl+Mayús+B`) leen y guardan `botones.txt` y permiten escribir, ejecutar o abrir una sesión. Los modos de contraseña y login quedan pendientes.

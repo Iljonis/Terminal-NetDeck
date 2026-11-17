@@ -412,7 +412,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 - [x] Pegado seguro con vista previa, espera por orden y resultado.
 - [x] Grabar, editar listas de órdenes y borrar macros. Crear y ejecutar botones de órdenes y sesiones.
 - [ ] Editor de pasos avanzados de macros, atajos de botones y modos de contraseña y login.
-- [ ] Reordenar pestañas por arrastre y moverlas entre ventanas.
+- [x] Reordenar pestañas por arrastre y mover una pestaña viva a otra ventana y devolverla.
 
 ## Paridad restante y distribución
 

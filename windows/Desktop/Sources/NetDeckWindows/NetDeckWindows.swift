@@ -25,6 +25,13 @@ final class NetDeckWindows: SwiftApplication {
     private let status = TextBlock()
     private let closeButton = Button()
     private var terminals: [PestanaTerminal] = []
+    private weak var pestañaArrastrada: PestanaTerminal?
+    private struct VentanaPestana {
+        let window: Window
+        let vista: VistaTerminal
+        let session: PestanaTerminal
+    }
+    private var ventanasPestana: [ObjectIdentifier: VentanaPestana] = [:]
     private weak var selected: PestanaTerminal?
     private var sessions: SessionManager!
     private let sidebar = StackPanel()
@@ -344,6 +351,7 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     override func onShutdown() {
+        for detached in ventanasPestana.values { detached.session.close() }
         for session in terminals { session.close() }
         MainActor.assumeIsolated { tunnelManager.stopAll() }
     }
@@ -1105,6 +1113,11 @@ final class NetDeckWindows: SwiftApplication {
             else { _ = try? vista.screen.clearValue(TextBlock.foregroundProperty) }
         }
         for tab in terminals { tab.apply(palette: paleta) }
+        for tab in ventanasPestana.values {
+            styleDetached(tab)
+            tab.session.apply(palette: paleta)
+            renderDetached(tab)
+        }
         render()
     }
 
@@ -1147,6 +1160,7 @@ final class NetDeckWindows: SwiftApplication {
         let theme: Int32 = a.tema == "Claro" ? 1 : (a.tema == "Oscuro" ? 2 : 0)
         rootView?.requestedTheme = ElementTheme(rawValue: theme)
         applyTerminalTheme(a.temaTerminal)
+        for tab in ventanasPestana.values { resizeDetached(tab) }
         // Mica solo con «Sistema»; con Claro u Oscuro, fondo liso. (Mica pide Windows 11.)
         window?.systemBackdrop = a.tema == "Sistema (Mica)" ? MicaBackdrop() : nil
         // Sin Mica la ventana no pinta fondo propio: Claro y Oscuro lo ponen a mano.
@@ -1288,6 +1302,10 @@ final class NetDeckWindows: SwiftApplication {
                 guard let self, let session else { return }
                 if session.closed, self.automatizacionActiva?.tab === session { self.automatizacionActiva?.abort.trip() }
                 if session.closed, self.grabando?.tab === session { self.finishRecording() }
+                if let detached = self.ventanasPestana[ObjectIdentifier(session)] {
+                    self.renderDetached(detached)
+                    return
+                }
                 guard let index = self.terminalesVisibles.firstIndex(where: { $0 === session }) else { return }
                 self.render(index)
                 if self.selected === session, session.closed { self.status.text = L("Conexión cerrada") }
@@ -1313,7 +1331,38 @@ final class NetDeckWindows: SwiftApplication {
             tab.content = candidate.title
             tab.groupName = "terminales"
             tab.isChecked = candidate === session
-            tab.click.addHandler { [weak self, weak candidate] _, _ in self?.select(candidate) }
+            tab.click.addHandler { [weak self, weak candidate] _, _ in
+                guard let candidate else { return }
+                self?.select(candidate)
+            }
+            tab.canDrag = true
+            tab.allowDrop = true
+            tab.dragStarting.addHandler { [weak self, weak candidate] _, args in
+                self?.pestañaArrastrada = candidate
+                args?.allowedOperations = .move
+                try? args?.data.setText("NetDeck")
+            }
+            tab.dragOver.addHandler { [weak self, weak candidate] _, args in
+                guard let source = self?.pestañaArrastrada, let candidate, source !== candidate else { return }
+                args?.acceptedOperation = .move
+                args?.handled = true
+            }
+            tab.drop.addHandler { [weak self, weak candidate] _, args in
+                guard let self, let source = self.pestañaArrastrada, let candidate else { return }
+                self.reorder(source, at: candidate)
+                args?.handled = true
+            }
+            tab.dropCompleted.addHandler { [weak self] _, _ in self?.pestañaArrastrada = nil }
+            let menu = MenuFlyout()
+            let detach = MenuFlyoutItem()
+            detach.text = L("Mover pestaña a otra ventana")
+            detach.isEnabled = !candidate.closed
+            detach.click.addHandler { [weak self, weak candidate] _, _ in
+                guard let candidate else { return }
+                self?.detach(candidate)
+            }
+            menu.items.append(detach)
+            tab.contextFlyout = menu
             tabs.children.append(tab)
         }
         closeButton.isEnabled = session != nil
@@ -1322,22 +1371,128 @@ final class NetDeckWindows: SwiftApplication {
         if focus { focusTerminal() }
     }
 
+    private func reorder(_ tab: PestanaTerminal, at destination: PestanaTerminal) {
+        pestañaArrastrada = nil
+        guard tab !== destination, let from = terminals.firstIndex(where: { $0 === tab }),
+              let to = terminals.firstIndex(where: { $0 === destination }) else { return }
+        terminals.remove(at: from)
+        terminals.insert(tab, at: to)
+        select(selected)
+    }
+
     private func closeSelected() {
-        guard let selected, let index = terminals.firstIndex(where: { $0 === selected }) else { return }
+        guard let selected else { return }
         if automatizacionActiva?.tab === selected { automatizacionActiva?.abort.trip() }
         let acabaGrabacion = grabando?.tab === selected
         selected.close()
+        removeFromMain(selected)
+        if acabaGrabacion { finishRecording() }
+    }
+
+    private func removeFromMain(_ tab: PestanaTerminal) {
+        guard let index = terminals.firstIndex(where: { $0 === tab }) else { return }
         terminals.remove(at: index)
-        if panelDividido {
-            let otra = terminalesVisibles[1 - panelActivo]
+        if panelDividido, let pane = terminalesVisibles.firstIndex(where: { $0 === tab }) {
+            let otra = terminalesVisibles[1 - pane]
             terminalesVisibles = [otra, nil]
             panelActivo = 0
             updateSplitLayout()
             select(otra)
+        } else if selected !== tab {
+            select(selected)
         } else {
             select(terminals.isEmpty ? nil : terminals[min(index, terminals.count - 1)])
         }
-        if acabaGrabacion { finishRecording() }
+    }
+
+    private func detach(_ tab: PestanaTerminal) {
+        guard !tab.closed, automatizacionActiva?.tab !== tab, grabando?.tab !== tab else { return }
+        let id = ObjectIdentifier(tab)
+        let window = Window()
+        let vista = VistaTerminal(id: "PantallaTerminalSeparada")
+        let detached = VentanaPestana(window: window, vista: vista, session: tab)
+        let root = StackPanel()
+        root.orientation = .horizontal
+        let volver = Button()
+        volver.content = L("Devolver pestaña")
+        volver.margin = Thickness(left: 8, top: 4, right: 8, bottom: 4)
+        volver.click.addHandler { [weak self] _, _ in self?.returnToMain(id) }
+        root.children.append(volver)
+        let grid = Grid()
+        let menuRow = RowDefinition()
+        menuRow.height = GridLength(value: 1, gridUnitType: .auto)
+        let bodyRow = RowDefinition()
+        bodyRow.height = GridLength(value: 1, gridUnitType: .star)
+        grid.rowDefinitions.append(menuRow)
+        grid.rowDefinitions.append(bodyRow)
+        Grid.setRow(vista.surface, 1)
+        grid.children.append(root)
+        grid.children.append(vista.surface)
+        window.title = "Terminal NetDeck · " + tab.title
+        window.content = grid
+
+        vista.surface.pointerPressed.addHandler { [weak vista] _, _ in _ = try? vista?.surface.focus(.programmatic) }
+        vista.surface.sizeChanged.addHandler { [weak self] _, _ in
+            if let detached = self?.ventanasPestana[id] { self?.resizeDetached(detached) }
+        }
+        vista.surface.keyDown.addHandler { [weak self, weak tab] _, args in
+            guard let self, let tab, !tab.closed, let args, let keys = self.keySequence(args.key.rawValue, tab: tab) else { return }
+            args.handled = true
+            tab.write(keys)
+        }
+        vista.surface.characterReceived.addHandler { [weak tab] _, args in
+            guard let tab, !tab.closed, let args else { return }
+            let text = String(args.character)
+            guard text.rangeOfCharacter(from: .controlCharacters) == nil else { return }
+            args.handled = true
+            tab.write(text)
+        }
+        window.closed.addHandler { [weak self] _, _ in
+            self?.ventanasPestana.removeValue(forKey: id)?.session.close()
+        }
+        ventanasPestana[id] = detached
+        styleDetached(detached)
+        renderDetached(detached)
+        do {
+            try window.activate()
+            removeFromMain(tab)
+            _ = try? vista.surface.focus(.programmatic)
+        } catch {
+            ventanasPestana[id] = nil
+            status.text = error.localizedDescription
+        }
+    }
+
+    private func returnToMain(_ id: ObjectIdentifier) {
+        guard let detached = ventanasPestana.removeValue(forKey: id) else { return }
+        terminals.append(detached.session)
+        try? detached.window.close()
+        try? window?.activate()
+        showPanel(nil)
+        select(detached.session)
+    }
+
+    private func styleDetached(_ detached: VentanaPestana) {
+        let vista = detached.vista
+        vista.invalidate()
+        vista.screen.fontFamily = FontFamily(settings.fuente)
+        vista.screen.fontSize = Double(settings.tamano)
+        vista.screen.lineHeight = alturaLinea
+        vista.surface.background = paleta.map { brush($0.fondo) } ?? brushTransparente
+        if let paleta { vista.screen.foreground = brush(paleta.texto) }
+        else { _ = try? vista.screen.clearValue(TextBlock.foregroundProperty) }
+    }
+
+    private func renderDetached(_ detached: VentanaPestana) {
+        detached.vista.render(detached.session, palette: paleta, brush: brush)
+    }
+
+    private func resizeDetached(_ detached: VentanaPestana) {
+        let surface = detached.vista.surface
+        guard surface.actualWidth > 20, surface.actualHeight > 16 else { return }
+        detached.session.resize(cols: max(2, Int((surface.actualWidth - 20) / (8.25 * fontScale))),
+                                rows: max(2, Int((surface.actualHeight - 16) / alturaLinea)))
+        renderDetached(detached)
     }
 
     private func toggleSplit() {

@@ -34,6 +34,7 @@ y puerto, opcionales) y un «todo listo». Puedes saltártelo con «Omitir» y a
 - **Barra lateral de sesiones**, agrupadas, leídas de `%USERPROFILE%\.config\netdeck\ssh_config` (o de `~/.ssh/config` si no existe). **+ Nueva sesión** y el
   lápiz ✎ abren el editor: nombre, grupo, equipo, usuario, puerto, tipo (SSH, Telnet, SFTP, FTP, serie o local) y descripción.
 - **Terminal con pestañas**: una shell local o una sesión SSH, sobre ConPTY y `ssh.exe`. «Conectar» abre un destino escrito al momento (`usuario@equipo`).
+- **Organizar pestañas**: arrástralas para cambiar el orden. El menú contextual mueve una pestaña a otra ventana y «Devolver pestaña» la devuelve con la sesión intacta.
 - **Vista dividida** (`Ctrl+Mayús+D`): con dos pestañas abiertas, muestra ambas a la vez. Haz clic en un panel o elige su pestaña para enviarle el teclado. Ajustes permite colocar los paneles en paralelo o uno encima del otro y cambiar el interlineado.
 - **Espacios de trabajo** (`Ctrl+Mayús+E`): guardan las pestañas abiertas y la disposición de dos paneles. Al restaurar se abren pestañas nuevas y se conservan las que ya estaban abiertas. Se restauran terminales locales y sesiones SSH.
 - **Buscar en el historial** (`Ctrl+F`): encuentra texto en el búfer disponible de la pestaña, aunque la línea ya no esté visible.
