@@ -346,6 +346,25 @@ private let config = """
         #expect(e["HOME"] == "/Users/x" && e["TERM"] == "xterm-256color")
     }
 
+    /// P9 (Windows): lo que el proceso padre haya puesto para ssh no llega a ssh.exe; lo propio de Windows que ssh necesita, si.
+    @Test func enWindowsAsshNoLeLlegaElAskpassNiGitSshAjenos() {
+        let heredado = ["SSH_ASKPASS": "C:/Git/askpass.exe", "SSH_ASKPASS_REQUIRE": "force", "GIT_SSH": "C:/x/plink.exe",
+                        "Git_Ssh_Command": "ssh -v", "USERPROFILE": "C:/Users/x", "APPDATA": "C:/Users/x/AppData/Roaming",
+                        "LOCALAPPDATA": "C:/Users/x/AppData/Local", "Path": "C:/Windows"]
+        let e = TerminalEnvironment.prepare(heredado, forSSH: true, sendLocale: false)
+        #if os(Windows)
+        #expect(e["SSH_ASKPASS"] == nil && e["SSH_ASKPASS_REQUIRE"] == nil)
+        #expect(e["GIT_SSH"] == nil && e["Git_Ssh_Command"] == nil)
+        #else
+        #expect(e["SSH_ASKPASS"] != nil)          // (macOS no cambia)
+        #endif
+        #expect(e["USERPROFILE"] == "C:/Users/x" && e["APPDATA"] != nil && e["LOCALAPPDATA"] != nil && e["Path"] == "C:/Windows")
+        // (una shell local, o ssh con el idioma pedido, conserva lo del usuario: no es la ruta de ssh de la app)
+        let local = TerminalEnvironment.prepare(heredado, forSSH: false, sendLocale: false)
+        #expect(local["SSH_ASKPASS"] == "C:/Git/askpass.exe" && local["GIT_SSH"] == "C:/x/plink.exe")
+        #expect(TerminalEnvironment.prepare(heredado, forSSH: true, sendLocale: true)["GIT_SSH"] == "C:/x/plink.exe")
+    }
+
     @Test func siLoPidesSiYEnLocalSeQueda() {
         #expect(TerminalEnvironment.prepare(mac, forSSH: true, sendLocale: true)["LC_CTYPE"] == "es_ES.UTF-8")
         #expect(TerminalEnvironment.prepare(mac, forSSH: false, sendLocale: false)["LANG"] == "es_ES.UTF-8")

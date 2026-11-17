@@ -1,3 +1,19 @@
+## 2026-11-17 · Windows · P9: TerminalEnvironment sin variables de ssh ajenas (por Claude)
+
+**Por Claude.** Rama `windows/p9-seguridad`. Suite completa: 549 tests en verde (546 + los 3 de la tarea 1 + 1 de ésta).
+
+- `TerminalEnvironment.prepare` (`#if os(Windows)`, sólo con `forSSH: true` y `sendLocale: false`, la misma condición que ya
+  quita el idioma) elimina `SSH_ASKPASS`, `SSH_ASKPASS_REQUIRE`, `GIT_SSH` y `GIT_SSH_COMMAND` del entorno heredado. Los
+  nombres se comparan sin distinguir mayúsculas, como Windows. `USERPROFILE`, `APPDATA` y `LOCALAPPDATA` no se tocan (ssh.exe
+  las necesita para encontrar `~/.ssh`; son inofensivas) y queda dicho en un comentario.
+- **No se tocan las shells locales** (`forSSH: false`): ahí el `GIT_SSH` o el `SSH_ASKPASS` del usuario son suyos. Tampoco con
+  `sendLocale: true`, por coherencia con el resto de la función; si se quiere la limpieza también ahí, es mover el bloque.
+- El askpass propio (`Askpass.environment`) se mezcla DESPUÉS de `prepare`, así que no se pierde.
+- Test nuevo (`SessionTests.swift`, `TerminalEnvironmentTests`): `enWindowsAsshNoLeLlegaElAskpassNiGitSshAjenos`. En macOS
+  comprueba que no cambia nada.
+- La tarea pedía `testWindowsRemovesInterferingVars`: el proyecto usa Swift Testing con nombres en castellano, así que se
+  llama de otra forma.
+
 ## 2026-11-17 · Windows · P9: importación de sesiones y prefijos peligrosos (por Claude)
 
 **Por Claude.** Rama `windows/p9-seguridad`. Sólo tests: el código de la tarea ya estaba cubierto, y añadir el filtro pedido
