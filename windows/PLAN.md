@@ -396,6 +396,12 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
         `arquitectura.md` con lo de Windows**: son guías de agentes y las cambia el autor, no otra sesión.)
   - [ ] Release con la skill `netdeck-publicar`, adaptada a dos sistemas.
 
+## P13 · Contraseñas SSH y panel de macros
+
+- [x] Integrar `NetDeckAskpass.exe` con el askpass de NetDeckCore en las pestañas SSH y empaquetarlo en el MSI.
+- [x] Añadir un panel de macros (`Ctrl+M`) para crear listas de órdenes y reproducir macros del formato de NetDeck en la pestaña activa.
+- [ ] Validar el ayudante a través de `-J` y después de instalar en un Windows limpio.
+
 ---
 
 ## Cómo cambiar este plan

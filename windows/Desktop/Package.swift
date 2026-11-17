@@ -10,6 +10,10 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
+            name: "NetDeckAskpass",
+            dependencies: [.product(name: "NetDeckCore", package: "Terminal-NetDeck")]
+        ),
+        .executableTarget(
             name: "NetDeckWindows",
             dependencies: [
                 .product(name: "NetDeckCore", package: "Terminal-NetDeck"),

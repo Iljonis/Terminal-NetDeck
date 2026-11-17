@@ -7,23 +7,34 @@ import SwiftTerm
 final class PestanaTerminal: TerminalDelegate {
     let title: String
     let route: ConnectionRoute
+    private let id = UUID()
     private let process: ConPTYProcess
     private let input = DispatchQueue(label: "netdeck.windows.terminal")
     private var reader: Task<Void, Never>?
+    private(set) var revision = 0
     private(set) var closed = false
     private(set) lazy var terminal = Terminal(delegate: self)
 
-    init(route: ConnectionRoute) throws {
+    init(route: ConnectionRoute, config: URL?) throws {
         title = route.title
         self.route = route
-        let demo = ProcessInfo.processInfo.environment["NETDECK_DESKTOP_DEMO"] == "1"
-        let configFile = demo && !route.isLocal ? "NUL" : nil
+        let inherited = ProcessInfo.processInfo.environment
+        let demo = inherited["NETDECK_DESKTOP_DEMO"] == "1"
+        let isolated = !(inherited["NETDECK_HOME"] ?? "").isEmpty
+        let configFile = demo ? "NUL" : (isolated ? config?.path ?? "NUL" : nil)
         var command = route.command(sharing: nil, configFile: configFile)
         if demo, route.isLocal, command.executable.lowercased().hasSuffix("powershell.exe") {
             command.arguments += ["-NoLogo", "-NoProfile"]
         }
-        let environment = TerminalEnvironment.prepare(ProcessInfo.processInfo.environment,
+        var environment = TerminalEnvironment.prepare(inherited,
                                                       forSSH: !route.isLocal, sendLocale: false)
+        let helper = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
+            .appendingPathComponent("NetDeckAskpass.exe")
+        if !demo, !route.isLocal, route.transport == .ssh, FileManager.default.fileExists(atPath: helper.path) {
+            let askpass = Askpass.environment(executable: helper.path, configPath: config?.path,
+                                              session: id, profile: route.sessionName, route: route)
+            environment.merge(askpass) { _, value in value }
+        }
         process = try ConPTYProcess(executable: command.executable, arguments: command.arguments,
                                     environment: environment)
     }
@@ -35,6 +46,7 @@ final class PestanaTerminal: TerminalDelegate {
                 guard !Task.isCancelled, enqueue({ [weak self] in
                     guard let self, !self.closed else { return }
                     self.terminal.feed(byteArray: Array(data))
+                    self.revision &+= 1
                     changed()
                 }) else { return }
             }
@@ -118,6 +130,44 @@ final class PestanaTerminal: TerminalDelegate {
         closed = true
         reader?.cancel()
         reader = nil
-        input.async { [process] in process.terminate() }
+        input.async { [process, id] in
+            process.terminate()
+            _ = Askpass.takeAttempts(session: id)
+        }
+    }
+}
+
+/// Búfer de SwiftTerm leído en el mismo hilo que recibe la salida de ConPTY.
+@MainActor
+final class EntradaMacro: TerminalIO {
+    private let tab: PestanaTerminal
+    let promptRule: PromptRule?
+
+    init(tab: PestanaTerminal, promptRule: PromptRule?) {
+        self.tab = tab
+        self.promptRule = promptRule
+    }
+
+    var revision: Int { tab.revision }
+    var cursorRow: Int {
+        let terminal = tab.terminal
+        return terminal.buffer.totalLinesTrimmed + terminal.getTopVisibleRow() + terminal.getCursorLocation().y
+    }
+
+    var cursorLine: String { lines(from: cursorRow).last ?? "" }
+
+    func lines(from row: Int) -> [String] {
+        let last = cursorRow
+        let first = max(row, tab.terminal.buffer.totalLinesTrimmed)
+        guard first <= last else { return [] }
+        return (first...last).compactMap {
+            tab.terminal.getScrollInvariantLine(row: $0)?.translateToString(
+                trimRight: true, skipNullCellsFollowingWide: true
+            )
+        }
+    }
+
+    func send(bytes: [UInt8]) {
+        tab.write(String(decoding: bytes, as: UTF8.self))
     }
 }

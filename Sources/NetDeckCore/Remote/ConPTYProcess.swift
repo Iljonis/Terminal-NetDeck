@@ -99,14 +99,15 @@ public final class ConPTYProcess: @unchecked Sendable {
 
         var pi = PROCESS_INFORMATION()
         let cmd = ConPTYProcess.commandLine(executable, arguments)
-        let flags = kExtStartup
+        var environmentBlock = windowsEnvironmentBlock(environment)
 
         let launched: Bool = cmd.withUTF16CStr { cmdW in
-            withUnsafeMutablePointer(to: &siEx) { siExPtr in
-                siExPtr.withMemoryRebound(to: STARTUPINFOW.self, capacity: 1) { siPtr in
-                    CreateProcessW(nil, cmdW, nil, nil, false, flags,
-                                   nil,  // hereda el entorno del padre
-                                   nil, siPtr, &pi)
+            environmentBlock.withUnsafeMutableBytes { block in
+                withUnsafeMutablePointer(to: &siEx) { siExPtr in
+                    siExPtr.withMemoryRebound(to: STARTUPINFOW.self, capacity: 1) { siPtr in
+                        CreateProcessW(nil, cmdW, nil, nil, false, kExtStartup | kUnicodeEnv,
+                                       block.baseAddress, nil, siPtr, &pi)
+                    }
                 }
             }
         }
@@ -181,13 +182,6 @@ public final class ConPTYProcess: @unchecked Sendable {
             r.append(dq)
             return r
         }.joined(separator: " ")
-    }
-
-    private static func envBlock(_ env: [String: String]) -> [UInt16] {
-        var block: [UInt16] = []
-        for (k, v) in env { ("\(k)=\(v)\0").utf16.forEach { block.append($0) } }
-        block.append(0)
-        return block
     }
 }
 

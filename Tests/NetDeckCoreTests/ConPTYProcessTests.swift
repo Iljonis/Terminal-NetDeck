@@ -18,6 +18,17 @@ import SwiftTerm
         #expect(texto.contains("test-conpty"))
     }
 
+    @Test func pasaElEntornoPreparado() async throws {
+        var env = entorno
+        env["NETDECK_CONPTY_TEST"] = "entorno-conpty-ok"
+        let proceso = try ConPTYProcess(executable: cmd, arguments: ["/c", "set", "NETDECK_CONPTY_TEST"],
+                                        environment: env)
+        defer { proceso.terminate() }
+        let esperado = "NETDECK_CONPTY_TEST=entorno-conpty-ok"
+        let datos = await recoger(proceso, plazo: .seconds(5)) { $0.range(of: Data(esperado.utf8)) != nil }
+        #expect(String(decoding: datos, as: UTF8.self).contains(esperado))
+    }
+
     /// La pregunta de contraseña sale de la pseudoconsola entre secuencias VT (borrado, cursor, título de ventana).
     /// En el texto en bruto, `Askpass.secretQuestion` (busca en cualquier parte de la línea) la sigue reconociendo.
     @Test func deteccionDePromptConPTY() async throws {

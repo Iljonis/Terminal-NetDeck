@@ -22,6 +22,7 @@ if ($js -notmatch '-EncodedCommand ([A-Za-z0-9+/=]+)' -or $Matches[1] -ne $esper
     throw 'detectar-runtime.js no lleva la version actual de detectar-runtime.ps1 en base64: regenerala (ver la cabecera de ese script).'
 }
 if (!(Test-Path (Join-Path $Productos 'NetDeckWindows.exe'))) { throw "Falta NetDeckWindows.exe en ${Productos}: compila antes con windows/scripts/desktop.ps1." }
+if (!(Test-Path (Join-Path $Productos 'NetDeckAskpass.exe'))) { throw "Falta NetDeckAskpass.exe en ${Productos}: compila antes con windows/scripts/desktop.ps1." }
 if (!(Test-Path $Runtime)) { throw "Falta el runtime de Swift en ${Runtime}." }
 
 # Se vacia el destino, asi que solo si esta vacio o lo creo este mismo script (marcador): nunca una carpeta ajena.

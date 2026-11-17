@@ -288,7 +288,7 @@ private final class WindowsChild: @unchecked Sendable {
         // (el ejecutable va aparte, con su ruta: no se busca en el PATH, como con posix_spawn)
         var application = Array(executable.utf16) + [0]
         var command = Array(Self.commandLine(executable, arguments).utf16) + [0]
-        var block = Self.environmentBlock(environment)
+        var block = windowsEnvironmentBlock(environment)
         // (parado hasta estar en el Job: ningún nieto se queda fuera)
         let flags = kCreateSuspended | kCreateNoWindow | kCreateNewProcessGroup | kCreateUnicodeEnvironment
             | kExtendedStartupInfoPresent
@@ -369,22 +369,22 @@ private final class WindowsChild: @unchecked Sendable {
         out.append(quote)
         return String(out)
     }
+}
 
-    /// El entorno como lo quiere `CREATE_UNICODE_ENVIRONMENT`: «nombre=valor» en UTF-16 acabados en NUL, ordenados por
-    /// nombre y con otro NUL al final. Lo que no cabe en ese formato (sin nombre, «=» en el nombre o un NUL) no pasa.
-    static func environmentBlock(_ environment: [String: String]) -> [WCHAR] {
-        let valid = environment.filter { key, value in
-            !key.isEmpty && !key.unicodeScalars.contains("=") && !key.unicodeScalars.contains("\0")
-                && !value.unicodeScalars.contains("\0")
-        }
-        var block: [WCHAR] = []
-        for (key, value) in valid.sorted(by: { $0.key.uppercased() < $1.key.uppercased() }) {
-            block.append(contentsOf: "\(key)=\(value)".utf16)
-            block.append(0)
-        }
-        if block.isEmpty { block.append(0) }
-        block.append(0)
-        return block
+/// El entorno como lo quiere `CREATE_UNICODE_ENVIRONMENT`: «nombre=valor» en UTF-16 acabados en NUL, ordenados por
+/// nombre y con otro NUL al final. Lo que no cabe en ese formato (sin nombre, «=» en el nombre o un NUL) no pasa.
+func windowsEnvironmentBlock(_ environment: [String: String]) -> [WCHAR] {
+    let valid = environment.filter { key, value in
+        !key.isEmpty && !key.unicodeScalars.contains("=") && !key.unicodeScalars.contains("\0")
+            && !value.unicodeScalars.contains("\0")
     }
+    var block: [WCHAR] = []
+    for (key, value) in valid.sorted(by: { $0.key.uppercased() < $1.key.uppercased() }) {
+        block.append(contentsOf: "\(key)=\(value)".utf16)
+        block.append(0)
+    }
+    if block.isEmpty { block.append(0) }
+    block.append(0)
+    return block
 }
 #endif

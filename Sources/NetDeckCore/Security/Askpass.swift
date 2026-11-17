@@ -268,7 +268,12 @@ public enum Askpass {
             L("otra autenticación con «\(r)» sigue pendiente; escríbela a mano o, si ya terminó, restablécela en Ajustes → Contraseñas → «Restablecer pendiente»")
         case .unknownUser: L("no se sabe qué usuario la pide: escríbela tú")
         case .noCredential: L("no hay ninguna guardada")
-        case .keychainUnavailable: L("no se ha podido leer el Llavero (¿bloqueado?): escríbela tú")
+        case .keychainUnavailable:
+            #if os(Windows)
+            L("no se ha podido leer el Administrador de credenciales: escríbela tú")
+            #else
+            L("no se ha podido leer el Llavero (¿bloqueado?): escríbela tú")
+            #endif
         }
     }
 
@@ -446,8 +451,13 @@ public enum Askpass {
             }
             // (Intro = sí: la respuesta es una pulsación nueva, el TTY descarta lo que quedara de antes)
             let target = named.map(CredentialRef.named) ?? .device(user, host)
-            let question = named.map { L("¿Guardarla como «\($0)»?") }
-                ?? L("¿Guardar la \(failed != nil ? L("nueva ") : "")contraseña de \(account) en el Llavero?")
+            let prefix = failed != nil ? L("nueva ") : ""
+            #if os(Windows)
+            let saveAccount = L("¿Guardar la \(prefix)contraseña de \(account) en el Administrador de credenciales?")
+            #else
+            let saveAccount = L("¿Guardar la \(prefix)contraseña de \(account) en el Llavero?")
+            #endif
+            let question = named.map { L("¿Guardarla como «\($0)»?") } ?? saveAccount
             guard let yes = tty.yesNo(question + (store.contains(target) ? L(" (sustituye la guardada)") : ""), default: true) else {
                 DebugLog.log("askpass", "guardar: cancelado con Ctrl+C (\(target))")
                 tty.say(L("\(yellow)\(marker) cancelado\(reset)\n"))
@@ -466,7 +476,11 @@ public enum Askpass {
                 } catch {
                     // (nunca la salida de security en la pestaña: podría llevar la orden con la contraseña)
                     ErrorLog.warning("askpass", "no se ha podido guardar «\(target)» en el Llavero")
+                    #if os(Windows)
+                    tty.say(L("\(red)\(marker) no guardada: el Administrador de credenciales no la ha aceptado\(reset)\n"))
+                    #else
                     tty.say(L("\(red)\(marker) no guardada: el Llavero no la ha aceptado\(reset)\n"))
+                    #endif
                     if tty.reportsSaved { noteSaved(target, ok: false, session: session, directory: directory) }
                 }
             } else {

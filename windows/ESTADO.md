@@ -1,3 +1,14 @@
+## 2026-11-17 · Windows · P13: askpass de pestañas SSH y panel de macros
+
+Rama `windows/p13-askpass-macros`, basada en P12 (`15089ec`).
+
+- `NetDeckAskpass.exe` se incluye junto a la aplicación en el MSI. Las pestañas SSH le pasan el perfil, la ruta y un UUID por conexión. El ayudante usa el `Askpass` del núcleo y su consola Windows. Una contraseña guardada se usa una vez por pregunta de SSH. Si falla, se pide que la escribas sin eco y se ofrece guardarla en el Administrador de credenciales.
+- ConPTY ahora entrega al proceso el bloque Unicode de entorno que prepara la pestaña, usando la misma serialización que los procesos de Windows del núcleo. Antes ignoraba el parámetro y heredaba el entorno de la aplicación. Hay una prueba de regresión para ese caso.
+- «Macros» (`Ctrl+M`) crea listas de órdenes y reproduce las macros guardadas en la pestaña SSH o Telnet activa. Se usa `MacroLibrary` y su archivo `macros.json`. `MacroPlayer` espera el prompt entre órdenes y detiene la reproducción ante errores, paginadores, secretos o cancelación. Las órdenes peligrosas requieren confirmación.
+- Verificado en pantalla con OpenSSH de Windows y un servidor local de prueba: conexión con credencial guardada, entrada manual sin eco y sustitución ofrecida al fallar la guardada. También se lanzó desde los archivos del instalador en una carpeta con espacios. Probadas la creación y reproducción de dos órdenes, y la detención ante `Password:`.
+- Privacidad en verde y 550 tests del núcleo en 93 suites en verde en la última pasada. En intentos previos hubo fallos intermitentes de acceso a archivos en las pruebas de copia y renombrado.
+- El build de escritorio, la preparación del MSI y la validación ICE pasaron. Queda probar `-J` y una instalación en Windows limpio. El SFTP y los túneles quedan fuera de esta integración. La grabación y la edición de macros quedan pendientes para la paridad completa.
+
 ## 2026-11-17 · Windows · P12: resumen (por Claude)
 
 **Por Claude.** Rama `windows/p10-paquete`. P12 hecho en sus dos bloques, probado en pantalla.
@@ -744,7 +755,8 @@ NO tocar .github/workflows/ ni windows/scripts/test.ps1 desde el repo principal 
     - WSAGetLastError/WSAEWOULDBLOCK para detectar progreso de connect no bloqueante.
     - getsockopt(SO_ERROR) para verificar ÃƒÆ’Ã‚Â©xito tras WSAPoll.
     - CancelaciÃƒÆ’Ã‚Â³n segura via _FTPSocketHolder: el token de cancelaciÃƒÆ’Ã‚Â³n cierra el socket antes de que connectSocket() bloqueÃƒÆ’Ã‚Â© en WSAPoll.
-    - send/ecv/shutdown usando WinSDK con Task.detached y withCheckedThrowingContinuation.
+    - send/
+ecv/shutdown usando WinSDK con Task.detached y withCheckedThrowingContinuation.
   - Sources/NetDeckCore/Support/Ingles.swift: nueva clave "FTP: network initialisation failed".
   - windows/PLAN.md: [x] en la tarea FTP de P4h.
 - **Tests:** 545/545 en verde. Privacidad ok (355 archivos, 0 datos personales).

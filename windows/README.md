@@ -34,10 +34,14 @@ y puerto, opcionales) y un «todo listo». Puedes saltártelo con «Omitir» y a
 - **Barra lateral de sesiones**, agrupadas, leídas de `%USERPROFILE%\.config\netdeck\ssh_config` (o de `~/.ssh/config` si no existe). **+ Nueva sesión** y el
   lápiz ✎ abren el editor: nombre, grupo, equipo, usuario, puerto, tipo (SSH, Telnet, SFTP, FTP, serie o local) y descripción.
 - **Terminal con pestañas**: una shell local o una sesión SSH, sobre ConPTY y `ssh.exe`. «Conectar» abre un destino escrito al momento (`usuario@equipo`).
+- **Contraseñas SSH**: las pestañas pueden usar una contraseña de esa cuenta guardada en el Administrador de credenciales de Windows.
+  Si falta o falla, puedes escribirla en la pestaña sin eco y elegir si se guarda. [ADR-0004](decisiones/0004-credenciales-p9.md).
 - **Explorador SFTP** (el botón 📂 de cada sesión): lista, entra en carpetas, descarga con doble clic a *Descargas* y sube un archivo escribiendo su ruta.
   No pisa archivos que ya existen.
 - **Túneles SSH** (botón «Túneles», `Ctrl+T`): reenvío local, remoto o SOCKS; se inician y se paran uno a uno y se guardan en `%APPDATA%\Terminal NetDeck\tuneles.json`.
 - **Pegado seguro**: pegar varias líneas enseña antes una vista previa, para no ejecutar sin querer cada línea.
+- **Macros** (`Ctrl+M`): guarda una lista de órdenes, una por línea, y reprodúcela en la pestaña SSH o Telnet activa desde su prompt.
+  Pide confirmación para órdenes peligrosas y se detiene al detectar un error, un paginador o una petición de contraseña. Esc o «Parar la macro» interrumpen la reproducción.
 - **MultiExec**: un mismo comando a todas las pestañas SSH y Telnet abiertas.
 - **Ajustes** (`Ctrl+,`): fuente (Consolas, Courier New, Cascadia Code o Cascadia Mono), tamaño de letra, tema de la ventana (sistema con Mica, claro u oscuro) y **colores del terminal**: los 85 temas de NetDeck (fondo, texto y los 16 colores ANSI; «(Predeterminado)» deja los del sistema).
 - **Actualizaciones**: «Buscar actualizaciones» en Ajustes consulta la última release de GitHub. Nada se comprueba ni se instala sin tu clic y el instalador
@@ -51,6 +55,7 @@ y puerto, opcionales) y un «todo listo». Puedes saltártelo con «Omitir» y a
 | `Ctrl+Mayús+N` | Abre el editor de una sesión nueva |
 | `Ctrl+W` | Cierra la pestaña activa |
 | `Ctrl+Tab` · `Ctrl+Mayús+Tab` | Pestaña siguiente · anterior |
+| `Ctrl+M` | Abre el panel de macros |
 | `Ctrl+T` | Abre los túneles SSH |
 | `Ctrl+,` | Abre los ajustes |
 
@@ -58,9 +63,8 @@ y puerto, opcionales) y un «todo listo». Puedes saltártelo con «Omitir» y a
 
 ## Limitaciones de esta versión
 
-- **Sin contraseña por teclado en las conexiones de la app**: falta el askpass de Windows (paso P4e), así que de momento sólo funcionan las **claves** y el
-  agente de ssh. En la terminal puedes escribirla a mano como siempre. Las contraseñas guardadas usan el Administrador de credenciales de Windows
-  ([ADR-0004](decisiones/0004-credenciales-p9.md)), pero la app aún no tiene pantalla para gestionarlas.
+- Las contraseñas asistidas están disponibles en las pestañas SSH. El explorador SFTP y los túneles quedan fuera de este flujo.
+- El panel de macros permite crear listas de órdenes y reproducir macros del formato de NetDeck. Quedan pendientes la grabación y la edición de macros en Windows.
 - **FTP** aún no está disponible en Windows; el tipo existe, pero abrir una sesión FTP sólo avisa.
 - La terminal pinta texto: con un tema de colores, cada trozo con su color de texto, pero sin fondo por celda, negrita ni subrayado, y sin colores si no eliges tema.
 - Los 85 temas de la versión de macOS sólo se aplican a los colores del terminal; la interfaz sigue siendo Mica, claro u oscuro.
@@ -91,7 +95,7 @@ decisiones de arquitectura y el plan por fases. Está pensada para seguir el tra
 | Archivo | Qué es |
 |---|---|
 | [CLAUDE.md](CLAUDE.md) · [AGENTS.md](AGENTS.md) | Instrucciones para el agente que siga el trabajo en Windows (las dos iguales) |
-| [PLAN.md](PLAN.md) | El plan por pasos (P0…P11), cada uno con contexto, tareas, comprobación y criterio de salida |
+| [PLAN.md](PLAN.md) | El plan por pasos (P0…P13), cada uno con contexto, tareas, comprobación y criterio de salida |
 | [ESTADO.md](ESTADO.md) | Dónde se quedó el trabajo: cada sesión lo actualiza al terminar |
 | [ESTUDIO.md](ESTUDIO.md) | Viabilidad: qué se aprovecha del núcleo, qué hay que reescribir y qué hacen otros, con fuentes |
 | [decisiones/](decisiones/README.md) | Decisiones de arquitectura (ADR); la 0001, qué camino seguir, está «propuesta» |

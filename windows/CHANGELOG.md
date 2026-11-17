@@ -19,8 +19,9 @@ decidir si la de Windows sigue el 1.0.0 de macOS antes de publicarla (ver [ESTAD
 - MultiExec: escribir en todas las pestañas a la vez
 - Asistente de primer arranque
 - Actualizador: busca nuevas versiones en GitHub y comprueba el sha256 y la firma antes de instalar
-- Almacén de credenciales Windows (Administrador de credenciales)
-- Atajos de teclado: `Ctrl+N`, `Ctrl+W`, `Ctrl+Tab`, `Ctrl+T` y `Ctrl+,`
+- Askpass para las pestañas SSH, con entrada sin eco y almacenamiento en el Administrador de credenciales
+- Panel de macros (Ctrl+M), creación de listas de órdenes y reproducción con las protecciones de NetDeckCore
+- Atajos de teclado: `Ctrl+N`, `Ctrl+W`, `Ctrl+Tab`, `Ctrl+M`, `Ctrl+T` y `Ctrl+,`
 - Instalador `.msi` (WiX 4) y Sparse Package; compila, pero todavía no se ha probado instalado ni está firmado
 - El instalador comprueba que está el Windows App Runtime 1.5 y, si falta, se detiene con el enlace para instalarlo (no lo incluye)
 
@@ -33,5 +34,4 @@ decidir si la de Windows sigue el 1.0.0 de macOS antes de publicarla (ver [ESTAD
 ### Notas
 
 - Primera versión pública de Windows. La versión macOS es 1.0.0.
-- Limitaciones conocidas: la contraseña por teclado en las conexiones de la app necesita el askpass de Windows (de momento, claves y agente); FTP aún
-  no está disponible; los temas de macOS sólo colorean el terminal (texto por trozos, sin fondo por celda ni negrita), no la interfaz.
+- Limitaciones conocidas: el askpass sólo se integra en pestañas SSH, FTP aún no está disponible y los temas de macOS sólo colorean el terminal (texto por trozos, sin fondo por celda ni negrita), no la interfaz.
