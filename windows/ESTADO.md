@@ -1,3 +1,28 @@
+## 2026-11-17 · Windows · P11: documentación de Windows y próximos pasos (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. La documentación propia de Windows está hecha; **P11 no está completo** (ver abajo).
+
+### Hecho
+- `1517075` el `.wxs` compila con WiX 4.0.6 (`.msi` de 69 MB, **sin firma**, sin instalar); `tools/privacidad.sh` sale con código 0 y no hizo falta un commit de corrección.
+- `8bad8ab` **`windows/README.md`**: guía de instalación y uso (requisitos, instalación, primera vez, funciones, atajos, limitaciones, desinstalar y compilar). No
+  era un archivo nuevo: ya existía como introducción para quien desarrolla, y se conserva como última sección («Para quien desarrolla»).
+- `6a864eb` **`windows/CHANGELOG.md`** con la 0.9.0 (próxima versión). Se añadió una sección «Seguridad» y la nota de que la versión de Windows está por decidir.
+- `PLAN.md`: P11 anotado con lo hecho. **Sigue abierto en P11:** el README y README.en de la raíz (quitar «no tiene versión para Windows»), `docs/agentes/` y la
+  raíz `CLAUDE.md`/`AGENTS.md`, y la release con la skill `netdeck-publicar`.
+
+### Próximos pasos antes del lanzamiento
+1. **Instalar y probar el `.msi` en un Windows limpio** (instalar, registro del Sparse Package, actualizar, desinstalar) y un build **Release**.
+2. **Firma Authenticode** (Azure Code Signing o un certificado): decisión y coste del autor; hasta entonces el actualizador rechaza instaladores sin firma.
+3. **Workflow de Release en GitHub Actions** (Codex; no se ha tocado y no existe todavía) y añadir `UpdateCheckerWindowsTests` a la lista de suites de `windows/scripts/test.ps1`.
+4. **`SSH_ASKPASS.exe` (P4e)**, bloqueado hasta tener el instalador: sin él no hay contraseña por teclado en las conexiones de la app.
+5. **Manifiesto de winget** en `winget-pkgs`, tras la primera release pública.
+
+Además, y no estaba en la lista:
+6. **El instalador no lleva el Windows App Runtime 1.5** (Framework, Main y DDLM): sin él la app no arranca en un Windows limpio («Windows App Runtime not found»; en
+   este equipo se instaló a mano en P8). Hay que incluirlo en el `.msi` o hacer que lo instale el instalador (el README ya lo dice como requisito).
+7. **Decidir la versión de Windows** (0.9.0 en el manifiesto, el `.wxs` y `UpdateChecker.currentVersion`; la última release publicada es la 1.0.0) y cambiarla a la vez.
+8. Del actualizador: **fijar el firmante** y comprobar que el `.msi` es esta app y la versión anunciada; y los fallos intermitentes de tests de NetDeckCore (P6).
+
 ## 2026-11-17 · Windows · P10: el instalador compila con WiX 4 (por Claude)
 
 **Por Claude.** Rama `windows/p10-paquete`. El `.wxs` ya compila: `wix build` termina sin errores ni avisos y genera un `.msi` de 69 MB.

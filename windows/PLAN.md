@@ -386,6 +386,8 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 ## P11 · Documentación y lanzamiento (M, normal)
 
 - **Depende de:** P9, P10.
+- **Hecho en P11** (rama `windows/p10-paquete`): [x] `windows/README.md` con la guía de instalación y uso de Windows (`8bad8ab`) y
+  [x] `windows/CHANGELOG.md` con la 0.9.0 (`6a864eb`). Siguen abiertas las tareas de abajo (README de la raíz, `docs/agentes/`, release).
 - **Tareas:**
   - [ ] README y README.en: quitar «no tiene versión para Windows», requisitos e instalación en Windows, capturas.
   - [ ] CHANGELOG, `docs/agentes/` (comandos y arquitectura de Windows) y la raíz CLAUDE.md / AGENTS.md.
