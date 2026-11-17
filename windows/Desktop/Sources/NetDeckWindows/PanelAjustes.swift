@@ -26,6 +26,7 @@ struct AjustesTerminal: Equatable {
         defaults.set(fuente, forKey: "ndFuente")
         defaults.set(tamano, forKey: "ndTamano")
         defaults.set(tema, forKey: "ndTema")
+        defaults.synchronize()   // (en Windows no se vuelca solo: sin esto se pierde si la app se cierra a la fuerza)
     }
 }
 

@@ -1,3 +1,23 @@
+## 2026-11-17 · Windows · P8: tema Mica, claro y oscuro desde Ajustes (por Claude)
+
+**Por Claude.** El tema elegido en Ajustes se aplica de verdad a la ventana. Compila (`Build complete!`) y está probado en
+la demo con capturas.
+
+### Qué hay
+- `applySettings(_:)` en `NetDeckWindows.swift`:
+  - **Sistema (Mica)**: `window.systemBackdrop = MicaBackdrop()` (existe en swift-winui 0.1.1) y el tema de Windows.
+  - **Claro / Oscuro**: `requestedTheme` en la rejilla raíz, sin Mica y con un fondo explícito (`SolidColorBrush`
+    #F3F3F3 / #202020): sin Mica la ventana no pinta fondo y quedaba negra con el texto invisible.
+- `windows/Desktop/Package.swift`: `.linkedLibrary("UWP")`. Hace falta para construir un `Color` (`import struct
+  UWP.Color`; el `import UWP` completo hace ambiguos varios tipos).
+- `PanelAjustes.swift`: `UserDefaults.synchronize()` tras guardar. En Windows no se vuelca solo y los ajustes se perdían
+  si la app se cerraba a la fuerza; con esto se comprobó que Claro sobrevive a un cierre y reinicio.
+
+### Notas
+- El primer build tras cambiar de rama de trabajo falló dos veces con «A file with the same name already exists» en
+  `*.objlib`; se arregla borrando esos `.objlib` de `NetDeckDesktopBuild/out/Products` y reconstruyendo.
+- Los temas de color de NetDeckCore (`Theme`) siguen sin conectar: «tema» aquí es claro/oscuro/Mica.
+
 ## 2026-11-17 · Windows · P8: atajos de teclado (por Claude)
 
 **Por Claude.** Atajos globales de la ventana principal. Compila (`Build complete!`) y se han probado de verdad en la

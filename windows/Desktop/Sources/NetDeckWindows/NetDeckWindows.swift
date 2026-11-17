@@ -1,5 +1,6 @@
 import Foundation
 import NetDeckCore
+import struct UWP.Color
 import WinSDK
 import WinUI
 
@@ -19,7 +20,7 @@ final class NetDeckWindows: SwiftApplication {
     private let editor = PanelEditorSesion()
     private let ajustes = PanelAjustes()
     private var settings = AjustesTerminal.cargar()
-    private var rootView: FrameworkElement?
+    private var rootView: Grid?
     /// Tamano de letra respecto a 15 pt (celda de 8,25 x 19 px): para calcular columnas y filas.
     private var fontScale = 1.0
     /// Sesiones editables en memoria: en modo demo es la unica copia (no se escribe a disco).
@@ -334,6 +335,14 @@ final class NetDeckWindows: SwiftApplication {
         fontScale = Double(a.tamano) / 15
         let theme: Int32 = a.tema == "Claro" ? 1 : (a.tema == "Oscuro" ? 2 : 0)
         rootView?.requestedTheme = ElementTheme(rawValue: theme)
+        // Mica solo con «Sistema»; con Claro u Oscuro, fondo liso. (Mica pide Windows 11.)
+        window?.systemBackdrop = a.tema == "Sistema (Mica)" ? MicaBackdrop() : nil
+        // Sin Mica la ventana no pinta fondo propio: Claro y Oscuro lo ponen a mano.
+        switch a.tema {
+        case "Claro": rootView?.background = SolidColorBrush(Color(a: 255, r: 243, g: 243, b: 243))
+        case "Oscuro": rootView?.background = SolidColorBrush(Color(a: 255, r: 32, g: 32, b: 32))
+        default: rootView?.background = nil
+        }
         resize()
     }
 

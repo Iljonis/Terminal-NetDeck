@@ -19,6 +19,7 @@ let package = Package(
             linkerSettings: [
                 .linkedLibrary("WindowsFoundation"),
                 .linkedLibrary("WinAppSDK"),
+                .linkedLibrary("UWP"),
             ]
         ),
     ],
