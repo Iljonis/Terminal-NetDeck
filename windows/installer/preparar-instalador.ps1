@@ -7,7 +7,9 @@
 # Y despues:  wix build windows/installer/NetDeckWindows.wxs <carpeta>/../archivos.wxs -arch x64 -d SourceDir=<carpeta> -o NetDeckWindows.msi
 param(
     [string]$Destino = (Join-Path $env:LOCALAPPDATA 'NetDeckInstaller/files'),
-    [string]$Productos = (Join-Path $env:LOCALAPPDATA 'NetDeckDesktopBuild/out/Products/Debug-windows-x86_64'),
+    # debug (el de desktop.ps1 por defecto) o release (desktop.ps1 -Configuration release): decide la carpeta de Productos
+    [ValidateSet('debug', 'release')][string]$Configuracion = 'debug',
+    [string]$Productos = (Join-Path $env:LOCALAPPDATA ('NetDeckDesktopBuild/out/Products/' + (Get-Culture).TextInfo.ToTitleCase($Configuracion) + '-windows-x86_64')),
     [string]$Runtime = (Join-Path $env:LOCALAPPDATA 'Programs/Swift/Runtimes/6.4.2/usr/bin')
 )
 $ErrorActionPreference = 'Stop'

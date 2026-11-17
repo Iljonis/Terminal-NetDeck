@@ -12,10 +12,14 @@
   Compila con WiX 4.0.6 (herramienta de dotnet, no hace falta instalarlo en el sistema). La version
   (0.9.0) debe coincidir con AppxManifest.xml y con UpdateChecker.currentVersion. El UpgradeCode no se cambia nunca.
 -->
+<!-- La version sale de fuera en el CI (wix build -d Version=...); sin ella, esta. Debe coincidir con AppxManifest.xml y UpdateChecker.currentVersion. -->
+<?ifndef Version?>
+<?define Version = "0.9.0"?>
+<?endif?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="Terminal NetDeck"
            Manufacturer="Iljonis"
-           Version="0.9.0"
+           Version="$(var.Version)"
            UpgradeCode="864B0368-79B3-4687-8A69-102A5447C278"
            Scope="perMachine"
            Language="1034"
@@ -73,7 +77,7 @@
     -->
     <Property Id="WINAPPRUNTIME_INSTALLED" Value="0" Secure="yes" />
     <Property Id="SKIP_WINAPPRUNTIME_CHECK" Value="0" Secure="yes" />
-    <Binary Id="DetectarRuntimeJs" SourceFile="detectar-runtime.js" />
+    <Binary Id="DetectarRuntimeJs" SourceFile="$(sys.SOURCEFILEDIR)detectar-runtime.js" />
     <CustomAction Id="DetectarWindowsAppRuntime" BinaryRef="DetectarRuntimeJs" JScriptCall="DetectarWindowsAppRuntime"
                   Execute="immediate" Return="ignore" />
     <Launch Condition="Installed OR WINAPPRUNTIME_INSTALLED = &quot;1&quot; OR SKIP_WINAPPRUNTIME_CHECK = &quot;1&quot;"

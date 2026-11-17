@@ -372,7 +372,7 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
         compila con WiX 4.0.6** (69 MB, sin firma, validación ICE correcta) pero **no se ha instalado** en un Windows limpio (`01a5bc3` y el commit de ajuste del `.wxs`).
   - [x] `UpdateChecker` (sólo Windows): sólo enlaces https de github.com del repositorio, sha256 y firma con `WinVerifyTrust`, y nada sin clic;
         botón «Buscar actualizaciones» en Ajustes (`4e038c2`). Falta fijar el firmante y comprobar que el `.msi` es esta app y la versión anunciada.
-  - El workflow de Release de Windows (`.github/workflows/`) lo gestiona Codex: no se ha tocado y todavía no existe.
+  - Workflow de Release de Windows: **borrador** en `windows/ci/windows-release.yml` (sin activar; `.github/workflows/` lo gestiona Codex y no se ha tocado).
 - **Tareas** (siguen abiertas: la «Salida» pide un instalador firmado instalado en un Windows limpio):
   - [ ] Paquete MSIX o instalador (decidirlo con una ADR nueva; comprobar que ssh.exe puede lanzar el askpass desde la
         instalación elegida, ver P4e) y su workflow de Release en `windows-latest`.

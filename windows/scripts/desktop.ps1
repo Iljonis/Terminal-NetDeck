@@ -1,5 +1,6 @@
-# Compila la interfaz WinUI 3 de P8. -Demo abre la ventana con un perfil temporal.
-param([switch]$Demo, [string]$Scratch = (Join-Path $env:LOCALAPPDATA 'NetDeckDesktopBuild'))
+# Compila la interfaz WinUI 3 de P8. -Demo abre la ventana con un perfil temporal. -Configuration release es el build del instalador
+# (la carpeta de salida pasa a ser Release-windows-x86_64: windows/installer/preparar-instalador.ps1 -Configuracion release).
+param([switch]$Demo, [string]$Scratch = (Join-Path $env:LOCALAPPDATA 'NetDeckDesktopBuild'), [ValidateSet('debug', 'release')][string]$Configuration = 'debug')
 
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -25,7 +26,7 @@ $env:SWIFTTERM_BUILD_TAG = $pin.state.version
 $env:SWIFTTERM_BUILD_COMMIT = $pin.state.revision
 $env:SWIFTTERM_BUILD_DIRTY = 'false'
 
-$build = @('--package-path', $package, '--scratch-path', $scratch, '--force-resolved-versions', '-Xcc', '-DOPENSSL_NO_ASM')
+$build = @('--package-path', $package, '--scratch-path', $scratch, '--force-resolved-versions', '-c', $Configuration, '-Xcc', '-DOPENSSL_NO_ASM')
 & $swift build @build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

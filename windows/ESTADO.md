@@ -1,3 +1,33 @@
+## 2026-11-17 · Windows · P10: borrador del workflow de Release de Windows (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. **El workflow NO está activo**: se escribió como borrador en `windows/ci/windows-release.yml` (igual que `windows-nucleo.yml`), no en `.github/workflows/`.
+Esa carpeta es de Codex y la regla fija es no tocarla; el encargo de otra sesión no la levanta. Para activarlo, copiarlo a `.github/workflows/windows-release.yml` (lo hace quien gestiona los workflows).
+
+### Qué hace
+Con un tag `vX.Y.Z-windows` o a mano («Run workflow»): privacidad → tests del núcleo (sin bloquear, hay fallos intermitentes) → **comprueba que el tag, `NetDeckWindows.wxs`, `AppxManifest.xml` y `UpdateChecker.currentVersion` dicen la misma versión** →
+compila la app en **Release** (`desktop.ps1 -Configuration release`) → .NET 8 y WiX 4.0.6 → `preparar-instalador.ps1 -Configuracion release` → `wix build` (con `-d Version`) y `wix msi validate` → sha256 → notas de `windows/CHANGELOG.md` → artefacto, y con tag una
+Release con `softprops/action-gh-release@v2` (`prerelease` y sin ser «la última»).
+
+### Cambios de apoyo
+- `windows/scripts/desktop.ps1`: parámetro `-Configuration debug|release` (por defecto, como antes). `preparar-instalador.ps1`: `-Configuracion` elige la carpeta de productos (`Debug-` o `Release-windows-x86_64`).
+- `NetDeckWindows.wxs`: la versión sale de `-d Version=…` (por defecto 0.9.0) y `detectar-runtime.js` se busca junto al `.wxs` (`$(sys.SOURCEFILEDIR)`): sin eso `wix build` desde la raíz del repo, como lo haría el CI, no lo encontraba.
+
+### Probado en local (no en GitHub)
+- **Build Release de la app: 8 min 15 s** y arranca desde la carpeta preparada con el `PATH` reducido a `System32`. Instalador Release: 229 MB de archivos (el Debug eran 376 MB).
+- El `.msi` se compila desde la raíz del repo y desde `windows/installer/`, con `-d Version` (0.9.0 y 0.9.1 salen en `ProductVersion`) y pasa ICE.
+- Los pasos de PowerShell de versión y de notas, ejecutados de verdad: pasan con el tag bueno, **fallan** con otro número de versión, con un tag mal formado y con un manifiesto desincronizado. (Se encontró y arregló un error de PowerShell: `$version:` se lee como una variable con unidad.)
+- El YAML es válido (PyYAML). **Sin probar:** el propio runner de GitHub (`gha-setup-swift`, `setup-dotnet`, `softprops`) y la Release.
+
+### Diferencias con el encargo
+- `actions/checkout@v7` y no `@v4`: es el que usa `windows.yml`, y se pidió seguir su estilo.
+- **Se compila también la app**, no sólo el núcleo: el DDLM del Windows App Runtime hace falta para EJECUTAR la app (el fallo de P8), no para compilarla.
+- **No hay variable `SKIP_AUTHENTICODE_CHECK`**: nada la lee y no hay paso de firma. El `.msi` sale sin firmar; la firma iría tras «Compilar el .msi».
+- Tag `v*-windows` (lo que pidió el último mensaje), no `v*.*.*`: así no choca con `release.yml` de macOS, que ya crea la Release del tag con `gh release create`.
+
+### A decidir por el autor
+- **El actualizador de Windows consulta `releases/latest`, igual que el de macOS, y una Release aparte `-windows` no es nunca «la última»** (va como prerelease y sin `make_latest`): el actualizador no la vería. Hay que cambiar `UpdateChecker` para que liste las releases y coja la última con un `.msi`, o subir el `.msi` a la misma Release que el `.dmg`.
+- La versión de Windows (0.9.0 frente al 1.0.0 de macOS) y la firma, como antes.
+
 ## 2026-11-17 · Windows · P11: estado de P11 y próximos pasos manuales (por Claude)
 
 **Por Claude.** Rama `windows/p10-paquete`. **P11 no está completado**: la documentación propia de Windows y los README están hechos, pero falta lo que sigue.
