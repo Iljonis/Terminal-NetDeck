@@ -4,7 +4,7 @@
 #   - AppxManifest.xml y sus iconos, los scripts de registro del Sparse Package y, si existe, NetDeckSparse.msix
 # Uso (desde la raiz del repo, tras compilar con desktop.ps1):
 #   powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/preparar-instalador.ps1 [-Destino carpeta]
-# Y despues:  wix build windows/installer/NetDeckWindows.wxs -arch x64 -d SourceDir=<carpeta> -o NetDeckWindows.msi
+# Y despues:  wix build windows/installer/NetDeckWindows.wxs <carpeta>/../archivos.wxs -arch x64 -d SourceDir=<carpeta> -o NetDeckWindows.msi
 param(
     [string]$Destino = (Join-Path $env:LOCALAPPDATA 'NetDeckInstaller/files'),
     [string]$Productos = (Join-Path $env:LOCALAPPDATA 'NetDeckDesktopBuild/out/Products/Debug-windows-x86_64'),
@@ -46,6 +46,27 @@ $msix = Join-Path $PSScriptRoot 'NetDeckSparse.msix'
 if (Test-Path $msix) { Copy-Item $msix $Destino -Force }
 
 Set-Content -LiteralPath $marcador -Value 'carpeta generada por preparar-instalador.ps1' -Encoding ASCII
+# La lista de archivos para WiX (WiX 4.0 no tiene el elemento Files): un componente por archivo, en archivos.wxs, junto a la carpeta.
+$origen = $Destino.TrimEnd('\', '/')
+$lineas = New-Object System.Collections.Generic.List[string]
+$i = 0
+Get-ChildItem -LiteralPath $Destino -Recurse -File | Where-Object { $_.Name -ne '.preparado-por-netdeck' } | Sort-Object FullName | ForEach-Object {
+    $i++
+    $rel = $_.FullName.Substring($origen.Length).TrimStart('\', '/')
+    $sub = Split-Path $rel -Parent
+    $subAttr = ''
+    if ($sub) { $subAttr = ' Subdirectory="' + [System.Security.SecurityElement]::Escape($sub) + '"' }
+    $src = [System.Security.SecurityElement]::Escape('$(var.SourceDir)\' + $rel)
+    $lineas.Add('      <Component Id="Archivo' + $i + '"' + $subAttr + ' Guid="*">')
+    $lineas.Add('        <File Id="Fichero' + $i + '" Source="' + $src + '" KeyPath="yes" />')
+    $lineas.Add('      </Component>')
+}
+$wxs = @('<?xml version="1.0" encoding="utf-8"?>', '<!-- Generado por preparar-instalador.ps1: no se edita. -->',
+         '<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">', '  <Fragment>',
+         '    <ComponentGroup Id="ArchivosDeLaApp" Directory="INSTALLFOLDER">') + $lineas + @('    </ComponentGroup>', '  </Fragment>', '</Wix>')
+$archivosWxs = Join-Path (Split-Path $Destino -Parent) 'archivos.wxs'
+Set-Content -LiteralPath $archivosWxs -Value $wxs -Encoding UTF8
+
 $n = (Get-ChildItem -LiteralPath $Destino -Recurse -File | Measure-Object).Count
 $mb = [math]::Round((Get-ChildItem -LiteralPath $Destino -Recurse -File | Measure-Object Length -Sum).Sum / 1MB, 1)
-Write-Host "Carpeta del instalador: ${Destino} ($n archivos, $mb MB)"
+Write-Host "Carpeta del instalador: ${Destino} ($n archivos, $mb MB); lista para WiX: $archivosWxs"

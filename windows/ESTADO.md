@@ -1,3 +1,19 @@
+## 2026-11-17 · Windows · P10: el instalador compila con WiX 4 (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. El `.wxs` ya compila: `wix build` termina sin errores ni avisos y genera un `.msi` de 69 MB.
+**El `.msi` no está firmado** (`Get-AuthenticodeSignature`: `NotSigned`) y **no se ha instalado** en ningún equipo; `wix msi validate` (reglas ICE) sale con código 0.
+
+- **Privacidad** (punto 1-2 del encargo): `tools/privacidad.sh` sale con código 0 en `windows/p10-paquete`; el fallo del actualizador ya estaba corregido en
+  `4e038c2` (se enmendó antes de publicar), así que no hizo falta un commit de corrección.
+- **WiX 4.0.6 y .NET, en una carpeta de usuario y sin tocar el sistema ni el `PATH`:** `dotnet tool install --global wix` necesitaba un SDK de .NET que no estaba.
+  Se instaló el SDK 8.0.428 con el script oficial `dotnet-install.ps1` (Microsoft, MIT) en `C:\Users\<usuario>\.dotnet` y WiX como herramienta local en
+  `C:\Users\<usuario>\.dotnet-tools`. Para quitarlo basta con borrar esas dos carpetas. Comando:
+  `DOTNET_ROOT=…\.dotnet  …\.dotnet-tools\wix.exe build NetDeckWindows.wxs archivos.wxs -arch x64 -d SourceDir=<carpeta> -o NetDeckWindows.msi`.
+- **Qué hubo que corregir en el `.wxs`:** WiX 4.0 **no tiene el elemento `Files`** (llegó después), así que `ComponentGroup`/`Directory` lo rechazaban.
+  `preparar-instalador.ps1` genera ahora `archivos.wxs` (un componente por archivo, con `Subdirectory`) junto a la carpeta preparada, y `NetDeckWindows.wxs`
+  sólo referencia `ArchivosDeLaApp`. El comando del encargo (`wix build NetDeckWindows.wxs -o …`) tampoco bastaba sin `-d SourceDir=…` y sin `archivos.wxs`.
+- **Pendiente** (sin cambios): probar la instalación, el registro del Sparse Package y la actualización en un Windows limpio; firmar; build Release.
+
 ## 2026-11-17 · Windows · P10: informe del paquete, la firma y el actualizador (por Claude)
 
 **Por Claude.** Rama `windows/p10-paquete`, que sale de `windows/p9-seguridad` con la ADR-0003 de `windows/p8-terminal` fusionada (`d5c3ca8`). El worktree

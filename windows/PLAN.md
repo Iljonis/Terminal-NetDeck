@@ -368,8 +368,8 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 - **Hecho en P10** (rama `windows/p10-paquete`; el detalle y lo que falta, en `windows/ESTADO.md`):
   - [x] ADR-0003: opción B (instalador WiX + Sparse Package) y firma con Azure Code Signing (propuesta, la acepta el autor).
   - [x] `windows/Desktop/AppxManifest.xml` del Sparse Package, validado con `makeappx pack` (`1828288`).
-  - [x] `windows/installer/NetDeckWindows.wxs` y `preparar-instalador.ps1`; la app arranca desde la carpeta preparada, pero **el `.msi` no se
-        ha compilado** (WiX 4 no estaba instalado) (`01a5bc3`).
+  - [x] `windows/installer/NetDeckWindows.wxs` y `preparar-instalador.ps1`; la app arranca desde la carpeta preparada, y **el `.msi`
+        compila con WiX 4.0.6** (69 MB, sin firma, validación ICE correcta) pero **no se ha instalado** en un Windows limpio (`01a5bc3` y el commit de ajuste del `.wxs`).
   - [x] `UpdateChecker` (sólo Windows): sólo enlaces https de github.com del repositorio, sha256 y firma con `WinVerifyTrust`, y nada sin clic;
         botón «Buscar actualizaciones» en Ajustes (`4e038c2`). Falta fijar el firmante y comprobar que el `.msi` es esta app y la versión anunciada.
   - El workflow de Release de Windows (`.github/workflows/`) lo gestiona Codex: no se ha tocado y todavía no existe.

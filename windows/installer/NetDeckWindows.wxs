@@ -3,13 +3,13 @@
   Instalador de Terminal NetDeck para Windows (WiX Toolset 4; ADR-0003, opcion B). Genera un .msi por maquina.
 
   Antes de compilar, windows/installer/preparar-instalador.ps1 reune los archivos en una carpeta (SourceDir):
-      wix build windows/installer/NetDeckWindows.wxs -arch x64 -d SourceDir=<carpeta> -o NetDeckWindows.msi
+      wix build windows/installer/NetDeckWindows.wxs <carpeta>/../archivos.wxs -arch x64 -d SourceDir=<carpeta> -o NetDeckWindows.msi
 
   Instala en C:\Program Files\Terminal NetDeck, crea el acceso del menu Inicio y, opcionalmente, el del escritorio
   (ADDLOCAL=Principal,AccesoEscritorio), y registra el Sparse Package de windows/Desktop/AppxManifest.xml para el usuario
   que instala. Quitar o actualizar lo desregistra antes de borrar los archivos.
 
-  SIN COMPILAR: WiX 4 no estaba instalado cuando se escribio (solo se comprobo que el XML esta bien formado). La version
+  Compila con WiX 4.0.6 (herramienta de dotnet, no hace falta instalarlo en el sistema). La version
   (0.9.0) debe coincidir con AppxManifest.xml y con UpdateChecker.currentVersion. El UpgradeCode no se cambia nunca.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
@@ -30,11 +30,8 @@
     <StandardDirectory Id="ProgramMenuFolder" />
     <StandardDirectory Id="DesktopFolder" />
 
-    <!-- Todo lo que prepara preparar-instalador.ps1: exe, dll de la app y del runtime de Swift, manifiesto, iconos, scripts. -->
-    <ComponentGroup Id="ArchivosDeLaApp" Directory="INSTALLFOLDER">
-      <Files Include="$(var.SourceDir)\**" />
-    </ComponentGroup>
-
+    <!-- ArchivosDeLaApp (exe, dll de la app y del runtime de Swift, manifiesto, iconos y scripts) lo genera
+         preparar-instalador.ps1 en archivos.wxs: WiX 4.0 no tiene el elemento Files. -->
     <Component Id="AccesoMenuInicio" Directory="ProgramMenuFolder">
       <Shortcut Id="AccesoMenuInicioDirecto" Name="Terminal NetDeck"
                 Target="[INSTALLFOLDER]NetDeckWindows.exe" WorkingDirectory="INSTALLFOLDER" />
