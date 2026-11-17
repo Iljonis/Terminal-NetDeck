@@ -42,9 +42,9 @@ y puerto, opcionales) y un «todo listo». Puedes saltártelo con «Omitir» y a
 - **Explorador SFTP** (el botón 📂 de cada sesión): lista, entra en carpetas, descarga con doble clic a *Descargas* y sube un archivo escribiendo su ruta.
   No pisa archivos que ya existen.
 - **Túneles SSH** (botón «Túneles», `Ctrl+T`): reenvío local, remoto o SOCKS; se inician y se paran uno a uno y se guardan en `%APPDATA%\Terminal NetDeck\tuneles.json`.
-- **Pegado seguro**: pegar varias líneas enseña antes una vista previa, para no ejecutar sin querer cada línea.
+- **Pegado seguro** (`Ctrl+Mayús+V`): revisa las líneas y envíalas una a una en SSH o Telnet. Se detiene ante errores, paginadores o solicitudes de contraseña.
 - **Macros** (`Ctrl+M`): guarda una lista de órdenes, una por línea, y reprodúcela en la pestaña SSH o Telnet activa desde su prompt.
-  Pide confirmación para órdenes peligrosas y se detiene al detectar un error, un paginador o una petición de contraseña. Esc o «Parar la macro» interrumpen la reproducción.
+  Pide confirmación para órdenes peligrosas y se detiene al detectar un error, un paginador o una petición de contraseña. Esc o «Detener envío» interrumpen la reproducción.
 - **MultiExec**: un mismo comando a todas las pestañas SSH y Telnet abiertas.
 - **Ajustes** (`Ctrl+,`): fuente (Consolas, Courier New, Cascadia Code o Cascadia Mono), tamaño de letra, tema de la ventana (sistema con Mica, claro u oscuro) y **colores del terminal**: los 85 temas de NetDeck (fondo, texto y los 16 colores ANSI; «(Predeterminado)» deja los del sistema).
 - **Actualizaciones**: «Buscar actualizaciones» en Ajustes consulta la última release de GitHub. Nada se comprueba ni se instala sin tu clic y el instalador

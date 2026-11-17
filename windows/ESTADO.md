@@ -1,3 +1,9 @@
+## 2026-11-17 · Windows · Pegado seguro con espera por orden
+
+`Ctrl+Mayús+V` y «Pegar» permiten revisar un bloque completo antes de enviarlo a la pestaña SSH o Telnet que estaba activa al abrir la revisión. Usa `SafePaster`, exige un prompt de partida y muestra el resultado. Esc, Ctrl+C o «Detener envío» lo cortan. El terminal local conserva el pegado con vista previa.
+
+Probado con OpenSSH local: dos órdenes llegaron en secuencia y una segunda prueba se detuvo al pedir contraseña, con una de dos órdenes enviada. Pasaron 44 tests centrados en pegado, macros e idioma. La pasada completa tuvo un fallo intermitente de acceso a archivos en `DataBackupTests`.
+
 ## 2026-11-17 · Windows · P14: vista dividida, espacios e historial
 
 Rama `windows/p14-escritorio`, con P13 y los iconos del instalador integrados.

@@ -408,7 +408,8 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 - [x] Vista dividida con dos terminales activos y orientación configurable, y ajuste del interlineado.
 - [x] Guardar y restaurar espacios de trabajo, con sus pestañas y disposición.
 - [x] Buscar texto en el historial de una pestaña.
-- [ ] Completar macros y botones de órdenes, incluido el pegado seguro con resultado.
+- [x] Pegado seguro con vista previa, espera por orden y resultado.
+- [ ] Completar macros y botones de órdenes.
 - [ ] Reordenar pestañas por arrastre y moverlas entre ventanas.
 
 ## Paridad restante y distribución

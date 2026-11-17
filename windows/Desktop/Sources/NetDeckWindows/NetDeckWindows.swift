@@ -36,8 +36,8 @@ final class NetDeckWindows: SwiftApplication {
     private let macros = PanelMacros()
     private let macroConfirm = PanelTexto(idPrefix: "MacroConfirmar")
     private var macrosDemo = MacroLibrary()
-    private var macroActiva: (tab: PestanaTerminal, abort: AbortSwitch)?
-    private let pararMacro = Button()
+    private var automatizacionActiva: (tab: PestanaTerminal, abort: AbortSwitch)?
+    private let pararAutomatizacion = Button()
     private let tuneles = PanelTuneles()
     private let asistente = AsistenteInicio()
     private let actualizacion = PanelTexto(idPrefix: "Actualizacion")
@@ -50,7 +50,7 @@ final class NetDeckWindows: SwiftApplication {
     /// Colores del tema elegido para el terminal (nil: los del sistema, texto liso).
     private var paleta: PaletaTerminal?
     private var pinceles: [RGB: SolidColorBrush] = [:]
-    private var pasteFull = ""
+    private var pendingPaste: (tab: PestanaTerminal, text: String, dangerous: Bool)?
     /// Sesiones editables en memoria: en modo demo es la unica copia (no se escribe a disco).
     private var library = SessionFile()
     private let isDemo = ProcessInfo.processInfo.environment["NETDECK_DESKTOP_DEMO"] == "1"
@@ -147,9 +147,9 @@ final class NetDeckWindows: SwiftApplication {
         let macroButton = Button()
         macroButton.content = L("Macros")
         macroButton.click.addHandler { [weak self] _, _ in self?.showMacros() }
-        pararMacro.content = L("Parar la macro")
-        pararMacro.visibility = .collapsed
-        pararMacro.click.addHandler { [weak self] _, _ in self?.macroActiva?.abort.trip() }
+        pararAutomatizacion.content = L("Detener envío")
+        pararAutomatizacion.visibility = .collapsed
+        pararAutomatizacion.click.addHandler { [weak self] _, _ in self?.automatizacionActiva?.abort.trip() }
         dividir.content = L("Dividir la pantalla")
         dividir.click.addHandler { [weak self] _, _ in self?.toggleSplit() }
         let workspaceButton = Button()
@@ -164,7 +164,7 @@ final class NetDeckWindows: SwiftApplication {
         for (control, id) in [(local as Control, "NuevaLocal"), (destination, "DestinoSSH"),
                               (connect, "ConectarSSH"), (closeButton, "CerrarPestana"),
                               (paste, "PegarSeguro"), (multiButton, "MultiExec"), (tunnelButton, "Tuneles"),
-                              (macroButton, "Macros"), (pararMacro, "Macros_Parar"), (dividir, "DividirTerminal"),
+                              (macroButton, "Macros"), (pararAutomatizacion, "Macros_Parar"), (dividir, "DividirTerminal"),
                               (workspaceButton, "Espacios"), (searchButton, "BuscarTerminal"), (gear, "Ajustes")] {
             AutomationProperties.setAutomationId(control, id)
             toolbar.children.append(control)
@@ -201,9 +201,9 @@ final class NetDeckWindows: SwiftApplication {
                 guard let self, let args, let tab = self.terminalesVisibles[index], !tab.closed,
                       let bytes = self.keySequence(args.key.rawValue, tab: tab) else { return }
                 args.handled = true
-                if self.macroActiva?.tab === tab {
+                if self.automatizacionActiva?.tab === tab {
                     guard AbortKey.isAbort(bytes.utf8) else { return }
-                    self.macroActiva?.abort.trip()
+                    self.automatizacionActiva?.abort.trip()
                     if bytes == "\u{1b}" { return }
                 }
                 tab.write(bytes)
@@ -213,7 +213,7 @@ final class NetDeckWindows: SwiftApplication {
                 let text = String(args.character)
                 guard text.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else { return }
                 args.handled = true
-                if self.macroActiva?.tab !== tab { tab.write(text) }
+                if self.automatizacionActiva?.tab !== tab { tab.write(text) }
             }
         }
         updateSplitLayout()
@@ -264,7 +264,7 @@ final class NetDeckWindows: SwiftApplication {
             layout.children.append(panel.view)
             panel.onCancel = { [weak self] in self?.showPanel(nil) }
         }
-        pegado.onConfirm = { [weak self] text in self?.confirmPaste(text) }
+        pegado.onConfirm = { [weak self] _ in self?.confirmPaste() }
         multi.onConfirm = { [weak self] text in self?.confirmMultiExec(text) }
         actualizacion.onConfirm = { [weak self] _ in self?.installUpdate() }
         for view in [espacios.view, buscarTerminal.view] {
@@ -422,6 +422,7 @@ final class NetDeckWindows: SwiftApplication {
         editor.view.visibility = panel === editor.view ? .visible : .collapsed
         ajustes.view.visibility = panel === ajustes.view ? .visible : .collapsed
         pegado.view.visibility = panel === pegado.view ? .visible : .collapsed
+        if panel !== pegado.view { pendingPaste = nil }
         multi.view.visibility = panel === multi.view ? .visible : .collapsed
         explorador.view.visibility = panel === explorador.view ? .visible : .collapsed
         tuneles.view.visibility = panel === tuneles.view ? .visible : .collapsed
@@ -446,38 +447,67 @@ final class NetDeckWindows: SwiftApplication {
         return String(decodingCString: pointer.assumingMemoryBound(to: UInt16.self), as: UTF16.self)
     }
 
-    /// Una linea se pega directamente; varias, tras una vista previa (un pegado con saltos ejecutaria cada linea).
+    /// Una línea se pega sin Intro. Las órdenes remotas multilínea esperan al equipo una a una.
     private func safePaste() {
         guard let selected, !selected.closed else {
-            status.text = L("No hay ning\u{00FA}n terminal abierto")
+            status.text = L("No hay ningún terminal abierto")
             return
         }
-        guard macroActiva?.tab !== selected else { return }
+        guard automatizacionActiva?.tab !== selected else { return }
         guard let text = pasteboardText(), !text.isEmpty else {
             status.text = L("El portapapeles no tiene texto")
             return
         }
-        let trimmed = text.trimmingCharacters(in: .newlines)
-        guard trimmed.contains(where: \.isNewline) else {
-            selected.paste(trimmed)
+        let clean = String(text.unicodeScalars.filter {
+            $0 == "\t" || $0 == "\r" || $0 == "\n" || ($0.value >= 32 && !(127...159).contains($0.value))
+        }).trimmingCharacters(in: .newlines)
+        guard clean.contains(where: \.isNewline) else {
+            selected.paste(clean)
             return
         }
-        let lines = trimmed.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).count
-        let preview = trimmed.count > 2000 ? String(trimmed.prefix(2000)) + "\n\u{2026}" : trimmed
+        guard clean.utf8.count <= 100_000 else {
+            status.text = L("El texto supera el límite de pegado de 100 KB")
+            return
+        }
+        let lines = PasteRules.lines(of: clean)
+        guard !lines.isEmpty else { return }
+        let dangerous = !selected.route.isLocal && !PasteRules.dangerousLines(in: clean).isEmpty
         status.text = ""
-        pasteFull = trimmed
-        pegado.show(title: L("Pegar varias l\u{00ED}neas"),
-                    hint: L("Se van a pegar \(lines) l\u{00ED}neas (\(trimmed.count) caracteres). Rev\u{00ED}salas antes de enviarlas.")
-                        + (trimmed.count > 2000 ? " " + L("Se ven los primeros 2000 caracteres; se pega todo.") : ""),
-                    text: preview, editable: false)
+        pendingPaste = (selected, clean, dangerous)
+        let hint = dangerous ? L("El texto contiene órdenes peligrosas. Revísalas antes de continuar.")
+            : L("\(lines.count) órdenes en \(selected.title)")
+        pegado.show(title: L("Pegar varias líneas"), hint: hint,
+                    text: clean, editable: false, confirmTitle: dangerous ? L("Enviar órdenes peligrosas") : nil)
         showPanel(pegado.view)
     }
 
-    private func confirmPaste(_ preview: String) {
-        showPanel(nil)
-        guard let selected, !selected.closed, macroActiva?.tab !== selected else { return }
-        selected.paste(pasteFull)
-        pasteFull = ""
+    private func confirmPaste() {
+        guard let pending = pendingPaste, selected === pending.tab, !pending.tab.closed,
+              automatizacionActiva?.tab !== pending.tab else {
+            showPanel(nil)
+            return
+        }
+        let tab = pending.tab
+        if tab.route.isLocal {
+            showPanel(nil)
+            tab.paste(pending.text)
+            return
+        }
+        guard [.ssh, .telnet].contains(tab.route.transport) else { return }
+        let text = pending.text
+        let player = SafePaster(allowDangerous: pending.dangerous)
+        startAutomation(on: tab, title: L("Pegado seguro")) { io, abort in
+            let report = await player.paste(text, into: io, abort: abort)
+            switch report.outcome {
+            case .completed: return L("✓ \(report.sent)/\(report.total) órdenes")
+            case .aborted: return L("⎋ parada en \(report.sent)/\(report.total)")
+            case .deviceError(let step, let output): return L("✗ error en el paso \(step): \(output)")
+            case .pager(let step): return L("✗ paginador en el paso \(step) (falta «terminal length 0»)")
+            case .timeout(let step): return L("✗ sin respuesta a tiempo en el paso \(step)")
+            case .dangerousNotConfirmed(let step, let command): return L("✗ paso \(step) peligroso sin confirmar: \(command)")
+            case .passwordPrompt(let step): return L("🔑 piden contraseña en el paso \(step): paro (no escribo nada ahí)")
+            }
+        }
     }
 
     /// Un mismo comando a todas las pestanas SSH y Telnet abiertas.
@@ -495,7 +525,7 @@ final class NetDeckWindows: SwiftApplication {
             status.text = L("Escribe un comando")
             return
         }
-        let targets = terminals.filter { !$0.closed && $0 !== macroActiva?.tab && !$0.route.isLocal && [.ssh, .telnet].contains($0.route.transport) }
+        let targets = terminals.filter { !$0.closed && $0 !== automatizacionActiva?.tab && !$0.route.isLocal && [.ssh, .telnet].contains($0.route.transport) }
         showPanel(nil)
         guard !targets.isEmpty else {
             status.text = L("No hay pesta\u{00F1}as SSH o Telnet abiertas")
@@ -562,8 +592,16 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     private func runMacro(_ macro: Macro, on tab: PestanaTerminal, allowDangerous: Bool) {
-        guard macroActiva == nil else {
-            status.text = L("⏳ Ya hay una macro en marcha (■ para pararla)")
+        startAutomation(on: tab, title: L("▶ «\(macro.name)»")) { [weak self] io, abort in
+            let report = await MacroPlayer(allowDangerous: allowDangerous).run(macro, on: io, abort: abort)
+            return self?.macroResult(report) ?? ""
+        }
+    }
+
+    private func startAutomation(on tab: PestanaTerminal, title: String,
+                                 run: @escaping @MainActor (EntradaMacro, AbortSwitch) async -> String) {
+        guard automatizacionActiva == nil else {
+            status.text = L("Ya hay un envío en curso")
             return
         }
         guard selected === tab, !tab.closed else { return }
@@ -574,19 +612,19 @@ final class NetDeckWindows: SwiftApplication {
         }
         let io = MainActor.assumeIsolated { EntradaMacro(tab: tab, promptRule: prompt) }
         guard MainActor.assumeIsolated({ PromptRule.isPrompt(io.cursorLine, custom: prompt) }) else {
-            status.text = L("Espera al prompt de la sesión antes de reproducir")
+            status.text = L("Espera al prompt de la sesión antes de enviar órdenes")
             return
         }
-        macroActiva = (tab, abort)
+        automatizacionActiva = (tab, abort)
         showPanel(nil)
-        pararMacro.visibility = .visible
-        status.text = L("▶ «\(macro.name)»") + L(" · Esc para cortar")
+        pararAutomatizacion.visibility = .visible
+        status.text = title + L(" · Esc para cortar")
         Task { @MainActor [weak self] in
-            let report = await MacroPlayer(allowDangerous: allowDangerous).run(macro, on: io, abort: abort)
+            let result = await run(io, abort)
             self?.onUI { app in
-                app.macroActiva = nil
-                app.pararMacro.visibility = .collapsed
-                app.status.text = app.macroResult(report)
+                app.automatizacionActiva = nil
+                app.pararAutomatizacion.visibility = .collapsed
+                app.status.text = result
             }
         }
     }
@@ -831,6 +869,8 @@ final class NetDeckWindows: SwiftApplication {
             showMacros()
         case 84:
             showTuneles()
+        case 86 where shift:
+            safePaste()
         case 188:
             showAjustes()
         default:
@@ -1032,7 +1072,7 @@ final class NetDeckWindows: SwiftApplication {
                 (try? queue?.tryEnqueue { action() }) == true
             }, changed: { [weak self, weak session] in
                 guard let self, let session else { return }
-                if session.closed, self.macroActiva?.tab === session { self.macroActiva?.abort.trip() }
+                if session.closed, self.automatizacionActiva?.tab === session { self.automatizacionActiva?.abort.trip() }
                 guard let index = self.terminalesVisibles.firstIndex(where: { $0 === session }) else { return }
                 self.render(index)
                 if self.selected === session, session.closed { self.status.text = L("Conexión cerrada") }
@@ -1069,7 +1109,7 @@ final class NetDeckWindows: SwiftApplication {
 
     private func closeSelected() {
         guard let selected, let index = terminals.firstIndex(where: { $0 === selected }) else { return }
-        if macroActiva?.tab === selected { macroActiva?.abort.trip() }
+        if automatizacionActiva?.tab === selected { automatizacionActiva?.abort.trip() }
         selected.close()
         terminals.remove(at: index)
         if panelDividido {
