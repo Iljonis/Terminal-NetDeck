@@ -1,3 +1,13 @@
+## 2026-11-18 · Windows · P16: sidebar búsqueda + favoritas + recientes
+
+- buildSidebar(filter:): TextBox de búsqueda (Sidebar_Buscar) con reconstrucción incremental al escribir. Cuando el filtro está vacío se muestran secciones «↻ Recientes» y «★ Favoritas» antes de los grupos existentes.
+- makeSidebarRow: cada fila añade botón ★/☆ (col 1, antes de editar) que persiste favoritas con SessionLists.saveFavorites en AppPaths.netdeck/favoritas. AutomationId «Fav_<nombre>», setName L("Añadir/Quitar de favoritas").
+- makeSidebarHeader: extracción del header de grupo para reutilización en las tres secciones.
+- openProfile: llama SessionLists.noteRecent para registrar el reciente (AppPaths.netdeck/recientes) antes de abrir, luego reconstruye la barra lateral.
+- Propiedades nuevas: favoritas: Set<String>, recientes: [String], favoritasURL, recientesURL (computed, apuntan a AppPaths.netdeck).
+- Ingles.swift: 3 entradas nuevas («Buscar sesión…», «Añadir a favoritas», «Quitar de favoritas»). «Favoritas» y «Recientes» ya existían. IdiomaTests 6/6.
+- Privacidad en verde en ficheros fuente; las rutas detectadas son del plan .claude/ local, sin seguimiento en git.
+
 ## 2026-11-18 · Windows · P17: comprobación de actualizaciones y accesibilidad
 
 - WinUI consulta al arrancar si han pasado 24 horas desde el último intento. El aviso reutiliza el panel de actualización y espera a que se cierre cualquier panel abierto. Descargar e instalar requiere la confirmación del usuario.

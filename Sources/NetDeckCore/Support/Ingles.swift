@@ -2625,5 +2625,8 @@ enum Ingles {
         "Credencial borrada": "Credential deleted",
         "Sin botones que la usen": "Not used by any button",
         "El nombre no puede estar vac\u{00ED}o": "Name cannot be empty",
+        "Buscar sesi\u{00F3}n\u{2026}": "Search session\u{2026}",
+        "A\u{00F1}adir a favoritas": "Add to favorites",
+        "Quitar de favoritas": "Remove from favorites",
 ]
 }

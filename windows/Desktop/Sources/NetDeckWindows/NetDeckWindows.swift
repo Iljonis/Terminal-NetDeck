@@ -51,6 +51,10 @@ final class NetDeckWindows: SwiftApplication {
     private let confirmarBoton = PanelTexto(idPrefix: "Botones_Confirmar")
     private var archivoBotones = ButtonFile()
     private let llavero = PanelLlavero()
+    private var favoritas: Set<String> = []
+    private var recientes: [String] = []
+    private var favoritasURL: URL { AppPaths.netdeck.appendingPathComponent("favoritas") }
+    private var recientesURL: URL { AppPaths.netdeck.appendingPathComponent("recientes") }
     private let macros = PanelMacros()
     private var grabando: (tab: PestanaTerminal, recorder: MacroRecorder, io: EntradaMacro)?
     private let pararGrabacion = Button()
@@ -375,78 +379,142 @@ final class NetDeckWindows: SwiftApplication {
         MainActor.assumeIsolated { tunnelManager.stopAll() }
     }
 
-    private func buildSidebar() {
+    private func buildSidebar(filter: String = "") {
+        favoritas = Set((try? SessionLists.loadFavorites(favoritasURL)) ?? [])
+        let recText: String
+        if let t = try? SafeFile.read(recientesURL) { recText = t ?? "" } else { recText = "" }
+        recientes = SessionLists.recents(recText)
+
         sidebar.children.clear()
+
+        let buscar = TextBox()
+        buscar.placeholderText = L("Buscar sesi\u{00F3}n\u{2026}")
+        buscar.margin = Thickness(left: 4, top: 2, right: 4, bottom: 4)
+        if !filter.isEmpty { buscar.text = filter }
+        buscar.textChanged.addHandler { [weak self] _, _ in
+            self?.buildSidebar(filter: buscar.text)
+        }
+        AutomationProperties.setAutomationId(buscar, "Sidebar_Buscar")
+        sidebar.children.append(buscar)
+
         let grupos = MainActor.assumeIsolated { sessions.groups }
-        for (nombreGrupo, perfiles) in grupos {
-            let header = TextBlock()
-            header.text = nombreGrupo.uppercased()
-            header.fontSize = 10
-            header.margin = Thickness(left: 8, top: 10, right: 8, bottom: 2)
-            header.opacity = 0.6
-            sidebar.children.append(header)
-            for perfil in perfiles {
-                let fila = Grid()
-                let colNombre = ColumnDefinition()
-                colNombre.width = GridLength(value: 1, gridUnitType: .star)
-                let colEditar = ColumnDefinition()
-                colEditar.width = GridLength(value: 1, gridUnitType: .auto)
-                fila.columnDefinitions.append(colNombre)
-                fila.columnDefinitions.append(colEditar)
-                let colSFTP = ColumnDefinition()
-                colSFTP.width = GridLength(value: 1, gridUnitType: .auto)
-                fila.columnDefinitions.append(colSFTP)
-                let btn = Button()
-                let icono: String
-                switch perfil.transport {
-                case .ssh:    icono = "SSH"
-                case .telnet: icono = "Tel"
-                case .sftp:   icono = "SFTP"
-                case .ftp:    icono = "FTP"
-                case .serial: icono = "COM"
-                case .local:  icono = "Loc"
-                }
-                let etiqueta = StackPanel()
-                etiqueta.orientation = .horizontal
-                etiqueta.spacing = 6
-                let tipo = TextBlock()
-                tipo.text = icono
-                tipo.fontSize = 9
-                tipo.opacity = 0.5
-                tipo.minWidth = 24
-                let nombre = TextBlock()
-                nombre.text = perfil.name
-                etiqueta.children.append(tipo)
-                etiqueta.children.append(nombre)
-                btn.content = etiqueta
-                btn.horizontalAlignment = .stretch
-                btn.margin = Thickness(left: 4, top: 1, right: 4, bottom: 1)
-                AutomationProperties.setAutomationId(btn, "Sesion_\(perfil.name)")
-                AutomationProperties.setName(btn, perfil.name)
-                btn.click.addHandler { [weak self] _, _ in
-                    self?.openProfile(perfil)
-                }
-                let editar = Button()
-                editar.content = "\u{270E}"
-                editar.margin = Thickness(left: 0, top: 1, right: 4, bottom: 1)
-                AutomationProperties.setAutomationId(editar, "Editar_\(perfil.name)")
-                editar.click.addHandler { [weak self] _, _ in self?.editSession(perfil) }
-                Grid.setColumn(btn, Int32(0))
-                Grid.setColumn(editar, Int32(1))
-                fila.children.append(btn)
-                fila.children.append(editar)
-                if perfil.transport == .ssh || perfil.transport == .sftp {
-                    let carpeta = Button()
-                    carpeta.content = "\u{1F4C2}"
-                    carpeta.margin = Thickness(left: 0, top: 1, right: 4, bottom: 1)
-                    AutomationProperties.setAutomationId(carpeta, "SFTP_\(perfil.name)")
-                    carpeta.click.addHandler { [weak self] _, _ in self?.openSFTPProfile(perfil) }
-                    Grid.setColumn(carpeta, Int32(2))
-                    fila.children.append(carpeta)
-                }
-                sidebar.children.append(fila)
+        let todosPerfiles = grupos.flatMap { $0.1 }
+
+        if filter.isEmpty {
+            let perfilesRecientes = recientes.compactMap { n in todosPerfiles.first { $0.name == n } }
+            if !perfilesRecientes.isEmpty {
+                sidebar.children.append(makeSidebarHeader("\u{21BB} " + L("Recientes")))
+                for perfil in perfilesRecientes { sidebar.children.append(makeSidebarRow(perfil)) }
+            }
+            let perfilesFavoritas = todosPerfiles.filter { favoritas.contains($0.name) }
+            if !perfilesFavoritas.isEmpty {
+                sidebar.children.append(makeSidebarHeader("\u{2605} " + L("Favoritas")))
+                for perfil in perfilesFavoritas { sidebar.children.append(makeSidebarRow(perfil)) }
             }
         }
+
+        for (nombreGrupo, perfiles) in grupos {
+            let filtrados = filter.isEmpty ? perfiles : perfiles.filter {
+                $0.name.localizedCaseInsensitiveContains(filter)
+            }
+            guard !filtrados.isEmpty else { continue }
+            sidebar.children.append(makeSidebarHeader(nombreGrupo.uppercased()))
+            for perfil in filtrados { sidebar.children.append(makeSidebarRow(perfil)) }
+        }
+    }
+
+    private func makeSidebarHeader(_ text: String) -> TextBlock {
+        let header = TextBlock()
+        header.text = text
+        header.fontSize = 10
+        header.margin = Thickness(left: 8, top: 10, right: 8, bottom: 2)
+        header.opacity = 0.6
+        return header
+    }
+
+    private func makeSidebarRow(_ perfil: SessionProfile) -> Grid {
+        let fila = Grid()
+        let colNombre = ColumnDefinition()
+        colNombre.width = GridLength(value: 1, gridUnitType: .star)
+        let colFav = ColumnDefinition()
+        colFav.width = GridLength(value: 1, gridUnitType: .auto)
+        let colEditar = ColumnDefinition()
+        colEditar.width = GridLength(value: 1, gridUnitType: .auto)
+        let colSFTP = ColumnDefinition()
+        colSFTP.width = GridLength(value: 1, gridUnitType: .auto)
+        fila.columnDefinitions.append(colNombre)
+        fila.columnDefinitions.append(colFav)
+        fila.columnDefinitions.append(colEditar)
+        fila.columnDefinitions.append(colSFTP)
+
+        let icono: String
+        switch perfil.transport {
+        case .ssh:    icono = "SSH"
+        case .telnet: icono = "Tel"
+        case .sftp:   icono = "SFTP"
+        case .ftp:    icono = "FTP"
+        case .serial: icono = "COM"
+        case .local:  icono = "Loc"
+        }
+        let etiqueta = StackPanel()
+        etiqueta.orientation = .horizontal
+        etiqueta.spacing = 6
+        let tipo = TextBlock()
+        tipo.text = icono
+        tipo.fontSize = 9
+        tipo.opacity = 0.5
+        tipo.minWidth = 24
+        let nombre = TextBlock()
+        nombre.text = perfil.name
+        etiqueta.children.append(tipo)
+        etiqueta.children.append(nombre)
+        let btn = Button()
+        btn.content = etiqueta
+        btn.horizontalAlignment = .stretch
+        btn.margin = Thickness(left: 4, top: 1, right: 4, bottom: 1)
+        AutomationProperties.setAutomationId(btn, "Sesion_\(perfil.name)")
+        AutomationProperties.setName(btn, perfil.name)
+        btn.click.addHandler { [weak self] _, _ in self?.openProfile(perfil) }
+
+        let esFav = favoritas.contains(perfil.name)
+        let fav = Button()
+        fav.content = esFav ? "\u{2605}" : "\u{2606}"
+        fav.margin = Thickness(left: 0, top: 1, right: 2, bottom: 1)
+        AutomationProperties.setAutomationId(fav, "Fav_\(perfil.name)")
+        AutomationProperties.setName(fav, esFav ? L("Quitar de favoritas") : L("A\u{00F1}adir a favoritas"))
+        fav.click.addHandler { [weak self] _, _ in
+            guard let self else { return }
+            if self.favoritas.contains(perfil.name) {
+                self.favoritas.remove(perfil.name)
+            } else {
+                self.favoritas.insert(perfil.name)
+            }
+            try? SessionLists.saveFavorites(Array(self.favoritas).sorted(), to: self.favoritasURL)
+            self.buildSidebar()
+        }
+
+        let editar = Button()
+        editar.content = "\u{270E}"
+        editar.margin = Thickness(left: 0, top: 1, right: 4, bottom: 1)
+        AutomationProperties.setAutomationId(editar, "Editar_\(perfil.name)")
+        editar.click.addHandler { [weak self] _, _ in self?.editSession(perfil) }
+
+        Grid.setColumn(btn, Int32(0))
+        Grid.setColumn(fav, Int32(1))
+        Grid.setColumn(editar, Int32(2))
+        fila.children.append(btn)
+        fila.children.append(fav)
+        fila.children.append(editar)
+        if perfil.transport == .ssh || perfil.transport == .sftp {
+            let carpeta = Button()
+            carpeta.content = "\u{1F4C2}"
+            carpeta.margin = Thickness(left: 0, top: 1, right: 4, bottom: 1)
+            AutomationProperties.setAutomationId(carpeta, "SFTP_\(perfil.name)")
+            carpeta.click.addHandler { [weak self] _, _ in self?.openSFTPProfile(perfil) }
+            Grid.setColumn(carpeta, Int32(3))
+            fila.children.append(carpeta)
+        }
+        return fila
     }
 
     // MARK: - editor de sesion
@@ -1476,7 +1544,9 @@ final class NetDeckWindows: SwiftApplication {
     private func openProfile(_ perfil: SessionProfile) {
         do {
             let ruta = try MainActor.assumeIsolated { try sessions.route(to: perfil) }
+            try? SessionLists.noteRecent(perfil.name, in: recientesURL)
             open(ruta)
+            buildSidebar()
         } catch {
             status.text = L("No se puede abrir \u{00AB}\(perfil.name)\u{00BB}: \(error.localizedDescription)")
         }
