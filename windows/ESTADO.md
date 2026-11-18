@@ -1,3 +1,11 @@
+## 2026-11-18 · Windows · P23-ImportadorSesiones: panel de importación de sesiones
+
+- Nuevo fichero `windows/Desktop/Sources/NetDeckWindows/ImportadorSesiones.swift`.
+- `PanelImportador`: panel WinUI 3 con `ScrollViewer` como raíz. TextBox para introducir la ruta del fichero o carpeta (sin `FileOpenPicker`, no disponible en swift-winui 0.1.1).
+- Botón "Leer fichero" llama a `SessionImporter.read(url:existing:)` (ya implementado en `NetDeckCore`) para parsear SecureCRT (.ini/carpeta), MobaXterm (.mxtsessions), PuTTY (.reg), electerm (.json), CSV y ssh_config sin reimplementar lógica.
+- Muestra resumen de formato detectado, número de sesiones encontradas y omitidas (duplicados), lista previa de hasta 25 sesiones con nombre y host.
+- Botón "Importar N sesiones" llama al callback `onImportar([EditableSession])`. Integración en `NetDeckWindows.swift` pendiente.
+
 ## 2026-11-18 · Windows · P22-EdicionRemota: panel de edición de ficheros remotos
 
 - Nuevo fichero `windows/Desktop/Sources/NetDeckWindows/EdicionRemota.swift`.
