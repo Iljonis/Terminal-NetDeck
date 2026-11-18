@@ -1,3 +1,11 @@
+## 2026-11-18 · Windows · P24-IntegracionPaneles: HojaConexion + EdicionRemota + ImportadorSesiones conectados
+
+- Botón "Conexión rápida" en toolbar → HojaConexion; `onConectar` construye `ConnectionRoute` y llama a `open()`.
+- Botón "Editar remoto" en toolbar → PanelEdicionRemota; `onDescargar`/`onSubir` wired a `sftpDescargar`/`sftpSubir` (reutilizan `SFTPFileSystem` + `Transfer`).
+- Botón "Importar" en toolbar → PanelImportador; `onImportar` llama a `saveSession` en bucle y muestra recuento.
+- `showPanel`: gestión de visibilidad para los 3 paneles.
+- `Ingles.swift`: traducciones para los 3 paneles y sus strings de UI.
+
 ## 2026-11-18 · Windows · P21-SidebarAvanzada: grupos plegables, menú contextual y borrar sesión
 
 - `buildSidebar`: búsqueda extendida por nombre, host y usuario; grupos plegables con persistencia en `UserDefaults` (clave `"ndGruposPlegados"`).
