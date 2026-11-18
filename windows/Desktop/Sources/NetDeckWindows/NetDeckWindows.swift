@@ -62,6 +62,8 @@ final class NetDeckWindows: SwiftApplication {
     private let asistente = AsistenteInicio()
     private let actualizacion = PanelTexto(idPrefix: "Actualizacion")
     private var pendingUpdate: UpdateInfo?
+    private var startupUpdate: UpdateInfo?
+    private var manualUpdateRequested = false
     private var tunnelManager: TunnelManager!
     private var settings = AjustesTerminal.cargar()
     private var rootView: Grid?
@@ -361,6 +363,7 @@ final class NetDeckWindows: SwiftApplication {
             let firstRun = !isDemo && !UserDefaults.standard.bool(forKey: "ndAsistenteVisto")
                 && MainActor.assumeIsolated { sessions.profiles.isEmpty }
             if firstRun || forced { showAsistente(markSeen: !forced) }
+            checkUpdatesOnLaunch()
         } catch {
             print(error.localizedDescription)
         }
@@ -419,6 +422,7 @@ final class NetDeckWindows: SwiftApplication {
                 btn.horizontalAlignment = .stretch
                 btn.margin = Thickness(left: 4, top: 1, right: 4, bottom: 1)
                 AutomationProperties.setAutomationId(btn, "Sesion_\(perfil.name)")
+                AutomationProperties.setName(btn, perfil.name)
                 btn.click.addHandler { [weak self] _, _ in
                     self?.openProfile(perfil)
                 }
@@ -494,7 +498,10 @@ final class NetDeckWindows: SwiftApplication {
         macros.view.visibility = panel === macros.view ? .visible : .collapsed
         macroConfirm.view.visibility = panel === macroConfirm.view ? .visible : .collapsed
         if panel !== macroConfirm.view { macroConfirm.onConfirm = nil }
-        if panel == nil { focusTerminal() }
+        if panel == nil {
+            focusTerminal()
+            if startupUpdate != nil { onUI { $0.offerStartupUpdateIfIdle() } }
+        }
     }
 
     // MARK: - pegado seguro y MultiExec
@@ -1072,9 +1079,34 @@ final class NetDeckWindows: SwiftApplication {
         }
     }
 
-    /// «Buscar actualizaciones»: sólo con el clic (nada se comprueba solo). Si hay una, se enseña con sus notas y el botón
-    /// «Descargar e instalar»; no se descarga nada antes.
+    private func checkUpdatesOnLaunch() {
+        guard !isDemo else { return }
+        let defaults = UserDefaults.standard
+        let key = "lastUpdateCheck"
+        let now = Date()
+        if let last = defaults.object(forKey: key) as? Date,
+           now.timeIntervalSince(last) >= 0, now.timeIntervalSince(last) < 24 * 60 * 60 { return }
+        defaults.set(now, forKey: key)
+        Task { [weak self] in
+            guard let found = try? await UpdateChecker.shared.check() else { return }
+            self?.onUI { app in
+                guard !app.manualUpdateRequested else { return }
+                app.startupUpdate = found
+                app.offerStartupUpdateIfIdle()
+            }
+        }
+    }
+
+    private func offerStartupUpdateIfIdle() {
+        guard terminalGrid.visibility == .visible, let info = startupUpdate else { return }
+        startupUpdate = nil
+        offerUpdate(info)
+    }
+
+    /// La búsqueda manual muestra el resultado o el motivo del fallo en Ajustes.
     private func checkUpdates() {
+        manualUpdateRequested = true
+        startupUpdate = nil
         ajustes.setUpdateStatus(L("Buscando actualizaciones\u{2026}"))
         // (solo para probar la interfaz: NETDECK_UPDATE_FAKE=1 en la demo enseña una actualizacion inventada, sin red)
         if isDemo, ProcessInfo.processInfo.environment["NETDECK_UPDATE_FAKE"] == "1",
@@ -1543,6 +1575,7 @@ final class NetDeckWindows: SwiftApplication {
         for candidate in terminals {
             let tab = RadioButton()
             tab.content = candidate.title
+            AutomationProperties.setName(tab, candidate.title)
             tab.groupName = "terminales"
             tab.isChecked = candidate === session
             tab.click.addHandler { [weak self, weak candidate] _, _ in

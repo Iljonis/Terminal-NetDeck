@@ -1,3 +1,10 @@
+## 2026-11-18 · Windows · P17: comprobación de actualizaciones y accesibilidad
+
+- WinUI consulta al arrancar si han pasado 24 horas desde el último intento. El aviso reutiliza el panel de actualización y espera a que se cierre cualquier panel abierto. Descargar e instalar requiere la confirmación del usuario.
+- Las filas de sesiones y las pestañas exponen su nombre a UI Automation. Los botones de favoritas corresponden a P16.
+- Compilación WinUI y 551 tests en 93 suites en verde con `windows/scripts/test.ps1 --no-parallel`. La pasada paralela encontró un bloqueo de archivo transitorio en `DeviceListTests.guardarYLeer`.
+- Una prueba aislada verificó que la demo omite la consulta, que se aplica el intervalo de 24 horas y que el aviso espera al cierre del panel. La demo abrió el terminal y se mantuvo estable sin inspector. Durante la captura del árbol UIA se cerró con una excepción de `Microsoft.UI.Xaml.dll`, por lo que queda pendiente corroborar los nombres con un lector de pantalla tras integrar P16.
+
 ## 2026-11-18 · Windows · P15-B: panel de gestión de credenciales del Llavero de Windows
 
 - **`PanelLlavero`** (nuevo): panel con ComboBox de credenciales, TextBox de nombre, PasswordBox (nunca muestra el secreto en claro), botones Guardar / Borrar (confirmación en dos clics) / Recargar / Cerrar. Muestra qué botones usan cada credencial (modos `.pass` y `.login`). Se abre con Ctrl+Shift+K y desde «Gestionar contraseñas…» en Ajustes.
@@ -11,7 +18,7 @@
 - F1–F12 envían secuencias xterm con Shift, Alt y Ctrl. Si la combinación está asignada a un botón, la ventana principal y las separadas reutilizan el flujo de ejecución del botón sobre la pestaña de origen, con las comprobaciones y confirmaciones habituales.
 - Compilación WinUI en verde con `windows/scripts/desktop.ps1`. Se corrigió el aislamiento de `loginSequence` de P14 con `@MainActor`, necesario para acceder a la entrada del terminal.
 - Validación: 96 combinaciones comprobadas con `FunctionKey.name` y `ButtonTests/teclasDeFuncion` en verde. Privacidad en verde al excluir de la comprobación el plan local sin seguimiento, que contiene rutas personales.
-- La suite completa abortó al inicializar `Ingles.textos` por la entrada duplicada «Expresión regular» de P14. Queda pendiente repetirla cuando se corrijan los duplicados de traducción, completar la prueba en WinUI y cerrar el commit. P17 sigue a la integración y validación de P16.
+- Los atajos se incorporaron en el mismo commit que P15-B (`1ad4317`). P15-B corrigió el duplicado de traducción de P14 y la suite completa volvió a pasar en modo secuencial. Queda pendiente la prueba interactiva de los atajos.
 
 ## 2026-11-17 · Windows · P14: editor avanzado de pasos, 6 modos de botón y traducciones
 

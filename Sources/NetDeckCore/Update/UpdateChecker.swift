@@ -37,7 +37,7 @@ struct UpdateCandidate: Equatable {
 
 /// Actualizaciones de Windows (ADR-0003), con las mismas reglas que macOS (`UpdateCheck`): sólo enlaces https de
 /// github.com del repositorio, sha256 del instalador, y además la firma Authenticode con `WinVerifyTrust`. Nada se
-/// descarga ni se instala sin que el usuario lo pida (no hay comprobaciones automáticas) y no hay actualizaciones silenciosas.
+/// descarga ni se instala sin confirmación del usuario.
 public actor UpdateChecker {
     public static let shared = UpdateChecker()
 
