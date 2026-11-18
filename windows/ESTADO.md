@@ -13,7 +13,8 @@
 - WinUI consulta al arrancar si han pasado 24 horas desde el último intento. El aviso reutiliza el panel de actualización y espera a que se cierre cualquier panel abierto. Descargar e instalar requiere la confirmación del usuario.
 - Las filas de sesiones y las pestañas exponen su nombre a UI Automation. Los botones de favoritas corresponden a P16.
 - Compilación WinUI y 551 tests en 93 suites en verde con `windows/scripts/test.ps1 --no-parallel`. La pasada paralela encontró un bloqueo de archivo transitorio en `DeviceListTests.guardarYLeer`.
-- Una prueba aislada verificó que la demo omite la consulta, que se aplica el intervalo de 24 horas y que el aviso espera al cierre del panel. La demo abrió el terminal y se mantuvo estable sin inspector. Durante la captura del árbol UIA se cerró con una excepción de `Microsoft.UI.Xaml.dll`, por lo que queda pendiente corroborar los nombres con un lector de pantalla tras integrar P16.
+- Una prueba aislada verificó que la demo omite la consulta, que se aplica el intervalo de 24 horas y que el aviso espera al cierre del panel. La demo abrió el terminal y se mantuvo estable sin inspector. Al consultar el árbol UIA, WinUI se cerró con `0xC000027B` y el informe de Windows registró `RPC_E_WRONG_THREAD`. El mismo cierre se reprodujo con el commit previo a P17 (`1ad4317`). Queda pendiente comprobar los nombres con un lector de pantalla.
+- Integración P16 y P17 (`6661d2f`): la demo arrancó y se mantuvo estable sin inspector. Compilación WinUI, 551 tests secuenciales y privacidad en verde. Los 9 tests específicos de `UpdateCheckerWindowsTests` también pasaron.
 
 ## 2026-11-18 · Windows · P15-B: panel de gestión de credenciales del Llavero de Windows
 
