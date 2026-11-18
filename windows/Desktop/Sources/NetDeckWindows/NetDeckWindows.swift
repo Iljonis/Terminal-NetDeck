@@ -50,6 +50,7 @@ final class NetDeckWindows: SwiftApplication {
     private let botones = PanelBotones()
     private let confirmarBoton = PanelTexto(idPrefix: "Botones_Confirmar")
     private var archivoBotones = ButtonFile()
+    private let llavero = PanelLlavero()
     private let macros = PanelMacros()
     private var grabando: (tab: PestanaTerminal, recorder: MacroRecorder, io: EntradaMacro)?
     private let pararGrabacion = Button()
@@ -231,6 +232,7 @@ final class NetDeckWindows: SwiftApplication {
                     self.automatizacionActiva?.abort.trip()
                     if bytes == "\u{1b}" { return }
                 }
+                if self.dispatchButtonHotkey(bytes, tab: tab) { return }
                 self.recordKeys(bytes, tab: tab)
                 tab.write(bytes)
             }
@@ -321,6 +323,10 @@ final class NetDeckWindows: SwiftApplication {
             self.buscarTerminal.show(lines: coincidencias.lines, total: coincidencias.total)
         }
         buscarTerminal.onClose = { [weak self] in self?.showPanel(nil) }
+        Grid.setRow(llavero.view, Int32(2))
+        layout.children.append(llavero.view)
+        llavero.onClose = { [weak self] in self?.showPanel(nil) }
+        llavero.getArchivoBotones = { [weak self] in self?.archivoBotones ?? ButtonFile() }
         Grid.setRow(macros.view, Int32(2))
         layout.children.append(macros.view)
         macros.onClose = { [weak self] in self?.showPanel(nil) }
@@ -333,6 +339,7 @@ final class NetDeckWindows: SwiftApplication {
         reglas.onCancel = { [weak self] in self?.showAjustes() }
         ajustes.onHighlight = { [weak self] in self?.showHighlightRules() }
         ajustes.onCheckUpdates = { [weak self] in self?.checkUpdates() }
+        ajustes.onManagePasswords = { [weak self] in self?.showLlavero() }
         ajustes.onSave = { [weak self] new in self?.saveAjustes(new) }
         ajustes.onCancel = { [weak self] in self?.hideAjustes() }
 
@@ -483,6 +490,7 @@ final class NetDeckWindows: SwiftApplication {
         if panel !== confirmarBoton.view { confirmarBoton.onConfirm = nil }
         espacios.view.visibility = panel === espacios.view ? .visible : .collapsed
         buscarTerminal.view.visibility = panel === buscarTerminal.view ? .visible : .collapsed
+        llavero.view.visibility = panel === llavero.view ? .visible : .collapsed
         macros.view.visibility = panel === macros.view ? .visible : .collapsed
         macroConfirm.view.visibility = panel === macroConfirm.view ? .visible : .collapsed
         if panel !== macroConfirm.view { macroConfirm.onConfirm = nil }
@@ -637,7 +645,14 @@ final class NetDeckWindows: SwiftApplication {
         }
     }
 
-    private func useCommandButton(_ button: CommandButton) {
+    private func dispatchButtonHotkey(_ sequence: String, tab: PestanaTerminal) -> Bool {
+        guard let key = FunctionKey.name(Array(sequence.utf8)),
+              let button = archivoBotones.button(forKey: key) else { return false }
+        useCommandButton(button, on: tab)
+        return true
+    }
+
+    private func useCommandButton(_ button: CommandButton, on target: PestanaTerminal? = nil) {
         if button.mode == .session {
             guard let profile = MainActor.assumeIsolated({ sessions.profile(named: button.command) }) else {
                 status.text = L("No existe la sesión «\(button.command)»")
@@ -649,7 +664,7 @@ final class NetDeckWindows: SwiftApplication {
         }
 
         if button.mode == .clave {
-            guard let tab = selected, !tab.closed, !tab.route.isLocal,
+            guard let tab = target ?? selected, !tab.closed, !tab.route.isLocal,
                   [.ssh, .telnet].contains(tab.route.transport) else {
                 status.text = L("No hay pestañas SSH o Telnet abiertas")
                 return
@@ -666,7 +681,7 @@ final class NetDeckWindows: SwiftApplication {
         }
 
         if button.mode == .pass {
-            guard let tab = selected, !tab.closed, !tab.route.isLocal,
+            guard let tab = target ?? selected, !tab.closed, !tab.route.isLocal,
                   [.ssh, .telnet].contains(tab.route.transport) else {
                 status.text = L("No hay pestañas SSH o Telnet abiertas")
                 return
@@ -696,7 +711,7 @@ final class NetDeckWindows: SwiftApplication {
         }
 
         if button.mode == .login {
-            guard let tab = selected, !tab.closed, !tab.route.isLocal,
+            guard let tab = target ?? selected, !tab.closed, !tab.route.isLocal,
                   [.ssh, .telnet].contains(tab.route.transport) else {
                 status.text = L("No hay pestañas SSH o Telnet abiertas")
                 return
@@ -735,7 +750,7 @@ final class NetDeckWindows: SwiftApplication {
             return
         }
 
-        guard let tab = selected, !tab.closed, !tab.route.isLocal,
+        guard let tab = target ?? selected, !tab.closed, !tab.route.isLocal,
               [.ssh, .telnet].contains(tab.route.transport) else {
             status.text = L("No hay pestañas SSH o Telnet abiertas")
             return
@@ -745,12 +760,15 @@ final class NetDeckWindows: SwiftApplication {
         confirmarBoton.show(title: button.name, hint: tab.title, text: preview, editable: true,
                            confirmTitle: button.mode == .type ? L("Escribir") : L("Revisar"))
         confirmarBoton.onConfirm = { [weak self, weak tab] command in
-            guard let self, let tab, self.selected === tab, !tab.closed else { return }
+            guard let self, let tab, !tab.closed,
+                  self.selected === tab || self.ventanasPestana[ObjectIdentifier(tab)] != nil else { return }
             self.applyCommandButton(button, text: command, to: tab)
         }
         showPanel(confirmarBoton.view)
+        if ventanasPestana[ObjectIdentifier(tab)] != nil { try? window?.activate() }
     }
 
+    @MainActor
     private func loginSequence(user: String, password: String, io: EntradaMacro, abort: AbortSwitch) async -> String {
         let start = Date()
         while !PasswordPrompt.isLoginLine(io.cursorLine) {
@@ -791,7 +809,7 @@ final class NetDeckWindows: SwiftApplication {
             tab.paste(text)
         } else {
             let command = CommandButton(group: button.group, mode: .run, name: button.name, command: text)
-            playMacro(Macro(name: button.name, steps: Macro.recorded(command.lines)))
+            playMacro(Macro(name: button.name, steps: Macro.recorded(command.lines)), on: tab)
         }
     }
 
@@ -900,8 +918,8 @@ final class NetDeckWindows: SwiftApplication {
         }
     }
 
-    private func playMacro(_ macro: Macro) {
-        guard let tab = selected, !tab.closed, !tab.route.isLocal,
+    private func playMacro(_ macro: Macro, on target: PestanaTerminal? = nil) {
+        guard let tab = target ?? selected, !tab.closed, !tab.route.isLocal,
               [.ssh, .telnet].contains(tab.route.transport) else {
             status.text = L("No hay pestañas SSH o Telnet abiertas")
             return
@@ -934,7 +952,7 @@ final class NetDeckWindows: SwiftApplication {
             status.text = L("Ya hay un envío en curso")
             return
         }
-        guard selected === tab, !tab.closed else { return }
+        guard !tab.closed, selected === tab || ventanasPestana[ObjectIdentifier(tab)] != nil else { return }
         let abort = AbortSwitch()
         guard grabando?.tab !== tab else {
             status.text = L("Para la grabación antes de enviar órdenes en esa pestaña")
@@ -1201,6 +1219,8 @@ final class NetDeckWindows: SwiftApplication {
             showMacros()
         case 84:
             showTuneles()
+        case 75 where shift:
+            showLlavero()
         case 86 where shift:
             safePaste()
         case 188:
@@ -1318,6 +1338,11 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     private func hideAjustes() { showPanel(nil) }
+
+    private func showLlavero() {
+        llavero.reload()
+        showPanel(llavero.view)
+    }
 
     private func saveAjustes(_ new: AjustesTerminal) {
         settings = new
@@ -1627,14 +1652,20 @@ final class NetDeckWindows: SwiftApplication {
         vista.surface.keyDown.addHandler { [weak self, weak tab] _, args in
             guard let self, let tab, !tab.closed, let args, let keys = self.keySequence(args.key.rawValue, tab: tab) else { return }
             args.handled = true
+            if self.automatizacionActiva?.tab === tab {
+                guard AbortKey.isAbort(keys.utf8) else { return }
+                self.automatizacionActiva?.abort.trip()
+                if keys == "\u{1b}" { return }
+            }
+            if self.dispatchButtonHotkey(keys, tab: tab) { return }
             tab.write(keys)
         }
-        vista.surface.characterReceived.addHandler { [weak tab] _, args in
-            guard let tab, !tab.closed, let args else { return }
+        vista.surface.characterReceived.addHandler { [weak self, weak tab] _, args in
+            guard let self, let tab, !tab.closed, let args else { return }
             let text = String(args.character)
             guard text.rangeOfCharacter(from: .controlCharacters) == nil else { return }
             args.handled = true
-            tab.write(text)
+            if self.automatizacionActiva?.tab !== tab { tab.write(text) }
         }
         window.closed.addHandler { [weak self] _, _ in
             self?.ventanasPestana.removeValue(forKey: id)?.session.close()
@@ -1769,6 +1800,18 @@ final class NetDeckWindows: SwiftApplication {
         case 39: return arrowPrefix + "C"
         case 40: return arrowPrefix + "B"
         case 46: return "\u{1b}[3~"
+        case 112...123:
+            let index = Int(key) - 112
+            let shift = GetKeyState(Int32(VK_SHIFT)) < 0
+            let alt = GetKeyState(Int32(VK_MENU)) < 0
+            let ctrl = GetKeyState(Int32(VK_CONTROL)) < 0
+            let modifier = 1 + (shift ? 1 : 0) + (alt ? 2 : 0) + (ctrl ? 4 : 0)
+            if index < 4 {
+                let suffix = ["P", "Q", "R", "S"][index]
+                return modifier == 1 ? "\u{1b}O\(suffix)" : "\u{1b}[1;\(modifier)\(suffix)"
+            }
+            let code = [15, 17, 18, 19, 20, 21, 23, 24][index - 4]
+            return modifier == 1 ? "\u{1b}[\(code)~" : "\u{1b}[\(code);\(modifier)~"
         default: return nil
         }
     }

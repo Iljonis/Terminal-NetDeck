@@ -1,3 +1,18 @@
+## 2026-11-18 · Windows · P15-B: panel de gestión de credenciales del Llavero de Windows
+
+- **`PanelLlavero`** (nuevo): panel con ComboBox de credenciales, TextBox de nombre, PasswordBox (nunca muestra el secreto en claro), botones Guardar / Borrar (confirmación en dos clics) / Recargar / Cerrar. Muestra qué botones usan cada credencial (modos `.pass` y `.login`). Se abre con Ctrl+Shift+K y desde «Gestionar contraseñas…» en Ajustes.
+- **`PanelAjustes`**: botón «Gestionar contraseñas…» con `AutomationId` `Ajustes_GestionarContrasenas`. Callback `onManagePasswords` al panel principal.
+- **`NetDeckWindows.swift`**: registro del panel (Grid row 2), shortcut Ctrl+Shift+K (key 75 where shift), `showLlavero()`.
+- **`Ingles.swift`**: 12 nuevas entradas L() para el Llavero de Windows. Se corrigió la clave duplicada `"¿Borrar «%@» del Llavero?"` (renombrada a `"…de Windows?"` para distinguirla de macOS) y se eliminó el duplicado preexistente `"Expresión regular"` de P14. IdiomaTests: 6/6 en verde.
+- Privacidad en verde en ficheros fuente; las rutas detectadas son del plan `.claude/` local, sin seguimiento en git.
+
+## 2026-11-18 · Windows · P15-A: teclas de función y atajos de botón
+
+- F1–F12 envían secuencias xterm con Shift, Alt y Ctrl. Si la combinación está asignada a un botón, la ventana principal y las separadas reutilizan el flujo de ejecución del botón sobre la pestaña de origen, con las comprobaciones y confirmaciones habituales.
+- Compilación WinUI en verde con `windows/scripts/desktop.ps1`. Se corrigió el aislamiento de `loginSequence` de P14 con `@MainActor`, necesario para acceder a la entrada del terminal.
+- Validación: 96 combinaciones comprobadas con `FunctionKey.name` y `ButtonTests/teclasDeFuncion` en verde. Privacidad en verde al excluir de la comprobación el plan local sin seguimiento, que contiene rutas personales.
+- La suite completa abortó al inicializar `Ingles.textos` por la entrada duplicada «Expresión regular» de P14. Queda pendiente repetirla cuando se corrijan los duplicados de traducción, completar la prueba en WinUI y cerrar el commit. P17 sigue a la integración y validación de P16.
+
 ## 2026-11-17 · Windows · P14: editor avanzado de pasos, 6 modos de botón y traducciones
 
 Rama `windows/p14-escritorio`. Continuación del commit anterior.

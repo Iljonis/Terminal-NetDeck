@@ -58,6 +58,7 @@ final class PanelAjustes {
     var onHighlight: (() -> Void)?
     /// «Buscar actualizaciones»: la ventana hace la consulta y avisa con `setUpdateStatus`.
     var onCheckUpdates: (() -> Void)?
+    var onManagePasswords: (() -> Void)?
     private let updateText = TextBlock()
 
     private let fuente = ComboBox()
@@ -175,6 +176,17 @@ final class PanelAjustes {
         updates.children.append(checkButton)
         updates.children.append(updateText)
         form.children.append(updates)
+
+        let passwords = StackPanel()
+        passwords.orientation = .vertical
+        passwords.spacing = 4
+        passwords.margin = Thickness(left: 0, top: 8, right: 0, bottom: 0)
+        let manageButton = Button()
+        manageButton.content = L("Gestionar contrase\u{00F1}as\u{2026}")
+        manageButton.click.addHandler { [weak self] _, _ in self?.onManagePasswords?() }
+        AutomationProperties.setAutomationId(manageButton, "Ajustes_GestionarContrasenas")
+        passwords.children.append(manageButton)
+        form.children.append(passwords)
 
         view.content = form
         view.verticalScrollBarVisibility = .auto
