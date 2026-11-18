@@ -52,6 +52,9 @@ final class NetDeckWindows: SwiftApplication {
     private var archivoBotones = ButtonFile()
     private let llavero = PanelLlavero()
     private let borrarSesion = PanelTexto(idPrefix: "BorrarSesion")
+    private let hojaConexion = HojaConexion()
+    private let edicionRemota = PanelEdicionRemota()
+    private let panelImportador = PanelImportador()
     private var favoritas: Set<String> = []
     private var recientes: [String] = []
     private var favoritasURL: URL { AppPaths.netdeck.appendingPathComponent("favoritas") }
@@ -207,11 +210,22 @@ final class NetDeckWindows: SwiftApplication {
         let gear = Button()
         gear.content = "\u{2699}"
         gear.click.addHandler { [weak self] _, _ in self?.showAjustes() }
+        let quickConnectButton = Button()
+        quickConnectButton.content = L("Conexi\u{00F3}n r\u{00E1}pida")
+        quickConnectButton.click.addHandler { [weak self] _, _ in self?.showHojaConexion() }
+        let editRemoteButton = Button()
+        editRemoteButton.content = L("Editar remoto")
+        editRemoteButton.click.addHandler { [weak self] _, _ in self?.showEdicionRemota() }
+        let importButton = Button()
+        importButton.content = L("Importar")
+        importButton.click.addHandler { [weak self] _, _ in self?.showImportador() }
         for (control, id) in [(local as Control, "NuevaLocal"), (destination, "DestinoSSH"),
                               (connect, "ConectarSSH"), (closeButton, "CerrarPestana"),
                               (paste, "PegarSeguro"), (multiButton, "MultiExec"), (tunnelButton, "Tuneles"),
                               (macroButton, "Macros"), (pararAutomatizacion, "Macros_Parar"), (pararGrabacion, "Macros_PararGrabacion"), (dividir, "DividirTerminal"),
-                              (workspaceButton, "Espacios"), (searchButton, "BuscarTerminal"), (commandButtons, "Botones"), (gear, "Ajustes")] {
+                              (workspaceButton, "Espacios"), (searchButton, "BuscarTerminal"), (commandButtons, "Botones"),
+                              (quickConnectButton, "ConexionRapida"), (editRemoteButton, "EditarRemoto"), (importButton, "ImportarSesiones"),
+                              (gear, "Ajustes")] {
             AutomationProperties.setAutomationId(control, id)
             toolbar.children.append(control)
         }
@@ -355,6 +369,39 @@ final class NetDeckWindows: SwiftApplication {
         macros.onRecord = { [weak self] in self?.startRecording() }
         macros.onDelete = { [weak self] in self?.confirmMacroDeletion($0) }
         macroConfirm.onCancel = { [weak self] in self?.showMacros() }
+        Grid.setRow(hojaConexion.view, Int32(2))
+        layout.children.append(hojaConexion.view)
+        hojaConexion.onClose = { [weak self] in self?.showPanel(nil) }
+        hojaConexion.onConectar = { [weak self] host, salto, usuario, transport in
+            guard let self else { return }
+            let u = usuario.isEmpty ? NSUserName() : usuario
+            let target = Endpoint(user: u, host: host)
+            var route = ConnectionRoute(title: host, target: target, transport: transport)
+            if let salto, !salto.isEmpty { route.jumpSpec = [salto] }
+            self.showPanel(nil)
+            self.open(route)
+        }
+        Grid.setRow(edicionRemota.view, Int32(2))
+        layout.children.append(edicionRemota.view)
+        edicionRemota.onClose = { [weak self] in self?.showPanel(nil) }
+        edicionRemota.onDescargar = { [weak self] sesion, remotePath, localURL, progress in
+            guard let self else { return }
+            try await self.sftpDescargar(sesion: sesion, remotePath: remotePath, to: localURL, progress: progress)
+        }
+        edicionRemota.onSubir = { [weak self] localURL, sesion, remotePath, progress in
+            guard let self else { return }
+            try await self.sftpSubir(from: localURL, sesion: sesion, remotePath: remotePath, progress: progress)
+        }
+        Grid.setRow(panelImportador.view, Int32(2))
+        layout.children.append(panelImportador.view)
+        panelImportador.onClose = { [weak self] in self?.showPanel(nil) }
+        panelImportador.onImportar = { [weak self] sesiones in
+            guard let self else { return }
+            var importadas = 0
+            for s in sesiones where self.saveSession(s, replacing: nil) { importadas += 1 }
+            self.showPanel(nil)
+            self.status.text = L("Importadas \(importadas) sesiones")
+        }
         reglas.onConfirm = { [weak self] in self?.saveHighlightRules($0) }
         reglas.onCancel = { [weak self] in self?.showAjustes() }
         ajustes.onHighlight = { [weak self] in self?.showHighlightRules() }
@@ -706,6 +753,9 @@ final class NetDeckWindows: SwiftApplication {
         if panel !== macroConfirm.view { macroConfirm.onConfirm = nil }
         borrarSesion.view.visibility = panel === borrarSesion.view ? .visible : .collapsed
         if panel !== borrarSesion.view { borrarSesion.onConfirm = nil }
+        hojaConexion.view.visibility = panel === hojaConexion.view ? .visible : .collapsed
+        edicionRemota.view.visibility = panel === edicionRemota.view ? .visible : .collapsed
+        panelImportador.view.visibility = panel === panelImportador.view ? .visible : .collapsed
         if panel == nil {
             focusTerminal()
             if startupUpdate != nil { onUI { $0.offerStartupUpdateIfIdle() } }
@@ -1582,6 +1632,73 @@ final class NetDeckWindows: SwiftApplication {
     private func showLlavero() {
         llavero.reload()
         showPanel(llavero.view)
+    }
+
+    private func showHojaConexion() {
+        hojaConexion.show()
+        showPanel(hojaConexion.view)
+    }
+
+    private func showEdicionRemota() {
+        edicionRemota.show()
+        showPanel(edicionRemota.view)
+    }
+
+    private func showImportador() {
+        panelImportador.existingSessions = MainActor.assumeIsolated {
+            isDemo ? library.sessions : ((try? SessionFile(contentsOf: SessionFile.defaultURL))?.sessions ?? [])
+        }
+        panelImportador.show()
+        showPanel(panelImportador.view)
+    }
+
+    private func sftpDescargar(sesion: String, remotePath: String, to localURL: URL,
+                               progress: @escaping (String) -> Void) async throws {
+        guard let perfil = MainActor.assumeIsolated({ sessions.profiles.first { $0.name == sesion } }) else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        var route = try MainActor.assumeIsolated { try sessions.route(to: perfil) }
+        if route.transport == .ssh { route = try SFTPPanel.route(for: route) }
+        let dev = isDemo ? ProcessInfo.processInfo.environment["NETDECK_SFTP_SERVER"] : nil
+        guard let command = dev.map({ ($0, [String]()) }) ?? route.sftpSubsystemCommand(sharing: nil, configFile: isDemo ? "NUL" : nil) else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        let env = TerminalEnvironment.prepare(ProcessInfo.processInfo.environment, forSSH: true, sendLocale: false)
+        progress(L("Conectando\u{2026}"))
+        let fs = try await SFTPFileSystem.connect(label: sesion, executable: command.0, arguments: command.1, environment: env)
+        let size = (try? await fs.stat(remotePath))?.size ?? 0
+        progress(L("Descargando\u{2026}"))
+        try FileManager.default.createDirectory(at: localURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let reader = try await fs.openRead(remotePath)
+        let writer = try LocalFileWriter(url: localURL)
+        try await Transfer.copy(from: reader, to: writer) { sent in
+            if size > 0 { progress("\(min(100, sent * 100 / size)) %") }
+        }
+        await reader.close()
+    }
+
+    private func sftpSubir(from localURL: URL, sesion: String, remotePath: String,
+                           progress: @escaping (String) -> Void) async throws {
+        guard let perfil = MainActor.assumeIsolated({ sessions.profiles.first { $0.name == sesion } }) else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        var route = try MainActor.assumeIsolated { try sessions.route(to: perfil) }
+        if route.transport == .ssh { route = try SFTPPanel.route(for: route) }
+        let dev = isDemo ? ProcessInfo.processInfo.environment["NETDECK_SFTP_SERVER"] : nil
+        guard let command = dev.map({ ($0, [String]()) }) ?? route.sftpSubsystemCommand(sharing: nil, configFile: isDemo ? "NUL" : nil) else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        let env = TerminalEnvironment.prepare(ProcessInfo.processInfo.environment, forSSH: true, sendLocale: false)
+        progress(L("Conectando\u{2026}"))
+        let fs = try await SFTPFileSystem.connect(label: sesion, executable: command.0, arguments: command.1, environment: env)
+        let size = ((try? FileManager.default.attributesOfItem(atPath: localURL.path))?[.size] as? NSNumber)?.int64Value ?? 0
+        progress(L("Subiendo\u{2026}"))
+        let source = try LocalFileReader(url: localURL)
+        let writer = try await AtomicRemoteWriter.open(fs, remotePath, verify: false, createOnly: false)
+        try await Transfer.copy(from: source, to: writer) { sent in
+            if size > 0 { progress("\(min(100, sent * 100 / size)) %") }
+        }
+        await source.close()
     }
 
     private func saveAjustes(_ new: AjustesTerminal) {
