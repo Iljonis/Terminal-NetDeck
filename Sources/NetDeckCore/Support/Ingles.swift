@@ -2628,5 +2628,11 @@ enum Ingles {
         "Buscar sesi\u{00F3}n\u{2026}": "Search session\u{2026}",
         "A\u{00F1}adir a favoritas": "Add to favorites",
         "Quitar de favoritas": "Remove from favorites",
+        "Borrar sesi\u{00F3}n": "Delete session",
+        "Recargar sesiones": "Reload sessions",
+        "Sesiones recargadas": "Sessions reloaded",
+        "Esta acci\u{00F3}n no se puede deshacer.": "This action cannot be undone.",
+        "Sesi\u{00F3}n \u{00AB}%@\u{00BB} borrada": "Session \u{201C}%@\u{201D} deleted",
+        "No se puede borrar: %@": "Cannot delete: %@",
 ]
 }

@@ -51,10 +51,15 @@ final class NetDeckWindows: SwiftApplication {
     private let confirmarBoton = PanelTexto(idPrefix: "Botones_Confirmar")
     private var archivoBotones = ButtonFile()
     private let llavero = PanelLlavero()
+    private let borrarSesion = PanelTexto(idPrefix: "BorrarSesion")
     private var favoritas: Set<String> = []
     private var recientes: [String] = []
     private var favoritasURL: URL { AppPaths.netdeck.appendingPathComponent("favoritas") }
     private var recientesURL: URL { AppPaths.netdeck.appendingPathComponent("recientes") }
+    private var plegados: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: "ndGruposPlegados") ?? []) }
+        set { UserDefaults.standard.set(Array(newValue), forKey: "ndGruposPlegados") }
+    }
     private let macros = PanelMacros()
     private var grabando: (tab: PestanaTerminal, recorder: MacroRecorder, io: EntradaMacro)?
     private let pararGrabacion = Button()
@@ -118,12 +123,21 @@ final class NetDeckWindows: SwiftApplication {
         sideScroll.content = sidebar
         sideScroll.verticalScrollBarVisibility = .auto
         sideScroll.horizontalScrollBarVisibility = .disabled
+        let piedePie = StackPanel()
+        piedePie.orientation = .horizontal
+        piedePie.spacing = 4
+        piedePie.margin = Thickness(left: 4, top: 4, right: 4, bottom: 8)
         let addButton = Button()
         addButton.content = "+ " + L("Nueva sesi\u{00F3}n")
-        addButton.horizontalAlignment = .stretch
-        addButton.margin = Thickness(left: 4, top: 4, right: 4, bottom: 8)
+        addButton.horizontalContentAlignment = .stretch
         addButton.click.addHandler { [weak self] _, _ in self?.newSession() }
         AutomationProperties.setAutomationId(addButton, "NuevaSesion")
+        let reloadButton = Button()
+        reloadButton.content = "\u{21BA}"
+        reloadButton.click.addHandler { [weak self] _, _ in self?.recargarSesiones() }
+        AutomationProperties.setAutomationId(reloadButton, "RecargarSesiones")
+        piedePie.children.append(addButton)
+        piedePie.children.append(reloadButton)
         let sideColumn = Grid()
         let rowList = RowDefinition()
         rowList.height = GridLength(value: 1, gridUnitType: .star)
@@ -132,9 +146,9 @@ final class NetDeckWindows: SwiftApplication {
         sideColumn.rowDefinitions.append(rowList)
         sideColumn.rowDefinitions.append(rowAdd)
         Grid.setRow(sideScroll, Int32(0))
-        Grid.setRow(addButton, Int32(1))
+        Grid.setRow(piedePie, Int32(1))
         sideColumn.children.append(sideScroll)
-        sideColumn.children.append(addButton)
+        sideColumn.children.append(piedePie)
         Grid.setColumn(sideColumn, Int32(0))
         root.children.append(sideColumn)
 
@@ -304,7 +318,7 @@ final class NetDeckWindows: SwiftApplication {
         }
         Grid.setRow(asistente.view, Int32(2))
         layout.children.append(asistente.view)
-        for panel in [pegado, multi, actualizacion, macroConfirm, confirmarBoton, reglas] {
+        for panel in [pegado, multi, actualizacion, macroConfirm, confirmarBoton, reglas, borrarSesion] {
             Grid.setRow(panel.view, Int32(2))
             layout.children.append(panel.view)
             panel.onCancel = { [weak self] in self?.showPanel(nil) }
@@ -413,13 +427,19 @@ final class NetDeckWindows: SwiftApplication {
             }
         }
 
+        func coincide(_ p: SessionProfile) -> Bool {
+            p.name.localizedCaseInsensitiveContains(filter)
+                || (p.hostName ?? "").localizedCaseInsensitiveContains(filter)
+                || (p.user ?? "").localizedCaseInsensitiveContains(filter)
+        }
+
         for (nombreGrupo, perfiles) in grupos {
-            let filtrados = filter.isEmpty ? perfiles : perfiles.filter {
-                $0.name.localizedCaseInsensitiveContains(filter)
-            }
+            let filtrados = filter.isEmpty ? perfiles : perfiles.filter(coincide)
             guard !filtrados.isEmpty else { continue }
-            sidebar.children.append(makeSidebarHeader(nombreGrupo.uppercased()))
-            for perfil in filtrados { sidebar.children.append(makeSidebarRow(perfil)) }
+            sidebar.children.append(makeSidebarGrupoHeader(nombreGrupo))
+            if !plegados.contains(nombreGrupo) {
+                for perfil in filtrados { sidebar.children.append(makeSidebarRow(perfil)) }
+            }
         }
     }
 
@@ -430,6 +450,36 @@ final class NetDeckWindows: SwiftApplication {
         header.margin = Thickness(left: 8, top: 10, right: 8, bottom: 2)
         header.opacity = 0.6
         return header
+    }
+
+    private func makeSidebarGrupoHeader(_ grupo: String) -> StackPanel {
+        let isPlegado = plegados.contains(grupo)
+        let stack = StackPanel()
+        stack.orientation = .horizontal
+        stack.margin = Thickness(left: 4, top: 8, right: 4, bottom: 2)
+
+        let chevron = Button()
+        chevron.content = isPlegado ? "\u{25B6}" : "\u{25BC}"
+        chevron.padding = Thickness(left: 4, top: 2, right: 4, bottom: 2)
+        chevron.click.addHandler { [weak self] _, _ in
+            guard let self else { return }
+            var current = self.plegados
+            if current.contains(grupo) { current.remove(grupo) } else { current.insert(grupo) }
+            self.plegados = current
+            self.buildSidebar()
+        }
+        AutomationProperties.setAutomationId(chevron, "Grupo_\(grupo)")
+
+        let label = TextBlock()
+        label.text = grupo.uppercased()
+        label.fontSize = 10
+        label.margin = Thickness(left: 4, top: 4, right: 8, bottom: 0)
+        label.opacity = 0.6
+        label.verticalAlignment = .center
+
+        stack.children.append(chevron)
+        stack.children.append(label)
+        return stack
     }
 
     private func makeSidebarRow(_ perfil: SessionProfile) -> Grid {
@@ -456,9 +506,18 @@ final class NetDeckWindows: SwiftApplication {
         case .serial: icono = "COM"
         case .local:  icono = "Loc"
         }
+        let isAbierto = terminals.contains { !$0.closed && $0.route.sessionName == perfil.name }
         let etiqueta = StackPanel()
         etiqueta.orientation = .horizontal
         etiqueta.spacing = 6
+        if isAbierto {
+            let dot = TextBlock()
+            dot.text = "\u{25CF}"
+            dot.fontSize = 8
+            dot.verticalAlignment = .center
+            dot.margin = Thickness(left: 0, top: 0, right: 2, bottom: 0)
+            etiqueta.children.append(dot)
+        }
         let tipo = TextBlock()
         tipo.text = icono
         tipo.fontSize = 9
@@ -475,6 +534,39 @@ final class NetDeckWindows: SwiftApplication {
         AutomationProperties.setAutomationId(btn, "Sesion_\(perfil.name)")
         AutomationProperties.setName(btn, perfil.name)
         btn.click.addHandler { [weak self] _, _ in self?.openProfile(perfil) }
+        btn.rightTapped.addHandler { [weak self] _, _ in
+            guard let self else { return }
+            let menu = MenuFlyout()
+            let conectarItem = MenuFlyoutItem()
+            conectarItem.text = L("Conectar")
+            conectarItem.click.addHandler { [weak self] _, _ in self?.openProfile(perfil) }
+            menu.items.append(conectarItem)
+            let editarItem = MenuFlyoutItem()
+            editarItem.text = L("Editar")
+            editarItem.click.addHandler { [weak self] _, _ in self?.editSession(perfil) }
+            menu.items.append(editarItem)
+            let duplicarItem = MenuFlyoutItem()
+            duplicarItem.text = L("Duplicar")
+            duplicarItem.click.addHandler { [weak self] _, _ in self?.duplicateProfile(perfil) }
+            menu.items.append(duplicarItem)
+            let esFavMenu = self.favoritas.contains(perfil.name)
+            let favItem = MenuFlyoutItem()
+            favItem.text = esFavMenu ? L("Quitar de favoritas") : L("A\u{00F1}adir a favoritas")
+            favItem.click.addHandler { [weak self] _, _ in
+                guard let self else { return }
+                if self.favoritas.contains(perfil.name) { self.favoritas.remove(perfil.name) }
+                else { self.favoritas.insert(perfil.name) }
+                try? SessionLists.saveFavorites(Array(self.favoritas).sorted(), to: self.favoritasURL)
+                self.buildSidebar()
+            }
+            menu.items.append(favItem)
+            menu.items.append(MenuFlyoutSeparator())
+            let borrarItem = MenuFlyoutItem()
+            borrarItem.text = L("Borrar sesi\u{00F3}n")
+            borrarItem.click.addHandler { [weak self] _, _ in self?.confirmDeleteProfile(perfil) }
+            menu.items.append(borrarItem)
+            menu.showAt(btn)
+        }
 
         let esFav = favoritas.contains(perfil.name)
         let fav = Button()
@@ -542,6 +634,52 @@ final class NetDeckWindows: SwiftApplication {
 
     private func hideEditor() { showPanel(nil) }
 
+    private func duplicateProfile(_ perfil: SessionProfile) {
+        let saved: EditableSession? = isDemo ? library.sessions.first { $0.name == perfil.name }
+            : (try? SessionFile(contentsOf: SessionFile.defaultURL))?.sessions.first { $0.name == perfil.name }
+        var copy = saved ?? NetDeckWindows.editable(from: perfil)
+        copy.name = perfil.name + " " + L("(copia)")
+        showEditor(copy, original: nil)
+    }
+
+    private func confirmDeleteProfile(_ perfil: SessionProfile) {
+        borrarSesion.show(title: L("\u{00BF}Borrar \u{00AB}\(perfil.name)\u{00BB}?"),
+                          hint: L("Esta acci\u{00F3}n no se puede deshacer."),
+                          text: "", editable: false, confirmTitle: L("Borrar"))
+        borrarSesion.onConfirm = { [weak self] _ in self?.deleteProfile(perfil) }
+        showPanel(borrarSesion.view)
+    }
+
+    private func deleteProfile(_ perfil: SessionProfile) {
+        var file = SessionFile()
+        if isDemo { file = library }
+        else if let loaded = try? SessionFile(contentsOf: SessionFile.defaultURL) { file = loaded }
+        file.sessions.removeAll { $0.name == perfil.name }
+        favoritas.remove(perfil.name)
+        try? SessionLists.saveFavorites(Array(favoritas).sorted(), to: favoritasURL)
+        if isDemo {
+            library = file
+            MainActor.assumeIsolated { sessions = SessionManager(profiles: SSHConfigParser().parse(file.render())) }
+        } else {
+            if let error = file.save() { status.text = L("No se puede borrar: \(error)"); return }
+            MainActor.assumeIsolated { sessions.load(from: SessionFile.defaultURL) }
+        }
+        buildSidebar()
+        showPanel(nil)
+        status.text = L("Sesi\u{00F3}n \u{00AB}\(perfil.name)\u{00BB} borrada")
+    }
+
+    private func recargarSesiones() {
+        guard !isDemo else { return }
+        if FileManager.default.fileExists(atPath: SessionFile.defaultURL.path) {
+            MainActor.assumeIsolated { sessions.load(from: SessionFile.defaultURL) }
+        } else {
+            MainActor.assumeIsolated { sessions.load() }
+        }
+        buildSidebar()
+        status.text = L("Sesiones recargadas")
+    }
+
     /// El area principal muestra el terminal o uno de los paneles (editor, ajustes), nunca varios a la vez.
     private func showPanel(_ panel: ScrollViewer?) {
         terminalGrid.visibility = panel == nil ? .visible : .collapsed
@@ -566,6 +704,8 @@ final class NetDeckWindows: SwiftApplication {
         macros.view.visibility = panel === macros.view ? .visible : .collapsed
         macroConfirm.view.visibility = panel === macroConfirm.view ? .visible : .collapsed
         if panel !== macroConfirm.view { macroConfirm.onConfirm = nil }
+        borrarSesion.view.visibility = panel === borrarSesion.view ? .visible : .collapsed
+        if panel !== borrarSesion.view { borrarSesion.onConfirm = nil }
         if panel == nil {
             focusTerminal()
             if startupUpdate != nil { onUI { $0.offerStartupUpdateIfIdle() } }
