@@ -14,6 +14,7 @@ public enum Idioma: String, CaseIterable, Identifiable, Sendable {
     /// Clave en UserDefaults (la app y su askpass, que es el mismo ejecutable, leen la misma).
     public static let clave = "idioma"
 
+    // Windows: UserDefaults guarda en HKCU\Software\Apple\... vía CFPreferences (implementado en Swift Foundation).
     private static let guardado = Mutex<Idioma>(UserDefaults.standard.string(forKey: clave).flatMap(Idioma.init) ?? .sistema)
 
     public static var actual: Idioma {

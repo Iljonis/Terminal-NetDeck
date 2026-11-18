@@ -16,3 +16,7 @@ tools/privacidad.local
 *.xcresult/
 .env
 .env.*
+
+# Salidas en bruto de las pruebas en Windows (llevan rutas y datos de quien las ejecuta): sólo se suben los .md
+windows/resultados/*.txt
+windows/resultados/*.log

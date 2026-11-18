@@ -1,6 +1,11 @@
 import Foundation
+#if canImport(Security)
 import Security
 
+/// Llavero de macOS. Los secretos se leen y guardan con /usr/bin/security, como NetDeck: las contraseñas guardadas así
+/// (con «pw» o desde aquí) confían en esa herramienta y NUNCA sale el aviso «… quiere usar la información confidencial»
+/// (que con una app sin firmar volvería a salir en cada compilación). Comprobar y listar usan SecItem sin leer el
+/// secreto: tampoco piden permiso. Nunca se guarda una contraseña en un archivo.
 /// Llavero de macOS. Los secretos se leen y guardan con /usr/bin/security, como NetDeck: las contraseñas guardadas así
 /// (con «pw» o desde aquí) confían en esa herramienta y NUNCA sale el aviso «… quiere usar la información confidencial»
 /// (que con una app sin firmar volvería a salir en cada compilación). Comprobar y listar usan SecItem sin leer el
@@ -132,11 +137,6 @@ public struct KeychainStore: CredentialStore {
          kSecAttrAccount as String: ref.account]
     }
 
-    /// Entre comillas para «security -i» (dentro, sólo «"» y «\\» se escapan).
-    static func quoted(_ s: String) -> String {
-        "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
-    }
-
     /// Lo más que se espera a `security` (si macOS pide la contraseña del Llavero y nadie contesta, se corta).
     static let timeout: TimeInterval = 10
 
@@ -172,6 +172,117 @@ public struct KeychainStore: CredentialStore {
             throw KeychainError(message: L("no contesta en \(Int(timeout)) s (¿está bloqueado?)"))
         }
         return (p.terminationStatus, String(decoding: o, as: UTF8.self), String(decoding: e, as: UTF8.self).trimmed)
+    }
+}
+
+#elseif os(Windows)
+import WinSDK
+
+/// Administrador de credenciales de Windows (credenciales genéricas del usuario, cifradas por el sistema). El destino
+/// es «servicio:cuenta» (netdeck:AD, netdeck-ssh:usuario@equipo) y el secreto va en el blob, en UTF-8, por la API:
+/// nunca en argumentos, en un archivo ni en los registros.
+public struct KeychainStore: CredentialStore {
+    public init() {}
+
+    static func prefix(_ service: CredentialRef.Service) -> String { service.rawValue + ":" }
+    static func target(_ ref: CredentialRef) -> String { prefix(ref.service) + ref.account }
+
+    public func password(for ref: CredentialRef) throws -> String? {
+        guard let cred = try Self.read(ref) else { return nil }
+        defer { CredFree(cred) }
+        let size = Int(cred.pointee.CredentialBlobSize)
+        guard size > 0, let blob = cred.pointee.CredentialBlob else { return "" }
+        guard let pw = String(bytes: UnsafeBufferPointer(start: blob, count: size), encoding: .utf8) else {
+            throw KeychainError(message: L("no se entiende la contraseña que devuelve"))
+        }
+        return pw
+    }
+
+    public func contains(_ ref: CredentialRef) -> Bool { (try? exists(ref)) ?? false }
+
+    public func exists(_ ref: CredentialRef) throws -> Bool {
+        guard let cred = try Self.read(ref) else { return false }
+        CredFree(cred)
+        return true
+    }
+
+    public func save(_ password: String, for ref: CredentialRef) throws {
+        try CredentialValidation.validate(password, for: ref)
+        var secret = Array(password.utf8)
+        defer { secret.withUnsafeMutableBytes { _ = memset($0.baseAddress, 0, $0.count) } }
+        let code: DWORD = secret.withUnsafeMutableBufferPointer { blob in
+            Self.target(ref).withCString(encodedAs: UTF16.self) { target in
+                ref.account.withCString(encodedAs: UTF16.self) { user in
+                    var cred = CREDENTIALW()
+                    cred.Type = DWORD(CRED_TYPE_GENERIC)
+                    cred.TargetName = UnsafeMutablePointer(mutating: target)
+                    cred.UserName = UnsafeMutablePointer(mutating: user)
+                    cred.CredentialBlobSize = DWORD(blob.count)
+                    cred.CredentialBlob = blob.baseAddress
+                    cred.Persist = DWORD(CRED_PERSIST_LOCAL_MACHINE)
+                    return CredWriteW(&cred, 0) ? 0 : GetLastError()
+                }
+            }
+        }
+        guard code == 0 else {
+            ErrorLog.error("llavero", "«\(ref)» no se ha guardado (CredWrite: error \(code))")
+            throw KeychainError(message: L("no se ha podido guardar la contraseña"))
+        }
+    }
+
+    /// (El Administrador de credenciales no tiene un alta «sólo si no existe»: se mira antes, sin ser atómico.)
+    public func create(_ password: String, for ref: CredentialRef) throws {
+        guard try !exists(ref) else { throw KeychainError(message: L("Ya existe una contraseña con ese nombre o cuenta")) }
+        try save(password, for: ref)
+    }
+
+    public func delete(_ ref: CredentialRef) throws {
+        let code: DWORD = Self.target(ref).withCString(encodedAs: UTF16.self) {
+            CredDeleteW($0, DWORD(CRED_TYPE_GENERIC), 0) ? 0 : GetLastError()
+        }
+        guard code == 0 || code == DWORD(ERROR_NOT_FOUND) else { throw Self.failure(code) }
+    }
+
+    public func accounts(in service: CredentialRef.Service) throws -> [String] {
+        let prefix = Self.prefix(service)
+        var count: DWORD = 0
+        var list: UnsafeMutablePointer<PCREDENTIALW?>?
+        let code: DWORD = (prefix + "*").withCString(encodedAs: UTF16.self) {
+            CredEnumerateW($0, 0, &count, &list) ? 0 : GetLastError()
+        }
+        if code == DWORD(ERROR_NOT_FOUND) { return [] }
+        guard code == 0, let list else { throw Self.failure(code) }
+        defer { CredFree(list) }
+        var out = Set<String>()
+        for i in 0..<Int(count) {
+            guard let cred = list[i], cred.pointee.Type == DWORD(CRED_TYPE_GENERIC), let name = cred.pointee.TargetName else { continue }
+            let target = String(decodingCString: name, as: UTF16.self)
+            if target.hasPrefix(prefix) { out.insert(String(target.dropFirst(prefix.count))) }
+        }
+        return out.sorted()
+    }
+
+    /// nil si no está (ERROR_NOT_FOUND). Quien la recibe la libera con CredFree.
+    private static func read(_ ref: CredentialRef) throws -> PCREDENTIALW? {
+        var cred: PCREDENTIALW?
+        let code: DWORD = target(ref).withCString(encodedAs: UTF16.self) {
+            CredReadW($0, DWORD(CRED_TYPE_GENERIC), 0, &cred) ? 0 : GetLastError()
+        }
+        if code == DWORD(ERROR_NOT_FOUND) { return nil }
+        guard code == 0, let cred else { throw failure(code) }
+        return cred
+    }
+
+    private static func failure(_ code: DWORD) -> KeychainError {
+        KeychainError(message: L("error \(String(code)) del Administrador de credenciales de Windows"))
+    }
+}
+#endif
+
+extension KeychainStore {
+    /// Entre comillas para "security -i" (dentro, solo "\\"" y "\\\\" se escapan).
+    public static func quoted(_ s: String) -> String {
+        "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
     }
 }
 

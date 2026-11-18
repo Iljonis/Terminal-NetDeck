@@ -43,14 +43,27 @@ Una pasada funcional en DEMO (`tools/verificar_demo.sh`, con `NETDECK_HOME` temp
 datos reales) que compruebe terminal, explorador SFTP/FTP, pestañas, temas, resaltado y menús, mirando las capturas.
 Después, un informe al autor: problemas detectados, arreglos y estado de `./test.sh` y `tools/privacidad.sh`. Con
 Claude: skill `netdeck-verificar-demo`.
+Excepción, aprobada por el autor el 2026-11-10: los commits hechos **desde Windows** en `propuesta/windows` y en las
+ramas `windows/*` no llevan demo (allí no hay app que probar todavía). Basta con `bash tools/privacidad.sh` en verde, el
+núcleo compilando en Windows (desde el paso P2), los tests con `windows/scripts/test.ps1` (desde P6) y el informe en
+`windows/ESTADO.md`. Nada de esas ramas se fusiona a `main` sin la pasada completa en el Mac (`./test.sh` + demo).
 
 ## Git
 - Autor `Jonay <jonayrr.jr@gmail.com>` (git config local del repo). Nunca el correo corporativo ni una línea de coautor.
 - Mensajes en castellano: un título corto, una línea en blanco y viñetas con el porqué.
 - Forzar un push (`--force`) o mover un tag, sólo si el autor lo pide expresamente.
+## Windows (port en curso)
+- El código Windows vive en `windows/`. Todo lo nuevo va tras `#if os(Windows)` o en archivos exclusivos del
+  target `NetDeckWindows`. El código de macOS no se toca.
+- **No usar Edit/Write de Claude en Windows** — generan archivos `.tmp` con BOM. Usar en su lugar:
+  `[System.IO.File]::WriteAllText(path, content, (New-Object System.Text.UTF8Encoding $false))`.
+- **No tocar** `.github/workflows/` ni `windows/scripts/test.ps1` — los gestiona Codex (CI).
+- Rama activa: `windows/p10-paquete`. Estado y próximos pasos: `windows/ESTADO.md`.
 
 ## Más detalle (léelo cuando el trabajo lo toque)
 - docs/agentes/agentes.md: qué agente o skill usar y cómo se fusiona su trabajo. Los agentes, para trabajo grande y
   revisiones.
 - docs/agentes/publicar.md: cambio de versión, tag y Release (con Claude, skill `netdeck-publicar`).
 - docs/agentes/arquitectura.md · docs/agentes/idiomas.md · docs/agentes/comandos.md.
+- `windows/CLAUDE.md`: guía completa del port Windows (ramas `windows/*`). **Si trabajas desde Windows,
+  léelo antes de nada**: allí no hay `./test.sh` ni demo y cambian los comandos.

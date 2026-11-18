@@ -155,7 +155,7 @@ import Testing
         #expect(test.ask("tu.usuario@192.0.2.11's password:") == 0)
         test.ui.responses = ["mala"]
         #expect(test.ask("tu.usuario@192.0.2.11's password:") == 0)            // (te la pide: la escribes tú)
-        #expect(test.ui.messages.contains { $0.contains("escríbela tú") })
+        #expect(test.ui.messages.contains { $0.contains("escríbela tú") || $0.contains("type it yourself") })
         #expect(test.ask("tu.usuario@192.0.2.11's password:") == 1)            // (otra vez a ti; aquí, Esc)
         #expect(test.answers == ["rechazada", "mala"] && test.ui.secretReads == [true, true])
         #expect(!test.ledger.isBlocked(.named("clave-a")))

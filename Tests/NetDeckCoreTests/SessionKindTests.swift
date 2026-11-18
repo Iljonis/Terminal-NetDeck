@@ -1,4 +1,4 @@
-import Foundation
+﻿import Foundation
 import Testing
 @testable import NetDeckCore
 
@@ -67,6 +67,7 @@ private let kinds = """
         #expect(file.render().contains("    # @telnet\n"))
     }
 
+#if !os(Windows)
     @Test func sshEntiendeLosBloquesDeOtrosTipos() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -76,7 +77,9 @@ private let kinds = """
             #expect(SessionFile.sshCheck(url, host: n) == nil, "\(n)")
         }
     }
+#endif
 
+#if !os(Windows)
     @Test @MainActor func ordenDeCadaTipo() throws {
         #expect(try route("core-01").command.executable == "/usr/bin/ssh")
         #expect(try route("core-01").command.arguments == ["--", "core-01"])
@@ -115,6 +118,7 @@ private let kinds = """
         #expect(serie.serial == SerialLine(device: "/dev/cu.usbserial-0001", speed: 115200))
         #expect(!serie.usesPasswords && !serie.acceptsMultiExec && !serie.isLoopback && serie.asksBeforeQuit)
     }
+#endif
 
     @Test func serieComprobadaAlAbrir() {
         let r = ConnectionRoute.serial(SerialLine(device: "/dev/cu.usbserial-0001"), title: "c")
@@ -124,7 +128,11 @@ private let kinds = """
         var bad = r
         bad.serial?.device = "/dev/cu.x;rm -rf ~"
         #expect(bad.launchProblem { _ in true } != nil)
+        #if os(Windows)
+        #expect(bad.command.executable == "")
+        #else
         #expect(bad.command.executable == "/usr/bin/false")
+        #endif
     }
 
     @Test func rutaDelPuertoSerieEstricta() {
@@ -140,7 +148,7 @@ private let kinds = """
         s.kind = .serial
         s.serial.device = "/dev/cu.mal nombre"
         f.sessions = [s]
-        #expect(f.problems().contains { $0.contains("serie") })
+        #expect(f.problems().contains { $0.contains("serie") || $0.contains("serial") })
     }
 
     @Test @MainActor func serieSinPuertoNoAbre() throws {

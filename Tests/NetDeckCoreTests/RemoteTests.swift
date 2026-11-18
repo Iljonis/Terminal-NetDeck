@@ -71,6 +71,14 @@ import Testing
 
 @Suite struct FTPParseTests {
     /// Respuestas de varias líneas (Pure-FTPd empieza el saludo con «220---------- Welcome…»).
+    #if os(Windows)
+    @Test func mlsdConFinalesCRLF() {
+        let bytes = Data("type=dir; carpeta\r\ntype=file; ejemplo.txt\r\n".utf8)
+        let entries = FTPParse.windowsListingLines(bytes).compactMap { FTPParse.mlsd($0, in: "/") }
+        #expect(entries.map(\.name) == ["carpeta", "ejemplo.txt"])
+    }
+    #endif
+
     @Test func respuestasDeVariasLineas() throws {
         let start = try FTPParse.replyStart("220---------- Welcome to Pure-FTPd ----------")
         #expect(start.code == 220 && start.more && start.text == "--------- Welcome to Pure-FTPd ----------")
@@ -679,7 +687,7 @@ final class RecordingFileSystem: RemoteFileSystem, @unchecked Sendable {
     @Test func ordenDelExploradorSFTP() {
         var r = ConnectionRoute(title: "f", target: Endpoint(user: "tu.usuario", host: "192.0.2.30", port: 2222), transport: .sftp)
         let c = r.sftpSubsystemCommand
-        #expect(c?.executable == "/usr/bin/ssh")
+        #expect(c?.executable == SystemTools.ssh)
         #expect(c?.arguments.suffix(8) == ["-s", "-p", "2222", "-l", "tu.usuario", "--", "192.0.2.30", "sftp"])
         #expect(c?.arguments.contains("ClearAllForwardings=yes") == true)
         r.alias = "ficheros-01"

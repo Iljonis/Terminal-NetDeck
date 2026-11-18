@@ -1,0 +1,37 @@
+# Changelog (Windows)
+
+Historial de cambios de la versión de Windows de Terminal NetDeck. Sigue el formato de
+[Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). El de la versión de macOS está en el [CHANGELOG de la raíz](../CHANGELOG.md).
+
+## 0.9.0 (próxima versión)
+
+Todavía no hay release pública. La versión 0.9.0 es la de `AppxManifest.xml`, `NetDeckWindows.wxs` y `UpdateChecker.currentVersion`; hay que
+decidir si la de Windows sigue el 1.0.0 de macOS antes de publicarla (ver [ESTADO.md](ESTADO.md)).
+
+### Añadido
+
+- Terminal SSH con ConPTY y múltiples pestañas
+- Explorador SFTP (listar, descargar, subir)
+- Túneles SSH (crear, iniciar, parar)
+- Editor de sesiones (nombre, grupo, equipo, usuario, puerto, tipo)
+- Ajustes (fuente, tamaño, tema: Mica / Claro / Oscuro) y colores del terminal con los 85 temas de NetDeck
+- Pegado seguro con confirmación
+- MultiExec: escribir en todas las pestañas a la vez
+- Asistente de primer arranque
+- Actualizador: busca nuevas versiones en GitHub y comprueba el sha256 y la firma antes de instalar
+- Askpass para las pestañas SSH, con entrada sin eco y almacenamiento en el Administrador de credenciales
+- Panel de macros (Ctrl+M), creación de listas de órdenes y reproducción con las protecciones de NetDeckCore
+- Atajos de teclado: `Ctrl+N`, `Ctrl+W`, `Ctrl+Tab`, `Ctrl+M`, `Ctrl+T` y `Ctrl+,`
+- Instalador `.msi` (WiX 4) y Sparse Package; compila, pero todavía no se ha probado instalado ni está firmado
+- El instalador comprueba que está el Windows App Runtime 1.5 y, si falta, se detiene con el enlace para instalarlo (no lo incluye)
+
+### Seguridad
+
+- La importación de sesiones sigue quitando las opciones que ejecutan órdenes, también con rutas de Windows
+- `ssh.exe` ya no hereda `SSH_ASKPASS`, `GIT_SSH` ni variables parecidas del proceso padre
+- El actualizador sólo acepta enlaces https de `github.com` del repositorio y rechaza instaladores sin firma válida
+
+### Notas
+
+- Primera versión pública de Windows. La versión macOS es 1.0.0.
+- Limitaciones conocidas: el askpass sólo se integra en pestañas SSH, FTP aún no está disponible y los temas de macOS sólo colorean el terminal (texto por trozos, sin fondo por celda ni negrita), no la interfaz.

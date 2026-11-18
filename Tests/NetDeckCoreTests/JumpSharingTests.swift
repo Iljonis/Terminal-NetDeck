@@ -1,4 +1,4 @@
-import Foundation
+﻿import Foundation
 import Testing
 @testable import NetDeckCore
 
@@ -38,7 +38,7 @@ private let config = """
         #expect(r.configJumps == ["bastion"])
         let s = try socket("tu.usuario@192.0.2.1")
         #expect(r.command(sharing: sharing).arguments == [
-            "-o", "ProxyCommand=/usr/bin/ssh -o ControlMaster=auto -o ControlPath=\(s) -o ControlPersist=120 -W '[%h]:%p' -- bastion",
+            "-o", "ProxyCommand=\(SystemTools.ssh) -o ControlMaster=auto -o ControlPath=\(s) -o ControlPersist=120 -W '[%h]:%p' -- bastion",
             "--", "core-01"])
         // (desactivado: igual que siempre, ssh lee el ProxyJump del ssh_config)
         #expect(r.command(sharing: nil).arguments == ["--", "core-01"])
@@ -71,12 +71,12 @@ private let config = """
             "-t", "-o", "ControlMaster=auto", "-o", "ControlPath=\(s)", "-o", "ControlPersist=120",
             "--", "tu.usuario@192.0.2.1", "telnet", "192.0.2.21"])
         let f = try manager.route(to: #require(manager.profile(named: "ficheros-01")))
-        #expect(f.command(sharing: sharing).executable == "/usr/bin/sftp")
+        #expect(f.command(sharing: sharing).executable == SystemTools.sftp)
         #expect(f.command(sharing: sharing).arguments.suffix(2) == ["--", "ficheros-01"])
         #expect(f.command(sharing: sharing).arguments[1].contains("ControlPath=\(s) "))
         let sub = try #require(f.sftpSubsystemCommand(sharing: sharing))
         #expect(sub.arguments.suffix(3) == ["--", "ficheros-01", "sftp"])
-        #expect(sub.arguments.contains { $0.hasPrefix("ProxyCommand=/usr/bin/ssh ") && $0.contains("ControlPath=\(s) ") })
+        #expect(sub.arguments.contains { $0.hasPrefix("ProxyCommand=\(SystemTools.ssh) ") && $0.contains("ControlPath=\(s) ") })
         #expect(f.sftpSubsystemCommand(sharing: nil)?.arguments == f.sftpSubsystemCommand?.arguments)
         #expect(f.sftpSubsystemCommand?.arguments.contains { $0.hasPrefix("ProxyCommand") } == false)
     }
@@ -88,7 +88,11 @@ private let config = """
         let core = try manager.route(to: #require(manager.profile(named: "core-01")))
         let h = try #require(try manager.typedHop(for: core))
         #expect(h.command(sharing: sharing).arguments == ["--", "bastion"])
+        #if os(Windows)
+        #expect(ConnectionRoute.local(shell: "/bin/zsh", allowed: ["/bin/zsh"]).command(sharing: sharing).arguments == [])
+        #else
         #expect(ConnectionRoute.local(shell: "/bin/zsh", allowed: ["/bin/zsh"]).command(sharing: sharing).arguments == ["-l"])
+        #endif
     }
 
     /// Lo que va al ProxyCommand pasa por la shell: con cualquier cosa rara, -J como siempre (ssh no usa shell para -J).
@@ -122,6 +126,7 @@ private let config = """
         #expect(JumpSharing(directory: "/tmp/con espacio").socket(for: ["bastion"]) == nil)
     }
 
+    #if !os(Windows)
     @Test func carpetaPropia0700() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString.prefix(8).description)
         try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
@@ -137,6 +142,7 @@ private let config = """
         try FileManager.default.createSymbolicLink(atPath: trap.appendingPathComponent("nd").path, withDestinationPath: other.path)
         #expect(JumpSharing.standard(base: trap.path) == nil)
     }
+    #endif
 
     @Test func avisoDeReenvioRechazadoTambienMultiplexado() {
         #expect(ConnectionRoute.forwardingRefused(["Stdio forwarding request failed: Session open refused by peer"]))

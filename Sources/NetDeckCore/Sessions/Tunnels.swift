@@ -1,4 +1,9 @@
+#if os(Windows)
+import WinSDK
+public typealias UUID = Foundation.UUID  // Resolve WinSDK.UUID vs Foundation.UUID
+#else
 import Darwin
+#endif
 import Foundation
 import Observation
 
@@ -94,7 +99,14 @@ public struct Tunnel: Codable, Hashable, Sendable, Identifiable {
         let a = unbracket(address.trimmed).lowercased()
         if a == "localhost" { return true }
         var v4 = in_addr()
-        if inet_pton(AF_INET, a, &v4) == 1 { return UInt32(bigEndian: v4.s_addr) >> 24 == 127 }
+        if inet_pton(AF_INET, a, &v4) == 1 {
+            #if os(Windows)
+            let raw = withUnsafeBytes(of: &v4) { $0.load(as: UInt32.self) }
+            return UInt32(bigEndian: raw) >> 24 == 127
+            #else
+            return UInt32(bigEndian: v4.s_addr) >> 24 == 127
+            #endif
+        }
         var v6 = in6_addr()
         guard inet_pton(AF_INET6, a, &v6) == 1 else { return false }
         let b = withUnsafeBytes(of: &v6) { Array($0) }
@@ -206,7 +218,7 @@ public struct Tunnel: Codable, Hashable, Sendable, Identifiable {
         guard !r.isLocal, r.transport == .ssh || r.transport == .sftp else { throw TunnelError.notSSH(r.title) }
         r.transport = .ssh
         let cmd = r.command(sharing: sharing, configFile: configFile)
-        guard cmd.executable == "/usr/bin/ssh", let dash = cmd.arguments.lastIndex(of: "--") else { throw TunnelError.notSSH(r.title) }
+        guard cmd.executable == SystemTools.ssh, let dash = cmd.arguments.lastIndex(of: "--") else { throw TunnelError.notSSH(r.title) }
         // (su propia conexión, sin ControlMaster: parar el túnel cierra justo ésa y no deja nada abierto detrás;
         // LogLevel=VERBOSE: «Authenticated to …» dice cuándo ha entrado, para el -R)
         let opts = ["-N", "-T", "-x", "-a",
@@ -236,7 +248,7 @@ public struct Tunnel: Codable, Hashable, Sendable, Identifiable {
     }
 
     static func configurationProblem(_ output: String) -> String? {
-        let fields = output.split(separator: "\n").map { $0.split(whereSeparator: \.isWhitespace).map(String.init) }
+        let fields = output.split(whereSeparator: \.isNewline).map { $0.split(whereSeparator: \.isWhitespace).map(String.init) }
         if fields.contains(where: { ["localforward", "remoteforward", "dynamicforward"].contains($0.first?.lowercased() ?? "") }) {
             return L("El ssh_config añade LocalForward, RemoteForward o DynamicForward a esta conexión. Usa una sesión sin reenvíos heredados para iniciar sólo este túnel.")
         }
@@ -356,13 +368,23 @@ public struct TunnelLibrary: Sendable, Equatable {
             try fm.moveItem(at: url, to: held)
             do {
                 try write(text, url)
-                if fm.fileExists(atPath: aside.path) { _ = try fm.replaceItemAt(aside, withItemAt: held) }
-                else { try fm.moveItem(at: held, to: aside) }
+                if fm.fileExists(atPath: aside.path) {
+                    #if os(Windows)
+                    try fm.removeItem(at: aside); try fm.moveItem(at: held, to: aside)
+                    #else
+                    _ = try fm.replaceItemAt(aside, withItemAt: held)
+                    #endif
+                } else { try fm.moveItem(at: held, to: aside) }
             } catch {
                 // (la copia .ilegible anterior sólo se sustituye tras escribir; si falla, vuelve el archivo original)
                 if fm.fileExists(atPath: held.path) {
-                    if fm.fileExists(atPath: url.path) { _ = try fm.replaceItemAt(url, withItemAt: held) }
-                    else { try fm.moveItem(at: held, to: url) }
+                    if fm.fileExists(atPath: url.path) {
+                        #if os(Windows)
+                        try fm.removeItem(at: url); try fm.moveItem(at: held, to: url)
+                        #else
+                        _ = try fm.replaceItemAt(url, withItemAt: held)
+                        #endif
+                    } else { try fm.moveItem(at: held, to: url) }
                 }
                 throw error
             }
@@ -390,6 +412,43 @@ public enum PortCheck {
     /// Por qué no se puede escuchar en `address:port` en este Mac (otro lo usa, la dirección no es de este Mac…), o nil
     /// si está libre. Bind de prueba con SO_REUSEADDR, como hace ssh. «*»: todas las direcciones.
     public static func problem(address: String, port: Int) -> String? {
+        #if os(Windows)
+        var startup = WSADATA()
+        guard WSAStartup(0x0202, &startup) == 0 else { return L("no se encuentra la dirección «\(address)»") }
+        defer { WSACleanup() }
+        var hints = addrinfo()
+        hints.ai_socktype = SOCK_STREAM
+        hints.ai_flags = AI_PASSIVE
+        var list: UnsafeMutablePointer<addrinfo>?
+        let host: String? = address == "*" ? nil : address
+        guard getaddrinfo(host, String(port), &hints, &list) == 0, let first = list else {
+            return L("no se encuentra la dirección «\(address)»")
+        }
+        defer { freeaddrinfo(list) }
+        var p: UnsafeMutablePointer<addrinfo>? = first
+        while let ai = p {
+            p = ai.pointee.ai_next
+            let sock = socket(ai.pointee.ai_family, ai.pointee.ai_socktype, ai.pointee.ai_protocol)
+            guard sock != INVALID_SOCKET else { continue }
+            defer { closesocket(sock) }
+            var one: Int32 = 1
+            setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, Int32(MemoryLayout<Int32>.size))
+            if ai.pointee.ai_family == AF_INET6 {
+                setsockopt(sock, Int32(IPPROTO_IPV6.rawValue), IPV6_V6ONLY, &one, Int32(MemoryLayout<Int32>.size))
+            }
+            if bind(sock, ai.pointee.ai_addr, Int32(ai.pointee.ai_addrlen)) != 0 {
+                let e = WSAGetLastError()
+                if e == WSAEADDRNOTAVAIL && ai.pointee.ai_family == AF_INET6 && host == nil { continue }
+                switch e {
+                case WSAEADDRINUSE:    return L("el puerto \(String(port)) ya está en uso en \(address)")
+                case WSAEACCES:        return L("sin permiso para escuchar en el puerto \(String(port))")
+                case WSAEADDRNOTAVAIL: return L("«\(address)» no es una dirección de este equipo")
+                default:               return L("no se puede escuchar en \(address):\(String(port)) (\(String(e)))")
+                }
+            }
+        }
+        return nil
+        #else
         var hints = addrinfo()
         hints.ai_socktype = SOCK_STREAM
         hints.ai_flags = AI_PASSIVE
@@ -422,10 +481,41 @@ public enum PortCheck {
             }
         }
         return nil
+        #endif
     }
 
     /// ¿Alguien escucha ya en `address:port`? (conexión de prueba; «*» y 0.0.0.0 se prueban en 127.0.0.1, «::» en ::1)
     public static func isListening(address: String, port: Int, timeout: Int32 = 300) -> Bool {
+        #if os(Windows)
+        let a = address == "*" || address == "0.0.0.0" ? "127.0.0.1" : address == "::" ? "::1" : address
+        var startup = WSADATA()
+        guard WSAStartup(0x0202, &startup) == 0 else { return false }
+        defer { WSACleanup() }
+        var hints = addrinfo()
+        hints.ai_socktype = SOCK_STREAM
+        var list: UnsafeMutablePointer<addrinfo>?
+        guard getaddrinfo(a, String(port), &hints, &list) == 0, let first = list else { return false }
+        defer { freeaddrinfo(list) }
+        var p: UnsafeMutablePointer<addrinfo>? = first
+        while let ai = p {
+            p = ai.pointee.ai_next
+            let sock = socket(ai.pointee.ai_family, ai.pointee.ai_socktype, ai.pointee.ai_protocol)
+            guard sock != INVALID_SOCKET else { continue }
+            defer { closesocket(sock) }
+            var mode: UInt32 = 1
+            ioctlsocket(sock, FIONBIO, &mode)
+            if connect(sock, ai.pointee.ai_addr, Int32(ai.pointee.ai_addrlen)) == 0 { return true }
+            guard WSAGetLastError() == WSAEWOULDBLOCK else { continue }
+            var pfd = WSAPOLLFD()
+            pfd.fd = sock
+            pfd.events = Int16(POLLWRNORM)
+            pfd.revents = 0
+            guard WSAPoll(&pfd, 1, timeout) == 1 else { continue }
+            var err: Int32 = 0, len: Int32 = Int32(MemoryLayout<Int32>.size)
+            if getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &len) == 0, err == 0 { return true }
+        }
+        return false
+        #else
         let a = address == "*" || address == "0.0.0.0" ? "127.0.0.1" : address == "::" ? "::1" : address
         var hints = addrinfo()
         hints.ai_socktype = SOCK_STREAM
@@ -450,6 +540,7 @@ public enum PortCheck {
             if getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &len) == 0, err == 0 { return true }
         }
         return false
+        #endif
     }
 }
 
@@ -506,10 +597,33 @@ public final class TunnelProcess: @unchecked Sendable {
     private var status: Int32?
     private let stderr: FileHandle
     private let captureOutput: Bool
+    #if os(Windows)
+    private var windowsProcess: Process?
+    #else
     private var exitSource: DispatchSourceProcess?
+    #endif
 
     public init(executable: String, arguments: [String], environment: [String: String], captureOutput: Bool = false) throws {
         let errPipe = Pipe()
+
+        #if os(Windows)
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: executable)
+        proc.arguments = arguments
+        proc.environment = environment
+        proc.standardInput = FileHandle.nullDevice
+        if captureOutput {
+            proc.standardOutput = errPipe
+        } else {
+            proc.standardOutput = FileHandle.nullDevice
+        }
+        proc.standardError = errPipe
+        do { try proc.run() } catch {
+            throw TunnelError.invalid(L("No arranca \(executable): \(error.localizedDescription)"))
+        }
+        try? errPipe.fileHandleForWriting.close()
+        let child: pid_t = proc.processIdentifier
+        #else
         var actions: posix_spawn_file_actions_t?
         posix_spawn_file_actions_init(&actions)
         defer { posix_spawn_file_actions_destroy(&actions) }
@@ -538,9 +652,32 @@ public final class TunnelProcess: @unchecked Sendable {
         let rc = posix_spawn(&child, executable, &actions, &attr, argv, envp)
         try? errPipe.fileHandleForWriting.close()
         guard rc == 0 else { throw TunnelError.invalid(L("No arranca \(executable): \(String(cString: strerror(rc)))")) }
+        #endif
+
         pid = child
         self.captureOutput = captureOutput
         stderr = errPipe.fileHandleForReading
+
+        #if os(Windows)
+        stderr.readabilityHandler = { [weak self] h in
+            guard let self else { return }
+            let d = h.availableData
+            guard !d.isEmpty else { h.readabilityHandler = nil; return }
+            self.lock.withLock { self.appendOutput(d) }
+        }
+        windowsProcess = proc
+        proc.terminationHandler = { [weak self] p in
+            guard let self else { return }
+            self.stderr.readabilityHandler = nil
+            // (lo que quedaba por leer, antes de dar el proceso por terminado: si no, `exited` podia ser true con la
+            // salida a medias y «ssh -G» parecia incompleto)
+            let rest = (try? self.stderr.readToEnd()) ?? nil
+            self.lock.withLock {
+                if let rest, !rest.isEmpty { self.appendOutput(rest) }
+                self.status = p.terminationStatus
+            }
+        }
+        #else
         let fd = stderr.fileDescriptor
         _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
         stderr.readabilityHandler = { [weak self] h in
@@ -552,8 +689,25 @@ public final class TunnelProcess: @unchecked Sendable {
         exitSource = src
         src.resume()
         reap()                                                 // (también si salió antes de instalar el aviso)
+        #endif
     }
 
+    #if os(Windows)
+    /// Con el candado tomado: añade lo leido, con el mismo tope que en macOS.
+    private func appendOutput(_ d: Data) {
+        let limit = captureOutput ? 1_048_576 : 8000
+        if captureOutput {
+            if output.count + d.count > limit { truncated = true }
+            let take = min(d.count, max(0, limit - output.count))
+            if take > 0 { output.append(d.prefix(take)) }
+        } else {
+            output.append(contentsOf: d)
+            if output.count > limit { output = Data(output.suffix(4000)) }
+        }
+    }
+    #endif
+
+    #if !os(Windows)
     // (con lock: el lector y la recogida final nunca compiten por la tubería; no se espera un EOF de un nieto)
     private func readOutput() -> Bool {
         var bytes = [UInt8](repeating: 0, count: 8192)
@@ -589,9 +743,13 @@ public final class TunnelProcess: @unchecked Sendable {
         }
         if exited { stderr.readabilityHandler = nil; exitSource?.cancel() }
     }
+    #endif
 
     deinit {
         stderr.readabilityHandler = nil
+        #if os(Windows)
+        windowsProcess?.terminate()
+        #else
         exitSource?.cancel()
         signal(SIGKILL)
         if !exited {
@@ -601,11 +759,17 @@ public final class TunnelProcess: @unchecked Sendable {
                 repeat { result = waitpid(child, &st, 0) } while result < 0 && errno == EINTR
             }
         }
+        #endif
     }
 
     public var exited: Bool { lock.withLock { status != nil } }
     /// Recoge el proceso si ya ha salido, sin esperar al aviso de salida (con la máquina cargada puede tardar segundos).
-    func reapIfExited() -> Bool { reap(); return exited }
+    func reapIfExited() -> Bool {
+        #if !os(Windows)
+        reap()
+        #endif
+        return exited
+    }
     public var exitStatus: Int32? { lock.withLock { status } }
     public var errorOutput: String { lock.withLock { String(decoding: output, as: UTF8.self) } }
     public var outputTruncated: Bool { lock.withLock { truncated } }
@@ -614,7 +778,11 @@ public final class TunnelProcess: @unchecked Sendable {
     public func signal(_ sig: Int32) {
         lock.withLock {
             guard status == nil else { return }
+            #if os(Windows)
+            windowsProcess?.terminate()
+            #else
             if killpg(pid, sig) != 0 { kill(pid, sig) }
+            #endif
         }
     }
 
@@ -796,10 +964,22 @@ public final class TunnelManager {
         guard !all.isEmpty else { return }
         for run in all.values { run.stopping = true; run.process.signal(SIGTERM) }
         let deadline = Date().addingTimeInterval(wait)
-        while all.values.contains(where: { !$0.process.reapIfExited() }), Date() < deadline { usleep(20_000) }
+        while all.values.contains(where: { !$0.process.reapIfExited() }), Date() < deadline {
+            #if os(Windows)
+            Thread.sleep(forTimeInterval: 0.02)
+            #else
+            usleep(20_000)
+            #endif
+        }
         all.values.filter { !$0.process.exited }.forEach { $0.process.signal(SIGKILL) }
         let end = Date().addingTimeInterval(2)
-        while all.values.contains(where: { !$0.process.reapIfExited() }), Date() < end { usleep(20_000) }
+        while all.values.contains(where: { !$0.process.reapIfExited() }), Date() < end {
+            #if os(Windows)
+            Thread.sleep(forTimeInterval: 0.02)
+            #else
+            usleep(20_000)
+            #endif
+        }
         for (id, run) in all { finish(id, run, .stopped) }
         DebugLog.log("tuneles", "parados al salir: \(all.count)")
     }

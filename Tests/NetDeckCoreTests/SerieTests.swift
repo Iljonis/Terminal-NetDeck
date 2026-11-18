@@ -1,3 +1,4 @@
+﻿#if !os(Windows)
 import Foundation
 import Darwin
 import Testing
@@ -291,3 +292,4 @@ private final class SerialObservation: @unchecked Sendable {
         #expect(owned >= 0 && fcntl(owned, F_GETFD) & FD_CLOEXEC != 0)
     }
 }
+#endif

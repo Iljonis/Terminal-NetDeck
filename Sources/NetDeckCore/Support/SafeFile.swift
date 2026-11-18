@@ -30,7 +30,12 @@ public enum SafeFile {
         try? fm.removeItem(at: tmp)
         try fm.copyItem(at: url, to: tmp)
         if fm.fileExists(atPath: prev.path) {
+            #if os(Windows)
+            try fm.removeItem(at: prev)
+            try fm.moveItem(at: tmp, to: prev)
+            #else
             _ = try fm.replaceItemAt(prev, withItemAt: tmp)
+            #endif
         } else {
             try fm.moveItem(at: tmp, to: prev)
         }
@@ -40,5 +45,10 @@ public enum SafeFile {
     public static func write(_ text: String, to url: URL) throws {
         try Data(text.utf8).write(to: url, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        #if os(Windows)
+        // El 0600 de Windows: ACL sólo para ti y SYSTEM, sin heredar la de la carpeta. Si el volumen no tiene ACL
+        // (FAT, algunas unidades de red) no es un error: el archivo ya está escrito.
+        WindowsACL.restrict(url, directory: false)
+        #endif
     }
 }
