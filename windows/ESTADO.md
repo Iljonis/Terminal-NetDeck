@@ -1,3 +1,18 @@
+## 2026-11-18 · Windows · P22-EdicionRemota: panel de edición de ficheros remotos
+
+- Nuevo fichero `windows/Desktop/Sources/NetDeckWindows/EdicionRemota.swift`.
+- `PanelEdicionRemota`: panel WinUI con `ScrollViewer` como raíz (patrón habitual). Permite al usuario indicar nombre de sesión + ruta remota y lanzar una descarga vía callback `onDescargar`.
+- Struct `RemoteEdit` rastrea cada edición activa: sesión, ruta remota, URL local, estado, fecha de última modificación y `Task` de vigilancia.
+- Polling cada 2 s con `Task.sleep(nanoseconds:)`: compara `modificationDate` del fichero local; si cambió llama `onSubir` para re-subirlo.
+- `stop(_ id:)` cancela el Task y elimina la entrada.
+- Integración en `NetDeckWindows.swift` pendiente (callbacks `onDescargar`/`onSubir` apuntarán al explorador SFTP existente).
+
+## 2026-11-18 · Windows · P22a: HojaConexion — modal de conexión rápida
+
+- `HojaConexion.swift`: panel WinUI 3 con TextBox equipo (Hoja_Host), salto SSH opcional (Hoja_Salto), usuario (Hoja_Usuario), ComboBox transporte SSH/Telnet/SFTP/FTP/Serial/Local (Hoja_Transporte), botones Conectar (Hoja_Conectar) y Cancelar (Hoja_Cancelar).
+- `show()` resetea campos y pone foco en hostBox. `onConectar` callback con (host, jumpHost?, usuario, SessionTransport).
+- Integración en NetDeckWindows.swift pendiente.
+
 ## 2026-11-18 · Windows · P16: sidebar búsqueda + favoritas + recientes
 
 - buildSidebar(filter:): TextBox de búsqueda (Sidebar_Buscar) con reconstrucción incremental al escribir. Cuando el filtro está vacío se muestran secciones «↻ Recientes» y «★ Favoritas» antes de los grupos existentes.
