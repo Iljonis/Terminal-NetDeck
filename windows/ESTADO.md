@@ -1,3 +1,13 @@
+## 2026-11-18 · Windows · P21-SidebarAvanzada: grupos plegables, menú contextual y borrar sesión
+
+- `buildSidebar`: búsqueda extendida por nombre, host y usuario; grupos plegables con persistencia en `UserDefaults` (clave `"ndGruposPlegados"`).
+- `makeSidebarGrupoHeader`: cabecera de grupo plegable con chevron (▶/▼) que activa/desactiva el grupo al hacer clic.
+- `makeSidebarRow`: punto indicador (●) si la sesión está abierta en un terminal; menú contextual al hacer clic derecho (Conectar, Editar, Duplicar, Añadir/Quitar favoritas, separador, Borrar sesión).
+- Nuevas funciones: `duplicateProfile`, `confirmDeleteProfile`, `deleteProfile`, `recargarSesiones`.
+- `showPanel`: gestiona visibilidad y limpieza de `borrarSesion` igual que `macroConfirm`.
+- `onLaunched`: `borrarSesion` incluido en el loop de paneles; footer del sidebar reemplazado por `piedePie` (StackPanel) con botón Nueva sesión + botón Recargar (↺).
+- `Ingles.swift`: traducciones para "Borrar sesión", "Recargar sesiones", "Sesiones recargadas", "Esta acción no se puede deshacer.", "Sesión borrada", "No se puede borrar".
+
 ## 2026-11-18 · Windows · P23-ImportadorSesiones: panel de importación de sesiones
 
 - Nuevo fichero `windows/Desktop/Sources/NetDeckWindows/ImportadorSesiones.swift`.
