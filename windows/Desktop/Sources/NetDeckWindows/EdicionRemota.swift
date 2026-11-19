@@ -2,9 +2,9 @@ import Foundation
 import NetDeckCore
 import WinUI
 
-// MARK: - RemoteEdit
+// MARK: - EdicionPendiente
 
-struct RemoteEdit {
+struct EdicionPendiente {
     let id: UUID
     let sessionName: String
     let remotePath: String
@@ -22,7 +22,7 @@ final class PanelEdicionRemota {
     var onDescargar: ((String, String, URL, @escaping (String) -> Void) async throws -> Void)?
     var onSubir: ((URL, String, String, @escaping (String) -> Void) async throws -> Void)?
 
-    private var ediciones: [RemoteEdit] = []
+    private var ediciones: [EdicionPendiente] = []
     private let form = StackPanel()
     private let listaPanel = StackPanel()
     private let sesionBox = TextBox()
@@ -106,7 +106,7 @@ final class PanelEdicionRemota {
         let localURL = tempDir.appendingPathComponent("\(sesion)_\(nombre)")
 
         estadoLabel.text = L("Descargando\u{2026}")
-        let edit = RemoteEdit(id: UUID(), sessionName: sesion, remotePath: ruta,
+        let edit = EdicionPendiente(id: UUID(), sessionName: sesion, remotePath: ruta,
                               localURL: localURL, estado: L("Descargando\u{2026}"), lastMod: nil)
         ediciones.append(edit)
         reloadLista()

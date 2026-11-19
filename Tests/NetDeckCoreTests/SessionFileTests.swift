@@ -125,6 +125,30 @@ private let netdeckFile = """
         #expect(r.skipped.contains { $0.1 == "RDP" })
     }
 
+    #if os(Windows)
+    @Test func mobaConfLeeSoloMarcadoresDespuesDeLaConfiguracion() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mobaconf")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let text = """
+            [Misc]
+            Padding=\(String(repeating: "x", count: 22_000))
+            [Passwords]
+            marcador-ficticio=#109#0%203.0.113.9%22%admin
+            [Bookmarks_2]
+            SubRep=Inventario\\Core
+            core-01=#109#0%192.0.2.11%2222%tu.usuario
+            """
+        try text.write(to: url, atomically: true, encoding: .utf8)
+        let result = SessionImporter.read(url, existing: [])
+        #expect(result.format == "MobaXterm")
+        #expect(result.sessions.map(\.name) == ["core-01"])
+        #expect(result.sessions.first?.group == "Inventario/Core")
+        #expect(result.sessions.first?.port == "2222")
+        #expect(result.sessions.first?.credential.isEmpty == true)
+    }
+
+    #endif
+
     @Test func mobaXtermConTelnetYRepetidos() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mxtsessions")
         defer { try? FileManager.default.removeItem(at: url) }

@@ -1,79 +1,117 @@
+import Foundation
 import NetDeckCore
-import struct UWP.Color
 import struct WindowsFoundation.Point
+import struct WindowsFoundation.Rect
+import struct WindowsFoundation.Size
 import WinUI
 
-/// Capas visuales estáticas que dejan pasar el ratón y el teclado al terminal.
+/// La misma superposición que ScreenFilterOverlay: se actualiza al cambiar de filtro o tamaño y deja pasar el ratón.
 final class FiltroTerminal {
     let view = Grid()
-    private var dibujado: ScreenLook?
+    private var look: ScreenLook?
 
-    init() { view.isHitTestVisible = false }
+    init() {
+        view.isHitTestVisible = false
+        view.sizeChanged.addHandler { [weak self] _, _ in self?.dibujar() }
+    }
 
     func apply(_ look: ScreenLook?) {
-        guard look != dibujado else { return }
-        dibujado = look
+        guard look != self.look else { return }
+        self.look = look
+        dibujar()
+    }
+
+    private func dibujar() {
         view.children.clear()
-        guard let look else { return }
-        if let tint = look.tint { layer(SolidColorBrush(color(tint))) }
-        if let glow = look.glow {
-            let center = RadialGradientBrush()
-            center.gradientStops.append(stop(0, glow))
-            center.gradientStops.append(stop(1, glow.alpha(0)))
-            layer(center)
-        }
-        if let scan = look.scan { stripes(scan, vertical: false) }
-        if let grid = look.grid {
-            stripes(grid, vertical: false)
-            stripes(grid, vertical: true)
-        }
+        let ancho = view.actualWidth, alto = view.actualHeight
+        guard let look, ancho > 0, alto > 0 else { return }
+        if let velo = look.tint { capa(EstiloMac.pincel(velo)) }
+        if let halo = look.glow { radial(ancho, alto, [(0, halo), (1, halo.alpha(0))]) }
+        if let barrido = look.scan { lineas(barrido, ancho, alto, cuadricula: false) }
+        if let rejilla = look.grid { lineas(rejilla, ancho, alto, cuadricula: true) }
         if look.vignette > 0 {
-            let shadow = RGB(0, 0, 0, look.vignette / 2)
-            for vertical in [false, true] {
-                let edge = gradient(vertical: vertical, extent: 1)
-                edge.gradientStops.append(stop(0, shadow))
-                edge.gradientStops.append(stop(0.18, shadow.alpha(0)))
-                edge.gradientStops.append(stop(0.82, shadow.alpha(0)))
-                edge.gradientStops.append(stop(1, shadow))
-                layer(edge)
+            radial(ancho, alto, [(0.55, RGB.black.alpha(0)), (1, RGB.black.alpha(look.vignette))])
+        }
+        if look.curve > 0 { esquinas(ancho, alto, radio: look.curve, alfa: look.cornerAlpha) }
+    }
+
+    private func lineas(_ lineas: ScreenLook.Lines, _ ancho: Double, _ alto: Double, cuadricula: Bool) {
+        guard lineas.every > 0, lineas.width > 0 else { return }
+        let dibujo = GeometryGroup()
+        dibujo.fillRule = .nonzero
+        for y in stride(from: 0.0, to: alto, by: lineas.every) {
+            dibujo.children.append(rect(0, alto - y - min(lineas.width, alto - y), ancho, min(lineas.width, alto - y)))
+        }
+        if cuadricula {
+            for x in stride(from: 0.0, to: ancho, by: lineas.every) {
+                dibujo.children.append(rect(x, 0, min(lineas.width, ancho - x), alto))
             }
         }
+        forma(dibujo, color: lineas.color)
     }
 
-    private func stripes(_ lines: ScreenLook.Lines, vertical: Bool) {
-        let brush = gradient(vertical: vertical, extent: lines.every)
-        brush.mappingMode = BrushMappingMode(rawValue: 0)  // Absolute
-        brush.spreadMethod = GradientSpreadMethod(rawValue: 2)  // Repeat
-        let end = lines.width / lines.every
-        brush.gradientStops.append(stop(0, lines.color))
-        brush.gradientStops.append(stop(end, lines.color))
-        brush.gradientStops.append(stop(end, lines.color.alpha(0)))
-        brush.gradientStops.append(stop(1, lines.color.alpha(0)))
-        layer(brush)
+    private func radial(_ ancho: Double, _ alto: Double, _ pasos: [(Double, RGB)]) {
+        let radio = hypot(ancho, alto) / 2
+        let pincel = RadialGradientBrush()
+        pincel.mappingMode = .relativeToBoundingBox
+        pincel.center = Point(x: 0.5, y: 0.5)
+        pincel.gradientOrigin = pincel.center
+        pincel.radiusX = radio / ancho
+        pincel.radiusY = radio / alto
+        for (posicion, color) in pasos {
+            let paso = GradientStop()
+            paso.offset = posicion
+            paso.color = EstiloMac.pincel(color).color
+            pincel.gradientStops.append(paso)
+        }
+        capa(pincel)
     }
 
-    private func gradient(vertical: Bool, extent: Double) -> LinearGradientBrush {
-        let brush = LinearGradientBrush()
-        brush.startPoint = Point(x: 0, y: 0)
-        brush.endPoint = Point(x: vertical ? Float(extent) : 0, y: vertical ? 0 : Float(extent))
-        return brush
+    private func esquinas(_ ancho: Double, _ alto: Double, radio: Double, alfa: Double) {
+        let r = min(radio, ancho / 2, alto / 2)
+        let hueco = PathGeometry()
+        let borde = PathFigure()
+        borde.isClosed = true
+        borde.startPoint = punto(r, 0)
+        let lados = [(ancho - r, 0, ancho, r), (ancho, alto - r, ancho - r, alto),
+                     (r, alto, 0, alto - r), (0, r, r, 0)]
+        for (x, y, finX, finY) in lados {
+            let recta = LineSegment()
+            recta.point = punto(x, y)
+            borde.segments.append(recta)
+            let curva = ArcSegment()
+            curva.point = punto(finX, finY)
+            curva.size = Size(width: Float(r), height: Float(r))
+            curva.sweepDirection = .clockwise
+            borde.segments.append(curva)
+        }
+        hueco.figures.append(borde)
+        let mascara = GeometryGroup()
+        mascara.fillRule = .evenOdd
+        mascara.children.append(rect(0, 0, ancho, alto))
+        mascara.children.append(hueco)
+        forma(mascara, color: RGB.black.alpha(alfa))
     }
 
-    private func layer(_ brush: Brush) {
-        let overlay = Border()
-        overlay.background = brush
-        view.children.append(overlay)
+    private func punto(_ x: Double, _ y: Double) -> Point { Point(x: Float(x), y: Float(y)) }
+
+    private func rect(_ x: Double, _ y: Double, _ ancho: Double, _ alto: Double) -> RectangleGeometry {
+        let r = RectangleGeometry()
+        r.rect = Rect(x: Float(x), y: Float(y), width: Float(ancho), height: Float(alto))
+        return r
     }
 
-    private func stop(_ offset: Double, _ rgb: RGB) -> GradientStop {
-        let stop = GradientStop()
-        stop.offset = offset
-        stop.color = color(rgb)
-        return stop
+    private func forma(_ geometria: Geometry, color: RGB) {
+        let dibujo = WinUI.Path()
+        dibujo.data = geometria
+        dibujo.fill = EstiloMac.pincel(color)
+        dibujo.stretch = .none
+        view.children.append(dibujo)
     }
 
-    private func color(_ rgb: RGB) -> Color {
-        func channel(_ v: Double) -> UInt8 { UInt8(max(0, min(255, v.rounded()))) }
-        return Color(a: channel(rgb.a * 255), r: channel(rgb.r), g: channel(rgb.g), b: channel(rgb.b))
+    private func capa(_ pincel: Brush) {
+        let borde = Border()
+        borde.background = pincel
+        view.children.append(borde)
     }
 }

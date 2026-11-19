@@ -114,13 +114,13 @@ public enum FileLock {
 
 // abre un archivo nuevo sin seguir reparse points (el O_EXCL+O_NOFOLLOW seguro en Windows).
 // Fija errno=EEXIST si el archivo ya existe, EIO en otro caso; devuelve el descriptor o -1.
-public func _windowsOpenExclNoFollow(_ path: String) -> Int32 {
+public func _windowsOpenExclNoFollow(_ path: String, shareRead: Bool = false) -> Int32 {
     let genericWrite: DWORD = 0x4000_0000   // GENERIC_WRITE
-    let noShare: DWORD = 0                  // sin compartir
+    let sharing: DWORD = shareRead ? 1 : 0   // FILE_SHARE_READ (lectores del registro en vivo)
     let createNew: DWORD = 1                // CREATE_NEW: falla si ya existe (O_EXCL)
     let attrAndFlags: DWORD = 0x0020_0080   // FILE_FLAG_OPEN_REPARSE_POINT | FILE_ATTRIBUTE_NORMAL
     let handle = path.withCString(encodedAs: UTF16.self) {
-        CreateFileW($0, genericWrite, noShare, nil, createNew, attrAndFlags, nil)
+        CreateFileW($0, genericWrite, sharing, nil, createNew, attrAndFlags, nil)
     }
     guard let handle, handle != INVALID_HANDLE_VALUE else {
         // Mapeamos el error de Windows a errno para que el caller (open-style loop) funcione igual.

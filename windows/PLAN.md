@@ -400,13 +400,13 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 ## P13 · Contraseñas SSH y panel de macros
 
 - [x] Integrar `NetDeckAskpass.exe` con el askpass de NetDeckCore en las pestañas SSH y empaquetarlo en el MSI.
-- [x] Añadir un panel de macros (`Ctrl+M`) para crear listas de órdenes y reproducir macros del formato de NetDeck en la pestaña activa.
+- [x] Añadir un panel de macros (`Ctrl+Alt+M`) para crear listas de órdenes y reproducir macros de NetDeck en la pestaña activa.
 - [x] Validar el ayudante a través de `-J` con cuentas independientes en bastión y destino.
 - [ ] Validar el ayudante después de instalar en un Windows limpio.
 
 ## P14 · Terminal y productividad de escritorio
 
-- [x] Vista dividida con dos terminales activos y orientación configurable, y ajuste del interlineado.
+- [x] Vista dividida con seis disposiciones, separadores arrastrables y ajuste del interlineado.
 - [x] Guardar y restaurar espacios de trabajo, con sus pestañas y disposición.
 - [x] Buscar texto en el historial de una pestaña.
 - [x] Pegado seguro con vista previa, espera por orden y resultado.
@@ -416,7 +416,14 @@ archivo lo dicen en su apartado («comparte con…»): la segunda en fusionarse 
 
 ## Paridad restante y distribución
 
-- [ ] Terminal: completar atributos de texto, resaltado configurable, filtros y menús contextuales.
+- [ ] Completar la paridad de escritorio. La última compilación y las 553 pruebas del núcleo están en el
+  [informe de escritorio](resultados/escritorio-2026-11-19.md).
+  - [x] Integrar selector nativo, `.mobaconf`, menú «+», historial, selección, registro y filtros.
+  - [x] Integrar Ajustes, editor de sesión, listas, COM con BREAK, SFTP lateral, MultiExec, menús y atajos.
+  - [x] Actualizar guías, changelog e índice de resultados.
+  - [ ] Comprobar en la ventana la importación de `.mobaconf` y el menú «+» completo.
+  - [ ] Comparar con macOS los filtros, historial, selección, ajustes, editor, vista dividida y menús.
+  - [ ] Probar BREAK en un puerto COM real, SFTP lateral con un servidor local y los flujos de Listas y MultiExec.
 - [x] Archivos: mover, MD5, menú contextual y edición de texto UTF-8 en SFTP. Exploración y descarga FTP.
 - [ ] Completar subida y renombrado FTP con garantías de conservación de archivos.
 - [ ] Túneles y credenciales: comprobar los flujos pendientes de la auditoría, incluido askpass con salto.

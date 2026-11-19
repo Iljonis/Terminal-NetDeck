@@ -46,7 +46,8 @@ foreach ($assets in @('Temas', 'Resaltado')) {
 $app = Join-Path $products 'NetDeckWindows.exe'
 Write-Host $app
 
-if ($Demo) {
+# NETDECK_BUILD_ONLY=1 compila y prepara la demo sin abrir la ventana.
+if ($Demo -and $env:NETDECK_BUILD_ONLY -ne '1') {
     $profile = New-Item -ItemType Directory -Path (Join-Path $env:TEMP ("netdeck-desktop-" + [guid]::NewGuid().ToString('N')))
     $env:NETDECK_HOME = $profile.FullName
     $env:NETDECK_DESKTOP_DEMO = '1'

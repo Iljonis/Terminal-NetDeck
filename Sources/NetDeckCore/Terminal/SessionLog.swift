@@ -190,7 +190,7 @@ public final class SessionLogger: @unchecked Sendable {
             // (O_EXCL: sólo uno nuevo; nunca se sigue escribiendo en el de otra conexión)
             #if os(Windows)
             // Windows: CREATE_NEW no sigue reparse points (O_NOFOLLOW); los handles no se heredan por defecto (O_CLOEXEC).
-            fd = _windowsOpenExclNoFollow(candidate.path)
+            fd = _windowsOpenExclNoFollow(candidate.path, shareRead: true)
             #else
             fd = open(candidate.path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0o600)
             #endif

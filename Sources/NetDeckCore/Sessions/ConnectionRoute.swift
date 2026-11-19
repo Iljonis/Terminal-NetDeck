@@ -142,7 +142,10 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
         if transport == .serial {
             let s = serial ?? SerialLine()                  // (sin puerto: «ruta no válida»)
             if let p = s.problem { return p }
-            if !exists(s.device) { return L("No está «\(s.device)»: ¿está conectado el adaptador USB-serie?") }
+            // Los COM de Windows son dispositivos Win32: la comprobación la hace CreateFileW al abrirlos.
+            if s.deviceForOpen == s.device, !exists(s.device) {
+                return L("No está «\(s.device)»: ¿está conectado el adaptador USB-serie?")
+            }
             return nil
         }
         if transport == .ftp { return L("FTP no tiene consola: usa la vista gráfica") }

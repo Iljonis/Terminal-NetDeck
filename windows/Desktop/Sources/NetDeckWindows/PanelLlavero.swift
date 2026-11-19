@@ -5,6 +5,11 @@ import WinUI
 final class PanelLlavero {
     let view = ScrollViewer()
     var onClose: (() -> Void)?
+    var enqueue: (@escaping () -> Void) -> Void = { $0() }
+    var onNombres: (([String]) -> Void)?
+    var demo = false
+    private var nombresDemo: Set<String> = []
+    private var turno = 0
     var getArchivoBotones: (() -> ButtonFile)?
 
     private let lista = ComboBox()
@@ -62,13 +67,22 @@ final class PanelLlavero {
                 self.uso.text = L("El nombre no puede estar vac\u{00ED}o")
                 return
             }
-            do {
-                try KeychainStore().save(self.clave.password, for: CredentialRef(service: .named, account: n))
-                self.uso.text = L("Credencial guardada")
-                self.pendingDelete = nil
-                self.reload()
-            } catch {
-                self.uso.text = error.localizedDescription
+            let valor = self.clave.password
+            self.clave.password = ""
+            guard !valor.isEmpty else { self.uso.text = L("Escribe la contraseña"); return }
+            if demo {
+                nombresDemo.insert(n)
+                reload(cuenta: n, mensaje: L("Credencial guardada"))
+                return
+            }
+            Task { [weak self] in
+                do {
+                    try await KeychainStore().saveInBackground(valor, for: .named(n))
+                    self?.enqueue { [weak self] in self?.reload(cuenta: n, mensaje: L("Credencial guardada")) }
+                } catch {
+                    let mensaje = error.localizedDescription
+                    self?.enqueue { [weak self] in self?.uso.text = mensaje }
+                }
             }
         }
 
@@ -78,12 +92,19 @@ final class PanelLlavero {
             guard !n.isEmpty else { return }
             if self.pendingDelete == n {
                 self.pendingDelete = nil
-                do {
-                    try KeychainStore().delete(CredentialRef(service: .named, account: n))
-                    self.uso.text = L("Credencial borrada")
-                    self.reload()
-                } catch {
-                    self.uso.text = error.localizedDescription
+                if demo {
+                    nombresDemo.remove(n)
+                    reload(mensaje: L("Credencial borrada"))
+                    return
+                }
+                Task { [weak self] in
+                    do {
+                        try await KeychainStore().deleteInBackground(.named(n))
+                        self?.enqueue { [weak self] in self?.reload(mensaje: L("Credencial borrada")) }
+                    } catch {
+                        let mensaje = error.localizedDescription
+                        self?.enqueue { [weak self] in self?.uso.text = mensaje }
+                    }
                 }
             } else {
                 self.pendingDelete = n
@@ -113,17 +134,46 @@ final class PanelLlavero {
         view.visibility = .collapsed
     }
 
-    func reload() {
+    func mostrar(cuenta: String?, nueva: Bool) {
+        clave.password = ""
+        reload(cuenta: cuenta, nueva: nueva)
+    }
+
+    func reload(cuenta: String? = nil, nueva: Bool = false, mensaje: String? = nil) {
         pendingDelete = nil
-        do {
-            accounts = try KeychainStore().accounts(in: .named)
-            lista.items.clear()
-            for a in accounts { lista.items.append(a) }
-            lista.selectedIndex = accounts.isEmpty ? -1 : 0
-            loadSelected()
-        } catch {
-            uso.text = error.localizedDescription
+        turno += 1
+        let pedido = turno
+        if demo {
+            cargar(nombresDemo.sorted(), cuenta: cuenta, nueva: nueva, mensaje: mensaje)
+            return
         }
+        Task { [weak self] in
+            do {
+                let nombres = try await KeychainStore().accountsInBackground()
+                    .filter { $0.service == .named }.map(\.account)
+                self?.enqueue { [weak self] in
+                    guard let self, self.turno == pedido else { return }
+                    self.cargar(nombres, cuenta: cuenta, nueva: nueva, mensaje: mensaje)
+                }
+            } catch {
+                let motivo = error.localizedDescription
+                self?.enqueue { [weak self] in
+                    guard let self, self.turno == pedido else { return }
+                    self.uso.text = motivo
+                }
+            }
+        }
+    }
+
+    private func cargar(_ nombres: [String], cuenta: String?, nueva: Bool, mensaje: String?) {
+        accounts = nombres
+        lista.items.clear()
+        for a in accounts { lista.items.append(a) }
+        let indice = cuenta.flatMap { accounts.firstIndex(of: $0) } ?? 0
+        lista.selectedIndex = nueva || accounts.isEmpty ? -1 : Int32(indice)
+        loadSelected()
+        if let mensaje { uso.text = mensaje }
+        onNombres?(accounts)
     }
 
     private func loadSelected() {

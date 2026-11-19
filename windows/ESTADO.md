@@ -1,3 +1,20 @@
+## 2026-11-19 · Windows · Paridad de escritorio y documentación
+
+- En `windows/p14-escritorio` quedaron integrados el selector nativo y `.mobaconf`, el menú «+» y los menús
+  contextuales, el historial y la selección del terminal, los filtros y el registro con ● REC.
+- Ajustes de Contraseñas, Temas, Fuentes, Resaltado, Registro y Listas. El editor admite saltos, clave, notas,
+  credenciales y perfil por sesión. Consola COM con BREAK, SFTP lateral, lotes por SSH y MultiExec en vivo.
+- La vista dividida tiene seis disposiciones y guarda las proporciones de los separadores en los espacios de
+  trabajo. Se corrigieron la búsqueda vacía de la barra lateral y la validación previa de dispositivos COM.
+- La compilación con `desktop.ps1 -Demo` y `NETDECK_BUILD_ONLY=1` dejó la ventana cerrada. Pasaron 553 pruebas
+  del núcleo en 93 suites con `test.ps1 --no-parallel`. La demo mantiene su `ssh_config` y `known_hosts` temporales.
+- En la ventana se observaron el selector, una importación selectiva de CSV, el menú «+», la barra lateral,
+  el CRT, la rueda del historial y la marca ● REC. La comprobación visual de la última compilación sigue pendiente,
+  incluidos `.mobaconf` de extremo a extremo, BREAK físico, SFTP lateral y MultiExec. [Informe](resultados/escritorio-2026-11-19.md).
+- Se sincronizaron las guías pública y técnica, los atajos, el historial de cambios y el índice de resultados.
+  [Guía de Windows](README.md) · [Compilación y pruebas](../docs/agentes/windows.md#compilación-y-pruebas).
+- Se incorporó el [plan histórico de Claude Code y Codex](../.claude/plans/windows-p15-p17.plan.md) con rutas relativas y una referencia a la guía de pruebas actual.
+
 ## 2026-11-18 · Windows · P24-IntegracionPaneles: HojaConexion + EdicionRemota + ImportadorSesiones conectados
 
 - Botón "Conexión rápida" en toolbar → HojaConexion; `onConectar` construye `ConnectionRoute` y llama a `open()`.

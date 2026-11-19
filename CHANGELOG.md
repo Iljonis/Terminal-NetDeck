@@ -10,6 +10,11 @@ All notable changes to Terminal NetDeck are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The shared session importer reads MobaXterm `.mobaconf` backups that contain sessions and skips stored passwords.
+- Windows desktop changes are tracked in the [Windows changelog](windows/CHANGELOG.md).
+
 ## [1.0.0] - 2026-11-08
 
 ### Added

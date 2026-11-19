@@ -5,7 +5,7 @@ import WinUI
 final class HojaConexion {
     let view = ScrollViewer()
     var onClose: (() -> Void)?
-    var onConectar: ((String, String?, String, SessionTransport) -> Void)?
+    var onConectar: ((String, String?, String, SessionProfile.Transport) -> Void)?
 
     private let hostBox = TextBox()
     private let saltoBox = TextBox()
@@ -13,7 +13,7 @@ final class HojaConexion {
     private let transporteCombo = ComboBox()
     private let estadoLabel = TextBlock()
 
-    private static let transportes: [(String, SessionTransport)] = [
+    private static let transportes: [(String, SessionProfile.Transport)] = [
         ("SSH", .ssh), ("Telnet", .telnet), ("SFTP", .sftp),
         ("FTP", .ftp), ("Serial", .serial), ("Local", .local)
     ]

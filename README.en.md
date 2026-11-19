@@ -566,8 +566,9 @@ rejection.
 <details>
 <summary><b>Can I bring my sessions from SecureCRT, MobaXterm or PuTTY?</b></summary>
 
-Yes: in the session manager, **Import from SecureCRT, MobaXterm, PuTTY, CSV…** (also electerm or another
-`ssh_config`). Passwords are not imported, and only safe ssh options are kept.
+Yes. In the session manager, open **Import from SecureCRT, MobaXterm, PuTTY, CSV…**. For MobaXterm, choose a
+`.mxtsessions` export or a `.mobaconf` backup that contains sessions. You can also import from electerm or another
+`ssh_config`. The importer skips passwords and keeps only safe SSH options.
 
 </details>
 
@@ -613,14 +614,12 @@ Missing something? [Suggest a feature](https://github.com/Iljonis/Terminal-NetDe
 
 ## Windows
 
-Terminal NetDeck has a version for Windows 10 (2004 or later) and Windows 11 (x64) **in active development**: there is no public release or signed
-installer yet. See [`windows/README.md`](windows/README.md) for installation, keyboard shortcuts, building from source and known limitations
-(that guide is in Spanish).
+The x64 desktop version for Windows 10 (2004 or later) and Windows 11 is in development. It includes a tabbed terminal with split layouts,
+native session import, scrollback and recording, themes and screen filters, a COM console, a side-by-side SFTP
+browser, and MultiExec. The [Windows test report](windows/resultados/escritorio-2026-11-19.md) lists build and UI coverage.
 
-What already works on Windows: an SSH terminal with tabs (ConPTY), an SFTP browser, SSH tunnels, a session editor, settings (font, size and a
-Mica, light or dark theme), safe paste, MultiExec, a first-run assistant and an updater that checks the sha256 and the signature. The rest of this
-README describes the macOS version; Windows still lacks, among other things, keyboard-typed passwords in the app's connections (keys and the SSH
-agent work for now), FTP and output highlighting (the 85 themes only colour the terminal).
+See the [Windows guide](windows/README.md) for installation, shortcuts, import formats, and building from source.
+Both documents are in Spanish.
 
 ## For developers
 

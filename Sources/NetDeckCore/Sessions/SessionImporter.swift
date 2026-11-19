@@ -1,7 +1,7 @@
 import Foundation
 
 /// Importar sesiones de tu programa anterior (como «importar» de NetDeck): SecureCRT (Config/Sessions o un .ini),
-/// MobaXterm (.mxtsessions / MobaXterm.ini), PuTTY (.reg), electerm (.json), CSV del inventario, ~/.ssh/config y el JSON
+/// MobaXterm (.mxtsessions / .mobaconf / MobaXterm.ini), PuTTY (.reg), electerm (.json), CSV del inventario, ~/.ssh/config y el JSON
 /// que exporta el propio gestor (`SessionExport`).
 /// Las carpetas pasan a ser grupos; los nombres repetidos quedan como core-01-2. Nunca se importa ninguna contraseña.
 public enum SessionImporter {
@@ -76,6 +76,15 @@ public enum SessionImporter {
         let name = url.lastPathComponent.lowercased()
         let text = Self.text(of: url)
         let head = String(text.prefix(20000))
+        #if os(Windows)
+        if name.hasSuffix(".mobaconf") {
+            let (found, skipped) = mobaXterm(text)
+            if found.isEmpty, skipped.isEmpty {
+                return ("MobaXterm", [], [(url.lastPathComponent, L("Exporta las sesiones de MobaXterm como .mxtsessions o elige una copia .mobaconf que incluya sesiones."))])
+            }
+            return ("MobaXterm", found, skipped)
+        }
+        #endif
         if name.hasSuffix(".mxtsessions") || head.lowercased().contains("[bookmarks") {
             let (f, s) = mobaXterm(text); return ("MobaXterm", f, s)
         }

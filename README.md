@@ -565,8 +565,9 @@ primer rechazo.
 <details>
 <summary><b>¿Puedo traer mis sesiones de SecureCRT, MobaXterm o PuTTY?</b></summary>
 
-Sí: en el gestor de sesiones, **Importar de SecureCRT, MobaXterm, PuTTY, CSV…** (también electerm u otro
-`ssh_config`). Las contraseñas no se importan, y de las opciones de ssh sólo pasan las seguras.
+Sí. En el gestor de sesiones, abre **Importar de SecureCRT, MobaXterm, PuTTY, CSV…**. Para MobaXterm puedes elegir
+un `.mxtsessions` o una copia `.mobaconf` que incluya sesiones. También puedes importar desde electerm u otro `ssh_config`.
+Se omiten las contraseñas y sólo se conservan las opciones SSH seguras.
 
 </details>
 
@@ -613,13 +614,12 @@ La 1.0.0 es la versión para trabajar en producción sin miedo. Lo que ha hecho 
 
 ## Windows
 
-Terminal NetDeck tiene una versión para Windows 10/11 (x64) **en desarrollo activo**: todavía no hay release pública ni instalador firmado.
-Consulta [`windows/README.md`](windows/README.md) para los detalles de instalación, compilación y estado del puerto.
+La versión de escritorio para Windows 10 (2004 o superior) y Windows 11, ambos x64, está en desarrollo. Incluye terminal con pestañas y vista dividida,
+importación nativa de sesiones, historial y grabación, temas y filtros, consola COM, SFTP lateral y MultiExec. La
+última compilación y la cobertura de ventana se detallan en el [informe de Windows](windows/resultados/escritorio-2026-11-19.md).
 
-Lo que ya funciona en Windows: terminal SSH con pestañas (ConPTY), explorador SFTP, túneles SSH, editor de sesiones, ajustes (fuente, tamaño y
-tema Mica, claro u oscuro), pegado seguro, MultiExec, asistente de primer arranque y un actualizador que comprueba el sha256 y la firma. Lo demás de
-este README describe la versión de macOS; en Windows todavía faltan, entre otras cosas, la contraseña por teclado en las conexiones de la app (de
-momento, claves y agente), FTP y el resaltado de la salida (los 85 temas sólo colorean el terminal).
+Consulta la [guía de Windows](windows/README.md) para la instalación, los atajos, los formatos que puedes importar y
+la compilación desde el código fuente.
 
 ## Para desarrolladores
 

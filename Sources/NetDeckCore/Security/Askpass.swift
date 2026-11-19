@@ -30,6 +30,10 @@ public enum Askpass {
     /// Sólo preguntar (sin escribir ninguna guardada): el explorador SFTP con la contraseña automática apagada.
     public static let manualFlag = "NETDECK_ASKPASS_MANUAL"
 
+    #if os(Windows)
+    public static let noOfferSaveFlag = "NETDECK_ASKPASS_NO_OFFER_SAVE"
+    #endif
+
     /// Variables para el proceso ssh de una pestaña. `manual`: no se prueba ninguna guardada, se pregunta siempre.
     /// `profile`: la sesión guardada; `route`: sus extremos exactos, también al conectar sin guardar. La predeterminada
     /// no va: el askpass no la usa (sólo el salto desde DENTRO de una sesión, en la app) y su nombre y usuario los
@@ -449,6 +453,12 @@ public enum Askpass {
                 note(hostField(host) + "\t" + cancelMark, session: session, directory: directory)
                 return 1
             }
+            #if os(Windows)
+            if ProcessInfo.processInfo.environment[noOfferSaveFlag] == "1" {
+                given(nil)
+                return reply(pw)
+            }
+            #endif
             // (Intro = sí: la respuesta es una pulsación nueva, el TTY descarta lo que quedara de antes)
             let target = named.map(CredentialRef.named) ?? .device(user, host)
             let prefix = failed != nil ? L("nueva ") : ""

@@ -28,6 +28,11 @@ import WinSDK
         #expect(SerialLine(device: "/dev/cu.x").deviceForOpen == "/dev/cu.x")
     }
 
+    @Test func unCOMNoSeBuscaComoArchivo() {
+        let ruta = ConnectionRoute.serial(SerialLine(device: "COM42"), title: "serie")
+        #expect(ruta.launchProblem { _ in false } == nil)
+    }
+
     @Test func problemParaCOM0() {
         let linea = SerialLine(device: "COM0")
         #expect(linea.problem == L("Puerto serie no válido: «\("COM0")» (sólo COMn)"))

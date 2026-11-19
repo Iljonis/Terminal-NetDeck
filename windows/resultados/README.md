@@ -1,13 +1,13 @@
 # Resultados de las pruebas en Windows
 
-Aquí van las salidas de los pasos P0, P1 y P2 de [PLAN.md](../PLAN.md), **sin datos reales**: nada de IPs, nombres de
-equipos, usuarios ni rutas personales (se sustituyen por `192.0.2.x`, `core-01`, `bastion`, `tu.usuario`,
-`C:\Users\<usuario>`). Los scripts ya lo hacen con su salida. Las salidas en bruto (`*.txt`, `*.log`, por ejemplo los
-errores del compilador, que llevan rutas tuyas) se quedan aquí sin subirse (`.gitignore`); al repo van sólo los `.md`.
-Antes de cada commit, `bash tools/privacidad.sh` desde Git Bash (también busca rutas `C:\Users\…`).
+Aquí se resume la evidencia de las fases del [plan de Windows](../PLAN.md). Usa IPs de documentación, equipos y
+usuarios ficticios y rutas genéricas, por ejemplo `192.0.2.x`, `core-01`, `tu.usuario` o `C:\Users\<usuario>`.
+Los archivos de salida en bruto quedan fuera del repositorio. Antes de un commit, ejecuta
+`bash tools/privacidad.sh` desde Git Bash.
 
-| Archivo | Paso | Qué lleva |
-|---|---|---|
-| `entorno.md` | P0 | Salida de `comprobar-entorno.ps1` |
-| `ssh-windows.md` | P1 | Tabla de `prueba-ssh.ps1` y `prueba-askpass.ps1`, y la prueba en Windows Terminal |
-| `compilacion.md` | P2 | Errores al compilar `NetDeckCore`, por archivo y causa, antes y después de apartar lo de plataforma |
+| Informe | Contenido |
+|---|---|
+| [Entorno de Windows](entorno.md) | Herramientas y requisitos del paso P0 |
+| [Escritorio · 19 de noviembre de 2026](escritorio-2026-11-19.md) | Compilación, 553 pruebas del núcleo, pruebas de ventana y verificaciones visuales pendientes |
+
+El historial de comprobaciones de OpenSSH, askpass e instalador está en el [estado del port](../ESTADO.md).
