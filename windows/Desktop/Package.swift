@@ -24,6 +24,7 @@ let package = Package(
                 .linkedLibrary("WindowsFoundation"),
                 .linkedLibrary("WinAppSDK"),
                 .linkedLibrary("UWP"),
+                .unsafeFlags(["/SUBSYSTEM:WINDOWS,10.0"]),
             ]
         ),
     ],

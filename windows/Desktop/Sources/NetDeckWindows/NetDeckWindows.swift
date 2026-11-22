@@ -213,7 +213,7 @@ final class NetDeckWindows: SwiftApplication {
         tabs.spacing = 4
         tabs.verticalAlignment = .center
         tabsScroll.content = tabs
-        tabsScroll.horizontalScrollBarVisibility = .hidden
+        tabsScroll.horizontalScrollBarVisibility = .auto
         tabsScroll.verticalScrollBarVisibility = .disabled
         tabsScroll.verticalAlignment = .center
         tabsScroll.margin = Thickness(left: 10, top: 0, right: 6, bottom: 0)

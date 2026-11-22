@@ -27,13 +27,19 @@ $env:SWIFTTERM_BUILD_COMMIT = $pin.state.revision
 $env:SWIFTTERM_BUILD_DIRTY = 'false'
 
 $build = @('--package-path', $package, '--scratch-path', $scratch, '--force-resolved-versions', '-c', $Configuration, '-Xcc', '-DOPENSSL_NO_ASM', '-Xcc', '-D_CRT_SECURE_NO_WARNINGS')
+# En Windows sin Developer Mode SwiftPM sale con código 1 al fallar el symlink "debug",
+# aunque el build sea correcto. Verificamos el exe en lugar del código de salida.
+$configFolder = if ($Configuration -eq 'release') { 'Release' } else { 'Debug' }
+$products = Join-Path $Scratch "out\Products\$configFolder-windows-x86_64"
 try { & $swift build @build } catch {}
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if ($LASTEXITCODE -ne 0) {
+    if (!(Test-Path (Join-Path $products 'NetDeckWindows.exe'))) { exit $LASTEXITCODE }
+    Write-Warning "swift build salió con código $LASTEXITCODE (symlink); el binario existe, continuamos."
+}
 
-$products = try { & $swift build @build --show-bin-path } catch { $_ }
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+try { & $swift build @build --show-bin-path | Out-Null } catch {}
 # --show-bin-path devuelve la ruta como última línea (puede haber avisos antes)
-if ($products -is [array]) { $products = $products[-1] }
+# La ruta ya está en $products desde arriba; si el output fue un array lo ignoramos.
 # SwiftPM crea .bundle, pero WinAppSDK 0.1.2 busca el bootstrapper en .resources.
 $bundle = 'swift-windowsappsdk_CWinAppSDK'
 $resources = Join-Path $products "$bundle.resources"
@@ -53,7 +59,7 @@ if ($Demo -and $env:NETDECK_BUILD_ONLY -ne '1') {
     $profile = New-Item -ItemType Directory -Path (Join-Path $env:TEMP ("netdeck-desktop-" + [guid]::NewGuid().ToString('N')))
     $env:NETDECK_HOME = $profile.FullName
     $env:NETDECK_DESKTOP_DEMO = '1'
-    Push-Location $products
-    try { & $app } finally { Pop-Location }
-    exit $LASTEXITCODE
+    # Start-Process lanza el exe desligado del script: el PowerShell cierra sin arrastrar la app.
+    Start-Process -FilePath $app -WorkingDirectory $products
+    exit 0
 }
