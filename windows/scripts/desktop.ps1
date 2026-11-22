@@ -26,12 +26,14 @@ $env:SWIFTTERM_BUILD_TAG = $pin.state.version
 $env:SWIFTTERM_BUILD_COMMIT = $pin.state.revision
 $env:SWIFTTERM_BUILD_DIRTY = 'false'
 
-$build = @('--package-path', $package, '--scratch-path', $scratch, '--force-resolved-versions', '-c', $Configuration, '-Xcc', '-DOPENSSL_NO_ASM')
-& $swift build @build
+$build = @('--package-path', $package, '--scratch-path', $scratch, '--force-resolved-versions', '-c', $Configuration, '-Xcc', '-DOPENSSL_NO_ASM', '-Xcc', '-D_CRT_SECURE_NO_WARNINGS')
+try { & $swift build @build } catch {}
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$products = & $swift build @build --show-bin-path
+$products = try { & $swift build @build --show-bin-path } catch { $_ }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+# --show-bin-path devuelve la ruta como última línea (puede haber avisos antes)
+if ($products -is [array]) { $products = $products[-1] }
 # SwiftPM crea .bundle, pero WinAppSDK 0.1.2 busca el bootstrapper en .resources.
 $bundle = 'swift-windowsappsdk_CWinAppSDK'
 $resources = Join-Path $products "$bundle.resources"
