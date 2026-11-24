@@ -67,9 +67,9 @@
       se localizan con $PSScriptRoot.
     -->
     <CustomAction Id="RegistrarSparse" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="yes" Return="ignore"
-                  ExeCommand="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File registrar-sparse.ps1" />
+                  ExeCommand="powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File registrar-sparse.ps1" />
     <CustomAction Id="QuitarSparse" Directory="INSTALLFOLDER" Execute="deferred" Impersonate="yes" Return="ignore"
-                  ExeCommand="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File quitar-sparse.ps1" />
+                  ExeCommand="powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File quitar-sparse.ps1" />
 
     <!--
       Windows App Runtime 1.5 (Framework x64 y DDLM): la app no arranca sin el. MSI no sabe de paquetes AppX ni hay una clave de registro
