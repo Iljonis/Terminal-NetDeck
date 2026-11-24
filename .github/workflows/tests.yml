@@ -17,6 +17,10 @@ jobs:
           swift --version
       - name: Privacidad (nada personal en el repositorio)
         run: tools/privacidad.sh
+      - name: Formato (sin BOM ni CR en Sources, Tests y tools)
+        run: |
+          tools/comprobar_formato.sh
+          tools/test_formato.sh
       - name: Actualizar conserva tus datos
         run: tools/test_actualizacion.sh
       - name: Compilar
