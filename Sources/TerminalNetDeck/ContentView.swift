@@ -755,6 +755,7 @@ struct TabChip: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
     @Environment(\.accessibilityDifferentiateWithoutColor) private var shapes
+    @Environment(\.glassOn) private var glassOn
     let session: TerminalSession
     /// El que le toca en la barra (todas igual de anchas); el título se corta por el centro si no cabe.
     var width: CGFloat = TopBar.tabMax
@@ -777,6 +778,9 @@ struct TabChip: View {
         let selected = selected
         let notice = model.notices[session.id] != nil
         let status = session.status(t, notice: notice)
+        // (sobre cristal, el punto sin halo: una sombra dentro del cristal de las pestañas es lo otro que sólo tienen los
+        // Neon Glass; así quedan como en los temas de cristal sin brillo, que se ven bien. La elegida, opaca, lo conserva)
+        let halo = glassOn && !(selected || lifted) ? 0 : t.glow(3)
         HStack(spacing: 7) {
             Group {
                 // («Distinguir sin color»: el estado también por la forma)
@@ -787,7 +791,7 @@ struct TabChip: View {
                 }
             }
             .frame(width: shapes ? 11 : 7, height: shapes ? 11 : 7)
-            .shadow(color: SwiftUI.Color(status.color).opacity(0.8), radius: t.glow(3))
+            .shadow(color: SwiftUI.Color(status.color).opacity(0.8), radius: halo)
             if inSplit { Image(systemName: "square.split.2x1").font(.system(size: 9)) }
             // (sólo el destino; el camino entero, en la ayuda)
             Text(session.tabTitle).font(t.ui(12, .semibold)).lineLimit(1).truncationMode(.middle)

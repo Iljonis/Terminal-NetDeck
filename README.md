@@ -10,7 +10,7 @@ resaltado de la salida de Cisco, Juniper, Huawei y Nokia. En castellano o en ing
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v1.0.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.0.0)** · macOS 15 o posterior ·
+Versión actual: **[v1.0.1](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.0.1)** · macOS 15 o posterior ·
 Apple Silicon · código abierto (MIT)
 
 [![Última versión](https://img.shields.io/github/v/release/Iljonis/Terminal-NetDeck?label=versi%C3%B3n&color=ff2e88)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
@@ -59,6 +59,12 @@ scripting completo: para eso están las macros, los botones y las listas de equi
 
 ¿Prefieres compilarla? `git clone https://github.com/Iljonis/Terminal-NetDeck.git && cd Terminal-NetDeck && ./install.sh`
 (macOS 15.6+ y Swift 6.2). Todos los detalles, en [Instalación](#instalación-y-primer-uso-en-macos-15-sequoia).
+
+## Novedades de 1.0.1
+
+- **Pestañas con nombre en los Neon Glass:** con estos temas, macOS 26 podía pintar el cristal de la barra gris y dejar
+  las pestañas sin título; al pasar el ratón volvía sólo la última. Ahora el cristal es el normal con un velo del color
+  del tema, y todas las pestañas enseñan su nombre.
 
 ## Novedades de 1.0.0
 

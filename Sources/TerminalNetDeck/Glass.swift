@@ -69,10 +69,13 @@ private struct NetDeckGlass<S: Shape, F: ShapeStyle>: ViewModifier {
     func body(content: Content) -> some View {
         if #available(macOS 26, *), on {
             // (la misma vista al encenderse o apagarse: `.identity` es sin cristal, y debajo el relleno de siempre)
-            // (con «tinte», teñido del color del tema)
-            let glass = t.glassTint.map { Glass.regular.tint(SwiftUI.Color($0)) } ?? .regular
+            // (con «tinte», un velo del color del tema sobre el cristal normal, no `Glass.tint`: con él, en los Neon
+            // Glass, macOS 26 pintaba en pantalla el cristal gris y sin el título de las pestañas, salvo la última que
+            // se repintó al pasar el ratón; en la captura de la ventana salía bien)
+            let tint = t.glassTint.map { SwiftUI.Color($0) } ?? .clear
             content.background(shape.fill(fallback).opacity(active ? 1 : 0))
-                .glassEffect(active ? .identity : interactive ? glass.interactive() : glass, in: shape)
+                .background(shape.fill(tint).opacity(active ? 0 : 1))
+                .glassEffect(active ? .identity : interactive ? .regular.interactive() : .regular, in: shape)
         } else {
             content.background(shape.fill(fallback))
         }
