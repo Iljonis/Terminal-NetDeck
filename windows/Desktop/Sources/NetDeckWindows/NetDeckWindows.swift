@@ -813,17 +813,17 @@ final class NetDeckWindows: SwiftApplication {
         zonaSFTPLateral.borderBrush = e.linea
         asaSFTP.background = e.transparente
         textoEsperaSFTP.foreground = e.apagado
-        ladoBorde.borderBrush = e.panel(alfa: 0.35)
+        ladoBorde.borderBrush = e.linea
         pieBorde.borderBrush = e.linea
         buscarSesion.background = e.panel(alfa: 0.6)
         barraEstadoBorde.background = e.barra
-        barraEstadoBorde.borderBrush = EstiloMac.pincel(e.tema.accent2, alfa: 0.35)
+        barraEstadoBorde.borderBrush = EstiloMac.pincel(e.tema.accent2, alfa: 0.6)
         status.foreground = e.apagado
         temaEtiqueta.foreground = e.apagado
         temaEtiqueta.text = e.tema.name.uppercased()
         reloj.foreground = e.acento
         tarjeta.background = e.fondo
-        tarjeta.borderBrush = e.acento(alfa: 0.25)
+        tarjeta.borderBrush = e.acento(alfa: 0.5)
         e.vestirIcono(cerrarTarjeta, Glifo.cerrar, ayuda: L("Cerrar (Esc)"), id: "CerrarVentana")
         cerrarTarjeta.verticalAlignment = .top
         if let barra = window?.appWindow?.titleBar {
@@ -1104,7 +1104,7 @@ final class NetDeckWindows: SwiftApplication {
                 let chip = Button()
                 chip.content = EstiloMac.letra(boton.name, tamano: 11, peso: 600, color: EstiloMac.pincel(tono))
                 chip.background = e.panel(alfa: 0.55)
-                chip.borderBrush = EstiloMac.pincel(tono, alfa: 0.35)
+                chip.borderBrush = EstiloMac.pincel(tono, alfa: 0.75)
                 chip.borderThickness = Thickness(left: 1, top: 1, right: 1, bottom: 1)
                 chip.cornerRadius = EstiloMac.radio(6)
                 chip.height = 24
@@ -2453,6 +2453,13 @@ final class NetDeckWindows: SwiftApplication {
             }
             self?.showPanel(nil)
         }
+        asistente.settings = { [weak self] in self?.settings ?? AjustesTerminal() }
+        asistente.onChange = { [weak self] nuevo in self?.saveAjustes(nuevo) }
+        asistente.estilo = { [weak self] in self?.estilo ?? EstiloMac(tema: nil) }
+        asistente.reglasDeVistaPrevia = { [weak self] in
+            guard let self else { return HighlightConfig() }
+            return configResaltado(para: temaGlobal ?? estilo.tema)
+        }
         asistente.start()
         showPanel(asistente.view)
     }
@@ -3470,6 +3477,8 @@ final class NetDeckWindows: SwiftApplication {
             tab.cornerRadius = EstiloMac.radio(10)
             tab.borderThickness = Thickness(left: 0, top: 0, right: 0, bottom: 0)
             tab.background = elegida ? e.pestana : e.panel(alfa: 0.6)
+            EstiloMac.conservarColores(tab, encima: elegida ? e.pestana : e.acento(alfa: 0.25),
+                                       pulsado: elegida ? e.pestana : e.acento(alfa: 0.4))
             tab.horizontalContentAlignment = .stretch
             tab.verticalAlignment = .center
             AutomationProperties.setName(tab, self.titulo(candidate))
@@ -3576,7 +3585,15 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     private func puntoEnVentana(_ cursor: POINT) -> (x: Double, y: Double)? {
-        guard let hwnd = GetActiveWindow() else { return nil }
+        // (la ventana bajo el cursor, no la activa: si la ventana está en segundo plano, el clic que la activa también arranca el arrastre)
+        guard let sobre = WindowFromPoint(cursor), let hwnd = GetAncestor(sobre, UINT(GA_ROOT)),
+              let appWindow = window?.appWindow else { return nil }
+        var proceso: DWORD = 0
+        GetWindowThreadProcessId(hwnd, &proceso)
+        var marco = RECT()
+        guard proceso == GetCurrentProcessId(), GetWindowRect(hwnd, &marco),
+              abs(Int(marco.left) - Int(appWindow.position.x)) <= 24,
+              abs(Int(marco.top) - Int(appWindow.position.y)) <= 24 else { return nil }
         var punto = cursor
         guard ScreenToClient(hwnd, &punto) else { return nil }
         let escala = window?.content?.xamlRoot?.rasterizationScale ?? 1
@@ -3651,14 +3668,15 @@ final class NetDeckWindows: SwiftApplication {
         let n = a.elementos.count, d = a.origen
         if !congelar {
             let hueco = a.ancho[d] + tabs.spacing
-            let centro = a.x[d] + a.desplazamiento + a.ancho[d] / 2
+            let borde = a.x[d] + a.desplazamiento
             var destino = d
             for k in 0..<n where k != d {
                 var meta = 0.0
                 if !a.fuera {
                     let medio = a.x[k] + a.ancho[k] / 2
-                    if k > d && medio < centro { meta = -hueco; destino += 1 }
-                    else if k < d && medio > centro { meta = hueco; destino -= 1 }
+                    // (por el borde de avance, no por el centro: la elegida es más ancha por la ✕ y con el centro no llegaba a la primera)
+                    if k > d && medio <= borde + a.ancho[d] { meta = -hueco; destino += 1 }
+                    else if k < d && medio >= borde { meta = hueco; destino -= 1 }
                 }
                 a.objetivo[k] = meta
             }
@@ -3790,14 +3808,23 @@ final class NetDeckWindows: SwiftApplication {
         let window = Window()
         let vista = VistaTerminal(id: "PantallaTerminalSeparada")
         let detached = VentanaPestana(window: window, vista: vista, session: tab)
+        let e = estilo
         let root = StackPanel()
         root.orientation = .horizontal
+        root.background = e.barra
         let volver = Button()
-        volver.content = L("Devolver pestaña")
+        volver.content = EstiloMac.letra(L("Devolver pestaña"), tamano: 12, peso: 500, color: e.texto)
+        volver.background = e.panel(alfa: 0.6)
+        volver.borderBrush = e.acento(alfa: 0.6)
+        volver.borderThickness = Thickness(left: 1, top: 1, right: 1, bottom: 1)
+        volver.cornerRadius = EstiloMac.radio(5)
+        EstiloMac.conservarColores(volver, encima: e.acento(alfa: 0.18), pulsado: e.acento(alfa: 0.3), borde: e.acento(alfa: 0.6))
         volver.margin = Thickness(left: 8, top: 4, right: 8, bottom: 4)
+        AutomationProperties.setAutomationId(volver, "DevolverPestana")
         volver.click.addHandler { [weak self] _, _ in self?.returnToMain(id) }
         root.children.append(volver)
         let grid = Grid()
+        grid.background = e.fondo
         let menuRow = RowDefinition()
         menuRow.height = GridLength(value: 1, gridUnitType: .auto)
         let bodyRow = RowDefinition()
@@ -3872,6 +3899,19 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     private func styleDetached(_ detached: VentanaPestana) {
+        let e = estilo
+        if let barra = detached.window.appWindow?.titleBar {
+            let fondo = EstiloMac.color(e.tema.bar)
+            barra.backgroundColor = fondo
+            barra.inactiveBackgroundColor = fondo
+            barra.foregroundColor = EstiloMac.color(e.tema.text)
+            barra.inactiveForegroundColor = EstiloMac.color(e.tema.dim)
+            barra.buttonBackgroundColor = fondo
+            barra.buttonInactiveBackgroundColor = fondo
+            barra.buttonForegroundColor = EstiloMac.color(e.tema.text)
+            barra.buttonInactiveForegroundColor = EstiloMac.color(e.tema.dim)
+            barra.buttonHoverBackgroundColor = EstiloMac.color(e.tema.panel)
+        }
         detached.vista.invalidate()
         detached.vista.estiloRegistro = estilo
         vestirTerminal(detached.vista, detached.session)

@@ -117,6 +117,18 @@ struct EstiloMac {
         boton.horizontalAlignment = .stretch
         boton.horizontalContentAlignment = .stretch
     }
+
+    /// Con el ratón encima o pulsado, la plantilla de Button pone su gris y pisa el color del tema (la pestaña elegida se
+    /// veía gris al hacer clic): se fijan los colores de esos dos estados en el propio botón.
+    static func conservarColores(_ boton: Button, encima: SolidColorBrush, pulsado: SolidColorBrush, borde: SolidColorBrush? = nil) {
+        guard let recursos = boton.resources else { return }
+        _ = recursos.insert("ButtonBackgroundPointerOver", encima)
+        _ = recursos.insert("ButtonBackgroundPressed", pulsado)
+        if let borde {
+            _ = recursos.insert("ButtonBorderBrushPointerOver", borde)
+            _ = recursos.insert("ButtonBorderBrushPressed", borde)
+        }
+    }
 }
 
 /// Glifos de Segoe Fluent Icons (los equivalentes de los SF Symbols del Mac).

@@ -194,10 +194,10 @@ final class VistaTerminal {
     }
     private func vestirRegistro() {
         indicadorHistorial.background = estiloRegistro.apagado
-        rec.content = EstiloMac.letra("● " + L("REC"), tamano: 10, peso: 800, color: estiloRegistro.mal)
+        rec.content = EstiloMac.letra("● " + L("REC"), tamano: 11, peso: 700, color: estiloRegistro.mal)
         rec.background = estiloRegistro.fondo
         rec.borderBrush = estiloRegistro.mal
-        rec.borderThickness = Thickness(left: 1, top: 1, right: 1, bottom: 1)
+        rec.borderThickness = Thickness(left: 2, top: 2, right: 2, bottom: 2)
     }
 
     private func marcarRegistro(_ archivo: URL?) {

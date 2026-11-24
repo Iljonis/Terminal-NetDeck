@@ -413,7 +413,7 @@ final class PanelAjustes {
         let tarjeta = Border()
         tarjeta.child = lista
         tarjeta.background = e.panel(alfa: 0.45)
-        tarjeta.borderBrush = e.acento(alfa: 0.15)
+        tarjeta.borderBrush = e.acento(alfa: 0.35)
         tarjeta.borderThickness = Thickness(left: 1, top: 1, right: 1, bottom: 1)
         tarjeta.cornerRadius = EstiloMac.radio(6)
         caja.children.append(tarjeta)
@@ -522,7 +522,7 @@ final class PanelAjustes {
     private func vestir(_ b: Button) {
         let e = estilo
         b.background = e.panel(alfa: 0.6)
-        b.borderBrush = e.acento(alfa: 0.3)
+        b.borderBrush = e.acento(alfa: 0.6)
         b.borderThickness = Thickness(left: 1, top: 1, right: 1, bottom: 1)
         b.cornerRadius = EstiloMac.radio(5)
         b.minHeight = 24

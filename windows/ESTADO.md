@@ -1,3 +1,33 @@
+## 2026-11-24 · Windows · Revisión de pestañas con capturas (clic, ✕, mover, sacar, devolver)
+
+Probado en la demo (perfil temporal) con capturas y ratón real controlado desde Claude Code. Resultado:
+- **Clic y ✕:** seleccionan y cierran la pestaña (de 4 a 3 al cerrar la elegida).
+- **Mover:** la pestaña sigue al cursor, las vecinas se deslizan al hueco y al soltar se reordena. **Fallo encontrado y corregido:** no se podía llevar la elegida al primer puesto, porque la pestaña con ✕ es más ancha y su centro nunca superaba la mitad de la primera. Ahora se compara por el borde de avance (izquierdo al ir a la izquierda, derecho a la derecha). Comprobado con arrastres a ambos extremos.
+- **Sacar a otra ventana:** soltar fuera de la ventana principal separa la pestaña (la principal baja de 3 a 2 y aparece la ventana con «Devolver pestaña»); «Devolver pestaña» la reincorpora y cierra la ventana. La herramienta de pruebas no permite arrastrar sobre el escritorio, así que el destino fue una segunda ventana de la demo asomando fuera de la principal; el comportamiento sobre el escritorio es el mismo código (`punteroFueraDeVentana`) pero no se ha visto.
+- **Arrastre desde una ventana en segundo plano:** antes la detección usaba `GetActiveWindow` y podía fallar si el clic era el que activaba la ventana. Ahora usa la ventana bajo el cursor (`WindowFromPoint`, mismo proceso y misma posición que la principal). Comprobado arrastrando desde la principal con otra ventana delante.
+- **Color con el ratón encima:** la píldora elegida se veía gris mientras el cursor estaba sobre ella (la plantilla de `Button` pisaba el color del tema). Nuevo `EstiloMac.conservarColores` fija los estados «encima» y «pulsado» en cada pestaña (la elegida mantiene el azul del tema; las demás toman un tono de acento suave) y en los botones del asistente y de la ventana separada. Otros botones con color propio (chips de comandos, etc.) pueden tener el mismo gris; no se han tocado.
+- **Ventana separada con tema:** barra de título, franja superior y botón «Devolver pestaña» usan los colores del tema (antes barra blanca y franja negra).
+- **Asistente:** la navegación pasa arriba (en el paso de temas había que bajar al final), los botones tienen el estilo del tema (Siguiente relleno) y el tema elegido se marca con ✓ (el borde lo pisaba el estado «ratón encima»). Los siete pasos se recorrieron en la demo: tema (se aplica al momento), fuentes, contraseñas, resaltado (el interruptor repinta la vista previa), primera sesión (valida nombre y equipo) y resumen.
+- **Incidente:** `open_application` lanzó una instancia sin las variables de la demo que mostró sesiones reales del autor; se cerró al instante sin tocar nada.
+- **Pendiente:** ghost flotante de la pestaña fuera de la ventana (la del Mac), probar el arrastre sobre el escritorio real, el mismo arreglo de hover para chips y otros botones, y revisar SFTP/túneles/macros.
+
+## 2026-11-24 · Windows · Bordes y líneas más legibles (REC y botones de comandos)
+
+- **Queja del autor:** «las líneas no se distinguen bien, son muy finas o parecen pixeladas, sobre todo el botón de REC».
+- **Qué se vio (capturas de la demo, 1080p al 100 %, ClearType activo, sin problema de escalado):** el REC era un contorno rojo de 1 px con texto de 10 px; los botones de comandos («Interfaces», «Interfaz»…) tenían un borde de 1 px con el color al 35 %, casi invisible. En un monitor sin densidad Retina eso se ve fino y dentado.
+- **Cambio:** REC con borde de 2 px y texto de 11 px en peso 700 (`VistaTerminal.vestirRegistro`); borde de los botones de comandos al 75 %; borde de la tarjeta emergente al 50 %, de la barra lateral con el color de línea del tema, de la barra de estado al 60 %; botones de Ajustes al 60 % y tarjetas de Ajustes al 35 %.
+- **Verificación:** build release OK y capturas de la demo antes y después con zoom (el REC y los botones se distinguen mejor). No se han pasado los tests (solo cambian constantes de estilo). Falta revisar el resto de pantallas (Ajustes, SFTP, túneles) y otros temas.
+- **Incidente:** al pedir la ventana con `open_application` se lanzó una instancia sin las variables de la demo, que mostró sesiones reales del autor; se cerró al instante sin tocar nada. Para ver la demo hay que relanzarla con `desktop.ps1 -Demo`.
+
+## 2026-11-24 · Windows · Asistente de primer arranque ampliado (paridad con el del Mac)
+
+- **Antes:** tres paneles (bienvenida, primera sesión, «todo listo»); tema, fuentes, contraseñas y resaltado solo en Ajustes. El Mac tiene 7 pasos (`SetupWizard.swift`).
+- **Ahora (`AsistenteInicio.swift`):** siete pasos con indicador «n/7 · título», Atrás y Siguiente: Bienvenida → **Tema** (todos los de `TemasTerminal.disponibles()` agrupados, con 6 muestras de color; al hacer clic se aplica y la app adopta el tema al momento) → **Fuentes** (terminal e interfaz, más las recomendadas por el tema y su grupo, como en el Mac) → **Contraseñas** (interruptor de contraseña automática y modo de equipo «escribirla sola / sugerirla / nada») → **Resaltado** (interruptor con vista previa que se repinta) → Tu primera sesión (los datos se conservan al ir atrás) → Todo listo (resumen de lo elegido).
+- **Cableado:** `showAsistente` inyecta `settings`, `onChange` (→ `saveAjustes`, que guarda y aplica), `estilo` y `reglasDeVistaPrevia`. Se conservan los identificadores de automatización anteriores (`Asistente_Siguiente`, `_Crear`, `_Omitir`, `_Empezar`, campos) y se añaden `Asistente_Atras`, `Asistente_OmitirTodo`, `Asistente_Tema_<id>`, `Asistente_FuenteTerminal`, etc.
+- **Diferencias con el Mac:** sin vista previa al pasar el ratón por un tema (se aplica con el clic); sin paso «Ubicación» ni «Instalar» (el MSI instala y cada elección ya está guardada); las fuentes no necesitan Homebrew (van incluidas).
+- **Build y tests:** `desktop.ps1 -Demo -Configuration release` OK; `test.ps1 --no-parallel` 556 tests en 93 suites. Textos nuevos sin traducción al inglés en `Ingles.swift`.
+- **Verificación visual:** NO realizada. Pendiente de probar a mano: menú ⚙ → «Asistente de instalación…» (o `NETDECK_ASISTENTE=1`). En modo demo los ajustes se aplican pero no se guardan.
+
 ## 2026-11-24 · Windows · ssh_config con permisos que OpenSSH rechazaba («Bad owner or permissions»)
 
 - **Síntoma:** `Bad permissions. Try removing permissions for user: DERECHOS DE PROPIETARIO (S-1-3-4) on file …\.config\netdeck\ssh_config`.
