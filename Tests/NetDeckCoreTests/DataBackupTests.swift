@@ -1,4 +1,4 @@
-﻿import Foundation
+import Foundation
 import Testing
 @testable import NetDeckCore
 
@@ -128,8 +128,8 @@ private func perms(_ u: URL) -> Int { (try? FileManager.default.attributesOfItem
     }
     #endif
 
-    // Windows: Win32Error(code: 32) en snapshot()/removeItem() - SafeFile + rename de Windows; pendiente P7
-    #if !os(Windows)
+    // Windows: Win32Error(code: 32) en snapshot()/removeItem() - SafeFile + rename de Windows; pendiente P7
+    #if !os(Windows)
     /// Si existe (aunque vacío: las has borrado tú) no se toca; y una copia sin sesiones no vale para recuperar.
     @Test func noPisaNiRecuperaVacios() throws {
         let c = try Casa()

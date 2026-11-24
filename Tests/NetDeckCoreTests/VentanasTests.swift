@@ -1,4 +1,4 @@
-﻿#if canImport(CoreGraphics)
+#if canImport(CoreGraphics)
 import CoreGraphics
 import Foundation
 import Testing

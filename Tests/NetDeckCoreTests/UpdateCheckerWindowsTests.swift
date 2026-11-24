@@ -89,6 +89,30 @@ import Testing
         #expect(estado == .valid || estado == .invalid(Int32(bitPattern: 0x80092013)))      // CRYPT_E_REVOCATION_OFFLINE
     }
 
+    /// Entre la comprobación y el lanzamiento nadie puede cambiar el instalador, y sólo se lanza uno comprobado.
+    @Test func elInstaladorComprobadoNoSePuedeCambiarYNoSeLanzaOtro() throws {
+        let carpeta = FileManager.default.temporaryDirectory.appendingPathComponent("NetDeckBloqueo-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: carpeta, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: carpeta) }
+        let msi = carpeta.appendingPathComponent("a.msi")
+        try Data("uno".utf8).write(to: msi)
+        #expect(!UpdateChecker.shared.launchInstaller(at: msi))                  // (sin comprobar: ni se intenta)
+        #expect(InstallerLock.shared.hold(msi))
+        #expect(InstallerLock.shared.isHeld(msi))
+        #expect(throws: (any Error).self) { try Data("dos".utf8).write(to: msi) }
+        #expect(throws: (any Error).self) { try FileManager.default.removeItem(at: msi) }
+        #expect(try Data(contentsOf: msi) == Data("uno".utf8))                   // (leerlo sí: msiexec lo necesita)
+        InstallerLock.shared.release(msi)
+        #expect(!InstallerLock.shared.isHeld(msi))
+        try Data("dos".utf8).write(to: msi)
+    }
+
+    @Test func sinFirmaNoSeAdmiteEnLaAppPublicada() {
+        #if !DEBUG
+        #expect(!UpdateChecker.allowUnsigned)
+        #endif
+    }
+
     static var firmada: URL {
         URL(fileURLWithPath: ProcessInfo.processInfo.environment["LOCALAPPDATA"] ?? "")
             .appendingPathComponent("Programs/Swift/Runtimes/6.4.2/usr/bin/msvcp140.dll")

@@ -121,10 +121,13 @@ public final class ConPTYProcess: @unchecked Sendable {
     deinit { terminate() }
 
     public func write(_ data: Data) throws {
+        guard !data.isEmpty else { return }                 // (baseAddress sería nil)
+        // (no verificado en Windows) tras `terminate()` el handle ya está cerrado: no se escribe en él
+        guard !lock.withLock({ done }) else { throw RemoteError(L("Se ha perdido la conexión")) }
         try data.withUnsafeBytes { ptr in
             var written: DWORD = 0
             guard WriteFile(ptyInWrite, ptr.baseAddress!, DWORD(ptr.count), &written, nil) else {
-                throw RemoteError(L("Se ha perdido la conexion"))
+                throw RemoteError(L("Se ha perdido la conexión"))
             }
         }
     }

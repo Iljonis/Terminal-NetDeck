@@ -6,10 +6,6 @@ import Security
 /// (con «pw» o desde aquí) confían en esa herramienta y NUNCA sale el aviso «… quiere usar la información confidencial»
 /// (que con una app sin firmar volvería a salir en cada compilación). Comprobar y listar usan SecItem sin leer el
 /// secreto: tampoco piden permiso. Nunca se guarda una contraseña en un archivo.
-/// Llavero de macOS. Los secretos se leen y guardan con /usr/bin/security, como NetDeck: las contraseñas guardadas así
-/// (con «pw» o desde aquí) confían en esa herramienta y NUNCA sale el aviso «… quiere usar la información confidencial»
-/// (que con una app sin firmar volvería a salir en cada compilación). Comprobar y listar usan SecItem sin leer el
-/// secreto: tampoco piden permiso. Nunca se guarda una contraseña en un archivo.
 public struct KeychainStore: CredentialStore {
     public static let tool = "/usr/bin/security"
 
@@ -280,8 +276,8 @@ public struct KeychainStore: CredentialStore {
 #endif
 
 extension KeychainStore {
-    /// Entre comillas para "security -i" (dentro, solo "\\"" y "\\\\" se escapan).
-    public static func quoted(_ s: String) -> String {
+    /// Entre comillas para «security -i» (dentro, sólo «"» y «\\» se escapan).
+    static func quoted(_ s: String) -> String {
         "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
     }
 }

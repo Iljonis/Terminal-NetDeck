@@ -35,6 +35,35 @@ struct UpdateCandidate: Equatable {
     var notes: String
 }
 
+/// El instalador ya descargado, abierto con `FILE_SHARE_READ` y sin compartir escritura ni borrado: mientras está
+/// abierto, otro proceso del mismo usuario no puede cambiarlo entre la comprobación (sha256 y firma) y el lanzamiento
+/// con administrador. Lo siguen pudiendo leer `msiexec` y el sistema.
+final class InstallerLock: @unchecked Sendable {
+    static let shared = InstallerLock()
+    private let lock = NSLock()
+    private var handles: [String: HANDLE] = [:]
+
+    private static func key(_ url: URL) -> String { url.path.lowercased() }
+
+    func hold(_ url: URL) -> Bool {
+        let handle = url.path.withCString(encodedAs: UTF16.self) {
+            CreateFileW($0, 0x8000_0000 /* GENERIC_READ */, 0x1 /* FILE_SHARE_READ */, nil,
+                        3 /* OPEN_EXISTING */, 0x80 /* FILE_ATTRIBUTE_NORMAL */, nil)
+        }
+        guard let handle, handle != INVALID_HANDLE_VALUE else { return false }
+        lock.withLock {
+            if let old = handles.updateValue(handle, forKey: Self.key(url)) { CloseHandle(old) }
+        }
+        return true
+    }
+
+    func isHeld(_ url: URL) -> Bool { lock.withLock { handles[Self.key(url)] != nil } }
+
+    func release(_ url: URL) {
+        lock.withLock { if let h = handles.removeValue(forKey: Self.key(url)) { CloseHandle(h) } }
+    }
+}
+
 /// Actualizaciones de Windows (ADR-0003), con las mismas reglas que macOS (`UpdateCheck`): sólo enlaces https de
 /// github.com del repositorio, sha256 del instalador, y además la firma Authenticode con `WinVerifyTrust`. Nada se
 /// descarga ni se instala sin confirmación del usuario.
@@ -87,6 +116,10 @@ public actor UpdateChecker {
         let target = folder.appendingPathComponent(name)
         do {
             try await Self.download(info.downloadURL, to: target)
+            // (desde aquí nadie puede cambiar ni borrar el archivo hasta lanzarlo: se comprueba lo mismo que se ejecuta)
+            guard InstallerLock.shared.hold(target) else {
+                throw UpdateFailure(L("no se ha podido bloquear el instalador descargado"))
+            }
             let actual = try UpdateCheck.sha256(of: target)
             guard actual == info.sha256.lowercased() else {
                 throw UpdateFailure(L("el sha256 del instalador no es el publicado"))
@@ -102,6 +135,7 @@ public actor UpdateChecker {
                 throw UpdateFailure(L("la firma del instalador no es válida (error \(String(format: "0x%08X", UInt32(bitPattern: code))))"))
             }
         } catch {
+            InstallerLock.shared.release(target)
             try? FileManager.default.removeItem(at: folder)
             throw error
         }
@@ -111,6 +145,8 @@ public actor UpdateChecker {
     /// Lanza el instalador con el aviso de administrador (UAC). Sólo tras el clic del usuario. true si Windows lo ha aceptado.
     @discardableResult
     public nonisolated func launchInstaller(at url: URL) -> Bool {
+        // (sólo el archivo que `downloadAndVerify` ha comprobado y sigue bloqueado: nunca una ruta cualquiera)
+        guard InstallerLock.shared.isHeld(url) else { return false }
         let path = url.path.replacingOccurrences(of: "/", with: "\\")
         let isMSI = url.pathExtension.lowercased() == "msi"
         let file = isMSI ? "msiexec.exe" : path
@@ -125,8 +161,15 @@ public actor UpdateChecker {
         return result > 32                       // (ShellExecute: mas de 32 es exito)
     }
 
-    /// Instaladores de prueba sin firma (el CI sin certificado): sólo con NETDECK_UPDATE_ALLOW_UNSIGNED=1.
-    static var allowUnsigned: Bool { ProcessInfo.processInfo.environment["NETDECK_UPDATE_ALLOW_UNSIGNED"] == "1" }
+    /// Instaladores de prueba sin firma: sólo en una compilación de depuración y con NETDECK_UPDATE_ALLOW_UNSIGNED=1. En la
+    /// app publicada no hay variable que valga: un instalador sin firma se rechaza siempre (se ejecuta con administrador).
+    static var allowUnsigned: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["NETDECK_UPDATE_ALLOW_UNSIGNED"] == "1"
+        #else
+        false
+        #endif
+    }
 
     // MARK: - lo que no depende de la red (con tests)
 

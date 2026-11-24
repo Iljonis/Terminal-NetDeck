@@ -1,4 +1,4 @@
-﻿#if canImport(AppKit)
+#if canImport(AppKit)
 import AppKit
 import CoreText
 import Testing

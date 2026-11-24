@@ -365,11 +365,7 @@ public struct SessionFile: Sendable {
         do {
             try SafeFile.backup(url)                     // (si no se puede leer o copiar, no se toca)
             if fm.fileExists(atPath: url.path) {
-                #if os(Windows)
-                try fm.removeItem(at: url); try fm.moveItem(at: tmp, to: url)
-                #else
-                _ = try fm.replaceItemAt(url, withItemAt: tmp)
-                #endif
+                try SafeFile.replace(url, with: tmp)
             } else {
                 try fm.moveItem(at: tmp, to: url)
             }

@@ -1,4 +1,4 @@
-﻿#if os(Windows)
+#if os(Windows)
 import WinSDK
 #else
 import Darwin

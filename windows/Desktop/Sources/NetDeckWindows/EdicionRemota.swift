@@ -103,10 +103,14 @@ final class PanelEdicionRemota {
         let nombre = (ruta as NSString).lastPathComponent
         let tempDir = AppPaths.support.appendingPathComponent("edicion-remota")
         _ = AppPaths.ensure(tempDir)
-        let localURL = tempDir.appendingPathComponent("\(sesion)_\(nombre)")
+        // (el id en el nombre: dos rutas con el mismo nombre de archivo no pueden compartir copia local, y la sesión
+        // va sin separadores ni caracteres que Windows no admite en un nombre)
+        let id = UUID()
+        let seguro = sesion.components(separatedBy: CharacterSet(charactersIn: "/\\:*?\"<>|")).joined(separator: "_")
+        let localURL = tempDir.appendingPathComponent("\(id.uuidString.prefix(8))_\(seguro)_\(nombre)")
 
         estadoLabel.text = L("Descargando\u{2026}")
-        let edit = EdicionPendiente(id: UUID(), sessionName: sesion, remotePath: ruta,
+        let edit = EdicionPendiente(id: id, sessionName: sesion, remotePath: ruta,
                               localURL: localURL, estado: L("Descargando\u{2026}"), lastMod: nil)
         ediciones.append(edit)
         reloadLista()
@@ -154,6 +158,8 @@ final class PanelEdicionRemota {
     func stop(_ id: UUID) {
         guard let idx = ediciones.firstIndex(where: { $0.id == id }) else { return }
         ediciones[idx].watchTask?.cancel()
+        // (la copia local puede llevar datos sensibles: no se deja en disco al parar)
+        try? FileManager.default.removeItem(at: ediciones[idx].localURL)
         ediciones.remove(at: idx)
         reloadLista()
     }

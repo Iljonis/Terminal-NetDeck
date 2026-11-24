@@ -183,6 +183,10 @@ public final class SessionLogger: @unchecked Sendable {
         let safe = name.replacingOccurrences(of: #"[^A-Za-z0-9._@-]+"#, with: "_", options: .regularExpression)
         let dir = directory.appendingPathComponent(day.string(from: date), isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        #if os(Windows)
+        // (los bits POSIX no protegen nada en Windows: ACL sólo para ti y SYSTEM, que heredan los registros; no verificado)
+        WindowsACL.restrict(dir, directory: true)
+        #endif
         let base = "\(safe)_\(time.string(from: date))"
         var n = 1, fd: Int32 = -1, candidate = dir
         while fd < 0 {
@@ -193,6 +197,9 @@ public final class SessionLogger: @unchecked Sendable {
             fd = _windowsOpenExclNoFollow(candidate.path, shareRead: true)
             #else
             fd = open(candidate.path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0o600)
+            #endif
+            #if os(Windows)
+            if fd >= 0 { WindowsACL.restrict(candidate, directory: false) }
             #endif
             if fd < 0 {
                 let code = errno

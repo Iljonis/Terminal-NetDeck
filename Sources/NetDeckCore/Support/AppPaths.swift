@@ -1,4 +1,4 @@
-﻿import Foundation
+import Foundation
 
 /// Dónde guarda sus cosas la app (nada de contraseñas: ésas, sólo en el Llavero).
 public enum AppPaths {

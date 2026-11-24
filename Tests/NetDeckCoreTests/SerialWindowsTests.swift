@@ -1,4 +1,4 @@
-﻿#if os(Windows)
+#if os(Windows)
 import Testing
 import Foundation
 import WinSDK

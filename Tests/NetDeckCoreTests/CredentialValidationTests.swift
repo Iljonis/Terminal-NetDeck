@@ -1,4 +1,4 @@
-﻿#if canImport(Security)
+#if canImport(Security)
 import Foundation
 import Testing
 @testable import NetDeckCore

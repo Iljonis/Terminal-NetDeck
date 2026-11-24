@@ -1,4 +1,4 @@
-﻿#if os(Windows)
+#if os(Windows)
 import Foundation
 import WinSDK
 
@@ -132,12 +132,29 @@ public func _windowsOpenExclNoFollow(_ path: String, shareRead: Bool = false) ->
     return fd
 }
 
-// kill: señal POSIX (no existe en Windows). Señal 0 comprueba si el proceso sigue vivo.
-// Las demás se ignoran (TODO P4f: usar TerminateProcess/OpenProcess de WinSDK).
+// kill: señal POSIX (no existe en Windows). Señal 0 comprueba si el proceso sigue vivo; cualquier otra termina el
+// proceso (TerminateProcess: no hay SIGTERM «amable», sólo ese pid, no su árbol). Devuelve 0 si lo ha hecho y -1 con
+// errno (ESRCH si no existe, EPERM si no se le deja) si no: nunca un 0 que no sea verdad. Hoy sólo el askpass y el
+// registro de credenciales la llaman, y sólo con 0; el resto (Tunnels, ChildProcess) usa `Job`/`terminate`.
+// no verificado en Windows (sólo se compila allí).
 @discardableResult
 public func kill(_ pid: pid_t, _ sig: Int32) -> Int32 {
-    if sig == 0 { return _windowsProcessAlive(pid) ? 0 : -1 }
-    return 0 // no-op: señales de terminación no implementadas
+    if sig == 0 {
+        if _windowsProcessAlive(pid) { return 0 }
+        _errno().pointee = ESRCH
+        return -1
+    }
+    let terminate: DWORD = 0x0001   // PROCESS_TERMINATE
+    guard pid > 0, let handle = OpenProcess(terminate, false, DWORD(pid)) else {
+        _errno().pointee = pid > 0 && GetLastError() == 5 ? EPERM : ESRCH   // 5 = ERROR_ACCESS_DENIED
+        return -1
+    }
+    defer { CloseHandle(handle) }
+    guard TerminateProcess(handle, UInt32(bitPattern: 128 + sig)) else {
+        _errno().pointee = EPERM
+        return -1
+    }
+    return 0
 }
 
 /// PID del proceso padre del proceso actual.

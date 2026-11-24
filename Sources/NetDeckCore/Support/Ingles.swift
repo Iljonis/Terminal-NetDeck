@@ -1,8 +1,10 @@
-﻿// Textos en inglés de la interfaz. Clave: el texto en castellano tal como está en `L("…")`, con %@ en lugar de
+// Textos en inglés de la interfaz. Clave: el texto en castellano tal como está en `L("…")`, con %@ en lugar de
 // cada valor interpolado (y %% por cada %). Lo comprueba IdiomaTests: toda clave del código tiene que estar aquí.
 enum Ingles {
     static let textos: [String: String] = [
-        "No está ssh.exe en este PC": "ssh.exe not found on this PC",
+        "No está %@ en este PC": "%@ not found on this PC",
+        "No está telnet.exe en este PC: actívalo en «Características de Windows» (Cliente Telnet)":
+            "telnet.exe not found on this PC: turn on “Telnet Client” in Windows Features",
         "Desconecta FTP y espera a que terminen las transferencias antes de renombrar": "Disconnect FTP and wait for transfers to finish before renaming",
         "Espera a que termine el renombrado de la credencial": "Wait for the credential rename to finish",
         "%@ (con nombre)": "%@ (named)",
@@ -1712,8 +1714,6 @@ enum Ingles {
             "The connection was closed",
         "Se ha perdido la conexión":
             "The connection was lost",
-        "Se ha perdido la conexion":
-            "Connection lost",
         "FTP no disponible en este sistema":
             "FTP not available on this system",
         "Se suben a %@":
@@ -2580,6 +2580,7 @@ enum Ingles {
         "la release no publica el sha256 del instalador: no se ofrece": "the release doesn’t publish the installer’s sha256: not offered",
         "el enlace de descarga no es de github.com/%@": "the download link isn’t from github.com/%@",
         "el sha256 del instalador no es el publicado": "the installer’s sha256 isn’t the published one",
+        "no se ha podido bloquear el instalador descargado": "the downloaded installer couldn’t be locked",
         "el instalador no está firmado": "the installer isn’t signed",
         "la firma del instalador no es válida (error %@)": "the installer’s signature isn’t valid (error %@)",
         "la descarga no ha terminado bien": "the download didn’t finish properly",

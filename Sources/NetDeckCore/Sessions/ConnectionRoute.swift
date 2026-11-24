@@ -1,4 +1,4 @@
-﻿import Foundation
+import Foundation
 
 /// Cómo se llega a un equipo: los saltos resueltos y la orden que abre la pestaña.
 public struct ConnectionRoute: Hashable, Sendable, Codable {
@@ -151,10 +151,19 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
         if transport == .ftp { return L("FTP no tiene consola: usa la vista gráfica") }
         let exe = command.executable
         #if os(Windows)
-        return exists(exe) ? nil : L("No está ssh.exe en este PC")
+        return exists(exe) ? nil : Self.missingProgram(exe, windows: true)
         #else
-        return exists(exe) ? nil : L("No está \(exe) en este Mac")
+        return exists(exe) ? nil : Self.missingProgram(exe, windows: false)
         #endif
+    }
+
+    /// El aviso de que falta el programa que abriría la pestaña (ssh.exe, telnet.exe…: el que falta de verdad). `windows`
+    /// sólo se fuerza en los tests; telnet.exe es una característica opcional de Windows y el aviso dice cómo activarla.
+    static func missingProgram(_ exe: String, windows: Bool) -> String {
+        guard windows else { return L("No está \(exe) en este Mac") }
+        let name = exe.split(whereSeparator: { $0 == "\\" || $0 == "/" }).last.map(String.init) ?? exe
+        if name.lowercased() == "telnet.exe" { return L("No está telnet.exe en este PC: actívalo en «Características de Windows» (Cliente Telnet)") }
+        return L("No está \(name) en este PC")
     }
 
     /// Las shells de /etc/shells (las que macOS deja como shell de inicio).
@@ -233,7 +242,13 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
             return (SystemTools.ssh, a)
         case .telnet:
             let telnet = [target.host] + (target.port.map { [String($0)] } ?? [])
-            guard let last = jumps.last else { return ("/usr/bin/env", ["telnet"] + telnet) }
+            guard let last = jumps.last else {
+                #if os(Windows)
+                return (SystemTools.telnet, telnet)         // (telnet.exe de System32; no /usr/bin/env) no verificado en Windows
+                #else
+                return ("/usr/bin/env", ["telnet"] + telnet)
+                #endif
+            }
             var a = f + ["-t"]
             if let sharing, let socket = sharing.socket(for: jumps.map(\.description)) { a += sharing.options(socket: socket) }
             if jumps.count > 1 { a += ["-J", jumps.dropLast().map(\.description).joined(separator: ",")] }

@@ -140,7 +140,10 @@ public enum CredentialRenamer {
 
     private static func replaceLines(_ text: String, transform: (String) -> String?) -> (String, Int) {
         var count = 0
-        let lines = text.components(separatedBy: "\n").map { line in
+        // (por escalares Unicode: «\r\n» es UN carácter para Swift, y fuera de Apple `components(separatedBy: "\n")` no lo parte
+        // —un ssh_config con CRLF se leía como una sola línea y no cambiaba ninguna referencia—; así parte igual en todas)
+        let lines = text.unicodeScalars.split(separator: "\n", omittingEmptySubsequences: false)
+            .map { String(String.UnicodeScalarView($0)) }.map { line in
             guard let replacement = transform(line) else { return line }
             count += 1
             return replacement

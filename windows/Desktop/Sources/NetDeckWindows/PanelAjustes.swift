@@ -233,7 +233,6 @@ final class PanelAjustes {
     private var settings = AjustesTerminal()
     private var estilo = EstiloMac(tema: nil)
     private var seccion = "contrasenas"
-    var seccionActual: String { seccion }
     private let raiz = Grid()
     private let nav = Grid()
     private let menu = StackPanel()

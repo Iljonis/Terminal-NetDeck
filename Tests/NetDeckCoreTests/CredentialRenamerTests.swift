@@ -1,4 +1,4 @@
-﻿import Foundation
+import Foundation
 import Testing
 @testable import NetDeckCore
 
@@ -42,6 +42,20 @@ import Testing
         #expect(mode?.intValue == 0o600)
     }
     #endif
+
+    /// Un ssh_config con finales de línea CRLF (el de un editor de Windows) también se renombra: se parte por «\n» aunque
+    /// «\r\n» sea un solo carácter. Aparte del caso grande de arriba, desactivado en Windows por otra causa.
+    @Test func cambiaLasReferenciasDeUnArchivoConFinesDeLineaCRLF() throws {
+        let files = try Files()
+        defer { files.remove() }
+        let source = CredentialRef.named("AD"), destination = CredentialRef.named("Nueva")
+        let store = RenameStore([source: "ejemplo"])
+        let sessions = "Host core-01\r\n  # @clave AD\r\n  User tu.usuario\r\n"
+        try sessions.write(to: files.paths.sessions, atomically: false, encoding: .utf8)
+        let refs = try CredentialRenamer.rename(from: source, to: destination, store: store, paths: files.paths)
+        #expect(refs == 1)
+        #expect(try SafeFile.read(files.paths.sessions) == "Host core-01\r\n  # @clave Nueva\r\n  User tu.usuario\r\n")
+    }
 
     // Windows: Foundation/NSRegularExpression trata de forma diferente los caracteres Unicode combinadores
     // al inicio de cadena (U+0301, U+FE0F), lo que hace que el parser no los preserve. Se revisa en P7.

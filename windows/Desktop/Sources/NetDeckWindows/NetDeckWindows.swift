@@ -706,7 +706,7 @@ final class NetDeckWindows: SwiftApplication {
         }
         ajustes.rutaSesiones = { [weak self] in
             guard let self else { return "" }
-            return self.isDemo ? L("(demo: s\u{00F3}lo en memoria)") : SessionFile.defaultURL.path
+            return self.isDemo ? L("(demo: s\u{00F3}lo en memoria)") : AppPaths.tilde(SessionFile.defaultURL.path)
         }
         ajustes.onNewSession = { [weak self] in self?.newSession() }
         ajustes.onImportSessions = { [weak self] in self?.showImportador() }
@@ -1576,9 +1576,8 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     private func deleteProfile(_ perfil: SessionProfile) {
-        var file = SessionFile()
-        if isDemo { file = library }
-        else if let loaded = try? SessionFile(contentsOf: SessionFile.defaultURL) { file = loaded }
+        // (si el archivo no se puede leer, no se sigue: guardar uno vacío borraría todas las sesiones)
+        guard var file = archivoEditable() else { return }
         file.sessions.removeAll { $0.name == perfil.name }
         favoritas.remove(perfil.name)
         try? SessionLists.saveFavorites(Array(favoritas).sorted(), to: favoritasURL)
@@ -1816,8 +1815,25 @@ final class NetDeckWindows: SwiftApplication {
             status.text = L("No hay pesta\u{00F1}as SSH o Telnet abiertas")
             return
         }
-        for tab in targets { tab.write(command.replacingOccurrences(of: "\n", with: "\r") + "\r") }
-        status.text = L("Comando enviado a \(targets.count) pesta\u{00F1}as")
+        // (como el pegado en macOS: «\r\n» es un solo Intro, y las órdenes peligrosas se confirman ANTES de enviarlas a todas)
+        let payload = PasteRules.lines(of: command).joined(separator: "\r") + "\r"
+        let count = targets.count
+        let enviar = { [weak self] in
+            guard let self else { return }
+            for tab in targets where !tab.closed { tab.write(payload) }
+            self.status.text = L("Comando enviado a \(count) pesta\u{00F1}as")
+        }
+        let peligrosas = PasteRules.dangerousLines(in: command)
+        guard !peligrosas.isEmpty else { enviar(); return }
+        let visible = SecretMask.masked(PasteRules.visible(command))
+        confirmarMulti.show(title: L("¿Enviar «\(visible)» a \(count) pestañas a la vez?"),
+                            hint: L("Es una orden peligrosa y MultiExec la escribe en todas las pestañas en las que estás tecleando."),
+                            text: visible, editable: false, confirmTitle: L("Enviar a todas"))
+        showPanel(confirmarMulti.view)
+        confirmarMulti.onConfirm = { [weak self] _ in
+            self?.showPanel(nil)
+            enviar()
+        }
     }
 
     // MARK: - listas de equipos

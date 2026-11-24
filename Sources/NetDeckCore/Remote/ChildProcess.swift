@@ -138,7 +138,7 @@ public final class ChildProcess: @unchecked Sendable {
 
     deinit { terminate() }
 
-    /// Lo último que ha dicho por su salida de errores (sin avisos «Warning: Permanently added...»).
+    /// Lo último que ha dicho por su salida de errores (sin avisos «Warning: Permanently added…»).
     public var errorSummary: String {
         let lines = lock.withLock { errorText }.components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -151,7 +151,7 @@ public final class ChildProcess: @unchecked Sendable {
     public var exited: Bool { reaped.lock.withLock { reaped.status != nil } }
 
     public func write(_ d: Data) throws {
-        do { try input.write(contentsOf: d) } catch { throw RemoteError(L("Se ha perdido la conexion")) }
+        do { try input.write(contentsOf: d) } catch { throw RemoteError(L("Se ha perdido la conexión")) }
     }
 
     public func terminate() {
@@ -159,7 +159,7 @@ public final class ChildProcess: @unchecked Sendable {
         stderr.readabilityHandler = nil
         finishOutput()
         try? input.close()
-        // (a todo su grupo: ssh y el askpass que haya lanzado. Sin recoger aun, el grupo es suyo: ver arriba)
+        // (a todo su grupo: ssh y el askpass que haya lanzado. Sin recoger aún, el grupo es suyo: ver arriba)
         reaped.lock.withLock {
             guard reaped.status == nil else { return }
             #if os(Windows)
