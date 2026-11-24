@@ -26,6 +26,19 @@ $env:SWIFTTERM_BUILD_TAG = $pin.state.version
 $env:SWIFTTERM_BUILD_COMMIT = $pin.state.revision
 $env:SWIFTTERM_BUILD_DIRTY = 'false'
 
+# El icono del .exe (logo de NetDeck): NetDeck.rc -> NetDeck.res, que Package.swift enlaza si existe. Si falta llvm-rc el
+# build sigue, sin icono.
+$rc = Join-Path (Split-Path $swift) 'llvm-rc.exe'
+if (Test-Path $rc) {
+    Push-Location $package
+    try {
+        & $rc /FO (Join-Path $package 'NetDeck.res') (Join-Path $package 'NetDeck.rc')
+        if ($LASTEXITCODE -ne 0) { Write-Warning "llvm-rc falló (código $LASTEXITCODE): el .exe saldrá sin icono."; Remove-Item (Join-Path $package 'NetDeck.res') -ErrorAction SilentlyContinue }
+    } finally { Pop-Location }
+} else {
+    Write-Warning 'No está llvm-rc: el .exe saldrá sin icono.'
+}
+
 $build = @('--package-path', $package, '--scratch-path', $scratch, '--force-resolved-versions', '-c', $Configuration, '-Xcc', '-DOPENSSL_NO_ASM', '-Xcc', '-D_CRT_SECURE_NO_WARNINGS')
 # En Windows sin Developer Mode SwiftPM sale con código 1 al fallar el symlink "debug",
 # aunque el build sea correcto. Verificamos el exe en lugar del código de salida.
@@ -56,7 +69,7 @@ $bootstrap = (Get-ChildItem -LiteralPath (Join-Path $products "$bundle.bundle") 
     Select-Object -First 1 -ExpandProperty FullName)
 if (!$bootstrap -or !(Test-Path $bootstrap)) { throw 'Falta el bootstrapper de Windows App SDK.' }
 Copy-Item -LiteralPath $bootstrap -Destination $resources -Force
-foreach ($assets in @('Temas', 'Resaltado', 'windows/Desktop/Fonts')) {
+foreach ($assets in @('Temas', 'Resaltado', 'windows/Desktop/Fonts', 'windows/Desktop/Assets')) {
     Copy-Item -LiteralPath (Join-Path $repo $assets) -Destination $products -Recurse -Force
 }
 $app = Join-Path $products 'NetDeckWindows.exe'

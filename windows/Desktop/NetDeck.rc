@@ -1,0 +1,3 @@
+// Recursos de NetDeckWindows.exe: el icono del programa (barra de tareas, Alt+Tab, Explorador, accesos anclados).
+// windows/scripts/desktop.ps1 lo compila a NetDeck.res con llvm-rc; Package.swift lo enlaza si existe.
+1 ICON "Assets/NetDeck.ico"

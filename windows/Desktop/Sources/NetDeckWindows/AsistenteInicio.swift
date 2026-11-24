@@ -1,6 +1,7 @@
 import Foundation
 import NetDeckCore
 import struct UWP.FontWeight
+import class WindowsFoundation.Uri
 import WinUI
 
 /// Asistente de la primera vez, en el area principal (como el del Mac): bienvenida, tema, fuentes, contrasenas,
@@ -270,7 +271,23 @@ final class AsistenteInicio {
 
     // MARK: - Pasos
 
+    /// El logo de NetDeck (Assets junto al .exe); nil si no esta (p. ej. una compilacion suelta).
+    private func logo(_ lado: Double) -> Image? {
+        let archivo = URL(fileURLWithPath: CommandLine.arguments.first ?? "")
+            .deletingLastPathComponent().appendingPathComponent("Assets/Square150x150Logo.png")
+        guard FileManager.default.fileExists(atPath: archivo.path) else { return nil }
+        let imagen = Image()
+        imagen.source = BitmapImage(Uri("file:///" + archivo.path.replacingOccurrences(of: "\\", with: "/")))
+        imagen.width = lado
+        imagen.height = lado
+        imagen.horizontalAlignment = .left
+        imagen.margin = Thickness(left: 0, top: 0, right: 0, bottom: 10)
+        AutomationProperties.setName(imagen, "NetDeck")
+        return imagen
+    }
+
     private func buildWelcome() {
+        if let logo = logo(96) { contenido.children.append(logo) }
         contenido.children.append(heading(L("Bienvenido a Terminal NetDeck")))
         contenido.children.append(paragraph(L("Aqu\u{00ED} tienes tus servidores y equipos de red en la barra lateral: haz clic en uno para abrir una conexi\u{00F3}n, o en + para a\u{00F1}adir otro. Puedes abrir varias pesta\u{00F1}as, usar un explorador de archivos SFTP y crear t\u{00FA}neles SSH.")))
         contenido.children.append(paragraph(L("En unos pasos eliges el tema, las fuentes, c\u{00F3}mo se tratan las contrase\u{00F1}as y el resaltado de la salida. Todo se aplica al momento y se puede cambiar despu\u{00E9}s en Ajustes.")))

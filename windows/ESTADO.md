@@ -1,3 +1,12 @@
+## 2026-11-24 · Windows · Logo de NetDeck en el ejecutable y en el asistente
+
+- **Qué faltaba:** el `.exe` no llevaba icono incrustado (se comprobó extrayéndolo: el icono genérico de Windows), así que la barra de tareas, Alt+Tab, el Administrador de tareas, las ventanas separadas y los accesos anclados mostraban el icono por defecto. El logo solo estaba en el MSI (Aplicaciones instaladas y acceso del menú Inicio) y en los iconos del manifiesto.
+- **Arreglo:** nuevo `windows/Desktop/NetDeck.rc` (`1 ICON "Assets/NetDeck.ico"`); `desktop.ps1` lo compila con `llvm-rc` (de la toolchain de Swift) a `NetDeck.res` antes de `swift build` y `Package.swift` lo enlaza si existe (si falta `llvm-rc`, avisa y compila sin icono). `NetDeck.res` está en `.gitignore`. `desktop.ps1` copia ahora `windows/Desktop/Assets` junto al ejecutable (antes solo lo hacía el instalador).
+- **Asistente:** el paso de bienvenida muestra el logo (96 px, `Assets/Square150x150Logo.png` junto al `.exe`; si no está, no se muestra).
+- **Verificado:** el icono extraído del `.exe` compilado y del instalado es el logo; el asistente lo muestra en la demo (captura). La barra de tareas y Alt+Tab no se han visto en pantalla (barra de tareas oculta).
+- **Reinstalación:** MSI regenerado (61,3 MB) y app reinstalada con todo lo anterior (asistente, bordes, pestañas, permisos del ssh_config); el `.exe` instalado coincide con el compilado.
+- **Pendiente:** el CI de release (cuando exista `windows-release.yml`) tendrá que ejecutar el mismo paso de `llvm-rc`; logo en más pantallas (acerca de, pantalla vacía) como el banner del asistente del Mac.
+
 ## 2026-11-24 · Windows · Revisión de pestañas con capturas (clic, ✕, mover, sacar, devolver)
 
 Probado en la demo (perfil temporal) con capturas y ratón real controlado desde Claude Code. Resultado:

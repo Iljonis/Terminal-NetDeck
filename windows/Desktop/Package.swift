@@ -1,5 +1,11 @@
 // swift-tools-version: 6.2
+import Foundation
 import PackageDescription
+
+// El icono del .exe: desktop.ps1 compila NetDeck.rc a NetDeck.res antes de construir. Sin él (otro entorno) se enlaza sin icono.
+let recursoIcono = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("NetDeck.res").path
+let enlazadoApp = ["-Xlinker", "/SUBSYSTEM:WINDOWS", "-Xlinker", "/ENTRY:mainCRTStartup"]
+    + (FileManager.default.fileExists(atPath: recursoIcono) ? ["-Xlinker", recursoIcono] : [])
 
 let package = Package(
     name: "NetDeckWindows",
@@ -26,7 +32,7 @@ let package = Package(
                 .linkedLibrary("UWP"),
                 // App gráfica, sin ventana de consola detrás. Con -Xlinker: suelto, clang tomaba «/SUBSYSTEM…» por
                 // una ruta. Swift genera `main`, no `WinMain`: de ahí el punto de entrada.
-                .unsafeFlags(["-Xlinker", "/SUBSYSTEM:WINDOWS", "-Xlinker", "/ENTRY:mainCRTStartup"]),
+                .unsafeFlags(enlazadoApp),
             ]
         ),
     ],
