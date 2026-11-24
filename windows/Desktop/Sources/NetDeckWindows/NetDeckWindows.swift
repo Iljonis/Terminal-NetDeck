@@ -191,6 +191,7 @@ final class NetDeckWindows: SwiftApplication {
                 sessions.loadSamples()
                 library.sessions = sessions.profiles.map(NetDeckWindows.editable(from:))
             } else if FileManager.default.fileExists(atPath: SessionFile.defaultURL.path) {
+                SessionFile.repairPermissions()
                 sessions.load(from: SessionFile.defaultURL)
             } else {
                 sessions.load()
@@ -3320,6 +3321,7 @@ final class NetDeckWindows: SwiftApplication {
 
     @discardableResult
     private func open(_ route: ConnectionRoute, perfil: TerminalProfile? = nil) -> PestanaTerminal? {
+        if !isDemo { SessionFile.repairPermissions() }
         if route.transport == .sftp {
             openSFTP(route)
             return nil

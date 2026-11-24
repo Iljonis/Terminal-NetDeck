@@ -1,3 +1,11 @@
+## 2026-11-24 · Windows · ssh_config con permisos que OpenSSH rechazaba («Bad owner or permissions»)
+
+- **Síntoma:** `Bad permissions. Try removing permissions for user: DERECHOS DE PROPIETARIO (S-1-3-4) on file …\.config\netdeck\ssh_config`.
+- **Causa:** `SessionFile.prepare` creaba la carpeta con `createDirectory` y escribía el temporal con `write(atomically:)` sin pasar por `WindowsACL.restrict`, a diferencia de `SafeFile.write` (los demás archivos, como `recientes`, sí quedaban con usuario + SYSTEM). El `ssh_config` heredaba la ACL de `C:\Users\<usuario>\.config`, que tiene una entrada explícita «Derechos de propietario» (S-1-3-4) y ninguna del usuario; OpenSSH para Windows no la admite.
+- **Arreglo:** `prepare` aplica `WindowsACL.restrict` al temporal antes de moverlo (la ACL viaja con el archivo). Nueva `SessionFile.repairPermissions()` (no hace nada fuera de Windows): la app la llama al arrancar y antes de cada conexión (`open(_:)`, no en demo), de modo que un archivo reescrito por otro programa se corrige solo antes de que `ssh` lo lea. El archivo roto del autor se corrigió a mano con `icacls`.
+- **Tests:** 556 pasan (2 nuevos en `WindowsACLTests`: un `ssh_config` guardado y uno reparado quedan con exactamente 2 ACEs). Build release OK.
+- **Pendiente:** la app instalada es la anterior; hay que reinstalar el MSI para que lleve el arreglo. No se ha probado una conexión SSH real desde la app tras el arreglo.
+
 ## 2026-11-24 · Windows · Arrastre de pestañas por sondeo Win32 (sustituye al intento de captura de puntero)
 
 - **Resultado de la prueba manual del autor con el intento anterior:** no arrastraba nada y las pestañas parpadeaban.

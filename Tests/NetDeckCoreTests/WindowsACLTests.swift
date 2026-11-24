@@ -55,5 +55,41 @@ import WinSDK
         while GetAce(dacl, DWORD(nAces), &pAce) { nAces += 1 }
         #expect(nAces == 2)
     }
+
+    /// Número de ACEs de la DACL de `url` (nil si no se puede leer).
+    private func numeroDeAces(_ url: URL) -> Int? {
+        var dacl: PACL? = nil
+        var sd: PSECURITY_DESCRIPTOR? = nil
+        let rc = url.path.withCString(encodedAs: UTF16.self) { w in
+            GetNamedSecurityInfoW(UnsafeMutablePointer(mutating: w), SE_FILE_OBJECT,
+                                  SECURITY_INFORMATION(4), nil, nil, &dacl, nil, &sd)
+        }
+        guard rc == DWORD(ERROR_SUCCESS), let sd, let dacl else { return nil }
+        defer { LocalFree(sd) }
+        var n = 0
+        var pAce: UnsafeMutableRawPointer? = nil
+        while GetAce(dacl, DWORD(n), &pAce) { n += 1 }
+        return n
+    }
+
+    @Test func unSshConfigGuardadoQuedaProtegidoSinHeredar() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("acl-sf-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("ssh_config")
+        #expect(SessionFile().save(to: url, validate: false) == nil)
+        #expect(numeroDeAces(url) == 2)
+    }
+
+    @Test func repairPermissionsCorrigeUnArchivoConLaACLHeredada() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("acl-repair-\(ProcessInfo.processInfo.processIdentifier).tmp")
+        _ = FileManager.default.createFile(atPath: url.path, contents: Data("Host x\n".utf8))
+        defer { try? FileManager.default.removeItem(at: url) }
+        #expect(numeroDeAces(url) != 2)
+        #expect(SessionFile.repairPermissions(url))
+        #expect(numeroDeAces(url) == 2)
+    }
 }
 #endif

@@ -321,6 +321,19 @@ public struct SessionFile: Sendable {
         return Self.install(tmp, at: url, count: sessions.count)
     }
 
+    /// En Windows deja `url` sólo para ti y SYSTEM: cualquier otra ACL (p. ej. la heredada de ~/.config con «Derechos de
+    /// propietario») hace que OpenSSH se niegue a leerlo. Se llama antes de conectar, así que se corrige solo aunque otro
+    /// programa lo haya reescrito. No hace nada en otros sistemas.
+    @discardableResult
+    public static func repairPermissions(_ url: URL = defaultURL) -> Bool {
+        #if os(Windows)
+        guard FileManager.default.fileExists(atPath: url.path) else { return true }
+        return WindowsACL.restrict(url, directory: false)
+        #else
+        return true
+        #endif
+    }
+
     /// El archivo nuevo en «url.tmp», ya comprobado con «ssh -G» (si no vale, queda como «.rechazado»). Sin tocar `url`.
     func prepare(_ url: URL, validate: Bool) -> (URL?, String?) {
         if let p = problems().first { return (nil, p) }
@@ -330,6 +343,10 @@ public struct SessionFile: Sendable {
         do {
             try render().write(to: tmp, atomically: true, encoding: .utf8)
             try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tmp.path)
+            #if os(Windows)
+            // Sin esto el archivo hereda la ACL de ~/.config y OpenSSH lo rechaza («Bad owner or permissions»).
+            WindowsACL.restrict(tmp, directory: false)
+            #endif
         } catch {
             return (nil, error.localizedDescription)
         }
