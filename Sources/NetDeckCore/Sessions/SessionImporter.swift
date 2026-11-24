@@ -231,9 +231,12 @@ public enum SessionImporter {
                 skipped.append((k, moba[type] ?? L("tipo \(type)")))
                 continue
             }
-            let user = type == "109" ? fields[3] : ""
+            let rawUser = type == "109" ? fields[3] : ""
             var name = k
-            if !user.isEmpty, name.hasSuffix(" (\(user))") { name = String(name.dropLast(user.count + 3)) }   // «core-01 (admin)»
+            if !rawUser.isEmpty, name.hasSuffix(" (\(rawUser))") { name = String(name.dropLast(rawUser.count + 3)) }   // «core-01 (admin)» o «SW-Cisco ([Jonay])»
+            // MobaXterm envuelve el usuario auto-detectado de Windows como [nombre]: quitamos los corchetes
+            let user = rawUser.hasPrefix("[") && rawUser.hasSuffix("]") && rawUser.count > 2
+                ? String(rawUser.dropFirst().dropLast()) : rawUser
             out.append(Found(group: group, original: name, host: fields[1], user: user, port: fields[2], ref: k,
                              telnet: type == "98"))
         }

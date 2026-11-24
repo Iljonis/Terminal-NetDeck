@@ -54,6 +54,7 @@ final class PanelEditorSesion {
     private var temas: [String] = []
     private var lineas: [Int] = []
     private var puertos: [String] = []
+    private var enfocarNombre = false
 
     init() {
         form.spacing = 12
@@ -64,6 +65,14 @@ final class PanelEditorSesion {
         view.verticalScrollBarVisibility = .auto
         view.horizontalScrollBarVisibility = .disabled
         view.visibility = .collapsed
+        // El TextBox no acepta el foco hasta tener tamaño; además el menú «+» lo devuelve al botón al cerrarse.
+        view.layoutUpdated.addHandler { [weak self] _, _ in
+            guard let self, enfocarNombre, view.visibility == .visible, name.actualWidth > 0 else { return }
+            if (try? name.focus(.keyboard)) == true {
+                enfocarNombre = false
+                try? name.selectAll()
+            }
+        }
         kind.selectionChanged.addHandler { [weak self] _, _ in self?.kindChanged() }
         serialPorts.selectionChanged.addHandler { [weak self] _, _ in
             guard let self, !loading, puertos.indices.contains(Int(serialPorts.selectedIndex)) else { return }
@@ -211,7 +220,7 @@ final class PanelEditorSesion {
         visibilidad(session.kind)
     }
 
-    func focusName() { _ = try? name.focus(.programmatic) }
+    func focusName() { enfocarNombre = true }
 
     private func campo(_ titulo: String, _ control: Control, en panel: StackPanel) {
         if let t = control as? TextBox { t.header = titulo }

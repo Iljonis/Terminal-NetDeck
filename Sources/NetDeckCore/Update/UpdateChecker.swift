@@ -43,7 +43,7 @@ public actor UpdateChecker {
 
     public static let repo = "Iljonis/Terminal-NetDeck"
     /// La version de esta app (en Windows no hay Info.plist). Debe coincidir con AppxManifest.xml y NetDeckWindows.wxs.
-    public static let currentVersion = "0.9.0"
+    public static let currentVersion = "1.0.1"
 
     public init() {}
 

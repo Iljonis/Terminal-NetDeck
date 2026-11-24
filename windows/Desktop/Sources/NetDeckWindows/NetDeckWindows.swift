@@ -3,10 +3,10 @@ import NetDeckCore
 import struct UWP.Color
 import class UWP.UISettings
 import struct UWP.FontWeight
+import struct WindowsFoundation.Point
 import WinSDK
 import WinUI
 
-@main
 final class NetDeckWindows: SwiftApplication {
     private var window: Window?
     private let tabs = StackPanel()
@@ -38,7 +38,8 @@ final class NetDeckWindows: SwiftApplication {
     private var credencialesDisponibles: [String] = []
     private let closeButton = Button()
     private var terminals: [PestanaTerminal] = []
-    private weak var pestañaArrastrada: PestanaTerminal?
+    private var arrastrePestana: (sesion: PestanaTerminal, x: Double, y: Double, activo: Bool)?
+    private var botonIzquierdoAbajo = false
     private struct VentanaPestana {
         let window: Window
         let vista: VistaTerminal
@@ -54,6 +55,7 @@ final class NetDeckWindows: SwiftApplication {
     private var listasDemo = ListLibrary()
     private var loteListas: AbortSwitch?
     private let ajustes = PanelAjustes()
+    private let selectorColor = PanelSelectorColor()
     private let reglas = PanelTexto(idPrefix: "Resaltado")
     private var resaltadoDemo: String?
     private var highlightConfig: HighlightConfig?
@@ -93,6 +95,9 @@ final class NetDeckWindows: SwiftApplication {
     private let llavero = PanelLlavero()
     private let borrarSesion = PanelTexto(idPrefix: "BorrarSesion")
     private let hojaConexion = HojaConexion()
+    private let buscarRegistros = PanelBuscarRegistros()
+    private let menuBuscar = MenuLista()
+    private let menuAjustes = MenuLista()
     private let edicionRemota = PanelEdicionRemota()
     private let panelImportador = PanelImportador()
     private var favoritas: Set<String> = []
@@ -139,6 +144,7 @@ final class NetDeckWindows: SwiftApplication {
     private let bordeSuperior = Border()
     private let barraSuperior = Grid()
     private let tabsScroll = ScrollViewer()
+    private var iconosConOcultosAplicados: Set<String> = []
     private let iconos = StackPanel()
     private let barraBotonesFondo = Border()
     private let barraBotonesGrid = Grid()
@@ -217,6 +223,18 @@ final class NetDeckWindows: SwiftApplication {
         tabsScroll.verticalScrollBarVisibility = .disabled
         tabsScroll.verticalAlignment = .center
         tabsScroll.margin = Thickness(left: 10, top: 0, right: 6, bottom: 0)
+        tabsScroll.horizontalScrollMode = .enabled
+        tabsScroll.pointerWheelChanged.addHandler { [weak self] _, args in
+            guard let self, let args, tabsScroll.scrollableWidth > 0,
+                  let punto = try? args.getCurrentPoint(tabsScroll) else { return }
+            let delta = Double(punto.properties.mouseWheelDelta)
+            guard delta != 0 else { return }
+            let destino = min(tabsScroll.scrollableWidth,
+                              max(0, tabsScroll.horizontalOffset - delta * 0.75))
+            _ = try? tabsScroll.changeView(destino, nil, nil, true)
+            args.handled = true
+        }
+        configurarArrastrePestanas()
         let arrastre = Grid()
         arrastre.background = estilo.transparente
         iconos.orientation = .horizontal
@@ -431,6 +449,9 @@ final class NetDeckWindows: SwiftApplication {
         editor.onCancel = { [weak self] in self?.hideEditor() }
         Grid.setRow(ajustes.view, Int32(2))
         contenidoTarjeta.children.append(ajustes.view)
+        Grid.setRow(selectorColor.view, Int32(2))
+        contenidoTarjeta.children.append(selectorColor.view)
+        selectorColor.onClose = { [weak self] in self?.showAjustes() }
         Grid.setRow(accesoFTP.view, Int32(2))
         contenidoTarjeta.children.append(accesoFTP.view)
         accesoFTP.onCancel = { [weak self] in self?.showPanel(nil) }
@@ -521,7 +542,30 @@ final class NetDeckWindows: SwiftApplication {
             guard let self else { return }
             if volverAContrasenas { volverAContrasenas = false; showAjustes() } else { showPanel(nil) }
         }
-        llavero.getArchivoBotones = { [weak self] in self?.archivoBotones ?? ButtonFile() }
+        llavero.ledger = ledgerClaves
+        llavero.usoDe = { [weak self] ref in self?.usoCredencial(ref) }
+        llavero.onEstado = { [weak self] texto in self?.status.text = texto }
+        llavero.onRenombrada = { [weak self] anterior, nueva in
+            guard let self else { return }
+            if anterior.service == .named, settings.clavePorDefecto == anterior.account {
+                var cambios = settings
+                cambios.clavePorDefecto = nueva.account
+                saveAjustes(cambios)
+            }
+            recargarSesiones()
+            if let leidos = try? readCommandButtons() { archivoBotones = leidos }
+            construirBarraBotones()
+        }
+        // (un ssh_config que no se pudo leer o una sesión que sigue apuntando a la antigua: se conserva)
+        llavero.sigueEnUso = { [weak self] ref in
+            guard let self else { return true }
+            return MainActor.assumeIsolated {
+                self.sessions.loadError != nil || self.sessions.profiles.contains { perfil in
+                    ref.service == .named ? perfil.namedCredential == ref.account
+                        : CredentialRef.device(perfil.effectiveUser, perfil.endpoint.host) == ref
+                }
+            }
+        }
         Grid.setRow(macros.view, Int32(2))
         contenidoTarjeta.children.append(macros.view)
         macros.onClose = { [weak self] in self?.showPanel(nil) }
@@ -533,15 +577,32 @@ final class NetDeckWindows: SwiftApplication {
         Grid.setRow(hojaConexion.view, Int32(2))
         contenidoTarjeta.children.append(hojaConexion.view)
         hojaConexion.onClose = { [weak self] in self?.showPanel(nil) }
-        hojaConexion.onConectar = { [weak self] host, salto, usuario, transport in
+        // Como quickConnect del Mac: por un salto, una sesión por su nombre o usuario@equipo[:puerto].
+        hojaConexion.onConectar = { [weak self] equipo, salto, usuario, transport in
             guard let self else { return }
-            let u = usuario.isEmpty ? NSUserName() : usuario
-            let target = Endpoint(user: u, host: host)
-            var route = ConnectionRoute(title: host, target: target, transport: transport)
-            if let salto, !salto.isEmpty { route.jumpSpec = [salto] }
             self.showPanel(nil)
-            self.open(route)
+            if !salto.isEmpty {
+                do {
+                    let ruta = try MainActor.assumeIsolated {
+                        try self.sessions.jumpShortcut(to: equipo, via: salto, user: usuario, transport: transport)
+                    }
+                    self.open(ruta)
+                } catch {
+                    self.status.text = "\u{2717} \(error.localizedDescription)"
+                }
+            } else if let perfil = MainActor.assumeIsolated({ self.sessions.profile(named: equipo) }) {
+                self.openProfile(perfil)
+            } else if var destino = Endpoint(parsing: equipo) {
+                if destino.user == nil { destino.user = usuario }
+                self.open(ConnectionRoute(title: destino.host, target: destino, transport: transport))
+            }
         }
+        Grid.setRow(buscarRegistros.view, Int32(2))
+        contenidoTarjeta.children.append(buscarRegistros.view)
+        buscarRegistros.onClose = { [weak self] in self?.showPanel(nil) }
+        buscarRegistros.onAbrir = { [weak self] in self?.abrirRuta($0) }
+        buscarRegistros.onMostrar = { [weak self] in self?.mostrarEnExplorador($0) }
+        buscarRegistros.enqueue = { [weak self] accion in _ = try? self?.window?.dispatcherQueue?.tryEnqueue { accion() } }
         Grid.setRow(edicionRemota.view, Int32(2))
         contenidoTarjeta.children.append(edicionRemota.view)
         edicionRemota.onClose = { [weak self] in self?.showPanel(nil) }
@@ -588,9 +649,10 @@ final class NetDeckWindows: SwiftApplication {
         }
         reglas.onConfirm = { [weak self] in self?.saveHighlightRules($0) }
         reglas.onCancel = { [weak self] in self?.showAjustes() }
-        ajustes.onTemaElegirColor = { actual in
-            guard let owner = GetActiveWindow() else { return nil }
-            return SelectorArchivos.color(actual, owner: owner)
+        ajustes.onTemaElegirColor = { [weak self] actual, terminar in
+            guard let self else { terminar(nil); return }
+            self.selectorColor.mostrar(actual, estilo: self.estilo, terminar: terminar)
+            self.showPanel(self.selectorColor.view)
         }
         ajustes.onTemaImportar = {
             guard let owner = GetActiveWindow(),
@@ -629,6 +691,7 @@ final class NetDeckWindows: SwiftApplication {
             self?.reloadHighlight()
             self?.status.text = L("Reglas de resaltado recargadas")
         }
+        ajustes.onCustomizeHighlight = { [weak self] in self?.personalizarResaltado() }
         ajustes.rutaResaltado = { [weak self] in
             self.map { AppPaths.tilde($0.urlReglasActivas().path) } ?? "—"
         }
@@ -792,34 +855,135 @@ final class NetDeckWindows: SwiftApplication {
             (Glifo.grabar, L("Macros: grabar, reproducir y editar"), "Macros", nil, { [weak self] in self?.showMacros() }),
         ]
         for (glifo, ayuda, id, tinte, accion) in botones {
-            iconos.children.append(e.botonIcono(glifo, ayuda: ayuda, id: id, tinte: tinte, accion: accion))
+            if !settings.toolbarOcultos.contains(id) {
+                iconos.children.append(e.botonIcono(glifo, ayuda: ayuda, id: id, tinte: tinte, accion: accion))
+            }
         }
         e.vestirIcono(pararGrabacion, Glifo.grabar, ayuda: L("Parar la grabaci\u{00F3}n"), id: "Macros_PararGrabacion", tinte: e.mal)
         iconos.children.append(pararGrabacion)
-        iconos.children.append(e.botonIcono(Glifo.tuneles, ayuda: L("T\u{00FA}neles SSH: locales, remotos y SOCKS"),
-                                            id: "Tuneles") { [weak self] in self?.showTuneles() })
+        if !settings.toolbarOcultos.contains("Tuneles") {
+            iconos.children.append(e.botonIcono(Glifo.tuneles, ayuda: L("T\u{00FA}neles SSH: locales, remotos y SOCKS"),
+                                                id: "Tuneles") { [weak self] in self?.showTuneles() })
+        }
         e.vestirIcono(dividir, Glifo.dividir, ayuda: L("Pantalla dividida"), id: "DividirTerminal")
         prepararMenuDivision()
-        iconos.children.append(dividir)
-        iconos.children.append(e.botonIcono(Glifo.llave, ayuda: L("Contraseñas y Llavero"), id: "Llavero") {
-            [weak self] in self?.showLlavero()
-        })
+        if !settings.toolbarOcultos.contains("DividirTerminal") { iconos.children.append(dividir) }
+        if !settings.toolbarOcultos.contains("Llavero") {
+            iconos.children.append(e.botonIcono(Glifo.llave, ayuda: L("Contraseñas y Llavero"), id: "Llavero") {
+                [weak self] in self?.showLlavero()
+            })
+        }
         e.vestirIcono(botonMulti, Glifo.multiExec,
                       ayuda: L("MultiExec: lo que escribes va a la vez a los paneles (Ctrl+Mayús+M). Clic derecho en un panel → excluirlo"),
                       id: "MultiExec", tinte: e.aviso)
-        iconos.children.append(botonMulti)
+        if !settings.toolbarOcultos.contains("MultiExec") { iconos.children.append(botonMulti) }
         actualizarMultiExec()
         e.vestirIcono(pararAutomatizacion, Glifo.parar, ayuda: L("Detener env\u{00ED}o"), id: "Macros_Parar", tinte: e.mal)
         iconos.children.append(pararAutomatizacion)
+        // (lo que en el Mac va en Edición y Herramientas: buscar en la pestaña o en todos los registros)
+        let buscar = Button()
+        e.vestirIcono(buscar, Glifo.buscar, ayuda: L("Buscar"), id: "BuscarTerminal")
+        menuBuscar.preparar(estilo: e, [
+            .orden(L("Buscar en la salida…"), Glifo.buscar, tecla: L("Ctrl+Mayús+F")) { [weak self] in self?.showTerminalSearch() },
+            .orden(L("Buscar en todos los registros…"), Glifo.lista, tecla: L("Ctrl+Alt+Mayús+F")) { [weak self] in
+                self?.showBuscarRegistros()
+            },
+        ])
+        buscar.flyout = menuBuscar.flyout
+        if !settings.toolbarOcultos.contains("BuscarTerminal") { iconos.children.append(buscar) }
         let resto: [(String, String, String, () -> Void)] = [
-            (Glifo.buscar, L("Buscar en el terminal"), "BuscarTerminal", { [weak self] in self?.showTerminalSearch() }),
             (Glifo.espacios, L("Espacios de trabajo"), "Espacios", { [weak self] in self?.showWorkspaces() }),
             (Glifo.editar, L("Editar remoto"), "EditarRemoto", { [weak self] in self?.showEdicionRemota() }),
             (Glifo.barraLateral, L("Mostrar/ocultar sesiones"), "MostrarSesiones", { [weak self] in self?.alternarLateral() }),
-            (Glifo.ajustes, L("Ajustes"), "Ajustes", { [weak self] in self?.showAjustes() }),
         ]
         for (glifo, ayuda, id, accion) in resto {
-            iconos.children.append(e.botonIcono(glifo, ayuda: ayuda, id: id, accion: accion))
+            if !settings.toolbarOcultos.contains(id) {
+                iconos.children.append(e.botonIcono(glifo, ayuda: ayuda, id: id, accion: accion))
+            }
+        }
+        // (lo del menú de la app y el de Ayuda del Mac)
+        let ajustesBoton = Button()
+        e.vestirIcono(ajustesBoton, Glifo.ajustes, ayuda: L("Ajustes"), id: "Ajustes")
+        menuAjustes.preparar(estilo: e, [
+            .orden(L("Ajustes…"), Glifo.ajustes, tecla: "Ctrl+,") { [weak self] in self?.showAjustes() },
+            .orden(L("Asistente de instalación…"), Glifo.estrella, tecla: nil) { [weak self] in
+                self?.showAsistente(markSeen: true)
+            },
+            .orden(L("Buscar actualizaciones…"), Glifo.recargar, tecla: nil) { [weak self] in self?.checkUpdates() },
+            .orden(L("Nueva ventana"), Glifo.mas, tecla: L("Ctrl+Mayús+N")) { [weak self] in self?.nuevaVentana() },
+            .separador,
+            .orden(L("Abrir el registro de depuración"), Glifo.lista, tecla: nil) { [weak self] in
+                DebugLog.flush()
+                AppPaths.ensure(DebugLog.directory)
+                if !FileManager.default.fileExists(atPath: DebugLog.file.path) { ErrorLog.append("", to: DebugLog.file) }
+                self?.abrirRuta(DebugLog.file)
+            },
+            .orden(L("Abrir el registro de errores"), Glifo.lista, tecla: nil) { [weak self] in
+                ErrorLog.flush()
+                if !FileManager.default.fileExists(atPath: ErrorLog.file.path) { ErrorLog.append("", to: ErrorLog.file) }
+                self?.abrirRuta(ErrorLog.file)
+            },
+            .orden(L("Carpeta de registros"), Glifo.carpeta, tecla: nil) { [weak self] in
+                self?.abrirRuta(AppPaths.ensure(DebugLog.directory))
+            },
+        ])
+        ajustesBoton.flyout = menuAjustes.flyout
+        iconos.children.append(ajustesBoton)
+    }
+
+    /// «Se usa en: …» de una credencial, como en Ajustes → Contraseñas del Mac.
+    private func usoCredencial(_ ref: CredentialRef) -> String? {
+        let archivo = (isDemo ? library : (try? SessionFile(contentsOf: SessionFile.defaultURL))) ?? SessionFile()
+        var partes: [String] = []
+        if ref.service == .named {
+            let uso = archivo.usage(ofNamed: ref.account)
+            if !uso.sessions.isEmpty { partes.append(L("sesiones: \(nombresUso(uso.sessions))\(masUso(uso.sessions))")) }
+            if !uso.groups.isEmpty { partes.append(L("grupos: \(uso.groups.joined(separator: ", "))")) }
+            let botones = archivoBotones.buttons.filter {
+                ($0.mode == .pass && $0.command == ref.account)
+                    || ($0.mode == .login && CommandButton.loginParts($0.command)?.credential == ref.account)
+            }.map(\.name)
+            if !botones.isEmpty { partes.append(L("botones: \(nombresUso(botones))\(masUso(botones))")) }
+            if settings.clavePorDefecto == ref.account { partes.append(L("por defecto")) }
+        } else {
+            let nombres = archivo.sessions.filter {
+                "\($0.user.isEmpty ? AppPaths.userName : $0.user)@\($0.host.isEmpty ? $0.name : $0.host)" == ref.account
+            }.map(\.name)
+            if !nombres.isEmpty { partes.append(L("sesiones: \(nombresUso(nombres))\(masUso(nombres))")) }
+        }
+        return partes.isEmpty ? nil : L("Se usa en: ") + partes.joined(separator: " \u{00B7} ")
+    }
+
+    private func nombresUso(_ nombres: [String]) -> String { nombres.prefix(6).joined(separator: ", ") }
+    private func masUso(_ nombres: [String]) -> String { nombres.count > 6 ? "\u{2026}" : "" }
+
+    private func showBuscarRegistros() {
+        buscarRegistros.show(carpeta: settings.urlRegistro, estilo: estilo)
+        status.text = ""
+        showPanel(buscarRegistros.view)
+    }
+
+    /// Como «Nueva ventana» (⌘N) del Mac: otra ventana con sus propias pestañas (otra instancia; los ajustes y las
+    /// sesiones son los mismos archivos).
+    private func nuevaVentana() {
+        let exe = Array(CommandLine.arguments[0].utf16) + [0]
+        let verbo = Array("open".utf16) + [0]
+        _ = exe.withUnsafeBufferPointer { exe in
+            verbo.withUnsafeBufferPointer { verbo in
+                ShellExecuteW(nil, verbo.baseAddress, exe.baseAddress, nil, nil, SW_SHOWNORMAL)
+            }
+        }
+    }
+
+    /// «Mostrar en Finder» del Mac: el Explorador con el archivo elegido.
+    private func mostrarEnExplorador(_ url: URL) {
+        let ruta = url.withUnsafeFileSystemRepresentation { $0.map { String(cString: $0) } } ?? url.path
+        let parametros = Array("/select,\"\(ruta)\"".utf16) + [0]
+        let explorador = Array("explorer.exe".utf16) + [0]
+        _ = parametros.withUnsafeBufferPointer { parametros in
+            explorador.withUnsafeBufferPointer { explorador in
+                ShellExecuteW(nil, nil, explorador.baseAddress, parametros.baseAddress, nil, SW_SHOWNORMAL)
+            }
         }
     }
 
@@ -1388,8 +1552,8 @@ final class NetDeckWindows: SwiftApplication {
         let credenciales = nombresCredenciales()
         let saltos = MainActor.assumeIsolated { sessions.profiles.filter { $0.name != session.name }.map(\.name) }
         editor.show(session, original: original, estilo: estilo, credenciales: credenciales, saltos: saltos)
+        editor.focusName()
         showPanel(editor.view)
-        _ = try? window?.dispatcherQueue?.tryEnqueue { [weak self] in self?.editor.focusName() }
     }
 
     private func hideEditor() { showPanel(nil) }
@@ -1442,6 +1606,7 @@ final class NetDeckWindows: SwiftApplication {
 
     /// El area principal muestra el terminal o uno de los paneles (editor, ajustes), nunca varios a la vez.
     private func showPanel(_ panel: ScrollViewer?) {
+        if panel !== selectorColor.view { selectorColor.abandonar() }
         capaEmergente.visibility = panel == nil ? .collapsed : .visible
         // Ajustes, como en el Mac: hasta 1000×720, sin márgenes y con su propio «Cerrar».
         let sonAjustes = panel === ajustes.view
@@ -1454,6 +1619,7 @@ final class NetDeckWindows: SwiftApplication {
         editor.view.visibility = panel === editor.view ? .visible : .collapsed
         listas.view.visibility = panel === listas.view ? .visible : .collapsed
         ajustes.view.visibility = panel === ajustes.view ? .visible : .collapsed
+        selectorColor.view.visibility = panel === selectorColor.view ? .visible : .collapsed
         reglas.view.visibility = panel === reglas.view ? .visible : .collapsed
         pegado.view.visibility = panel === pegado.view ? .visible : .collapsed
         if panel !== pegado.view { pendingPaste = nil }
@@ -1478,6 +1644,7 @@ final class NetDeckWindows: SwiftApplication {
         borrarSesion.view.visibility = panel === borrarSesion.view ? .visible : .collapsed
         if panel !== borrarSesion.view { borrarSesion.onConfirm = nil }
         hojaConexion.view.visibility = panel === hojaConexion.view ? .visible : .collapsed
+        buscarRegistros.view.visibility = panel === buscarRegistros.view ? .visible : .collapsed
         renombrar.view.visibility = panel === renombrar.view ? .visible : .collapsed
         if panel !== renombrar.view { renombrar.onConfirm = nil }
         edicionRemota.view.visibility = panel === edicionRemota.view ? .visible : .collapsed
@@ -2355,6 +2522,10 @@ final class NetDeckWindows: SwiftApplication {
             case 82 where GetKeyState(Int32(VK_SHIFT)) < 0:
                 recargarSesiones()
                 return true
+            case 70 where GetKeyState(Int32(VK_SHIFT)) < 0:   // (⌘⇧F del Mac)
+                showPanel(nil)
+                showBuscarRegistros()
+                return true
             case 70:
                 var cambios = settings
                 cambios.filtroActivo.toggle()
@@ -2369,8 +2540,8 @@ final class NetDeckWindows: SwiftApplication {
         }
         let shift = GetKeyState(Int32(VK_SHIFT)) < 0
         switch key {
-        case 78 where shift:
-            newSession()
+        case 78 where shift:                    // (⌘N del Mac)
+            nuevaVentana()
         case 87 where shift:
             showPanel(nil)
             closeSelected()
@@ -2601,6 +2772,26 @@ final class NetDeckWindows: SwiftApplication {
         for detached in ventanasPestana.values { aplicarResaltado(detached.session) }
     }
 
+    /// «Abrir en el editor…» del Mac: una copia personalizada de las reglas activas (si no la hay), elegida, en tu editor.
+    private func personalizarResaltado() {
+        let destino = highlightURL
+        if !FileManager.default.fileExists(atPath: destino.path) {
+            do {
+                let texto = try highlightText()
+                _ = AppPaths.ensure(destino.deletingLastPathComponent())
+                try SafeFile.write(texto, to: destino)
+            } catch {
+                status.text = L("No se puede guardar: \(error.localizedDescription)")
+                return
+            }
+        }
+        var cambios = settings
+        cambios.origenResaltado = "custom"
+        saveAjustes(cambios)
+        reloadHighlight()
+        abrirRuta(destino)
+    }
+
     private func showHighlightRules() {
         do {
             reglas.show(title: L("Editar reglas de resaltado"), hint: L("Reglas en formato ChromaTerm YAML"),
@@ -2744,7 +2935,7 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     private func showHojaConexion() {
-        hojaConexion.show()
+        hojaConexion.show(sesiones: MainActor.assumeIsolated { sessions.profiles.map(\.name) })
         showPanel(hojaConexion.view)
     }
 
@@ -2835,6 +3026,10 @@ final class NetDeckWindows: SwiftApplication {
         updateSplitLayout()
         let temaTerminal = a.temaPersonalizado()
         applyTerminalTheme(temaTerminal)
+        for (i, vista) in vistas.enumerated() {
+            vestirTerminal(vista, terminalesVisibles.indices.contains(i) ? terminalesVisibles[i] : nil)
+        }
+        for detached in ventanasPestana.values { vestirTerminal(detached.vista, detached.session) }
         reloadHighlight()
         for tab in ventanasPestana.values { resizeDetached(tab) }
         // El fondo, las barras y claro/oscuro salen del tema (como en el Mac); el marco sólo se rehace si cambia.
@@ -2856,6 +3051,10 @@ final class NetDeckWindows: SwiftApplication {
         if botonesPorGruposAplicado != a.botonesPorGrupos {
             botonesPorGruposAplicado = a.botonesPorGrupos
             construirBarraBotones()
+        }
+        if iconosConOcultosAplicados != a.toolbarOcultos {
+            iconosConOcultosAplicados = a.toolbarOcultos
+            construirIconos()
         }
         mostrarLateral(a.listaSesiones)
         resize()
@@ -3276,24 +3475,6 @@ final class NetDeckWindows: SwiftApplication {
                 guard let candidate else { return }
                 self?.select(candidate)
             }
-            tab.canDrag = true
-            tab.allowDrop = true
-            tab.dragStarting.addHandler { [weak self, weak candidate] _, args in
-                self?.pestañaArrastrada = candidate
-                args?.allowedOperations = .move
-                try? args?.data.setText("NetDeck")
-            }
-            tab.dragOver.addHandler { [weak self, weak candidate] _, args in
-                guard let source = self?.pestañaArrastrada, let candidate, source !== candidate else { return }
-                args?.acceptedOperation = .move
-                args?.handled = true
-            }
-            tab.drop.addHandler { [weak self, weak candidate] _, args in
-                guard let self, let source = self.pestañaArrastrada, let candidate else { return }
-                self.reorder(source, at: candidate)
-                args?.handled = true
-            }
-            tab.dropCompleted.addHandler { [weak self] _, _ in self?.pestañaArrastrada = nil }
             let menu = MenuFlyout()
             var acciones: [(String, Bool, (PestanaTerminal) -> Void)] = [
                 (L("Reconectar"), candidate.route.transport != .local, { [weak self] in self?.reconectar($0) }),
@@ -3361,13 +3542,213 @@ final class NetDeckWindows: SwiftApplication {
         }
     }
 
-    private func reorder(_ tab: PestanaTerminal, at destination: PestanaTerminal) {
-        pestañaArrastrada = nil
-        guard tab !== destination, let from = terminals.firstIndex(where: { $0 === tab }),
-              let to = terminals.firstIndex(where: { $0 === destination }) else { return }
-        terminals.remove(at: from)
-        terminals.insert(tab, at: to)
-        select(selected)
+    private func reordenar(_ tab: PestanaTerminal, en destino: Int) {
+        guard let origen = terminals.firstIndex(where: { $0 === tab }), !terminals.isEmpty else { return }
+        let objetivo = min(terminals.count - 1, max(0, destino))
+        guard origen != objetivo else { return }
+        terminals.remove(at: origen)
+        terminals.insert(tab, at: objetivo)
+        construirPestanas()
+    }
+
+    private func punteroFueraDeVentana() -> Bool {
+        guard let appWindow = window?.appWindow else { return false }
+        var punto = POINT(x: 0, y: 0)
+        guard GetCursorPos(&punto) else { return false }
+        let origen = appWindow.position
+        let tamano = appWindow.size
+        return punto.x < origen.x || punto.y < origen.y
+            || punto.x >= origen.x + tamano.width || punto.y >= origen.y + tamano.height
+    }
+
+    // Button marca PointerPressed/Released como manejados y WinUI no los entrega a handlers normales, así que el
+    // arrastre no se apoya en eventos: se sondea el ratón con Win32 y se localiza la pestaña por geometría.
+    private func configurarArrastrePestanas() {
+        Task { [weak self] in
+            while true {
+                try? await Task.sleep(nanoseconds: 16_000_000)
+                guard let self else { return }
+                _ = try? self.window?.dispatcherQueue?.tryEnqueue { [weak self] in self?.sondearArrastre() }
+            }
+        }
+    }
+
+    private func puntoEnVentana(_ cursor: POINT) -> (x: Double, y: Double)? {
+        guard let hwnd = GetActiveWindow() else { return nil }
+        var punto = cursor
+        guard ScreenToClient(hwnd, &punto) else { return nil }
+        let escala = window?.content?.xamlRoot?.rasterizationScale ?? 1
+        return (Double(punto.x) / escala, Double(punto.y) / escala)
+    }
+
+    private func origenEnVentana(_ elemento: UIElement) -> (x: Double, y: Double)? {
+        guard let p = try? elemento.transformToVisual(nil)?.transformPoint(Point(x: 0, y: 0)) else { return nil }
+        return (Double(p.x), Double(p.y))
+    }
+
+    private func pestana(en cursor: POINT) -> PestanaTerminal? {
+        guard let punto = puntoEnVentana(cursor) else { return nil }
+        let desfase = panelDividido || vistaGuardada != nil ? 1 : 0
+        for (indice, hijo) in tabs.children.enumerated() {
+            let posicion = indice - desfase
+            guard posicion >= 0, posicion < terminals.count, let elemento = hijo as? FrameworkElement,
+                  let origen = origenEnVentana(elemento) else { continue }
+            let ancho = elemento.actualWidth, alto = elemento.actualHeight
+            guard punto.x >= origen.x, punto.x < origen.x + ancho, punto.y >= origen.y, punto.y < origen.y + alto else { continue }
+            let candidata = terminals[posicion]
+            if candidata === selected && punto.x > origen.x + ancho - 30 { return nil }
+            return candidata
+        }
+        return nil
+    }
+
+    private struct AnimacionArrastre {
+        let sesion: PestanaTerminal
+        var elementos: [FrameworkElement]
+        var transformaciones: [TranslateTransform]
+        var x: [Double]
+        var ancho: [Double]
+        var actual: [Double]
+        var objetivo: [Double]
+        var origen: Int
+        var destino: Int
+        var desplazamiento = 0.0
+        var metaSoltar = 0.0
+        var fuera = false
+        var soltando = false
+        var cuadros = 0
+    }
+    private var animacionArrastre: AnimacionArrastre?
+
+    private func iniciarArrastre(_ sesion: PestanaTerminal) {
+        if selected !== sesion { select(sesion, focus: false) }
+        try? tabs.updateLayout()
+        guard let panel = origenEnVentana(tabs), let origen = terminals.firstIndex(where: { $0 === sesion }) else { return }
+        let desfase = panelDividido || vistaGuardada != nil ? 1 : 0
+        var elementos: [FrameworkElement] = []
+        var transformaciones: [TranslateTransform] = []
+        var xs: [Double] = [], anchos: [Double] = []
+        for (indice, hijo) in tabs.children.enumerated() where indice >= desfase {
+            guard let elemento = hijo as? FrameworkElement, let punto = origenEnVentana(elemento) else { return }
+            let transformacion = TranslateTransform()
+            elemento.renderTransform = transformacion
+            elementos.append(elemento)
+            transformaciones.append(transformacion)
+            xs.append(punto.x - panel.x)
+            anchos.append(elemento.actualWidth)
+        }
+        guard elementos.count == terminals.count else { return }
+        Canvas.setZIndex(elementos[origen], 10)
+        let ceros = Array(repeating: 0.0, count: elementos.count)
+        animacionArrastre = AnimacionArrastre(sesion: sesion, elementos: elementos, transformaciones: transformaciones,
+                                              x: xs, ancho: anchos, actual: ceros, objetivo: ceros,
+                                              origen: origen, destino: origen)
+    }
+
+    private func aplicarArrastre(_ a: inout AnimacionArrastre, congelar: Bool) {
+        let n = a.elementos.count, d = a.origen
+        if !congelar {
+            let hueco = a.ancho[d] + tabs.spacing
+            let centro = a.x[d] + a.desplazamiento + a.ancho[d] / 2
+            var destino = d
+            for k in 0..<n where k != d {
+                var meta = 0.0
+                if !a.fuera {
+                    let medio = a.x[k] + a.ancho[k] / 2
+                    if k > d && medio < centro { meta = -hueco; destino += 1 }
+                    else if k < d && medio > centro { meta = hueco; destino -= 1 }
+                }
+                a.objetivo[k] = meta
+            }
+            a.destino = destino
+        }
+        for k in 0..<n where k != d {
+            a.actual[k] += (a.objetivo[k] - a.actual[k]) * 0.35
+            if abs(a.objetivo[k] - a.actual[k]) < 0.3 { a.actual[k] = a.objetivo[k] }
+            a.transformaciones[k].x = a.actual[k]
+        }
+        a.transformaciones[d].x = a.desplazamiento
+        a.elementos[d].opacity = a.fuera ? 0.4 : 1
+    }
+
+    private func animarArrastre(cursor: POINT, inicioX: Double) {
+        guard var a = animacionArrastre, let ultimo = a.x.indices.last else { return }
+        let escala = window?.content?.xamlRoot?.rasterizationScale ?? 1
+        let d = a.origen
+        let bruto = (Double(cursor.x) - inicioX) / escala
+        a.desplazamiento = min(max(bruto, a.x[0] - a.x[d]), a.x[ultimo] + a.ancho[ultimo] - a.ancho[d] - a.x[d])
+        a.fuera = punteroFueraDeVentana()
+        aplicarArrastre(&a, congelar: false)
+        animacionArrastre = a
+    }
+
+    private func terminarArrastre(_ sesion: PestanaTerminal) {
+        guard var a = animacionArrastre else { construirPestanas(); return }
+        if a.fuera && terminals.count > 1 {
+            animacionArrastre = nil
+            detach(sesion)
+            return
+        }
+        if a.fuera {
+            a.fuera = false
+            a.destino = a.origen
+            a.objetivo = Array(repeating: 0.0, count: a.objetivo.count)
+        }
+        let d = a.origen, t = a.destino
+        var meta = 0.0
+        if t > d { for k in (d + 1)...t { meta += a.ancho[k] + tabs.spacing } }
+        else if t < d { for k in t..<d { meta -= a.ancho[k] + tabs.spacing } }
+        a.metaSoltar = meta
+        a.soltando = true
+        a.cuadros = 0
+        animacionArrastre = a
+    }
+
+    private func avanzarSoltado() {
+        guard var a = animacionArrastre else { return }
+        a.cuadros += 1
+        a.desplazamiento += (a.metaSoltar - a.desplazamiento) * 0.4
+        let listo = abs(a.metaSoltar - a.desplazamiento) < 0.5 || a.cuadros > 14
+        if listo { a.desplazamiento = a.metaSoltar }
+        aplicarArrastre(&a, congelar: true)
+        animacionArrastre = a
+        guard listo else { return }
+        animacionArrastre = nil
+        if a.destino != a.origen {
+            reordenar(a.sesion, en: a.destino)
+        } else {
+            Canvas.setZIndex(a.elementos[a.origen], 0)
+        }
+    }
+
+    private func sondearArrastre() {
+        let abajo = (GetAsyncKeyState(Int32(VK_LBUTTON)) & Int16(bitPattern: 0x8000)) != 0
+        defer { botonIzquierdoAbajo = abajo }
+        if animacionArrastre?.soltando == true { avanzarSoltado(); return }
+        var cursor = POINT(x: 0, y: 0)
+        guard GetCursorPos(&cursor) else { return }
+        if !abajo {
+            guard let arrastre = arrastrePestana else { return }
+            arrastrePestana = nil
+            if arrastre.activo { terminarArrastre(arrastre.sesion) }
+            return
+        }
+        if !botonIzquierdoAbajo {
+            arrastrePestana = nil
+            if let sesion = pestana(en: cursor) {
+                arrastrePestana = (sesion, Double(cursor.x), Double(cursor.y), false)
+            }
+            return
+        }
+        guard var arrastre = arrastrePestana else { return }
+        guard terminals.contains(where: { $0 === arrastre.sesion }) else { arrastrePestana = nil; return }
+        if !arrastre.activo {
+            guard hypot(Double(cursor.x) - arrastre.x, Double(cursor.y) - arrastre.y) >= 8 else { return }
+            arrastre.activo = true
+            arrastrePestana = arrastre
+            iniciarArrastre(arrastre.sesion)
+        }
+        animarArrastre(cursor: cursor, inicioX: arrastre.x)
     }
 
     private func closeSelected() {

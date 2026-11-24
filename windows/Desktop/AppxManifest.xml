@@ -21,7 +21,7 @@
 
   <Identity Name="Iljonis.TerminalNetDeck"
             Publisher="CN=TerminalNetDeck"
-            Version="0.9.0.0"
+            Version="1.0.1.0"
             ProcessorArchitecture="x64" />
 
   <Properties>

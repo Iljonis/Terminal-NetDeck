@@ -171,6 +171,23 @@ private let netdeckFile = """
         #expect(r.skipped.contains { $0.1 == "RDP" })
     }
 
+    @Test func mobaXtermUsuarioEnCorchetes() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mxtsessions")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try """
+            [Bookmarks]
+            SubRep=
+            SW-Router ([Jonay])=#109#0%192.0.2.1%22%[Jonay]%%-1%-1%%%%%0%0%0%%%-1%0%0%0%%1080%%0%0%1#MobaFont%10#0# #-1
+            192.0.2.2 (test)=#109#0%192.0.2.2%22%[Jonay]%%-1%-1%%%%%0%0%0%%%-1%0%0%0%%1080%%0%0%1#MobaFont%10#0# #-1
+            """.write(to: url, atomically: true, encoding: .utf8)
+        let r = SessionImporter.read(url, existing: [])
+        // validName convierte «192.0.2.2 (test)» → «192.0.2.2-test» (paréntesis y espacios → guiones)
+        #expect(r.sessions.map(\.name).sorted() == ["192.0.2.2-test", "SW-Router"])
+        #expect(r.sessions.first { $0.name == "SW-Router" }?.user == "Jonay")
+        #expect(r.sessions.first { $0.name == "192.0.2.2-test" }?.user == "Jonay")
+        #expect(r.skipped.isEmpty)
+    }
+
     @Test func csvConCabeceraYValidacion() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".csv")
         defer { try? FileManager.default.removeItem(at: url) }

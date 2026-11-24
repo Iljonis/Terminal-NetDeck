@@ -10,11 +10,11 @@
   que instala. Quitar o actualizar lo desregistra antes de borrar los archivos.
 
   Compila con WiX 4.0.6 (herramienta de dotnet, no hace falta instalarlo en el sistema). La version
-  (0.9.0) debe coincidir con AppxManifest.xml y con UpdateChecker.currentVersion. El UpgradeCode no se cambia nunca.
+  (1.0.1) debe coincidir con AppxManifest.xml y con UpdateChecker.currentVersion. El UpgradeCode no se cambia nunca.
 -->
 <!-- La version sale de fuera en el CI (wix build -d Version=...); sin ella, esta. Debe coincidir con AppxManifest.xml y UpdateChecker.currentVersion. -->
 <?ifndef Version?>
-<?define Version = "0.9.0"?>
+<?define Version = "1.0.1"?>
 <?endif?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="Terminal NetDeck"

@@ -31,10 +31,18 @@ $build = @('--package-path', $package, '--scratch-path', $scratch, '--force-reso
 # aunque el build sea correcto. Verificamos el exe en lugar del código de salida.
 $configFolder = if ($Configuration -eq 'release') { 'Release' } else { 'Debug' }
 $products = Join-Path $Scratch "out\Products\$configFolder-windows-x86_64"
-try { & $swift build @build } catch {}
-if ($LASTEXITCODE -ne 0) {
-    if (!(Test-Path (Join-Path $products 'NetDeckWindows.exe'))) { exit $LASTEXITCODE }
-    Write-Warning "swift build salió con código $LASTEXITCODE (symlink); el binario existe, continuamos."
+# Con 'Stop', la primera línea de stderr (con la salida redirigida) cortaba swift con -1 y se seguía con el exe viejo.
+$ErrorActionPreference = 'Continue'
+$completo = $false
+& $swift build @build 2>&1 | ForEach-Object { $linea = "$_"; if ($linea -match '^Build complete!') { $completo = $true }; $linea }
+$codigo = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+if ($codigo -ne 0) {
+    if (!$completo -or !(Test-Path (Join-Path $products 'NetDeckWindows.exe'))) {
+        Write-Error "swift build falló (código $codigo)."
+        exit 1
+    }
+    Write-Warning "swift build salió con código $codigo (symlink); el build terminó, continuamos."
 }
 
 try { & $swift build @build --show-bin-path | Out-Null } catch {}
@@ -48,7 +56,7 @@ $bootstrap = (Get-ChildItem -LiteralPath (Join-Path $products "$bundle.bundle") 
     Select-Object -First 1 -ExpandProperty FullName)
 if (!$bootstrap -or !(Test-Path $bootstrap)) { throw 'Falta el bootstrapper de Windows App SDK.' }
 Copy-Item -LiteralPath $bootstrap -Destination $resources -Force
-foreach ($assets in @('Temas', 'Resaltado')) {
+foreach ($assets in @('Temas', 'Resaltado', 'windows/Desktop/Fonts')) {
     Copy-Item -LiteralPath (Join-Path $repo $assets) -Destination $products -Recurse -Force
 }
 $app = Join-Path $products 'NetDeckWindows.exe'

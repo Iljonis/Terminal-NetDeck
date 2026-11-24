@@ -6,7 +6,11 @@ import WinUI
 /// Ajustes que se guardan en UserDefaults (ndFuente, ndTamano, ndTemaNombre…). Los mismos que los del Mac que tienen
 /// sentido en Windows; los nombres de las claves, los de siempre.
 struct AjustesTerminal: Equatable {
-    static let fuentes = ["Consolas", "Cascadia Mono", "Cascadia Code", "Lucida Console", "Courier New"]
+    static var fuentes: [String] {
+        var vistas = Set<String>()
+        return (["Cascadia Code", "Cascadia Mono", "Consolas"] + TemasTerminal.disponibles().flatMap(\.fonts))
+            .filter { vistas.insert($0).inserted }.sorted()
+    }
     /// Valores antiguos (en castellano); ya no se eligen: la apariencia la decide el tema, como en el Mac.
     static let temas = ["Sistema (Mica)", "Claro", "Oscuro"]
     static let tamanos = 8...36
@@ -73,6 +77,7 @@ struct AjustesTerminal: Equatable {
     var terminalLocalInicio = true
     var buscarActualizaciones = true
     var enviarIdioma = false
+    var toolbarOcultos: Set<String> = []
 
     /// Con «Automático», el del tema menos uno (como el Mac: `TerminalFont.size(0, themeSize:)`).
     func conTamanoDelTema() -> AjustesTerminal {
@@ -130,6 +135,7 @@ struct AjustesTerminal: Equatable {
         a.terminalLocalInicio = bool("ndTerminalLocalInicio", true)
         a.buscarActualizaciones = bool("ndBuscarActualizaciones", true)
         a.enviarIdioma = bool("ndEnviarIdioma", false)
+        a.toolbarOcultos = Set(defaults.stringArray(forKey: "ndToolbarOcultos") ?? [])
         return a.conTamanoDelTema()
     }
 
@@ -173,6 +179,7 @@ struct AjustesTerminal: Equatable {
         defaults.set(terminalLocalInicio, forKey: "ndTerminalLocalInicio")
         defaults.set(buscarActualizaciones, forKey: "ndBuscarActualizaciones")
         defaults.set(enviarIdioma, forKey: "ndEnviarIdioma")
+        defaults.set(Array(toolbarOcultos).sorted(), forKey: "ndToolbarOcultos")
         defaults.synchronize()   // (en Windows no se vuelca solo: sin esto se pierde si la app se cierra a la fuerza)
     }
 }
@@ -186,6 +193,7 @@ final class PanelAjustes {
     var onClose: (() -> Void)?
     var onHighlight: (() -> Void)?
     var onReloadHighlight: (() -> Void)?
+    var onCustomizeHighlight: (() -> Void)?
     var rutaResaltado: (() -> String)?
     var reglasDeVistaPrevia: (() -> HighlightConfig)?
     /// «Buscar ahora»: la ventana hace la consulta y avisa con `setUpdateStatus`.
@@ -206,7 +214,7 @@ final class PanelAjustes {
     var credencialesConNombre: (() -> [String])?
     var onEditarCredencial: ((String?) -> Void)?
     var onTemaImportar: (() throws -> Theme?)?
-    var onTemaElegirColor: ((RGB) -> RGB?)?
+    var onTemaElegirColor: ((RGB, @escaping (RGB?) -> Void) -> Void)?
     private var personalizarTema = false
     private var mensajeTema = ""
     var onElegirCarpetaRegistro: (() -> URL?)?
@@ -225,6 +233,7 @@ final class PanelAjustes {
     private var settings = AjustesTerminal()
     private var estilo = EstiloMac(tema: nil)
     private var seccion = "contrasenas"
+    var seccionActual: String { seccion }
     private let raiz = Grid()
     private let nav = Grid()
     private let menu = StackPanel()
@@ -810,11 +819,14 @@ final class PanelAjustes {
         AutomationProperties.setName(muestra, ayuda)
         ToolTipService.setToolTip(muestra, ayuda)
         muestra.click.addHandler { [weak self] _, _ in
-            guard let self, let nuevo = onTemaElegirColor?(actual) else { return }
-            cambiar {
-                var capa = ThemeOverrides($0.coloresTema[tema] ?? [:])
-                capa[clave] = nuevo
-                $0.coloresTema[tema] = capa.dictionary
+            guard let self else { return }
+            onTemaElegirColor?(actual) { nuevo in
+                guard let nuevo else { return }
+                self.cambiar {
+                    var capa = ThemeOverrides($0.coloresTema[tema] ?? [:])
+                    capa[clave] = nuevo
+                    $0.coloresTema[tema] = capa.dictionary
+                }
             }
         }
         return muestra
@@ -1011,6 +1023,10 @@ final class PanelAjustes {
     private func seccionResaltado(_ f: StackPanel) {
         let ruta = rutaResaltado?() ?? "—"
         let cfg = reglasDeVistaPrevia?() ?? HighlightConfig()
+        let abrirEnEditor = boton(L("Abrir en el editor…"), id: "Ajustes_ReglasEnEditor") { [weak self] in
+            self?.onCustomizeHighlight?()
+        }
+        ToolTipService.setToolTip(abrirEnEditor, L("Crea una copia personalizada (si no la hay) y la abre en tu editor de texto"))
         let origenes = [("auto", L("Automático")), ("netdeck", L("Reglas incluidas (chromaterm.yml)")),
                         ("app", L("Las de la app")), ("custom", L("Personalizadas"))]
         var opciones: [FrameworkElement] = [
@@ -1022,6 +1038,7 @@ final class PanelAjustes {
                         id: "Resaltado_ColoresDelTema") { $0.coloresResaltadoDelTema = $1 },
             fila(ruta, enLinea([
                 boton(L("Editar las reglas…"), id: "Ajustes_Reglas") { [weak self] in self?.onHighlight?() },
+                abrirEnEditor,
                 boton(L("Recargar"), id: "Ajustes_RecargarResaltado") { [weak self] in self?.onReloadHighlight?() },
             ], separacion: 6)),
         ]
@@ -1091,8 +1108,11 @@ final class PanelAjustes {
             swatch.content = EstiloMac.letra(color.description, tamano: 11, color: EstiloMac.pincel(color.readable))
             AutomationProperties.setName(swatch, L("Elegir el color de «f.\(nombre)»"))
             swatch.click.addHandler { [weak self] _, _ in
-                guard let self, let nuevo = onTemaElegirColor?(color) else { return }
-                cambiar { $0.coloresResaltado[tema.id, default: [:]][nombre] = nuevo.description }
+                guard let self else { return }
+                onTemaElegirColor?(color) { nuevo in
+                    guard let nuevo else { return }
+                    self.cambiar { $0.coloresResaltado[tema.id, default: [:]][nombre] = nuevo.description }
+                }
             }
             colores.append(fila("f.\(nombre)", swatch))
         }
@@ -1223,6 +1243,18 @@ final class PanelAjustes {
     // MARK: - General
 
     private func seccionGeneral(_ f: StackPanel) {
+        let accesos: [(String, String)] = [
+            ("NuevaLocal", L("Nueva terminal local")), ("PegarSeguro", L("Pegado seguro")),
+            ("Macros", L("Macros")), ("Tuneles", L("Túneles SSH")), ("DividirTerminal", L("Pantalla dividida")),
+            ("Llavero", L("Contraseñas y Llavero")), ("MultiExec", L("MultiExec")), ("BuscarTerminal", L("Buscar")),
+            ("Espacios", L("Espacios de trabajo")), ("EditarRemoto", L("Editar remoto")),
+            ("MostrarSesiones", L("Mostrar/ocultar sesiones")),
+        ]
+        apartado(L("Barra superior"), accesos.map { id, texto in
+            interruptor(texto, !settings.toolbarOcultos.contains(id), id: "Barra_\(id)") { ajustes, mostrar in
+                if mostrar { ajustes.toolbarOcultos.remove(id) } else { ajustes.toolbarOcultos.insert(id) }
+            }
+        } + [nota(L("El botón «+», Ajustes y los controles de acciones activas siempre permanecen visibles."))], en: f)
         apartado(L("Idioma"), [
             fila(L("Idioma de la interfaz"), segmentos(Idioma.allCases.map { ($0.rawValue, $0.nombre) }, Idioma.actual.rawValue,
                                                         id: "Ajustes_Idioma") { valor in

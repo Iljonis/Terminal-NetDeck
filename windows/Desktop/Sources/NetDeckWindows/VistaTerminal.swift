@@ -93,7 +93,10 @@ final class VistaTerminal {
     func aplicarFuente(_ familia: String, tamano: Double, interlineado: Double) {
         guard (familia, tamano, interlineado) != (fuenteActual, tamanoActual, interlineadoActual) else { return }
         (fuenteActual, tamanoActual, interlineadoActual) = (familia, tamano, interlineado)
-        let fuente = FontFamily(familia)
+        // macOS trae estas familias cerradas de serie; en Windows se conservan como opción del tema pero se dibujan
+        // con la Cascadia Mono redistribuible incluida en el instalador.
+        let familiaWindows = ["Menlo", "Monaco", "SF Mono"].contains(familia) ? "Cascadia Mono" : familia
+        let fuente = FontFamily(familiaWindows)
         let medidor = TextBlock()
         medidor.fontFamily = fuente
         medidor.fontSize = tamano

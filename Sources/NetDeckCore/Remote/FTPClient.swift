@@ -297,17 +297,17 @@ final class TCPStream: @unchecked Sendable {
     }
 }
 #else
-// Otras plataformas: stub hasta implementar.
+// Ni Mac ni Windows (Linux): sin conexión TCP propia todavía.
 final class TCPStream: @unchecked Sendable {
     static let connectTimeout: TimeInterval = 10
     private let host: String
     private let port: UInt16
     private let ended = Once()
     init(host: String, port: UInt16) { self.host = host; self.port = port }
-    func start() async throws { throw RemoteError(L("FTP no disponible en Windows (TODO P4h)")) }
-    func send(_ d: Data) async throws { throw RemoteError(L("FTP no disponible en Windows (TODO P4h)")) }
-    func receive(timeout: TimeInterval? = nil) async throws -> Data? { throw RemoteError(L("FTP no disponible en Windows (TODO P4h)")) }
-    func finishSending() async throws { throw RemoteError(L("FTP no disponible en Windows (TODO P4h)")) }
+    func start() async throws { throw RemoteError(L("FTP no disponible en este sistema")) }
+    func send(_ d: Data) async throws { throw RemoteError(L("FTP no disponible en este sistema")) }
+    func receive(timeout: TimeInterval? = nil) async throws -> Data? { throw RemoteError(L("FTP no disponible en este sistema")) }
+    func finishSending() async throws { throw RemoteError(L("FTP no disponible en este sistema")) }
     func cancel() {}
 }
 #endif

@@ -273,6 +273,8 @@ enum Ingles {
             "Find in Output…",
         "Buscar en todos los registros…":
             "Find in All Logs…",
+        "Buscando…":
+            "Searching…",
         "Abrir el registro de depuración":
             "Open Debug Log",
         "Carpeta de registros":
@@ -427,6 +429,18 @@ enum Ingles {
             "✗ botones.txt has malformed lines: fix them in Settings → Buttons to reorder by dragging",
         "Cancelar":
             "Cancel",
+        "Aplicar":
+            "Apply",
+        "Personalizar color":
+            "Customize color",
+        "Elige un color o escribe su código hexadecimal.":
+            "Choose a color or enter its hexadecimal code.",
+        "Código hexadecimal":
+            "Hex code",
+        "Barra superior":
+            "Toolbar",
+        "El botón «+», Ajustes y los controles de acciones activas siempre permanecen visibles.":
+            "The ‘+’ button, Settings, and active action controls always remain visible.",
         "Enviar a todas (MultiExec)":
             "Send to All (MultiExec)",
         "Enviar":
@@ -1700,8 +1714,8 @@ enum Ingles {
             "The connection was lost",
         "Se ha perdido la conexion":
             "Connection lost",
-        "FTP no disponible en Windows (TODO P4h)":
-            "FTP not available on Windows (TODO P4h)",
+        "FTP no disponible en este sistema":
+            "FTP not available on this system",
         "Se suben a %@":
             "They're uploaded to %@",
         "Se sustituirá lo que haya en el servidor de destino.":
@@ -2584,6 +2598,8 @@ enum Ingles {
         "Nuevo nombre de «%@»": "New name for “%@”",
         "Nombre de la carpeta nueva": "New folder name",
         "Sólo se borran carpetas vacías.": "Only empty folders can be deleted.",
+        "Se borrará todo su contenido.": "All its contents will be deleted.",
+        "Elegir archivo para subir": "Choose file to upload",
         "Es el mismo nombre": "That’s the same name",
         "Trabajando…": "Working…",
         "No se puede renombrar «%@»": "Can’t rename “%@”",
@@ -2738,6 +2754,9 @@ enum Ingles {
         "Explorador SFTP al lado (Ctrl+Mayús+B)": "SFTP side panel (Ctrl+Shift+B)",
         "Archivos de texto y CSV": "Text and CSV files",
         "Ctrl+Mayús+K": "Ctrl+Shift+K",
+        "Ctrl+Mayús+F": "Ctrl+Shift+F",
+        "Ctrl+Mayús+N": "Ctrl+Shift+N",
+        "Ctrl+Alt+Mayús+F": "Ctrl+Alt+Shift+F",
         "Equipos": "Devices",
         "Escribe la contraseña": "Enter the password",
         "1 + 2": "1 + 2",

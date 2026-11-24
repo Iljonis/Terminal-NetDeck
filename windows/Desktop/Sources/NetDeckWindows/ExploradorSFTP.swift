@@ -1,5 +1,6 @@
 import Foundation
 import NetDeckCore
+import WinSDK
 import WinUI
 import struct UWP.Color
 
@@ -34,7 +35,9 @@ final class ExploradorSFTP: @unchecked Sendable {
         case move(RemoteEntry)
         case newFolder
         case delete(RemoteEntry)
+        case replaceUpload(URL)
     }
+    private var nombresActuales: Set<String> = []
     private var fs: (any RemoteFileSystem)?
     private var current = "/"
     private var generation = 0
@@ -111,13 +114,18 @@ final class ExploradorSFTP: @unchecked Sendable {
         uploadBar.orientation = .horizontal
         uploadBar.spacing = 8
         uploadBox.placeholderText = L("Ruta del archivo local")
-        uploadBox.minWidth = 360
+        uploadBox.width = 360                    // (fijo: una ruta larga no empuja los botones fuera del panel)
         let uploadButton = Button()
         uploadButton.content = L("Subir archivo")
         uploadButton.click.addHandler { [weak self] _, _ in self?.upload() }
         AutomationProperties.setAutomationId(uploadBox, "SFTP_RutaLocal")
         AutomationProperties.setAutomationId(uploadButton, "SFTP_Subir")
+        let elegirArchivo = Button()
+        elegirArchivo.content = L("Elegir\u{2026}")
+        elegirArchivo.click.addHandler { [weak self] _, _ in self?.pickUploadFile() }
+        AutomationProperties.setAutomationId(elegirArchivo, "SFTP_ElegirArchivo")
         uploadBar.children.append(uploadBox)
+        uploadBar.children.append(elegirArchivo)
         uploadBar.children.append(uploadButton)
 
         let hint = TextBlock()
@@ -132,7 +140,7 @@ final class ExploradorSFTP: @unchecked Sendable {
         }
         view.content = root
         view.verticalScrollBarVisibility = .auto
-        view.horizontalScrollBarVisibility = .auto
+        view.horizontalScrollBarVisibility = .disabled  // (con ancho fijo, el estado largo se parte en líneas)
         view.visibility = .collapsed
     }
 
@@ -171,7 +179,7 @@ final class ExploradorSFTP: @unchecked Sendable {
                 guard let self else { await fs.close(); return }
                 self.deliver(gen, orElse: { Task { await fs.close() } }) { me in
                     me.fs = fs
-                    me.uploadBar.visibility = fs.renameDoesNotOverwrite ? .visible : .collapsed
+                    me.uploadBar.visibility = .visible
                     me.show(path: home, entries: entries)
                 }
             } catch {
@@ -222,6 +230,7 @@ final class ExploradorSFTP: @unchecked Sendable {
     private func show(path: String, entries: [RemoteEntry]) {
         current = path
         pathText.text = path
+        nombresActuales = Set(entries.map(\.name))
         list.children.clear()
         let sorted = RemoteEntry.sorted(entries)
         for entry in sorted { list.children.append(row(for: entry)) }
@@ -434,7 +443,7 @@ final class ExploradorSFTP: @unchecked Sendable {
     private func beginDelete(_ entry: RemoteEntry) {
         pendingAction = .delete(entry)
         actionCaption.text = L("\u{00BF}Borrar \u{00AB}\(entry.name)\u{00BB}?")
-            + (entry.kind == .directory ? " " + L("S\u{00F3}lo se borran carpetas vac\u{00ED}as.") : "")
+            + (entry.kind == .directory ? " " + L("Se borrar\u{00E1} todo su contenido.") : "")
         actionBox.visibility = .collapsed
         actionConfirm.content = L("Borrar")
         showActionBar()
@@ -454,6 +463,11 @@ final class ExploradorSFTP: @unchecked Sendable {
     /// Hace la operacion pendiente y recarga la carpeta; si falla, el motivo va a la barra de estado.
     private func confirmAction() {
         guard let fs, let action = pendingAction else { return }
+        if case .replaceUpload(let url) = action {
+            cancelAction()
+            startUpload(url, fs: fs)
+            return
+        }
         let typed = actionBox.text.trimmingCharacters(in: .whitespacesAndNewlines)
         switch action {
         case .rename(let entry):
@@ -473,7 +487,7 @@ final class ExploradorSFTP: @unchecked Sendable {
                 setStatus(L("Nombre no v\u{00E1}lido: \u{00AB}\(typed)\u{00BB}"))
                 return
             }
-        case .delete:
+        case .delete, .replaceUpload:
             break
         }
         cancelAction()
@@ -482,6 +496,7 @@ final class ExploradorSFTP: @unchecked Sendable {
         let target = RemotePath.join(folder, typed)
         setStatus(L("Trabajando\u{2026}"))
         task = Task { [weak self] in
+            guard let self else { return }
             var failed = ""
             var done = ""
             do {
@@ -509,20 +524,47 @@ final class ExploradorSFTP: @unchecked Sendable {
                     done = L("Carpeta \u{00AB}\(typed)\u{00BB} creada")
                 case .delete(let entry):
                     failed = L("No se puede borrar \u{00AB}\(entry.name)\u{00BB}")
-                    // (un enlace a una carpeta se borra como enlace, no como carpeta)
-                    try await fs.remove(entry.path, directory: entry.kind == .directory)
+                    if entry.kind == .directory {
+                        try await self.recursiveDelete(fs: fs, path: entry.path)
+                    } else {
+                        try await fs.remove(entry.path, directory: false)
+                    }
                     done = L("\u{00AB}\(entry.name)\u{00BB} borrado")
+                case .replaceUpload:
+                    return
                 }
                 let entries = try await fs.list(folder)
-                self?.deliver(gen) { me in
+                self.deliver(gen) { me in
                     me.show(path: folder, entries: entries)
                     me.setStatus(done)
                 }
             } catch {
                 let reason = error.localizedDescription
-                self?.deliver(gen) { $0.setStatus(failed + ": " + reason) }
+                self.deliver(gen) { $0.setStatus(failed + ": " + reason) }
             }
         }
+    }
+
+    private func recursiveDelete(fs: any RemoteFileSystem, path: String) async throws {
+        let entries = (try? await fs.list(path)) ?? []
+        for entry in entries {
+            if entry.kind == .directory {
+                try await self.recursiveDelete(fs: fs, path: entry.path)
+            } else {
+                try await fs.remove(entry.path, directory: false)
+            }
+        }
+        try await fs.remove(path, directory: true)
+    }
+
+    private func pickUploadFile() {
+        guard let hwnd = GetActiveWindow() else { return }
+        guard let url = try? SelectorArchivos.abrir(titulo: L("Elegir archivo para subir"),
+                                                     tipo: L("Todos los archivos"),
+                                                     patron: "*.*", owner: hwnd) else { return }
+        // Como «Subir» en el Mac: lo elegido se sube ya (preguntando si existe).
+        uploadBox.text = url.withUnsafeFileSystemRepresentation { $0.map { String(cString: $0) } } ?? url.path
+        upload()
     }
 
     // MARK: - descargar y subir
@@ -557,12 +599,9 @@ final class ExploradorSFTP: @unchecked Sendable {
         }
     }
 
+    /// Como en el Mac: con cualquier protocolo y, si ya existe, preguntando antes de sustituirlo.
     private func upload() {
         guard edicion == nil, let fs else { return }
-        guard fs.renameDoesNotOverwrite else {
-            setStatus(L("El servidor no permite subir sin riesgo de sobrescribir"))
-            return
-        }
         var text = uploadBox.text.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.count > 1, text.hasPrefix("\""), text.hasSuffix("\"") { text = String(text.dropFirst().dropLast()) }
         guard !text.isEmpty else { return }
@@ -572,6 +611,19 @@ final class ExploradorSFTP: @unchecked Sendable {
             setStatus(L("Nombre no v\u{00E1}lido: \u{00AB}\(name)\u{00BB}"))
             return
         }
+        guard nombresActuales.contains(name) else {
+            startUpload(url, fs: fs)
+            return
+        }
+        pendingAction = .replaceUpload(url)
+        actionCaption.text = L("Ya existe en \(current): \(name)") + " " + L("Se sustituirá lo que haya en el servidor.")
+        actionBox.visibility = .collapsed
+        actionConfirm.content = L("Sustituir")
+        showActionBar()
+    }
+
+    private func startUpload(_ url: URL, fs: any RemoteFileSystem) {
+        let name = url.lastPathComponent
         let gen = generation
         let folder = current
         let remote = RemotePath.join(folder, name)
@@ -583,7 +635,7 @@ final class ExploradorSFTP: @unchecked Sendable {
             do {
                 let source = try LocalFileReader(url: url)
                 reader = source
-                let writer = try await AtomicRemoteWriter.open(fs, remote, verify: false, createOnly: true)
+                let writer = try await AtomicRemoteWriter.open(fs, remote, verify: false)
                 try await Transfer.copy(from: source, to: writer) { sent in
                     owner?.deliver(gen) { $0.setStatus(Self.progress(L("Subiendo \u{00AB}\(name)\u{00BB}"), sent, total)) }
                 }
@@ -623,8 +675,7 @@ final class ExploradorSFTP: @unchecked Sendable {
 
     private static let dateFormat: DateFormatter = {
         let f = DateFormatter()
-        f.dateStyle = .short
-        f.timeStyle = .short
+        f.dateFormat = "yyyy-MM-dd HH:mm"
         return f
     }()
 

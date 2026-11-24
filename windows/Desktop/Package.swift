@@ -24,7 +24,9 @@ let package = Package(
                 .linkedLibrary("WindowsFoundation"),
                 .linkedLibrary("WinAppSDK"),
                 .linkedLibrary("UWP"),
-                .unsafeFlags(["/SUBSYSTEM:WINDOWS,10.0"]),
+                // App gráfica, sin ventana de consola detrás. Con -Xlinker: suelto, clang tomaba «/SUBSYSTEM…» por
+                // una ruta. Swift genera `main`, no `WinMain`: de ahí el punto de entrada.
+                .unsafeFlags(["-Xlinker", "/SUBSYSTEM:WINDOWS", "-Xlinker", "/ENTRY:mainCRTStartup"]),
             ]
         ),
     ],

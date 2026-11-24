@@ -3,7 +3,7 @@
 Gestor de sesiones SSH, Telnet, SFTP, FTP y serie para Windows. Comparte con [Terminal NetDeck para macOS](../README.md)
 el formato `ssh_config`, los temas `.tema` y el núcleo de conexiones.
 
-> **Versión de desarrollo 0.9.0.** Consulta el [estado del port](ESTADO.md) y el [informe de verificación](resultados/escritorio-2026-11-19.md)
+> **Versión de desarrollo 1.0.1.** Consulta el [estado del port](ESTADO.md) y el [informe de verificación](resultados/escritorio-2026-11-19.md)
 > para ver qué se ha probado en la ventana y qué queda pendiente.
 
 ## Requisitos
@@ -66,7 +66,9 @@ MobaXterm y de los demás formatos se omiten. Las sesiones se guardan en `%USERP
   Terminal → Historial puedes cambiar el número de líneas guardadas y activar «Copiar al seleccionar».
 - **Registro:** en Ajustes → Registro puedes activar la grabación a archivo y elegir su carpeta. Desde la marca ● REC
   de una pestaña, abre el registro, muestra su carpeta o para la grabación.
-- **Pestañas y vista dividida:** arrastra una pestaña para reordenarla o usa su menú para moverla a otra ventana.
+- **Pestañas y vista dividida:** arrastra una pestaña para reordenarla; suéltala fuera de la ventana para separarla.
+  Con el puntero sobre la barra, usa la rueda para desplazarte horizontalmente cuando haya más pestañas que espacio.
+  También puedes usar el menú de una pestaña para moverla a otra ventana.
   El botón de vista dividida ofrece dos paneles en horizontal o vertical, tres columnas, uno más dos, cuatro
   paneles o todas en cuadrícula. Arrastra los separadores para ajustar el tamaño. Los espacios guardan la disposición
   y las proporciones, y restauran las conexiones en pestañas nuevas.
@@ -101,7 +103,7 @@ La comprobación de actualizaciones verifica el SHA-256 y la firma antes de ejec
 | Atajo | Qué hace |
 |---|---|
 | `Ctrl+Mayús+T` | Abre una terminal local nueva |
-| `Ctrl+Mayús+N` | Abre el editor de una sesión nueva |
+| `Ctrl+Mayús+N` | Abre una ventana nueva, con sus propias pestañas (⌘N en el Mac) |
 | `Ctrl+Mayús+K` | Abre Conectar / Salto |
 | `Ctrl+Mayús+W` | Cierra la pestaña activa |
 | `Ctrl+Tab` · `Ctrl+Mayús+Tab` | Pestaña siguiente · anterior |
@@ -111,6 +113,7 @@ La comprobación de actualizaciones verifica el SHA-256 y la firma antes de ejec
 | `Ctrl+Mayús+D` | Clona la pestaña activa |
 | `Ctrl+Mayús+E` | Abre el gestor de sesiones |
 | `Ctrl+Mayús+F` | Busca en el historial de la pestaña |
+| `Ctrl+Alt+Mayús+F` | Busca en todos los registros de sesión (una IP, una MAC en cualquier formato, un texto…) |
 | `Ctrl+Alt+F` | Activa o apaga el filtro de pantalla |
 | `Ctrl+Mayús+H` | Activa o apaga el resaltado |
 | `Ctrl+Mayús+L` | Abre las listas de equipos |
