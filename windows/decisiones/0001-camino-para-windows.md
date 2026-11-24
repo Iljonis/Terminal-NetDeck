@@ -1,4 +1,4 @@
-﻿# ADR-0001: Qué camino seguir para la versión de Windows
+# ADR-0001: Qué camino seguir para la versión de Windows
 
 **Fecha:** 2026-11-10
 **Estado:** propuesta

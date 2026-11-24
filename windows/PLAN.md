@@ -1,4 +1,4 @@
-﻿# Plan: Terminal NetDeck para Windows
+# Plan: Terminal NetDeck para Windows
 
 Plan por pasos para llevar Terminal NetDeck a Windows. Cada paso se puede hacer en frío, en otra sesión, sin leer los
 anteriores: trae su contexto, sus tareas, cómo se comprueba y cuándo está terminado. Se marca con `[x]` lo hecho y se

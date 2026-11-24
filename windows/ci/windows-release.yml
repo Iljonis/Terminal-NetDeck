@@ -1,5 +1,5 @@
 # BORRADOR (P10 de windows/PLAN.md): no está activo. Para activarlo, cópialo a .github/workflows/windows-release.yml (esa carpeta la gestiona
-# Codex; este archivo vive aquí, igual que windows-nucleo.yml, para no tocarla desde otra sesión). Revisa lo marcado con «REVISAR».
+# Codex; este archivo vive aquí, igual que el borrador anterior de la CI del núcleo (hoy en .github/workflows/windows.yml), para no tocarla desde otra sesión). Revisa lo marcado con «REVISAR».
 #
 # Qué hace: con un tag «vX.Y.Z» (el MISMO tag que la Release de macOS, release.yml) compila la app WinUI en Release, prepara la carpeta del instalador, compila el .msi con
 # WiX 4 y lo SUBE a la Release de ese tag, junto al .dmg. A mano («Run workflow») hace lo mismo sin subir nada: deja el .msi como artefacto.

@@ -123,7 +123,7 @@ Probado en la demo (perfil temporal) con capturas y ratón real controlado desde
   incluidos `.mobaconf` de extremo a extremo, BREAK físico, SFTP lateral y MultiExec. [Informe](resultados/escritorio-2026-11-19.md).
 - Se sincronizaron las guías pública y técnica, los atajos, el historial de cambios y el índice de resultados.
   [Guía de Windows](README.md) · [Compilación y pruebas](../docs/agentes/windows.md#compilación-y-pruebas).
-- Se incorporó el [plan histórico de Claude Code y Codex](../.claude/plans/windows-p15-p17.plan.md) con rutas relativas y una referencia a la guía de pruebas actual.
+- Se incorporó el plan histórico de Claude Code y Codex (retirado del repositorio: era un archivo de trabajo de `.claude/`) con rutas relativas y una referencia a la guía de pruebas actual.
 
 ## 2026-11-18 · Windows · P24-IntegracionPaneles: HojaConexion + EdicionRemota + ImportadorSesiones conectados
 

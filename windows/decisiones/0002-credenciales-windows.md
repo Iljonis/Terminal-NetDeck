@@ -1,4 +1,4 @@
-﻿# Nota de seguridad: CredReadW frente al Llavero de macOS
+# Nota de seguridad: CredReadW frente al Llavero de macOS
 
 **Fecha:** 2026-11-15
 **Relacionado con:** ADR-0001, paso P4d, revisión P9

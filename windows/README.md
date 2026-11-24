@@ -171,7 +171,6 @@ decisiones de arquitectura y el plan por fases. Está pensada para seguir el tra
 | [ESTUDIO.md](ESTUDIO.md) | Viabilidad: qué se aprovecha del núcleo, qué hay que reescribir y qué hacen otros, con fuentes |
 | [decisiones/](decisiones/README.md) | Decisiones de arquitectura (ADR); la 0001, qué camino seguir, está «propuesta» |
 | [scripts/](scripts/) | PowerShell para comprobar el entorno, probar el ssh de Windows (askpass, `ssh -G`, `-J`, sftp) y pasar los tests con un `NETDECK_HOME` temporal (`test.ps1`) |
-| [ci/windows-nucleo.yml](ci/windows-nucleo.yml) | Borrador de GitHub Actions para compilar el núcleo en Windows (sin activar) |
 | [resultados/](resultados/README.md) | Evidencia de compilación, pruebas del núcleo y comprobaciones con la demo |
 
 ### Empezar a desarrollar en Windows
