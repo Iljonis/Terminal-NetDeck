@@ -624,6 +624,13 @@ The x64 desktop version for Windows 10 (2004 or later) and Windows 11 is in deve
 native session import, scrollback and recording, themes and screen filters, a COM console, a side-by-side SFTP
 browser, and MultiExec. The [Windows test report](windows/resultados/escritorio-2026-11-19.md) lists build and UI coverage.
 
+![Terminal NetDeck on Windows 11 with the Liquid Glass theme: sample sessions in the sidebar and a router's output highlighted in colour](docs/capturas/windows-portada.png)
+
+<p align="center">
+  <img src="docs/capturas/windows-temas.png" width="49%" alt="Settings → Themes in Terminal NetDeck on Windows: live preview and a gallery of terminal themes">
+  <img src="docs/capturas/windows-asistente.png" width="49%" alt="Terminal NetDeck first-run assistant on Windows: a welcome with the logo and seven steps to pick a theme, fonts, passwords and highlighting">
+</p>
+
 See the [Windows guide](windows/README.md) for installation, shortcuts, import formats, and building from source.
 Both documents are in Spanish.
 

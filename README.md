@@ -624,6 +624,13 @@ La versión de escritorio para Windows 10 (2004 o superior) y Windows 11, ambos 
 importación nativa de sesiones, historial y grabación, temas y filtros, consola COM, SFTP lateral y MultiExec. La
 última compilación y la cobertura de ventana se detallan en el [informe de Windows](windows/resultados/escritorio-2026-11-19.md).
 
+![Terminal NetDeck en Windows 11 con el tema Liquid Glass: sesiones de ejemplo en la barra lateral y la salida de un router resaltada en color](docs/capturas/windows-portada.png)
+
+<p align="center">
+  <img src="docs/capturas/windows-temas.png" width="49%" alt="Ajustes → Temas de Terminal NetDeck en Windows: vista previa en vivo y galería de temas de terminal">
+  <img src="docs/capturas/windows-asistente.png" width="49%" alt="Asistente de primer arranque de Terminal NetDeck en Windows: bienvenida con el logo y siete pasos para elegir tema, fuentes, contraseñas y resaltado">
+</p>
+
 Consulta la [guía de Windows](windows/README.md) para la instalación, los atajos, los formatos que puedes importar y
 la compilación desde el código fuente.
 

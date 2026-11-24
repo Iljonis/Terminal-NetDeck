@@ -83,6 +83,18 @@ jobs:
         shell: pwsh
         run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/scripts/desktop.ps1 -Configuration release
 
+      - name: El ejecutable lleva el logo de NetDeck
+        # desktop.ps1 compila windows/Desktop/NetDeck.rc con llvm-rc (de la toolchain de Swift) y Package.swift enlaza NetDeck.res. Si falta llvm-rc el script sólo avisa y
+        # el .exe saldría con el icono genérico de Windows: aquí se corta, porque en una Release no debe pasar sin que se vea.
+        shell: pwsh
+        run: |
+          if (-not (Test-Path windows/Desktop/NetDeck.res)) { throw 'Falta windows/Desktop/NetDeck.res: llvm-rc no se ha ejecutado, el .exe saldría sin icono' }
+          $exe = Get-ChildItem -Recurse -Filter NetDeckWindows.exe (Join-Path $env:LOCALAPPDATA 'NetDeckDesktopBuild/out/Products/Release-windows-x86_64') | Select-Object -First 1
+          if (-not $exe) { throw 'No se encuentra NetDeckWindows.exe compilado' }
+          # (ExtractIconEx con índice -1 devuelve cuántos iconos lleva el archivo: 1 con el logo, 0 sin él; comprobado en local con NetDeckWindows.exe y NetDeckAskpass.exe)
+          Add-Type -Namespace NetDeck -Name Iconos -MemberDefinition '[System.Runtime.InteropServices.DllImport("shell32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)] public static extern uint ExtractIconEx(string archivo, int indice, System.IntPtr[] grandes, System.IntPtr[] pequenos, uint cuantos);'
+          if ([NetDeck.Iconos]::ExtractIconEx($exe.FullName, -1, $null, $null, 0) -lt 1) { throw 'NetDeckWindows.exe no lleva ningún icono: el logo no se ha incrustado' }
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'

@@ -3,7 +3,10 @@
 Historial de cambios de la versión de Windows de Terminal NetDeck. Sigue el formato de
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). El de la versión de macOS está en el [CHANGELOG de la raíz](../CHANGELOG.md).
 
-## 0.9.0 (en desarrollo)
+## Sin publicar
+
+<!-- Al publicar, el título pasa a ser «## X.Y.Z» (la versión de Windows es la del repositorio y va en la misma Release que
+     el .dmg): windows-release.yml comprueba que existe esa sección. -->
 
 ### Añadido
 
@@ -21,6 +24,14 @@ Historial de cambios de la versión de Windows de Terminal NetDeck. Sigue el for
 - Túneles SSH, asistente de primer arranque, edición remota, macros, botones de órdenes y pegado seguro.
 - Instalador MSI con WiX 4, Sparse Package y comprobación de Windows App Runtime 1.5. El actualizador verifica
   el SHA-256 y la firma del instalador.
+- Asistente de primer arranque de siete pasos, como el del Mac: bienvenida con el logo, tema (se aplica al momento),
+  fuentes, contraseñas, resaltado con vista previa, primera sesión y resumen. Se puede reabrir desde el engranaje.
+- Arrastre de pestañas: la pestaña sigue al cursor, las vecinas se deslizan al hueco y se reordena al soltar; soltando
+  fuera de la ventana se separa en otra, con «Devolver pestaña».
+- Logo de NetDeck en el ejecutable (barra de tareas, Alt+Tab, accesos anclados), en el instalador y en el asistente.
+- Selector de color propio, con muestras y campo hexadecimal, para los colores de temas y resaltado, y búsqueda en
+  todos los registros.
+- 76 archivos de fuentes (32 familias monoespaciadas) incluidos con sus licencias OFL/UFL.
 
 ### Cambiado
 
@@ -29,8 +40,17 @@ Historial de cambios de la versión de Windows de Terminal NetDeck. Sigue el for
   [tabla de atajos](README.md#atajos-de-teclado).
 - La demo usa `ssh_config` y `known_hosts` temporales. `NETDECK_BUILD_ONLY=1` permite compilar con `-Demo` sin
   abrir la ventana.
+- Bordes y líneas más contrastados (botón REC, botones de comandos, tarjetas y barras): con 1 px y el acento al 30 %
+  se veían finos y dentados en pantallas sin densidad alta.
+- La instalación y la desinstalación ya no abren ventanas de PowerShell.
 
 ### Corregido
+
+- El `ssh_config` de NetDeck ya no hereda permisos que OpenSSH rechazaba («Bad owner or permissions»): se protege al
+  guardarlo y se repara antes de cada conexión.
+- La pestaña elegida ya no se ve gris con el ratón encima y se puede llevar al primer puesto al arrastrarla. El
+  arrastre funciona también desde una ventana en segundo plano.
+- La ventana de una pestaña separada usa el tema (barra de título y botón).
 
 - El buscador vacío de la barra lateral vuelve a mostrar todas las sesiones.
 - Los dispositivos COM válidos llegan a la apertura Win32, aunque no existan como archivos.
