@@ -551,6 +551,13 @@ struct GeneralSettings: View {
     var body: some View {
         @Bindable var s = model.settings
         Form {
+            Section {
+                ForEach(ToolbarLayout.catalog) { b in
+                    Toggle(b.title, isOn: Binding(get: { s.toolbar.isVisible(b) }, set: { s.toolbar.setVisible(b, $0) }))
+                }
+            } header: { Text(L("Barra superior")) } footer: {
+                Text(L("El botón «+», Ajustes y los controles de acciones activas siempre permanecen visibles.")).font(t.ui(11))
+            }
             Section(L("Idioma")) {
                 ThemedSegmented(L("Idioma de la interfaz"), selection: $s.language) { o in
                     for x in Idioma.allCases { o.append((x, x.nombre)) }

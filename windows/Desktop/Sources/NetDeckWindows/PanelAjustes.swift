@@ -77,7 +77,8 @@ struct AjustesTerminal: Equatable {
     var terminalLocalInicio = true
     var buscarActualizaciones = true
     var enviarIdioma = false
-    var toolbarOcultos: Set<String> = []
+    /// Qué botones de la barra superior están ocultos (el catálogo y su guardado, en el núcleo: `ToolbarLayout`).
+    var barra = ToolbarLayout()
 
     /// Con «Automático», el del tema menos uno (como el Mac: `TerminalFont.size(0, themeSize:)`).
     func conTamanoDelTema() -> AjustesTerminal {
@@ -135,7 +136,7 @@ struct AjustesTerminal: Equatable {
         a.terminalLocalInicio = bool("ndTerminalLocalInicio", true)
         a.buscarActualizaciones = bool("ndBuscarActualizaciones", true)
         a.enviarIdioma = bool("ndEnviarIdioma", false)
-        a.toolbarOcultos = Set(defaults.stringArray(forKey: "ndToolbarOcultos") ?? [])
+        a.barra = ToolbarLayout(stored: defaults.stringArray(forKey: ToolbarLayout.storageKey))
         return a.conTamanoDelTema()
     }
 
@@ -179,7 +180,7 @@ struct AjustesTerminal: Equatable {
         defaults.set(terminalLocalInicio, forKey: "ndTerminalLocalInicio")
         defaults.set(buscarActualizaciones, forKey: "ndBuscarActualizaciones")
         defaults.set(enviarIdioma, forKey: "ndEnviarIdioma")
-        defaults.set(Array(toolbarOcultos).sorted(), forKey: "ndToolbarOcultos")
+        defaults.set(barra.encoded, forKey: ToolbarLayout.storageKey)
         defaults.synchronize()   // (en Windows no se vuelca solo: sin esto se pierde si la app se cierra a la fuerza)
     }
 }
@@ -1242,16 +1243,10 @@ final class PanelAjustes {
     // MARK: - General
 
     private func seccionGeneral(_ f: StackPanel) {
-        let accesos: [(String, String)] = [
-            ("NuevaLocal", L("Nueva terminal local")), ("PegarSeguro", L("Pegado seguro")),
-            ("Macros", L("Macros")), ("Tuneles", L("Túneles SSH")), ("DividirTerminal", L("Pantalla dividida")),
-            ("Llavero", L("Contraseñas y Llavero")), ("MultiExec", L("MultiExec")), ("BuscarTerminal", L("Buscar")),
-            ("Espacios", L("Espacios de trabajo")), ("EditarRemoto", L("Editar remoto")),
-            ("MostrarSesiones", L("Mostrar/ocultar sesiones")),
-        ]
-        apartado(L("Barra superior"), accesos.map { id, texto in
-            interruptor(texto, !settings.toolbarOcultos.contains(id), id: "Barra_\(id)") { ajustes, mostrar in
-                if mostrar { ajustes.toolbarOcultos.remove(id) } else { ajustes.toolbarOcultos.insert(id) }
+        // no verificado en Windows: el catálogo (ids, orden y títulos) es el del núcleo, el mismo que pinta el Mac
+        apartado(L("Barra superior"), ToolbarLayout.catalog.map { boton in
+            interruptor(boton.title, settings.barra.isVisible(boton), id: "Barra_\(boton.rawValue)") { ajustes, mostrar in
+                ajustes.barra.setVisible(boton, mostrar)
             }
         } + [nota(L("El botón «+», Ajustes y los controles de acciones activas siempre permanecen visibles."))], en: f)
         apartado(L("Idioma"), [

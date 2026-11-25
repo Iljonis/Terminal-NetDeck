@@ -1,3 +1,9 @@
+## 2026-11-26 · Mac · Barra superior configurable compartida y «Explorador SFTP» (Windows SIN COMPILAR NI PROBAR)
+
+- **Catálogo compartido:** `Sources/NetDeckCore/Support/ToolbarLayout.swift` define los botones configurables (mismas ids que Windows más `ExploradorSFTP`), valida lo guardado en `ndToolbarOcultos` y migra `EditarRemoto` y `PanelSFTP` a `ExploradorSFTP`. 7 tests en macOS. El Mac gana Ajustes → General → «Barra superior» y los botones Buscar, Espacios y Explorador SFTP.
+- **Windows, sin verificar:** `PanelAjustes.swift` y `NetDeckWindows.swift` usan el catálogo (`settings.barra`); el botón «Explorador SFTP» abre el explorador lateral de la pestaña ssh actual (`alternarLateralSFTP`) en vez del panel manual «Editar remoto». **A comprobar:** que compile, que la barra y Ajustes → General → «Barra superior» muestren los mismos botones, que lo ya oculto en `ndToolbarOcultos` siga oculto y que el botón abra el explorador. `PanelEdicionRemota` queda huérfano (sin botón); decidir si se borra.
+- **Revisión de apariencia Mac ↔ Windows:** lista completa en `windows/PENDIENTE.md`, sección G.
+
 ## 2026-11-25 · Windows · BOM en los scripts de compilación y repaso de `CLAUDE.md`
 
 - **Qué se ha hecho:** `windows/scripts/desktop.ps1` y `windows/scripts/swift-build.ps1` llevan BOM UTF-8 (solo esos 3 bytes; el resto es idéntico), como pide la sección de Windows de `CLAUDE.md` (`cb2d681`). Sin él, PowerShell 5.1 leía los avisos de `desktop.ps1` como «No estÃ¡ llvm-rc»; con él se leen bien (comprobado con el analizador de 5.1).

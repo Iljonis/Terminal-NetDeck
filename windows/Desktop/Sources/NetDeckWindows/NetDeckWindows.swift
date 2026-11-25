@@ -144,7 +144,7 @@ final class NetDeckWindows: SwiftApplication {
     private let bordeSuperior = Border()
     private let barraSuperior = Grid()
     private let tabsScroll = ScrollViewer()
-    private var iconosConOcultosAplicados: Set<String> = []
+    private var iconosConOcultosAplicados = ToolbarLayout()
     private let iconos = StackPanel()
     private let barraBotonesFondo = Border()
     private let barraBotonesGrid = Grid()
@@ -856,41 +856,42 @@ final class NetDeckWindows: SwiftApplication {
         let separacion = Border()
         separacion.width = 4
         iconos.children.append(separacion)
-        let botones: [(String, String, String, SolidColorBrush?, () -> Void)] = [
-            (Glifo.terminal, L("Nueva terminal local"), "NuevaLocal", nil, { [weak self] in self?.open(.local()) }),
-            (Glifo.pegar, L("Pegado seguro: revisa l\u{00ED}neas peligrosas antes de enviarlas"), "PegarSeguro", nil,
+        // (qué botones se ven lo decide `ToolbarLayout`, del núcleo; el id de cada uno es su `rawValue`)
+        // no verificado en Windows
+        let barra = settings.barra
+        let botones: [(ToolbarButton, String, String, SolidColorBrush?, () -> Void)] = [
+            (.nuevaLocal, Glifo.terminal, L("Nueva terminal local"), nil, { [weak self] in self?.open(.local()) }),
+            (.pegarSeguro, Glifo.pegar, L("Pegado seguro: revisa l\u{00ED}neas peligrosas antes de enviarlas"), nil,
              { [weak self] in self?.safePaste() }),
-            (Glifo.grabar, L("Macros: grabar, reproducir y editar"), "Macros", nil, { [weak self] in self?.showMacros() }),
+            (.macros, Glifo.grabar, L("Macros: grabar, reproducir y editar"), nil, { [weak self] in self?.showMacros() }),
         ]
-        for (glifo, ayuda, id, tinte, accion) in botones {
-            if !settings.toolbarOcultos.contains(id) {
-                iconos.children.append(e.botonIcono(glifo, ayuda: ayuda, id: id, tinte: tinte, accion: accion))
-            }
+        for (boton, glifo, ayuda, tinte, accion) in botones where barra.isVisible(boton) {
+            iconos.children.append(e.botonIcono(glifo, ayuda: ayuda, id: boton.rawValue, tinte: tinte, accion: accion))
         }
         e.vestirIcono(pararGrabacion, Glifo.grabar, ayuda: L("Parar la grabaci\u{00F3}n"), id: "Macros_PararGrabacion", tinte: e.mal)
         iconos.children.append(pararGrabacion)
-        if !settings.toolbarOcultos.contains("Tuneles") {
+        if barra.isVisible(.tuneles) {
             iconos.children.append(e.botonIcono(Glifo.tuneles, ayuda: L("T\u{00FA}neles SSH: locales, remotos y SOCKS"),
-                                                id: "Tuneles") { [weak self] in self?.showTuneles() })
+                                                id: ToolbarButton.tuneles.rawValue) { [weak self] in self?.showTuneles() })
         }
-        e.vestirIcono(dividir, Glifo.dividir, ayuda: L("Pantalla dividida"), id: "DividirTerminal")
+        e.vestirIcono(dividir, Glifo.dividir, ayuda: L("Pantalla dividida"), id: ToolbarButton.dividirTerminal.rawValue)
         prepararMenuDivision()
-        if !settings.toolbarOcultos.contains("DividirTerminal") { iconos.children.append(dividir) }
-        if !settings.toolbarOcultos.contains("Llavero") {
-            iconos.children.append(e.botonIcono(Glifo.llave, ayuda: L("Contraseñas y Llavero"), id: "Llavero") {
+        if barra.isVisible(.dividirTerminal) { iconos.children.append(dividir) }
+        if barra.isVisible(.llavero) {
+            iconos.children.append(e.botonIcono(Glifo.llave, ayuda: L("Contraseñas y Llavero"), id: ToolbarButton.llavero.rawValue) {
                 [weak self] in self?.showLlavero()
             })
         }
         e.vestirIcono(botonMulti, Glifo.multiExec,
                       ayuda: L("MultiExec: lo que escribes va a la vez a los paneles (Ctrl+Mayús+M). Clic derecho en un panel → excluirlo"),
-                      id: "MultiExec", tinte: e.aviso)
-        if !settings.toolbarOcultos.contains("MultiExec") { iconos.children.append(botonMulti) }
+                      id: ToolbarButton.multiExec.rawValue, tinte: e.aviso)
+        if barra.isVisible(.multiExec) { iconos.children.append(botonMulti) }
         actualizarMultiExec()
         e.vestirIcono(pararAutomatizacion, Glifo.parar, ayuda: L("Detener env\u{00ED}o"), id: "Macros_Parar", tinte: e.mal)
         iconos.children.append(pararAutomatizacion)
         // (lo que en el Mac va en Edición y Herramientas: buscar en la pestaña o en todos los registros)
         let buscar = Button()
-        e.vestirIcono(buscar, Glifo.buscar, ayuda: L("Buscar"), id: "BuscarTerminal")
+        e.vestirIcono(buscar, Glifo.buscar, ayuda: L("Buscar"), id: ToolbarButton.buscarTerminal.rawValue)
         menuBuscar.preparar(estilo: e, [
             .orden(L("Buscar en la salida…"), Glifo.buscar, tecla: L("Ctrl+Mayús+F")) { [weak self] in self?.showTerminalSearch() },
             .orden(L("Buscar en todos los registros…"), Glifo.lista, tecla: L("Ctrl+Alt+Mayús+F")) { [weak self] in
@@ -898,16 +899,17 @@ final class NetDeckWindows: SwiftApplication {
             },
         ])
         buscar.flyout = menuBuscar.flyout
-        if !settings.toolbarOcultos.contains("BuscarTerminal") { iconos.children.append(buscar) }
-        let resto: [(String, String, String, () -> Void)] = [
-            (Glifo.espacios, L("Espacios de trabajo"), "Espacios", { [weak self] in self?.showWorkspaces() }),
-            (Glifo.editar, L("Editar remoto"), "EditarRemoto", { [weak self] in self?.showEdicionRemota() }),
-            (Glifo.barraLateral, L("Mostrar/ocultar sesiones"), "MostrarSesiones", { [weak self] in self?.alternarLateral() }),
+        if barra.isVisible(.buscarTerminal) { iconos.children.append(buscar) }
+        let resto: [(ToolbarButton, String, String, () -> Void)] = [
+            (.espacios, Glifo.espacios, L("Espacios de trabajo"), { [weak self] in self?.showWorkspaces() }),
+            // (el del Mac: el explorador SFTP al lado de la pestaña ssh actual; editar un archivo se hace desde él)
+            (.exploradorSFTP, Glifo.carpeta, L("Explorador SFTP"), { [weak self] in
+                if let self, let selected, SFTPPanel.offers(selected.route) { alternarLateralSFTP(selected) }
+            }),
+            (.mostrarSesiones, Glifo.barraLateral, L("Mostrar/ocultar sesiones"), { [weak self] in self?.alternarLateral() }),
         ]
-        for (glifo, ayuda, id, accion) in resto {
-            if !settings.toolbarOcultos.contains(id) {
-                iconos.children.append(e.botonIcono(glifo, ayuda: ayuda, id: id, accion: accion))
-            }
+        for (boton, glifo, ayuda, accion) in resto where barra.isVisible(boton) {
+            iconos.children.append(e.botonIcono(glifo, ayuda: ayuda, id: boton.rawValue, accion: accion))
         }
         // (lo del menú de la app y el de Ayuda del Mac)
         let ajustesBoton = Button()
@@ -3083,8 +3085,8 @@ final class NetDeckWindows: SwiftApplication {
             botonesPorGruposAplicado = a.botonesPorGrupos
             construirBarraBotones()
         }
-        if iconosConOcultosAplicados != a.toolbarOcultos {
-            iconosConOcultosAplicados = a.toolbarOcultos
+        if iconosConOcultosAplicados != a.barra {
+            iconosConOcultosAplicados = a.barra
             construirIconos()
         }
         mostrarLateral(a.listaSesiones)

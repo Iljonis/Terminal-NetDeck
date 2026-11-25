@@ -32,6 +32,7 @@ Mac**. No lo garantiza la memoria de nadie; lo garantizan estas reglas y `tools/
 | Función | Estado | Nota |
 |---|---|---|
 | Buscar en los registros de las sesiones | 🟡→✅ | Un único motor en el núcleo (`LogSearch`); las dos interfaces lo pintan |
+| Barra superior configurable (Ajustes → General → «Barra superior») | 🟡→✅ | Catálogo, ids y guardado únicos en `ToolbarLayout`; clave `ndToolbarOcultos`. Un solo botón «Explorador SFTP» (el lateral de la pestaña ssh; editar se hace desde él); los ids antiguos `EditarRemoto` y `PanelSFTP` migran a `ExploradorSFTP`. Windows sin compilar; `PanelEdicionRemota` queda sin botón |
 | Foco en la pestaña nueva (botón +, ⌘T, favoritas, conexión rápida) | 🟡→✅ | Un único camino «abrir ⇒ seleccionar ⇒ enfocar» |
 | Pestañas: arrastre, mover entre ventanas, devolver | 🟡 | Windows reordena y separa; falta mover a una ventana abierta |
 | Reabrir pestañas y ventanas, posición de ventana | ❌ | `OpenWindows` y `WindowPlacement` ya en el núcleo ⚙️ |

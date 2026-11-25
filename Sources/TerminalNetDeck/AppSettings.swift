@@ -33,6 +33,8 @@ final class AppSettings {
     var fontSmoothing: Bool { didSet { d.set(fontSmoothing, forKey: "fontSmoothing") } }
     var sshConfigPath: String { didSet { d.set(sshConfigPath, forKey: "sshConfigPath") } }
     var sidebarVisible: Bool { didSet { d.set(sidebarVisible, forKey: "sidebarVisible") } }
+    /// Los botones de la barra superior ocultos (todo visible por defecto); el catálogo es el mismo que el de Windows.
+    var toolbar: ToolbarLayout { didSet { d.set(toolbar.encoded, forKey: ToolbarLayout.storageKey) } }
     /// Rejilla y líneas de barrido en la portada.
     var crtEffect: Bool { didSet { d.set(crtEffect, forKey: "crtEffect") } }
     /// Letra de la interfaz: "" = la del tema, "system" = la monoespaciada del sistema, o una familia.
@@ -173,6 +175,7 @@ final class AppSettings {
         fontSmoothing = d.object(forKey: "fontSmoothing") as? Bool ?? true
         sshConfigPath = d.string(forKey: "sshConfigPath") ?? SessionManager.defaultConfigURL.path
         sidebarVisible = d.object(forKey: "sidebarVisible") as? Bool ?? true
+        toolbar = ToolbarLayout(stored: d.stringArray(forKey: ToolbarLayout.storageKey))
         crtEffect = d.object(forKey: "crtEffect") as? Bool ?? true
         uiFontFamily = d.string(forKey: "uiFontFamily") ?? ""
         screenFilter = d.string(forKey: "screenFilter") ?? ScreenFilter.automatic
