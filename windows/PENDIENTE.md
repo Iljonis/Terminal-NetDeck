@@ -88,3 +88,55 @@ Ocho extracciones baratas a NetDeckCore con tests en el Mac (hacerlas primero, l
 - CI de Windows en verde de verdad (ver A) y decidir si `Privacidad` es el único check obligatorio (el filtro `paths` deja PRs sin `build`/`test`).
 - `windows/ESTADO.md` tiene mojibake en varias líneas; `windows/scripts/desktop.ps1` y `windows/installer/preparar-instalador.ps1` llevan acentos sin BOM (PowerShell 5.1 los leería mal).
 - PR #6 (borrador «Propuesta») sigue abierto: ciérralo o fusiónalo cuando el #7 lo sustituya.
+
+### G. Paridad visual Mac ↔ Windows (revisión del 25-11, por lectura de código y de las capturas `docs/capturas/windows-*.png`)
+Clases: **A** = dato o constante que puede vivir en NetDeckCore y compartirse; **B** = sólo interfaz WinUI; **C** = limitación de la
+plataforma. Rutas: `M` = `Sources/TerminalNetDeck/`, `W` = `windows/Desktop/Sources/NetDeckWindows/`. No comprobado: modo claro, ventana
+estrecha (Windows no fija tamaño mínimo y ~13 iconos pueden recortarse; el Mac sí, `AppCore.swift:247`), foco y flechas en los flyouts y el aspecto
+real de los menús de Windows.
+
+Por impacto visible:
+1. **Paneles sin tema (B).** Llavero, Túneles, Macros, Botones, Espacios, ExploradorSFTP, BuscarTerminal, HojaConexion, AccesoFTP y PanelTexto no usan
+   `EstiloMac`: controles WinUI por defecto (texto blanco/negro, botones grises, título `fontSize=20`). Pasarlos por `vestir`/`apartado`/`boton`
+   de `PanelAjustes.swift:339-545` (moverlos a un `EstiloMac+Controles`). Mac: `ThemedForm.swift:14-140`, `NeonButton` (`ThemeUI:297`).
+2. **Confirmaciones y avisos (B).** Borrar, renombrar, actualizar y MultiExec usan `PanelTexto` con una caja multilínea vacía y el botón de confirmar a la
+   izquierda. Crear un `PanelAlerta` (icono, título, mensaje, campo opcional de una línea, Cancelar y Confirmar a la derecha, destructivo en rojo)
+   como `ThemedAlert` (`M/ThemedMenus.swift:496-612`; las reglas ya están en `AlertKeys`, Core).
+3. **Barra de estado (A+B).** Windows manda los ~102 `status.text =` a la izquierda sin filtrar; la regla de CLAUDE.md dice que sólo los que empiezan por
+   ✗ 🔑 ⎋ ⬆ salen como aviso. Usar `StatusNotice.isImportant` (Core) para el toast de 4 s, `Theme.clockText` para la hora y añadir las etiquetas
+   (`SESIÓN AUTO · EQUIPOS AUTO`, MULTIEXEC ×n, ⬆ versión, 🔒 Desbloquear). Mac: `ContentView.swift:1271-1346`.
+4. **Barra de iconos (A).** Mac: [+, terminal] … [pegar, macros (menú), túneles (distintivo n), dividir (menú), llave (menú de credenciales), MultiExec,
+   cortar siempre visible en rojo, SFTP lateral, lista, ajustes]. Windows: buscar/espacios/editar remoto añadidos, llave y macros abren paneles, falta el
+   botón SFTP lateral y el de cortar sólo aparece mientras corre una automatización. Un `ToolbarModel` común (en curso con `ToolbarLayout`).
+5. **Estado activo y hover de los iconos (B; medidas A).** Mac 30×26 con radio `t.corner`, activo con relleno de acento y glifo con el color de fondo
+   (`M/ContentView.swift:676-709`); Windows 32×28, radio 6, sólo MultiExec tiene estado activo (`EstiloMac.swift:89-102`). `conservarColores` en todos los iconos.
+6. **Pestañas (A+B).** Mac: mismo ancho (96-200), alto 29, punto de 7 px con 5 estados (`status`, `M/ContentView.swift:1068`), ✕ de 24×24 al pasar el ratón,
+   «•» de actividad, 🔑, icono de vista dividida, título cortado por el centro. Windows: ancho según contenido, «●» sólo verde/rojo, ✕ sólo en la activa, sin «•» ni 🔑,
+   corte al final. `TabStatus` a Core, ✕ al hover, `TrimmingMode` (`W:3445-3577`).
+7. **Menús contextuales (A datos, B render).** Pestaña: falta separadores entre bloques, «Mover a la ventana…» y «Consola sftp»; sobra «Enviar BREAK»; «Cerrar» (Mac) frente a
+   «Cerrar pestaña (Ctrl+Mayús+W)»; «Buscar… (⌘F)» frente a «Buscar en el terminal». Windows usa `MenuFlyout` nativo, sin barra de acento ni iconos. Una lista de
+   entradas compartida renderizada con `MenuLista`.
+8. **Menú «+» (B).** Mismo orden y textos, pero: radio de fila sin `t.corner`, sin barra de neón de 2 px ni línea superior en temas con brillo, hover que la plantilla de Button pisa
+   (`EstiloMac.swift:121`, sin comprobar en pantalla), `FlyoutPresenter` conserva su borde y relleno (sin confirmar). Mac: `NewMenu` 477-606, `ThemedMenuPanel`.
+9. **Barra lateral (B; alto de fila A).** Filas de 24 (Windows 26); buscador propio de 30 px con lupa y ✕ frente a un TextBox por defecto; pie con la ruta cortada por el principio
+   (`…sh/config`) frente al final; falta el icono ⏻ de inicio; «Gestionar» = engranaje frente a barras deslizantes.
+10. **Barra de botones (A+B).** Mac 32 px, chip de 22, radio 3/6, hover relleno con texto `readable`, atajo en el chip, «Sin botones · ✎ para crear»; Windows 34 px, chip de 24, sin
+    relleno al pasar, sin atajo, texto distinto.
+11. **Ajustes (B).** Mac 1000×720, radio 6 en neón y 14 en el resto, «AJUSTES» con tracking en neón; Windows radio 14 siempre, «Ajustes» siempre, `ToggleSwitch` y `ComboBox` estándar
+    frente al interruptor de 34×19 y `ThemedPicker`, borde de tarjeta siempre 0.35 (Mac 0.15 fuera de neón).
+12. **Tipografía de la interfaz (A).** Mac: `Theme.ui` (`ThemeUI:114`) = «La del tema» → `uiFonts` → fuente del terminal; «system» = SF Pro. Windows: `uiFonts + Segoe UI`, nunca la del
+    terminal, y «system» → Cascadia Mono (significado distinto). Mover la cadena de fuentes a Core.
+13. **Temas por superficie (A).** `t.corner` (neón = chaflán, cristal = 10, fluent = 6), `glows`, `tracking` (`M/ThemeUI:124-138`): 0 usos en Windows (radios fijos 5-12, `.solid` siempre).
+    Mover `corner/neon/glows/glow/tracking` a Core.
+14. **Asistente (A pasos, C copia a Aplicaciones).** Mac: pantalla completa, raíl de 7 pasos, «Omitir» abajo a la izquierda; Windows: tarjeta pequeña, botones arriba, pasos
+    distintos (Tema, Tu primera sesión, Listo). Títulos «Tema» y «Temas» distintos. `SetupSteps` a Core.
+15. **Pegado seguro (B).** Mac: hoja con icono, «¿Pegar N líneas?», pestaña de destino, ⚠ por línea (`M/Sheets.swift:90-165`); Windows: `PanelTexto` «Pegar varias líneas», «Enviar», sin ⚠.
+16. **Menú contextual del terminal (B).** Falta Copiar, Pegar, Seleccionar todo, Buscar (`M/TerminalSession.swift:257-268`).
+17. **Iconos (C peso, B glifos).** SF Symbols semibold 13 px frente a Segoe Fluent regular 14 px; los glifos de túneles (E968) y MultiExec (E762) parecen otra cosa en la captura (sin comprobar a escala real).
+
+Limitaciones de plataforma (C): cristal real (la UI de Windows es opaca), botones del sistema, ausencia de barra de menús (los atajos de Terminal y Herramientas sólo existen en el Mac) y el renderizado de iconos.
+
+**Qué compartir en NetDeckCore para que no vuelvan a divergir:** `MenuModel` (listas ordenadas con título, atajo neutro Cmd/Ctrl, rol de icono, `destructive`, `enabled` para pestaña, sesión, grupo, «+», Ajustes y REC),
+`ToolbarModel` (id, orden, rol de icono, tinte, ayuda, predicados), `DesignMetrics` (alturas 38/32/26/24/22, anchos 268/200, pestañas 96-200, 1000×720, radios y alfas 0.6/0.4/0.55/0.45/0.35/0.2/0.14/0.16/0.32),
+`ThemeMetrics` (corner, neon, glows, glow, tracking y la cadena `ui` de `ThemeUI.swift:111-139`), `TabStatus` (de `ContentView.swift:1068`) y `SetupSteps`; y un test que compare el `MenuModel` con los títulos del Mac
+(`comprobar_paridad.sh` sólo detecta cuerpos duplicados, no datos distintos).
