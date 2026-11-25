@@ -1,3 +1,12 @@
+## 2026-11-25 · Windows · Verificación en Windows de la revisión del Mac
+
+- **Qué se ha hecho:** `git pull` de los cuatro commits del Mac (`cecfc9b`, `caf9c9e`, `b59891a`, `4646962`) y la primera orden que pedía su entrada.
+- **Compilación:** `desktop.ps1 -Configuration release` sin errores (incluye `SafeFile.replace` con `MoveFileExW`, `kill` con `TerminateProcess`, `UpdateChecker`, `SystemTools`, `SessionLog`, `ConnectionRoute`, `ConPTYProcess`, `EdicionRemota`, `NetDeckWindows` y `PanelAjustes`, que el Mac no podía compilar).
+- **Tests:** `windows/scripts/test.ps1 --no-parallel`: **557 tests en 93 suites en verde**. `tools/comprobar_formato.sh` («sin BOM ni CR», 216 archivos) y `tools/privacidad.sh` en verde.
+- **CI en GitHub:** `Windows (núcleo)` (ya en `windows-2022`, sin `continue-on-error`) y `Tests` en verde en el PR 7: compilar NetDeckCore, privacidad y tests del núcleo pasan.
+- **Revisión de los cambios de la app:** los símbolos nuevos (`archivoEditable`, `confirmarMulti`, `PasteRules.lines/dangerousLines/visible`, `SecretMask.masked`) existen y la lógica es coherente. No se ha probado a mano en la app: la confirmación de MultiExec ante órdenes peligrosas, borrar una sesión con el archivo ilegible, la copia local por edición remota y el bloqueo del instalador en el actualizador.
+- **La limpieza de `PanelAjustes.seccionActual`** que se hizo aquí (`/ecc:refactor-clean`) coincidía exactamente con la del Mac (mismo resultado de archivo), así que no hay commit propio por eso.
+
 ## 2026-11-24 · Mac · Revisión del PR desde el Mac y arreglos (rama `windows/p14-escritorio`)
 
 Revisión del código compartido con macOS, del actualizador, del instalador, de los permisos del `ssh_config` y de los textos, con agentes de lectura y de implementación. `./test.sh` en el Mac: **716 tests en verde**, con privacidad y la nueva comprobación de formato.
