@@ -1,4 +1,4 @@
-# windows/scripts/swift-build.ps1 — lanza swift build con el PATH y SDKROOT correctos en este PC.
+﻿# windows/scripts/swift-build.ps1 — lanza swift build con el PATH y SDKROOT correctos en este PC.
 # Uso (desde la raiz del repositorio):
 #   powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/scripts/swift-build.ps1 [argumentos de swift build]
 # Ejemplo:

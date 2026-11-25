@@ -1,3 +1,10 @@
+## 2026-11-25 · Windows · BOM en los scripts de compilación y repaso de `CLAUDE.md`
+
+- **Qué se ha hecho:** `windows/scripts/desktop.ps1` y `windows/scripts/swift-build.ps1` llevan BOM UTF-8 (solo esos 3 bytes; el resto es idéntico), como pide la sección de Windows de `CLAUDE.md` (`cb2d681`). Sin él, PowerShell 5.1 leía los avisos de `desktop.ps1` como «No estÃ¡ llvm-rc»; con él se leen bien (comprobado con el analizador de 5.1).
+- **Compilación:** `swift-build.ps1 --target NetDeckCore` y `desktop.ps1 -Demo -Configuration release` (con `NETDECK_BUILD_ONLY=1`) terminan con código 0.
+- **Tests:** `windows/scripts/test.ps1 --no-parallel`: 557 tests en 93 suites en verde. `tools/privacidad.sh` y `tools/comprobar_formato.sh` en verde.
+- **Para el Mac, del repaso de `cb2d681`:** (1) la regla «Edit/Write generan `.tmp` con BOM» no se reproduce aquí: los `.swift` de `windows/` editados así están sin BOM ni CR y sin `.tmp` sueltos; (2) la sesión de Windows no tiene el enlace del gist que cita; (3) `comprobar_formato.sh` no mira `windows/` (hoy está limpio en el índice); (4) `preparar-instalador.ps1` sigue sin BOM (solo tiene «» en un comentario).
+
 ## 2026-11-25 · Windows · Prueba a mano de MultiExec y edición remota (y arreglo de un cierre)
 
 - **Montaje:** sin servidor SSH en el equipo, se usó uno temporal en el Ubuntu de WSL (`openssh-server`, solo en `127.0.0.1:2222`, usuario de prueba con clave temporal y sin contraseña). La demo (perfil temporal) conectó con una sesión en memoria `lab-wsl`. Al acabar se paró `sshd`, se borraron el usuario, su carpeta, la clave del servidor y la clave y el `known_hosts` temporales; el paquete `openssh-server` sigue instalado con `ssh.service` y `ssh.socket` desactivados.
