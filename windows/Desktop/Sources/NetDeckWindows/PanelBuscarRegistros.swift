@@ -2,33 +2,44 @@ import Foundation
 import NetDeckCore
 import WinUI
 
+// no verificado en Windows: escrito desde el Mac contra la API de los demás paneles (CheckBox, ComboBox, Run); la
+// búsqueda, el contexto, los textos y el resaltado son los de `NetDeckCore.LogSearch`, que sí se prueba en el Mac.
+
 /// Buscar en TODOS los registros de las sesiones, como `LogSearchSheet` del Mac: una IP, una descripción, una MAC en
-/// cualquier formato… y salen las líneas de todos los días y equipos, con el contexto de la elegida.
+/// cualquier formato… y salen las líneas de todos los días y equipos, con el contexto de la elegida. Sólo pinta: la
+/// lógica (patrón, lectura a trozos, tope, filtros) está en `LogSearch`. De momento sólo lee los `.log`; los
+/// `.log.gz` se cuentan como «archivos comprimidos sin leer».
 final class PanelBuscarRegistros {
     let view = ScrollViewer()
     var onClose: (() -> Void)?
     var onAbrir: ((URL) -> Void)?
     var onMostrar: ((URL) -> Void)?
+    /// Copia un texto al portapapeles (si no se conecta, no salen «Copiar línea» ni «Copiar ruta»).
+    var onCopiar: ((String) -> Void)?
     /// Lleva un bloque al hilo de WinUI.
     var enqueue: (@escaping () -> Void) -> Void = { _ in }
 
-    struct Acierto: Equatable {
-        let archivo: URL
-        let linea: Int
-        let texto: String
-    }
-
-    static let maxAciertos = 500
-    static let maxLinea = 4096
-
     private let consulta = TextBox()
+    private let regex = CheckBox()
+    private let mayusculas = CheckBox()
+    private let palabra = CheckBox()
+    private let equipo = ComboBox()
+    private let periodo = ComboBox()
     private let estado = TextBlock()
+    private let porEquipo = TextBlock()
     private let lista = StackPanel()
     private let contexto = TextBlock()
     private let abrir = Button()
     private let mostrar = Button()
+    private let copiarLinea = Button()
+    private let copiarRuta = Button()
     private var carpeta = URL(fileURLWithPath: ".")
-    private var aciertos: [Acierto] = []
+    private var aciertos: [LogHit] = []
+    private var comparador: LogMatcher?
+    /// Los equipos del selector (sin «Todos»: el índice 0 del ComboBox).
+    private var equipos: [String] = []
+    private var rellenando = false
+    private var buscado = false
     private var elegido: Int?
     private var turno = 0
     private var tarea: Task<Void, Never>?
@@ -61,9 +72,45 @@ final class PanelBuscarRegistros {
         filaConsulta.children.append(consulta)
         filaConsulta.children.append(buscarBoton)
 
-        estado.opacity = 0.7
-        estado.fontSize = 12
-        estado.textWrapping = .wrap
+        // (las mismas opciones que la hoja del Mac; cambiar una repite la búsqueda ya hecha)
+        let filaOpciones = StackPanel()
+        filaOpciones.orientation = .horizontal
+        filaOpciones.spacing = 12
+        for (casilla, texto, ayuda, id) in [
+            (regex, L("Regex"), L("Interpretar como expresión regular"), "BuscarRegistros_Regex"),
+            (mayusculas, L("Mayúsculas"), L("Distinguir mayúsculas de minúsculas"), "BuscarRegistros_Mayusculas"),
+            (palabra, L("Palabra"), L("Sólo palabras completas"), "BuscarRegistros_Palabra")
+        ] {
+            casilla.content = texto
+            ToolTipService.setToolTip(casilla, ayuda)
+            AutomationProperties.setAutomationId(casilla, id)
+            casilla.checked.addHandler { [weak self] _, _ in self?.repetir() }
+            casilla.unchecked.addHandler { [weak self] _, _ in self?.repetir() }
+            filaOpciones.children.append(casilla)
+        }
+        equipo.minWidth = 170
+        equipo.items.append(L("Todos los equipos"))
+        equipo.selectedIndex = 0
+        AutomationProperties.setName(equipo, L("Equipo"))
+        AutomationProperties.setAutomationId(equipo, "BuscarRegistros_Equipo")
+        equipo.selectionChanged.addHandler { [weak self] _, _ in
+            guard let self, !self.rellenando else { return }
+            self.repetir()
+        }
+        for p in LogPeriod.allCases { periodo.items.append(p.title) }
+        periodo.selectedIndex = Int32(LogPeriod.allCases.firstIndex(of: .all) ?? 0)
+        periodo.minWidth = 150
+        AutomationProperties.setName(periodo, L("Periodo"))
+        AutomationProperties.setAutomationId(periodo, "BuscarRegistros_Periodo")
+        periodo.selectionChanged.addHandler { [weak self] _, _ in self?.repetir() }
+        filaOpciones.children.append(equipo)
+        filaOpciones.children.append(periodo)
+
+        for texto in [estado, porEquipo] {
+            texto.opacity = 0.7
+            texto.fontSize = 12
+            texto.textWrapping = .wrap
+        }
 
         let columnas = Grid()
         columnas.columnSpacing = 10
@@ -91,27 +138,36 @@ final class PanelBuscarRegistros {
 
         abrir.content = L("Abrir el registro")
         mostrar.content = L("Mostrar en el Explorador")
+        copiarLinea.content = L("Copiar línea")
+        copiarRuta.content = L("Copiar ruta")
         let cerrar = Button()
         cerrar.content = L("Cerrar")
         AutomationProperties.setAutomationId(cerrar, "BuscarRegistros_Cerrar")
-        abrir.click.addHandler { [weak self] _, _ in self?.elegidoActual.map { self?.onAbrir?($0.archivo) } }
-        mostrar.click.addHandler { [weak self] _, _ in self?.elegidoActual.map { self?.onMostrar?($0.archivo) } }
+        abrir.click.addHandler { [weak self] _, _ in self?.elegidoActual.map { self?.onAbrir?($0.file) } }
+        mostrar.click.addHandler { [weak self] _, _ in self?.elegidoActual.map { self?.onMostrar?($0.file) } }
+        copiarLinea.click.addHandler { [weak self] _, _ in self?.elegidoActual.map { self?.onCopiar?($0.text) } }
+        copiarRuta.click.addHandler { [weak self] _, _ in self?.elegidoActual.map { self?.onCopiar?($0.file.path) } }
         cerrar.click.addHandler { [weak self] _, _ in
             self?.tarea?.cancel()
             self?.onClose?()
         }
+        let izquierda = StackPanel()
+        izquierda.orientation = .horizontal
+        izquierda.spacing = 8
+        for b in [abrir, mostrar, copiarLinea, copiarRuta] { izquierda.children.append(b) }
         let acciones = Grid()
-        for unidad in [GridUnitType.auto, .auto, .star, .auto] {
+        for unidad in [GridUnitType.star, .auto] {
             let c = ColumnDefinition()
             c.width = GridLength(value: 1, gridUnitType: unidad)
             acciones.columnDefinitions.append(c)
         }
-        mostrar.margin = Thickness(left: 8, top: 0, right: 0, bottom: 0)
-        Grid.setColumn(mostrar, 1)
-        Grid.setColumn(cerrar, 3)
-        for b in [abrir, mostrar, cerrar] { acciones.children.append(b) }
+        Grid.setColumn(cerrar, 1)
+        acciones.children.append(izquierda)
+        acciones.children.append(cerrar)
 
-        for item in [titulo as FrameworkElement, filaConsulta, estado, columnas, acciones] { form.children.append(item) }
+        for item in [titulo as FrameworkElement, filaConsulta, filaOpciones, estado, porEquipo, columnas, acciones] {
+            form.children.append(item)
+        }
         view.content = form
         view.verticalScrollBarVisibility = .auto
         view.horizontalScrollBarVisibility = .disabled
@@ -125,54 +181,103 @@ final class PanelBuscarRegistros {
     func show(carpeta: URL, estilo: EstiloMac) {
         self.carpeta = carpeta
         self.estilo = estilo
-        if aciertos.isEmpty { estado.text = L("\(0)\("") líneas en \(AppPaths.tilde(carpeta.path))") }
+        if aciertos.isEmpty { estado.text = L("Se busca en \(AppPaths.tilde(carpeta.path))") }
+        porEquipo.visibility = .collapsed
+        copiarLinea.visibility = onCopiar == nil ? .collapsed : .visible
+        copiarRuta.visibility = onCopiar == nil ? .collapsed : .visible
         actualizarBotones()
+        cargarEquipos()
         enfocar = true
     }
 
-    private var elegidoActual: Acierto? { elegido.flatMap { aciertos.indices.contains($0) ? aciertos[$0] : nil } }
+    private var elegidoActual: LogHit? { elegido.flatMap { aciertos.indices.contains($0) ? aciertos[$0] : nil } }
 
     private func actualizarBotones() {
-        abrir.isEnabled = elegidoActual != nil
-        mostrar.isEnabled = elegidoActual != nil
+        for b in [abrir, mostrar, copiarLinea, copiarRuta] { b.isEnabled = elegidoActual != nil }
     }
 
+    /// Los equipos con registros, para el selector (conservando el elegido, si sigue ahí).
+    private func cargarEquipos() {
+        let dir = carpeta
+        Task.detached { [weak self] in
+            let nombres = LogSearch.hosts(in: dir)
+            self?.enqueue { [weak self] in self?.rellenarEquipos(nombres) }
+        }
+    }
+
+    private func rellenarEquipos(_ nombres: [String]) {
+        let antes = equipoElegido
+        rellenando = true
+        equipo.items.clear()
+        equipo.items.append(L("Todos los equipos"))
+        for n in nombres { equipo.items.append(n) }
+        equipos = nombres
+        equipo.selectedIndex = Int32((antes.flatMap { nombres.firstIndex(of: $0) }.map { $0 + 1 }) ?? 0)
+        rellenando = false
+    }
+
+    private var equipoElegido: String? {
+        let i = Int(equipo.selectedIndex) - 1
+        return equipos.indices.contains(i) ? equipos[i] : nil
+    }
+
+    private func consultaActual() -> LogQuery {
+        let p = Int(periodo.selectedIndex)
+        return LogQuery(text: consulta.text, isRegex: regex.isChecked == true, caseSensitive: mayusculas.isChecked == true,
+                        wholeWord: palabra.isChecked == true, host: equipoElegido,
+                        period: LogPeriod.allCases.indices.contains(p) ? LogPeriod.allCases[p] : .all)
+    }
+
+    /// Cambiar una opción repite la búsqueda ya hecha.
+    private func repetir() { if buscado { buscar() } }
+
     private func buscar() {
-        let q = consulta.text.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return }
+        let q = consultaActual()
+        guard !q.trimmed.isEmpty else { return }
+        buscado = true
         tarea?.cancel()
         turno += 1
         let pedido = turno, dir = carpeta
         aciertos = []
         elegido = nil
         lista.children.clear()
-        contexto.text = ""
+        contexto.inlines.clear()
+        porEquipo.visibility = .collapsed
         actualizarBotones()
         estado.text = L("Buscando…")
         tarea = Task.detached { [weak self] in
-            let encontrados = Self.grep(q, in: dir)
+            let compilado = try? q.matcher()
+            let resultado: Result<LogSearchResult, any Error> = Result {
+                try LogSearch.search(q, in: dir, isCancelled: { Task.isCancelled })
+            }
             self?.enqueue { [weak self] in
                 guard let self, self.turno == pedido else { return }
-                self.mostrarAciertos(encontrados)
+                switch resultado {
+                case .success(let r): self.mostrarAciertos(r, comparador: compilado)
+                case .failure(let e): self.estado.text = (e as? LogSearchError)?.errorDescription ?? e.localizedDescription
+                }
             }
         }
     }
 
-    private func mostrarAciertos(_ encontrados: [Acierto]) {
-        aciertos = encontrados
-        let mas = encontrados.count >= Self.maxAciertos ? "+" : ""
-        estado.text = L("\(encontrados.count)\(mas) líneas en \(AppPaths.tilde(carpeta.path))")
-        for (i, a) in encontrados.enumerated() {
+    private func mostrarAciertos(_ r: LogSearchResult, comparador: LogMatcher?) {
+        aciertos = r.hits
+        self.comparador = comparador
+        estado.text = ([r.summary] + r.warnings).joined(separator: " · ")
+        porEquipo.text = r.hostSummary() ?? ""
+        porEquipo.visibility = r.hostSummary() == nil ? .collapsed : .visible
+        for (i, a) in r.hits.enumerated() {
             let boton = Button()
             estilo.plano(boton)
             boton.horizontalAlignment = .stretch
             boton.horizontalContentAlignment = .left
             boton.padding = Thickness(left: 8, top: 3, right: 8, bottom: 3)
             let celdas = StackPanel()
-            let texto = EstiloMac.letra(a.texto, tamano: 12, color: estilo.texto)
+            let texto = EstiloMac.letra("", tamano: 12, color: estilo.texto)
             texto.fontFamily = FontFamily("Cascadia Mono, Consolas")
-            texto.textTrimming = .characterEllipsis
-            let origen = EstiloMac.letra("\(a.archivo.deletingLastPathComponent().lastPathComponent) · \(a.archivo.lastPathComponent):\(a.linea)",
+            let vista = a.preview()
+            anadir(LogSegment.split(vista.text, ranges: vista.ranges), a: texto)
+            let origen = EstiloMac.letra("\(a.file.deletingLastPathComponent().lastPathComponent) · \(a.file.lastPathComponent):\(a.line)",
                                          tamano: 10.5, color: estilo.apagado)
             celdas.children.append(texto)
             celdas.children.append(origen)
@@ -180,7 +285,20 @@ final class PanelBuscarRegistros {
             boton.click.addHandler { [weak self] _, _ in self?.elegir(i) }
             lista.children.append(boton)
         }
-        if !encontrados.isEmpty { elegir(0) }
+        if !r.hits.isEmpty { elegir(0) }
+    }
+
+    /// Los trozos de una línea como `Run`: los que aciertan, en el color de acento y en negrita.
+    private func anadir(_ trozos: [LogSegment], a texto: TextBlock) {
+        for t in trozos {
+            let run = Run()
+            run.text = t.text
+            if t.isMatch {
+                run.foreground = estilo.acento(alfa: 1)
+                run.fontWeight = FontWeight(weight: 700)
+            }
+            texto.inlines.append(run)
+        }
     }
 
     private func elegir(_ i: Int) {
@@ -192,55 +310,27 @@ final class PanelBuscarRegistros {
         actualizarBotones()
         let a = aciertos[i], pedido = turno
         Task.detached { [weak self] in
-            // (fuera del hilo de la interfaz: un registro grande no congela la ventana)
-            let lineas = Self.leerLineas(a.archivo)
-            let lo = max(0, a.linea - 13), hi = min(lineas.count, a.linea + 12)
-            let texto = lo < hi ? (lo..<hi).map { ($0 + 1 == a.linea ? "\u{25B6} " : "  ") + lineas[$0] }.joined(separator: "\n") : ""
+            // (fuera del hilo de la interfaz y por trozos: un registro grande no congela la ventana)
+            let lineas = LogSearch.context(file: a.file, line: a.line, isCancelled: { Task.isCancelled })
             self?.enqueue { [weak self] in
                 guard let self, self.turno == pedido, self.elegido == i else { return }
-                self.contexto.text = texto
+                self.mostrarContexto(lineas)
             }
         }
     }
 
-    // MARK: - búsqueda (como grep -n -i -E en los .log)
-
-    static func grep(_ q: String, in dir: URL) -> [Acierto] {
-        let patron = macPattern(q) ?? NSRegularExpression.escapedPattern(for: q)
-        guard let regex = try? NSRegularExpression(pattern: patron, options: [.caseInsensitive]) else { return [] }
-        var archivos: [URL] = []
-        let e = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil)
-        while !Task.isCancelled, let f = e?.nextObject() as? URL {
-            if f.pathExtension.lowercased() == "log" { archivos.append(f) }
-        }
-        archivos.sort { $0.path > $1.path }                     // lo más reciente primero
-        var out: [Acierto] = []
-        for f in archivos {
-            if out.count >= maxAciertos || Task.isCancelled { break }
-            for (n, linea) in leerLineas(f).enumerated() {
-                let corta = linea.utf8.count > maxLinea ? String(decoding: linea.utf8.prefix(maxLinea), as: UTF8.self) : linea
-                let rango = NSRange(corta.startIndex..., in: corta)
-                guard regex.firstMatch(in: corta, range: rango) != nil else { continue }
-                out.append(Acierto(archivo: f, linea: n + 1, texto: corta))
-                if out.count >= maxAciertos { break }
+    private func mostrarContexto(_ lineas: [LogContextLine]) {
+        contexto.inlines.clear()
+        for (n, l) in lineas.enumerated() {
+            let marca = Run()
+            marca.text = (l.isHit ? "\u{25B6} " : "  ")
+            contexto.inlines.append(marca)
+            anadir(LogSegment.split(l.text, ranges: comparador?.ranges(in: l.text) ?? []), a: contexto)
+            if n < lineas.count - 1 {
+                let salto = Run()
+                salto.text = "\n"
+                contexto.inlines.append(salto)
             }
         }
-        return out
-    }
-
-    /// Una MAC en cualquier formato → la expresión que encaja con todos (la misma regla que el Mac).
-    static func macPattern(_ q: String) -> String? {
-        let hex = q.lowercased().filter { $0.isHexDigit }
-        guard hex.count == 12, q.count <= 17, q.allSatisfy({ $0.isHexDigit || ":-. ".contains($0) }) else { return nil }
-        let c = Array(hex)
-        let pairs = stride(from: 0, to: 12, by: 2).map { String(c[$0...$0 + 1]) }
-        let quads = stride(from: 0, to: 12, by: 4).map { String(c[$0..<$0 + 4]) }
-        return "(" + [pairs.joined(separator: "[:-]"), quads.joined(separator: "[.-]"), hex].joined(separator: "|") + ")"
-    }
-
-    static func leerLineas(_ archivo: URL) -> [String] {
-        guard let datos = try? Data(contentsOf: archivo, options: .mappedIfSafe) else { return [] }
-        return String(decoding: datos, as: UTF8.self).components(separatedBy: "\n")
-            .map { $0.hasSuffix("\r") ? String($0.dropLast()) : $0 }
     }
 }

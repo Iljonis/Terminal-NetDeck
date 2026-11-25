@@ -223,7 +223,8 @@ siguen únicamente en el Llavero de macOS.
 - **Selección rectangular:** mantén ⌥ y arrastra para copiar sólo unas columnas (las IP de un `show ip interface
   brief`, sin el resto de la línea).
 - **Historial configurable:** 2.500 líneas por pestaña de serie; 1.000, 5.000 o 10.000 en Ajustes → Terminal.
-- **Registro** de las sesiones en texto limpio y **búsqueda** en todos ellos (IP, MAC en cualquier formato…).
+- **Registro** de las sesiones en texto limpio y **búsqueda** en todos ellos (IP, MAC en cualquier formato…), con regex,
+  mayúsculas, palabra completa, equipo y periodo; las coincidencias salen resaltadas, con su contexto.
 - **Español de España e inglés**, se cambia al momento en Ajustes → General → Idioma.
 
 ![Ajustes del terminal de Terminal NetDeck en inglés: historial configurable y selección rectangular](docs/capturas/ajustes-en.png)

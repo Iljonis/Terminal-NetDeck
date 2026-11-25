@@ -184,6 +184,8 @@ caso ajustes-temas         es neo-tokyo     settings:temas
 caso ajustes-resaltado     es neo-tokyo     settings:resaltado
 caso ajustes-botones       es neo-tokyo     settings:botones
 caso asistente             es neo-tokyo     setup:0
+caso buscar-registros      es neo-tokyo     buscar-registros
+caso buscar-registros-en   en papel         "buscar-registros:aa:bb:cc:dd:ee:ff"
 # (menús de clic derecho: puntos de la ventana, desde arriba a la izquierda; «fila-cortada», la última, que asoma a
 # medias por abajo: con «y» negativa, desde abajo, porque la ventana mide 1512×860 aquí y 1024×674 en GitHub Actions;
 # «fondo-lista», la zona vacía de una carpeta con un solo archivo)

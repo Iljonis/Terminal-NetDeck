@@ -1,0 +1,6 @@
+=== NetDeck · bastion · 2026-11-25 10:30:00 ===
+tu.usuario@bastion:~$ ssh tu.usuario@192.0.2.1
+tu.usuario@bastion:~$ grep 192.0.2.1 /var/log/syslog | tail -2
+Nov 25 10:31:07 core-01 %LINK-3-UPDOWN: Interface GigabitEthernet0/1, changed state to down 192.0.2.1
+Nov 25 10:31:09 core-01 %LINK-3-UPDOWN: Interface GigabitEthernet0/1, changed state to up 192.0.2.1
+=== fin · 2026-11-25 10:45:12 ===

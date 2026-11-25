@@ -595,8 +595,32 @@ enum Ingles {
             "IP, MAC (any format), interface, text…",
         "Buscar":
             "Search",
-        "%@%@ líneas en %@":
-            "%@%@ lines in %@",
+        "Se busca en %@":
+            "Searching in %@",
+        "%@%@ líneas": "%@%@ lines",
+        "1 archivo": "1 file",
+        "%@ archivos": "%@ files",
+        "%@ en %@": "%@ in %@",
+        "Hay más aciertos: se muestran los primeros %@. Afina la búsqueda.":
+            "There are more matches: showing the first %@. Narrow the search.",
+        "1 archivo comprimido sin leer": "1 compressed file not read",
+        "%@ archivos comprimidos sin leer": "%@ compressed files not read",
+        "Por equipo: %@": "By device: %@",
+        "Expresión regular no válida": "Invalid regular expression",
+        "Hoy": "Today",
+        "Últimos 7 días": "Last 7 days",
+        "Últimos 30 días": "Last 30 days",
+        "Todo": "All time",
+        "Todos los equipos": "All devices",
+        "Periodo": "Period",
+        "Regex": "Regex",
+        "Mayúsculas": "Match case",
+        "Palabra": "Whole word",
+        "Interpretar como expresión regular": "Treat as a regular expression",
+        "Distinguir mayúsculas de minúsculas": "Match upper and lower case",
+        "Sólo palabras completas": "Whole words only",
+        "Copiar línea": "Copy line",
+        "Copiar ruta": "Copy path",
         "%@ importadas: revísalas y pulsa «Guardar»":
             "%@ imported: review them and press “Save”",
         "SESIONES":

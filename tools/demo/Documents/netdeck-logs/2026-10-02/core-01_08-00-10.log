@@ -1,0 +1,5 @@
+=== NetDeck · core-01 · 2026-10-02 08:00:10 ===
+core-01#show ip route 192.0.2.1
+Routing entry for 192.0.2.0/24
+  Known via "connected", distance 0, metric 0
+=== fin · 2026-10-02 08:01:00 ===
