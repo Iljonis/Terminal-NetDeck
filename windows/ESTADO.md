@@ -15,6 +15,24 @@
 - **Compilación:** release sin errores. No se han añadido tests (es código de interfaz, fuera del núcleo).
 - **Sin probar:** borrar una sesión con el archivo ilegible y el bloqueo del instalador en el actualizador.
 
+## 2026-11-25 · Mac · Buscador de registros: la lógica pasa al núcleo (SIN COMPILAR EN WINDOWS)
+
+- **Qué cambia:** `PanelBuscarRegistros.swift` ya no tiene su propio `grep`, `macPattern` ni `leerLineas`: llama a `NetDeckCore.LogSearch` (`Terminal/LogQuery.swift`, `LogSearch.swift`, `LogFileReader.swift`, con 20 tests en el Mac). Lee por trozos (nunca un archivo entero), corta cada línea a 4096 bytes y admite regex, mayúsculas, palabra completa, equipo y periodo; el IPv4 tiene bordes (192.0.2.1 no acierta en 192.0.2.11).
+- **El panel gana** las tres casillas (CheckBox), los selectores de equipo y de periodo (ComboBox), «N líneas en M archivos», el aviso de tope, «N archivos comprimidos sin leer» (los `.log.gz`: en Windows sólo se leen los `.log`), el reparto por equipo y el resaltado de las coincidencias (`Run` en el color de acento y negrita) en la lista y en el contexto.
+- **Sin cambiar `NetDeckWindows.swift`:** la firma de `show(carpeta:estilo:)` y las propiedades que se conectan (`onClose`, `onAbrir`, `onMostrar`, `enqueue`) son las mismas. Hay un `onCopiar: ((String) -> Void)?` nuevo: si `NetDeckWindows` lo conecta (portapapeles), salen «Copiar línea» y «Copiar ruta»; si no, esos dos botones se ocultan.
+- **Primera orden en Windows:** `git pull`, `swift build` y `windows/scripts/test.ps1 --no-parallel`; luego abrir el panel con unos registros de ejemplo (IPs 192.0.2.x) y comprobar que las casillas repiten la búsqueda, que el selector de equipo se llena y que el contexto resalta. Posibles ajustes de API: `Run.fontWeight`, `ComboBox.items.clear()` y `CheckBox.checked/unchecked`.
+- **Pendiente en Windows:** leer `.log.gz` (un `LogFileReader` propio, p. ej. con descompresión en Swift) y ↑/↓ + Retorno en la lista.
+
+## 2026-11-25 · Mac · Foco al abrir una pestaña (Mac arreglado; Windows SIN COMPILAR NI PROBAR)
+
+- **Síntoma (autor):** al abrir una pestaña nueva, por ejemplo desde el «+», el foco no iba a ella.
+- **Windows, sin verificar:** `focusTerminal()` se repite una vez en la vuelta siguiente del dispatcher (un `Flyout` o
+  `MenuFlyout` devuelve el foco al botón «+» al terminar de cerrarse, después de nuestro manejador del clic; ya lo
+  decía el comentario de `EditorSesion`), y `MenuNuevo.alCerrar` (evento `Closed` del flyout) lo vuelve a llevar al
+  terminal si no hay un panel abierto. Todo marcado `// no verificado en Windows`. **A comprobar en Windows:** que
+  compila (`flyout.closed.addHandler`) y que, tras «+» → Terminal local, un favorito o un grupo, se escribe sin un
+  clic; también tras el menú contextual de la barra lateral («Conectar») y el doble clic en una sesión.
+
 ## 2026-11-25 · Windows · Verificación en Windows de la revisión del Mac
 
 - **Qué se ha hecho:** `git pull` de los cuatro commits del Mac (`cecfc9b`, `caf9c9e`, `b59891a`, `4646962`) y la primera orden que pedía su entrada.
