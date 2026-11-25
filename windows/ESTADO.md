@@ -1,3 +1,13 @@
+## 2026-11-25 · Windows · Prueba a mano de MultiExec y edición remota (y arreglo de un cierre)
+
+- **Montaje:** sin servidor SSH en el equipo, se usó uno temporal en el Ubuntu de WSL (`openssh-server`, solo en `127.0.0.1:2222`, usuario de prueba con clave temporal y sin contraseña). La demo (perfil temporal) conectó con una sesión en memoria `lab-wsl`. Al acabar se paró `sshd`, se borraron el usuario, su carpeta, la clave del servidor y la clave y el `known_hosts` temporales; el paquete `openssh-server` sigue instalado con `ssh.service` y `ssh.socket` desactivados.
+- **MultiExec (verificado con dos pestañas SSH conectadas):** `echo hola-multi` se envía a las dos sin preguntar; `reload` (peligrosa) muestra «¿Enviar «reload» a 2 pestañas a la vez?»; «Cancelar» no envía nada a ninguna; «Enviar a todas» la envía a las dos.
+- **Edición remota: cierre de la app al descargar.** Al abrir un archivo, la app se caía (`0xc000001d` en `swiftCore.dll`). Causa: la descarga y el vigilante de cambios corren en un `Task` fuera del hilo de WinUI y desde ahí tocaban la lista del panel (`setEstado` → `reloadLista`); los enlaces de swift-winui usan `try!` y el error de hilo se convertía en una trampa. Venía de P22 (`42e913e`), no de la revisión del Mac; nunca se había probado contra un SFTP real.
+- **Arreglo (`EdicionRemota.swift`, `NetDeckWindows.swift`):** nuevo `enqueue` (como en `PanelBuscarRegistros`) conectado a `dispatcherQueue.tryEnqueue`; toda actualización de la interfaz desde la descarga, la subida y el vigilante pasa por él, y el vigilante guarda su propia fecha en vez de leer `ediciones` desde otro hilo.
+- **Edición remota tras el arreglo (verificado):** abre sin caerse («Listo — vigilando cambios»); dos archivos con el mismo nombre en carpetas distintas tienen copias locales distintas (`<id>_lab-wsl_prueba.txt`); un cambio en la copia local se sube solo (el servidor tuvo la línea nueva y la fila pasó a «Sincronizado»); «Parar» borra solo su copia local y al parar las dos no queda ninguna.
+- **Compilación:** release sin errores. No se han añadido tests (es código de interfaz, fuera del núcleo).
+- **Sin probar:** borrar una sesión con el archivo ilegible y el bloqueo del instalador en el actualizador.
+
 ## 2026-11-25 · Windows · Verificación en Windows de la revisión del Mac
 
 - **Qué se ha hecho:** `git pull` de los cuatro commits del Mac (`cecfc9b`, `caf9c9e`, `b59891a`, `4646962`) y la primera orden que pedía su entrada.

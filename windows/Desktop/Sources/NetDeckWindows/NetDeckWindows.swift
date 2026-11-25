@@ -607,6 +607,7 @@ final class NetDeckWindows: SwiftApplication {
         Grid.setRow(edicionRemota.view, Int32(2))
         contenidoTarjeta.children.append(edicionRemota.view)
         edicionRemota.onClose = { [weak self] in self?.showPanel(nil) }
+        edicionRemota.enqueue = { [weak self] accion in _ = try? self?.window?.dispatcherQueue?.tryEnqueue { accion() } }
         edicionRemota.onDescargar = { [weak self] sesion, remotePath, localURL, progress in
             guard let self else { return }
             try await self.sftpDescargar(sesion: sesion, remotePath: remotePath, to: localURL, progress: progress)

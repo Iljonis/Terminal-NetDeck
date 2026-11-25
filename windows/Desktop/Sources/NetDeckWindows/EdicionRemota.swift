@@ -21,6 +21,9 @@ final class PanelEdicionRemota {
     var onClose: (() -> Void)?
     var onDescargar: ((String, String, URL, @escaping (String) -> Void) async throws -> Void)?
     var onSubir: ((URL, String, String, @escaping (String) -> Void) async throws -> Void)?
+    /// Lleva al hilo de WinUI lo que toca la interfaz: las descargas y el vigilante corren en otro hilo y un control
+    /// tocado desde fuera hacía caer la app (los enlaces de swift-winui usan `try!`).
+    var enqueue: (@escaping () -> Void) -> Void = { _ in }
 
     private var ediciones: [EdicionPendiente] = []
     private let form = StackPanel()
@@ -119,36 +122,43 @@ final class PanelEdicionRemota {
             guard let self else { return }
             do {
                 try await self.onDescargar?(sesion, ruta, localURL) { msg in
-                    self.setEstado(localURL, msg)
+                    self.enqueue { self.setEstado(localURL, msg) }
                 }
                 let mod = (try? FileManager.default.attributesOfItem(atPath: localURL.path))?[.modificationDate] as? Date
-                self.setEstado(localURL, L("Listo \u{2014} vigilando cambios"))
-                self.setLastMod(localURL, mod)
-                self.startWatching(localURL: localURL, sesion: sesion, ruta: ruta)
+                self.enqueue {
+                    self.setEstado(localURL, L("Listo \u{2014} vigilando cambios"))
+                    self.setLastMod(localURL, mod)
+                    self.startWatching(localURL: localURL, sesion: sesion, ruta: ruta, desde: mod)
+                }
             } catch {
-                self.setEstado(localURL, L("Error: \(error.localizedDescription)"))
+                let mensaje = L("Error: \(error.localizedDescription)")
+                self.enqueue { self.setEstado(localURL, mensaje) }
             }
         }
     }
 
-    private func startWatching(localURL: URL, sesion: String, ruta: String) {
+    /// (se llama en el hilo de WinUI; el vigilante lleva su propia fecha y no lee `ediciones` desde otro hilo)
+    private func startWatching(localURL: URL, sesion: String, ruta: String, desde: Date?) {
         guard let idx = ediciones.firstIndex(where: { $0.localURL == localURL }) else { return }
         ediciones[idx].watchTask = Task { [weak self] in
+            var ultima = desde
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
                 guard !Task.isCancelled, let self else { break }
                 let attrs = try? FileManager.default.attributesOfItem(atPath: localURL.path)
                 let mod = attrs?[.modificationDate] as? Date
-                guard let mod,
-                      let prev = self.ediciones.first(where: { $0.localURL == localURL })?.lastMod,
-                      mod > prev else { continue }
-                self.setLastMod(localURL, mod)
-                self.setEstado(localURL, L("Subiendo\u{2026}"))
+                guard let mod, let previa = ultima, mod > previa else { continue }
+                ultima = mod
+                self.enqueue {
+                    self.setLastMod(localURL, mod)
+                    self.setEstado(localURL, L("Subiendo\u{2026}"))
+                }
                 do {
-                    try await self.onSubir?(localURL, sesion, ruta) { msg in self.setEstado(localURL, msg) }
-                    self.setEstado(localURL, L("Sincronizado"))
+                    try await self.onSubir?(localURL, sesion, ruta) { msg in self.enqueue { self.setEstado(localURL, msg) } }
+                    self.enqueue { self.setEstado(localURL, L("Sincronizado")) }
                 } catch {
-                    self.setEstado(localURL, L("Error al subir: \(error.localizedDescription)"))
+                    let mensaje = L("Error al subir: \(error.localizedDescription)")
+                    self.enqueue { self.setEstado(localURL, mensaje) }
                 }
             }
         }
