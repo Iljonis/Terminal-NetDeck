@@ -30,8 +30,7 @@ Archivos tocados que sólo compilan en Windows:
   `switchport mode access`, `no neighbor X activate`, `no network …`, `install add … activate`, `request platform software package install`. Las de PowerShell/cmd NO valen la pena:
   las pestañas locales ya no pasan por esa comprobación.
 - **D4** `Package.swift`: `swift-crypto` seguirá declarado para todas las plataformas (condicionarlo cambia `Package.resolved` según el equipo y ensucia macOS).
-- **D5** `windows/ci/windows-release.yml` (borrador): antes de activarlo, `permissions: contents: read` + `persist-credentials: false` en el checkout, un segundo job con `contents: write` que sólo
-  baje el artefacto y suba la Release (el `.sha256` lo sube el mismo job que el `.msi`: quien comprometa una acción puede cambiar los dos), y acciones (`gha-setup-swift`, setup-dotnet, checkout…) fijadas por SHA.
+- **D5** `.github/workflows/windows-release.yml` (activo desde el 26-11, sin firma): dos jobs (`build` con permisos de lectura y sin credenciales guardadas; `publish`, el único con `contents: write`), acciones fijadas por SHA, `windows-2022`, versión portable (.zip con `NetDeck.portable`). Se lanza a mano o con un push que cambie ese archivo (no publica); en tags sólo con la variable `WINDOWS_RELEASE=true`. Falta la firma Authenticode y fijar la versión.
 - **D6** Tests desactivados con «pendiente P7»: no se reactivan a ciegas. Orden en Windows: (1) `test.ps1 --no-parallel` sin los `#if !os(Windows)`; (2) si siguen con error 32, Procmon filtrando
   `SHARING VIOLATION` (¿ssh.exe o MsMpEng/SearchProtocolHost?); (3) causa probable: `Data.write(.atomic)` deja el temporal heredable y un `Foundation.Process` lanzado a la vez lo hereda
   (CreateProcessW con bInheritHandles sin lista). Arreglo (a): `SafeFile.write` con temporal por `CreateFileW` no heredable (share READ|WRITE|DELETE) + `SafeFile.replace`; (b) lanzar `ssh -G`

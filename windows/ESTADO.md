@@ -1,3 +1,9 @@
+## 2026-11-26 · Mac · Flujo de release de Windows activo (.msi y portable .zip) y modo portable (SIN PROBAR EN WINDOWS)
+
+- **`.github/workflows/windows-release.yml`** (antes borrador en `windows/ci/`): job `build` (permisos de lectura, sin credenciales guardadas, `windows-2022`, acciones fijadas por SHA) que compila la app en Release, comprueba el logo del `.exe`, genera el `.msi` y el `.zip` portable con sus `.sha256` y los guarda como artefacto `windows-release`; job `publish` (único con `contents: write`) que en un tag espera a la Release de macOS y sube los archivos. Se ejecuta a mano o con un push que cambie ese archivo (sin publicar); en tags, sólo con `WINDOWS_RELEASE=true`. Sin firma de código.
+- **Portable:** el `.zip` lleva `NetDeck.portable` junto al `.exe`; `Arranque.swift` (`activarModoPortable`, **sin compilar en Windows**) fija `NETDECK_HOME` a la carpeta `datos` de al lado antes de nada, como la demo, y `PortableMode` (NetDeckCore, 4 tests) decide el modo. **A comprobar:** que arranque sin instalar, que sesiones, botones y listas queden en `datos`, que no toque `~/.ssh/config`, y qué ajustes (`UserDefaults`) siguen yendo fuera de `datos`. Necesita Windows App Runtime 1.5 (lo dice su `LEEME.txt`).
+- **Primera ejecución en GitHub:** pendiente de resultado; si `desktop.ps1 -Configuration release` falla en el runner, el fallo es el trabajo.
+
 ## 2026-11-26 · Mac · Barra superior configurable compartida y «Explorador SFTP» (Windows SIN COMPILAR NI PROBAR)
 
 - **Catálogo compartido:** `Sources/NetDeckCore/Support/ToolbarLayout.swift` define los botones configurables (mismas ids que Windows más `ExploradorSFTP`), valida lo guardado en `ndToolbarOcultos` y migra `EditarRemoto` y `PanelSFTP` a `ExploradorSFTP`. 7 tests en macOS. El Mac gana Ajustes → General → «Barra superior» y los botones Buscar, Espacios y Explorador SFTP.

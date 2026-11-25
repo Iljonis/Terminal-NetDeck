@@ -1,0 +1,212 @@
+# Windows Release: compila la app WinUI en Release y genera el instalador (.msi) y la versión portable (.zip).
+#
+# Con un tag «vX.Y.Z» (el MISMO que la Release de macOS, release.yml) sube el .msi, el .zip y sus .sha256 a esa Release, DESPUÉS de que
+# macOS la cree (este flujo no la crea: `gh release create` de release.yml falla si ya existe). A mano («Run workflow») y en los
+# push a una rama que cambien este archivo hace lo mismo SIN subir nada: deja los archivos como artefacto «windows-release».
+#
+# Dos jobs: «build» (permisos de sólo lectura, sin credenciales guardadas: ejecuta acciones de terceros, SwiftPM y dotnet) y
+# «publish» (única parte con `contents: write`; sólo baja el artefacto y lo sube). Las acciones van fijadas por SHA.
+#
+# La versión de Windows es la del repositorio: el tag, NetDeckWindows.wxs, AppxManifest.xml y UpdateChecker.currentVersion tienen que
+# decir lo mismo (el paso «La versión…» lo comprueba), y windows/CHANGELOG.md necesita su sección. El actualizador de la app usa
+# `releases/latest`.
+#
+# ACTIVACIÓN en tags: sólo si la variable del repositorio WINDOWS_RELEASE vale «true» (un tag de sólo-macOS no lo dispara).
+#
+# SIN FIRMA: no hay certificado todavía. El .msi y el .exe salen sin firmar: SmartScreen avisa y el actualizador de la app rechaza un
+# instalador sin firmar (hay que descargar a mano). Cuando exista el certificado, la firma (signtool o Azure Trusted Signing) va entre
+# «Compilar el .msi» y «Guardar los archivos».
+#
+# PORTABLE: el .zip lleva el archivo NetDeck.portable junto al ejecutable; con él, la app guarda sus datos en la carpeta «datos» de al
+# lado (PortableMode en NetDeckCore). Necesita Windows App Runtime 1.5 instalado (el .msi lo comprueba; el .zip no): lo dice su LEEME.txt.
+
+name: Windows Release
+
+on:
+  push:
+    tags: ['v*.*.*']          # (el mismo patrón que release.yml)
+    branches: ['windows/**', propuesta/windows]
+    paths: ['.github/workflows/windows-release.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # La misma versión que windows.yml y que espera windows/scripts/test.ps1 (…\Toolchains\6.4.2+Asserts).
+  SWIFT_VERSION: swift-6.4.2-release
+  SWIFT_BUILD: 6.4.2-RELEASE
+  WIX_VERSION: 4.0.6
+
+jobs:
+  build:
+    name: Instalador y portable de Windows
+    # Ramas y ejecución a mano: siempre. Tags: sólo si se ha activado (WINDOWS_RELEASE=true) y no es un tag suelto «…-windows».
+    if: ${{ github.ref_type == 'branch' || (vars.WINDOWS_RELEASE == 'true' && !endsWith(github.ref_name, '-windows')) }}
+    # windows-2022 (Visual Studio 2022) y no windows-latest: con la imagen de VS 2026 el STL exige Clang 22 (STL1000) y el de Swift 6.4.2 es anterior.
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - name: Sin conversión de fin de línea
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Toolchain de Swift para Windows
+        uses: compnerd/gha-setup-swift@9ff1ee4c44888c5817fc14d1b257ac8cabb4935f # v0.5.1
+        with:
+          swift-version: ${{ env.SWIFT_VERSION }}
+          swift-build: ${{ env.SWIFT_BUILD }}
+      - name: Privacidad (nada personal en el repositorio)
+        shell: bash
+        run: bash tools/privacidad.sh
+
+      - name: La versión del tag, del manifiesto, del instalador y del actualizador es la misma
+        id: version
+        shell: pwsh
+        run: |
+          $wxs = [regex]::Match((Get-Content -Raw windows/installer/NetDeckWindows.wxs), '<\?define Version = "([^"]+)"\?>').Groups[1].Value
+          $appx = [regex]::Match((Get-Content -Raw windows/Desktop/AppxManifest.xml), 'Version="(\d+\.\d+\.\d+)\.0"').Groups[1].Value
+          $swift = [regex]::Match((Get-Content -Raw Sources/NetDeckCore/Update/UpdateChecker.swift), 'currentVersion = "([^"]+)"').Groups[1].Value
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            if ($env:GITHUB_REF_NAME -notmatch '^v(\d+\.\d+\.\d+)$') { throw "El tag $env:GITHUB_REF_NAME no es vX.Y.Z" }
+            $version = $Matches[1]
+          } else { $version = $wxs }            # (a mano: la del instalador)
+          foreach ($par in @(@('NetDeckWindows.wxs', $wxs), @('AppxManifest.xml', $appx), @('UpdateChecker.currentVersion', $swift))) {
+            if ($par[1] -ne $version) { throw "$($par[0]) dice '$($par[1])' y la versión es ${version}: cámbialas a la vez" }
+          }
+          Add-Content -Encoding utf8 -Path $env:GITHUB_OUTPUT -Value "version=$version"
+
+      - name: Compilar la app en Release
+        # Lo mismo que el build local (windows/scripts/desktop.ps1): resuelve con --force-resolved-versions, copia el bootstrapper de Windows App SDK y
+        # usa -DOPENSSL_NO_ASM. No hace falta el DDLM del Windows App Runtime para COMPILAR (sólo para ejecutar la app, y aquí no se ejecuta).
+        shell: pwsh
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/scripts/desktop.ps1 -Configuration release
+
+      - name: El ejecutable lleva el logo de NetDeck
+        # desktop.ps1 compila windows/Desktop/NetDeck.rc con llvm-rc (de la toolchain de Swift) y Package.swift enlaza NetDeck.res. Si falta llvm-rc el script sólo avisa y
+        # el .exe saldría con el icono genérico de Windows: aquí se corta, porque en una Release no debe pasar sin que se vea.
+        shell: pwsh
+        run: |
+          if (-not (Test-Path windows/Desktop/NetDeck.res)) { throw 'Falta windows/Desktop/NetDeck.res: llvm-rc no se ha ejecutado, el .exe saldría sin icono' }
+          $exe = Get-ChildItem -Recurse -Filter NetDeckWindows.exe (Join-Path $env:LOCALAPPDATA 'NetDeckDesktopBuild/out/Products/Release-windows-x86_64') | Select-Object -First 1
+          if (-not $exe) { throw 'No se encuentra NetDeckWindows.exe compilado' }
+          # (ExtractIconEx con índice -1 devuelve cuántos iconos lleva el archivo: 1 con el logo, 0 sin él; comprobado en local con NetDeckWindows.exe y NetDeckAskpass.exe)
+          Add-Type -Namespace NetDeck -Name Iconos -MemberDefinition '[System.Runtime.InteropServices.DllImport("shell32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)] public static extern uint ExtractIconEx(string archivo, int indice, System.IntPtr[] grandes, System.IntPtr[] pequenos, uint cuantos);'
+          if ([NetDeck.Iconos]::ExtractIconEx($exe.FullName, -1, $null, $null, 0) -lt 1) { throw 'NetDeckWindows.exe no lleva ningún icono: el logo no se ha incrustado' }
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: WiX 4
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version $env:WIX_VERSION
+          Add-Content -Encoding utf8 -Path $env:GITHUB_PATH -Value (Join-Path $env:USERPROFILE '.dotnet/tools')
+
+      - name: Preparar la carpeta del instalador
+        shell: pwsh
+        run: |
+          $carpeta = Join-Path $env:RUNNER_TEMP 'instalador'
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/preparar-instalador.ps1 -Configuracion release -Destino (Join-Path $carpeta 'files')
+
+      - name: Compilar el .msi
+        id: msi
+        shell: pwsh
+        run: |
+          $carpeta = Join-Path $env:RUNNER_TEMP 'instalador'
+          $msi = Join-Path $carpeta "Terminal-NetDeck-${{ steps.version.outputs.version }}.msi"
+          wix build windows/installer/NetDeckWindows.wxs (Join-Path $carpeta 'archivos.wxs') -arch x64 -d "SourceDir=$(Join-Path $carpeta 'files')" -d "Version=${{ steps.version.outputs.version }}" -o $msi
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          wix msi validate $msi
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Encoding utf8 -Path $env:GITHUB_OUTPUT -Value "msi=$msi"
+
+      - name: Preparar la versión portable (.zip)
+        id: portable
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $carpeta = Join-Path $env:RUNNER_TEMP 'instalador'
+          $nombre = "Terminal-NetDeck-$version-portable-x64"
+          $raiz = Join-Path $carpeta $nombre
+          Copy-Item -Recurse (Join-Path $carpeta 'files') $raiz
+          # (el registro del Sparse Package es del instalador; el portable no registra nada en Windows)
+          foreach ($f in 'registrar-sparse.ps1', 'quitar-sparse.ps1', 'NetDeckSparse.msix') { Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $raiz $f) }
+          New-Item -ItemType File -Path (Join-Path $raiz 'NetDeck.portable') | Out-Null
+          $leeme = @(
+            'Terminal NetDeck para Windows (versión portable)'
+            ''
+            '1. Necesita Windows App Runtime 1.5 (x64): https://aka.ms/windowsappsdk/1.5/latest/windowsappruntimeinstall-x64.exe'
+            '2. Descomprime esta carpeta donde quieras y ejecuta NetDeckWindows.exe.'
+            '3. Sesiones, botones, listas y copias se guardan en la carpeta "datos" de al lado (NetDeck.portable activa este modo).'
+            '   Para volver al modo normal, borra el archivo NetDeck.portable.'
+            '4. Sin firma de código: Windows SmartScreen puede avisar al abrirlo. No se actualiza solo: descarga la versión nueva.'
+          )
+          [System.IO.File]::WriteAllLines((Join-Path $raiz 'LEEME.txt'), $leeme, (New-Object System.Text.UTF8Encoding $true))
+          $zip = Join-Path $carpeta "$nombre.zip"
+          Compress-Archive -Path $raiz -DestinationPath $zip -CompressionLevel Optimal
+          Add-Content -Encoding utf8 -Path $env:GITHUB_OUTPUT -Value "zip=$zip"
+
+      - name: Sumas sha256 de los archivos
+        id: sumas
+        shell: pwsh
+        run: |
+          foreach ($f in '${{ steps.msi.outputs.msi }}', '${{ steps.portable.outputs.zip }}') {
+            $hash = (Get-FileHash -Algorithm SHA256 $f).Hash.ToLower()
+            "$hash  $(Split-Path $f -Leaf)" | Set-Content -Encoding ASCII "$f.sha256"
+            Write-Host "$hash  $(Split-Path $f -Leaf)"
+          }
+
+      - name: windows/CHANGELOG.md tiene la sección de esta versión
+        # (las notas de la Release las pone macOS; aquí sólo se comprueba que la versión de Windows está documentada; en las pruebas a mano no hace falta)
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $texto = Get-Content -Raw -Encoding UTF8 windows/CHANGELOG.md
+          if ($texto -notmatch "(?m)^## $([regex]::Escape($version))\b") { throw "windows/CHANGELOG.md no tiene una sección ## $version" }
+
+      - name: Guardar los archivos (también en las pruebas a mano)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: windows-release
+          path: |
+            ${{ steps.msi.outputs.msi }}
+            ${{ steps.msi.outputs.msi }}.sha256
+            ${{ steps.portable.outputs.zip }}
+            ${{ steps.portable.outputs.zip }}.sha256
+          if-no-files-found: error
+
+  publish:
+    name: Subir a la Release
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write           # (lo único que escribe; no ejecuta nada de terceros salvo estas dos acciones fijadas)
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: windows-release
+          path: archivos
+      - name: Subir el .msi y el .zip a la Release del tag (la crea release.yml de macOS)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          encontrada=0
+          for i in $(seq 1 60); do
+            if gh release view "$tag" --json tagName >/dev/null 2>&1; then encontrada=1; break; fi
+            echo "Todavía no existe la Release $tag (la crea macOS); espero un minuto ($i/60)"
+            sleep 60
+          done
+          [ "$encontrada" = 1 ] || { echo "La Release $tag no existe tras 60 minutos: ¿ha fallado release.yml (macOS)?"; exit 1; }
+          # --clobber: sólo para repetir este job; no toca ni el título ni las notas ni el .dmg.
+          gh release upload "$tag" archivos/* --clobber

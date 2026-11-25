@@ -69,9 +69,10 @@ núcleo compilando en Windows (desde el paso P2), los tests con `windows/scripts
   sin BOM: `[System.IO.File]::WriteAllText(path, content, (New-Object System.Text.UTF8Encoding $false))`. La regla antigua
   «no usar Edit/Write de Claude» no se ha reproducido en el PC del autor: manda `tools/comprobar_formato.sh`.
 - CI de Windows: `.github/workflows/windows.yml` (`windows-2022`, sin `continue-on-error`: un rojo es real; los tests
-  van con `windows/scripts/test.ps1 --no-parallel`). Se puede cambiar, pero cada cambio se comprueba con un run en
-  GitHub y no se vuelve a ocultar un job con `continue-on-error`. `windows/scripts/test.ps1` y los borradores de
-  `windows/ci/` (sin activar) los gestiona Codex: si hay que tocarlos, se avisa.
+  van con `windows/scripts/test.ps1 --no-parallel`) y `.github/workflows/windows-release.yml` (instalador `.msi` y
+  versión portable `.zip`; sube a la Release sólo en tags y con la variable `WINDOWS_RELEASE=true`). Se pueden
+  cambiar, pero cada cambio se comprueba con un run en GitHub y no se vuelve a ocultar un job con `continue-on-error`.
+  `windows/scripts/test.ps1` lo gestiona Codex: si hay que tocarlo, se avisa. Publicar un tag o una Release lo hace el autor.
 
 ## Más detalle (léelo cuando el trabajo lo toque)
 - docs/agentes/agentes.md: qué agente o skill usar y cómo se fusiona su trabajo. Los agentes, para trabajo grande y
