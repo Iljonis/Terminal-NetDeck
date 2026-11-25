@@ -52,13 +52,22 @@ núcleo compilando en Windows (desde el paso P2), los tests con `windows/scripts
 - Autor `Jonay <jonayrr.jr@gmail.com>` (git config local del repo). Nunca el correo corporativo ni una línea de coautor.
 - Mensajes en castellano: un título corto, una línea en blanco y viñetas con el porqué.
 - Forzar un push (`--force`) o mover un tag, sólo si el autor lo pide expresamente.
+
 ## Windows (port en curso)
-- El código Windows vive en `windows/`. Todo lo nuevo va tras `#if os(Windows)` o en archivos exclusivos del
-  target `NetDeckWindows`. El código de macOS no se toca.
-- **No usar Edit/Write de Claude en Windows** — generan archivos `.tmp` con BOM. Usar en su lugar:
+- El código Windows vive en `windows/` y en las ramas `#if os(Windows)` de `Sources/NetDeckCore`. Todo lo nuevo va tras
+  `#if os(Windows)` o en archivos exclusivos del target `NetDeckWindows`. Lo compartido con macOS sólo se cambia si en
+  macOS el comportamiento queda idéntico y `./test.sh` sigue en verde; si hace falta tocar `Package.swift`,
+  `Package.resolved` o el comportamiento de macOS, se para y se pregunta al autor.
+- Rama activa: `windows/p14-escritorio` (PR #7 contra `main`). Estado y próximos pasos: `windows/ESTADO.md`; la lista
+  completa de pendientes está en el estado compartido del autor (el gist secreto que lee la sesión de Windows).
+- Fin de línea y BOM: LF y sin BOM en `Sources/`, `Tests/`, `tools/` y `.github/` (lo vigila `tools/comprobar_formato.sh`
+  dentro de `./test.sh`); los `.ps1` con acentos sí llevan BOM (PowerShell 5.1 los lee como ANSI sin él).
+  **No usar Edit/Write de Claude en Windows**: generan archivos `.tmp` con BOM. Usar en su lugar:
   `[System.IO.File]::WriteAllText(path, content, (New-Object System.Text.UTF8Encoding $false))`.
-- **No tocar** `.github/workflows/` ni `windows/scripts/test.ps1` — los gestiona Codex (CI).
-- Rama activa: `windows/p10-paquete`. Estado y próximos pasos: `windows/ESTADO.md`.
+- CI de Windows: `.github/workflows/windows.yml` (`windows-2022`, sin `continue-on-error`: un rojo es real; los tests
+  van con `windows/scripts/test.ps1 --no-parallel`). Se puede cambiar, pero cada cambio se comprueba con un run en
+  GitHub y no se vuelve a ocultar un job con `continue-on-error`. `windows/scripts/test.ps1` y los borradores de
+  `windows/ci/` (sin activar) los gestiona Codex: si hay que tocarlos, se avisa.
 
 ## Más detalle (léelo cuando el trabajo lo toque)
 - docs/agentes/agentes.md: qué agente o skill usar y cómo se fusiona su trabajo. Los agentes, para trabajo grande y
