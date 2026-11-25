@@ -846,6 +846,12 @@ final class NetDeckWindows: SwiftApplication {
         let nuevo = Button()
         e.vestirIcono(nuevo, Glifo.mas, ayuda: L("Conectar, terminal local, sesión nueva o una favorita"), id: "Nuevo")
         nuevo.flyout = menuNuevo.flyout
+        // Al cerrarse el menú (con la pestaña nueva ya elegida) el foco vuelve al botón «+»: se lleva al terminal.
+        // no verificado en Windows
+        menuNuevo.alCerrar = { [weak self] in
+            guard let self, !hayEmergente, selected != nil else { return }
+            focusTerminal()
+        }
         iconos.children.append(nuevo)
         let separacion = Border()
         separacion.width = 4
@@ -4359,7 +4365,20 @@ final class NetDeckWindows: SwiftApplication {
                              cursorActive: index == panelActivo, brush: brush)
     }
 
-    private func focusTerminal() { _ = try? vistas[panelActivo].surface.focus(.programmatic) }
+    /// El teclado, al terminal activo: el único camino de «abrir o elegir pestaña ⇒ foco en ella» (`select`, cerrar un
+    /// panel, el menú «+»). Se repite en la vuelta siguiente porque un Flyout o MenuFlyout devuelve el foco a lo que lo
+    /// tenía antes (el botón «+», la fila de la barra lateral) al terminar de cerrarse, después de nuestro manejador del
+    /// clic (ya lo avisa `EditorSesion`: «el menú “+” lo devuelve al botón al cerrarse»). Con un panel abierto no se
+    /// repite: el foco es de sus campos.
+    // no verificado en Windows
+    private func focusTerminal() {
+        guard vistas.indices.contains(panelActivo) else { return }
+        _ = try? vistas[panelActivo].surface.focus(.programmatic)
+        _ = try? window?.dispatcherQueue?.tryEnqueue { [weak self] in
+            guard let self, !hayEmergente, vistas.indices.contains(panelActivo) else { return }
+            _ = try? vistas[panelActivo].surface.focus(.programmatic)
+        }
+    }
 
     private func resize() {
         for index in terminalesVisibles.indices { resize(index) }

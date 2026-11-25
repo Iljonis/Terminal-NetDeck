@@ -8,8 +8,11 @@ final class MenuNuevo {
     private let submenu = StackPanel()
     private var estilo = EstiloMac(tema: nil)
     private var carpeta: String?
+    /// Cuando el menú ya se ha cerrado (WinUI devuelve entonces el foco al botón «+»).
+    var alCerrar: (() -> Void)?
 
     init() {
+        flyout.closed.addHandler { [weak self] _, _ in self?.alCerrar?() }
         flyout.placement = .bottomEdgeAlignedRight
         let presentador = Style(TypeName(name: "Microsoft.UI.Xaml.Controls.FlyoutPresenter", kind: .metadata))
         presentador.setters.append(Setter(FrameworkElement.maxWidthProperty, 690.0))

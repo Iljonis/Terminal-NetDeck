@@ -1966,11 +1966,14 @@ final class AppModel {
         }
         fullScreen = w.styleMask.contains(.fullScreen)
         followAppearance()
-        // clic en un panel de la vista dividida → es la pestaña activa
+        // clic en un panel de la vista dividida → es la pestaña activa. Sólo ahí: con una pestaña sola, el teclado que
+        // vuelve a la anterior (al cerrarse el menú «+», que lo había tomado) no es una elección, y devolvía la
+        // selección a la pestaña de antes de abrir la nueva.
         focusWatch = w.observe(\.firstResponder, options: [.new]) { [weak self] w, _ in
             MainActor.assumeIsolated {
-                guard let self, let v = w.firstResponder as? NetDeckTerminalView,
-                      let s = self.tabs.first(where: { $0.view === v }), self.selection != s.id else { return }
+                guard let self, self.showSplit, let v = w.firstResponder as? NetDeckTerminalView,
+                      let s = self.tabs.first(where: { $0.view === v }), self.selection != s.id,
+                      self.split?.panes.contains(s.id) == true else { return }
                 self.selection = s.id
             }
         }

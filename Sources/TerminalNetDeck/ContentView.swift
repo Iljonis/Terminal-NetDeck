@@ -279,6 +279,7 @@ extension ContentView {
                 model.sheet = .workspaces
             }
         }
+        if a.hasPrefix("buscar-registros") { model.sheet = .logs }     // (la hoja busca sola: ver `LogSearchSheet.onAppear`)
         if a == "macros" {                           // «macros»: el editor con una recién grabada (sin guardar)
             model.macroDraft = Macro(name: "Revisar interfaces", confirm: true, steps: Macro.recorded(
                 ["terminal length 0", "show ip interface brief", "show interfaces GigabitEthernet0/0/1"]) + [.text(#"core-01#"#, timeout: 30), .pause(1)])
@@ -461,6 +462,7 @@ struct NewButton: View {
 
     var body: some View {
         IconButton(icon: "plus", active: open, label: L("Nuevo")) { open.toggle() }
+            .snapshotFrame("nuevo")
             .popover(isPresented: $open, arrowEdge: .bottom) {
                 NewMenu { open = false }
             }
@@ -637,6 +639,7 @@ private struct NewMenuItem: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .snapshotFrame("nuevo:\(title)")
         .menuKey(id, hover: $hover, run: action)
     }
 }
@@ -1173,10 +1176,29 @@ struct TerminalHost: NSViewRepresentable {
     let session: TerminalSession
     var focused = false
 
+    /// El contenedor avisa de que ha entrado en una ventana: una pestaña recién creada aún no está en ella cuando
+    /// SwiftUI la actualiza (pasa al abrirla desde el menú «+» o con ⌘T), y la petición de teclado, hecha una sola vez,
+    /// se perdía.
+    final class Box: NSView {
+        var enteredWindow: (() -> Void)?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window != nil { enteredWindow?() }
+        }
+    }
+
     func makeNSView(context: Context) -> NSView {
-        let box = NSView()
+        let box = Box()
         session.host = box
         adopt(into: box)
+        let c = context.coordinator
+        box.enteredWindow = { [weak c, weak box, weak session] in
+            DispatchQueue.main.async {
+                guard let c, let box, let session else { return }
+                c.take(session, in: box)
+            }
+        }
         return box
     }
 
@@ -1184,6 +1206,17 @@ struct TerminalHost: NSViewRepresentable {
     @MainActor final class Coordinator {
         var focused = false
         var claim = false
+
+        func take(_ session: TerminalSession, in box: NSView) {
+            let v = session.view
+            guard focused, v.superview === box, let w = v.window else { return }
+            if w.firstResponder === v { claim = false; return }
+            // (al redibujarse no quita el teclado al panel en el que acabas de hacer clic —lo tecleado, «ssh …»
+            // incluido, iría a otro— ni a un campo de texto: sólo al cambiar de activa o si no lo tiene nadie)
+            let r = w.firstResponder
+            guard claim || r == nil || r === w || (r as? NSView)?.window !== w else { return }
+            if w.makeFirstResponder(v) { claim = false }
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -1193,16 +1226,7 @@ struct TerminalHost: NSViewRepresentable {
         let c = context.coordinator
         if c.focused != focused { c.focused = focused; c.claim = focused }
         guard focused else { return }
-        DispatchQueue.main.async {
-            let v = session.view
-            guard c.focused, v.superview === box, let w = v.window else { return }
-            if w.firstResponder === v { c.claim = false; return }
-            // (al redibujarse no quita el teclado al panel en el que acabas de hacer clic —lo tecleado, «ssh …»
-            // incluido, iría a otro— ni a un campo de texto: sólo al cambiar de activa o si no lo tiene nadie)
-            let r = w.firstResponder
-            guard c.claim || r == nil || r === w || (r as? NSView)?.window !== w else { return }
-            if w.makeFirstResponder(v) { c.claim = false }
-        }
+        DispatchQueue.main.async { c.take(session, in: box) }
     }
 
     private func adopt(into box: NSView) {
