@@ -21,6 +21,10 @@ jobs:
         run: |
           tools/comprobar_formato.sh
           tools/test_formato.sh
+      - name: Paridad Mac/Windows (nada de lógica copiada entre las dos interfaces)
+        run: |
+          tools/comprobar_paridad.sh
+          tools/test_paridad.sh
       - name: Actualizar conserva tus datos
         run: tools/test_actualizacion.sh
       - name: Compilar

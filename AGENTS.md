@@ -35,6 +35,9 @@ si cambias uno, cambia el otro.
 - **Mensajes y rutas:** los errores van a `ErrorLog`, sin secretos. Lo que ve el usuario, por `model.status`; sólo los
   que empiezan por ✗ 🔑 ⎋ ⬆ salen como aviso. Rutas en pantalla siempre con `AppPaths.tilde(…)`.
 - **Pestañas al arrancar:** no se guardan ni se reabren las de loopback (127.x/localhost) ni las de las capturas.
+- **Paridad Mac ↔ Windows:** la lógica va UNA vez en `NetDeckCore` y las dos apps sólo la pintan; ninguna función se copia
+  entre `Sources/TerminalNetDeck` y `windows/Desktop` (lo vigila `tools/comprobar_paridad.sh`); una función nueva o un
+  cambio visible llega a las dos en el mismo PR o queda anotado en la matriz → docs/agentes/paridad.md.
 - **Ejemplos y tests sin datos reales:** IPs `192.0.2.x` / `198.51.100.x` / `203.0.113.x` (RFC 5737), `tu.usuario`,
   `core-01`, `bastion`.
 
@@ -59,11 +62,12 @@ núcleo compilando en Windows (desde el paso P2), los tests con `windows/scripts
   macOS el comportamiento queda idéntico y `./test.sh` sigue en verde; si hace falta tocar `Package.swift`,
   `Package.resolved` o el comportamiento de macOS, se para y se pregunta al autor.
 - Rama activa: `windows/p14-escritorio` (PR #7 contra `main`). Estado y próximos pasos: `windows/ESTADO.md`; la lista
-  completa de pendientes está en el estado compartido del autor (el gist secreto que lee la sesión de Windows).
+  priorizada de pendientes, en `windows/PENDIENTE.md`.
 - Fin de línea y BOM: LF y sin BOM en `Sources/`, `Tests/`, `tools/` y `.github/` (lo vigila `tools/comprobar_formato.sh`
   dentro de `./test.sh`); los `.ps1` con acentos sí llevan BOM (PowerShell 5.1 los lee como ANSI sin él).
-  **No usar Edit/Write de Claude en Windows**: generan archivos `.tmp` con BOM. Usar en su lugar:
-  `[System.IO.File]::WriteAllText(path, content, (New-Object System.Text.UTF8Encoding $false))`.
+  Los `.ps1` con algún carácter no ASCII (acentos, «—») llevan BOM; el resto, no. Al escribir archivos desde Windows,
+  sin BOM: `[System.IO.File]::WriteAllText(path, content, (New-Object System.Text.UTF8Encoding $false))`. La regla antigua
+  «no usar Edit/Write de Claude» no se ha reproducido en el PC del autor: manda `tools/comprobar_formato.sh`.
 - CI de Windows: `.github/workflows/windows.yml` (`windows-2022`, sin `continue-on-error`: un rojo es real; los tests
   van con `windows/scripts/test.ps1 --no-parallel`). Se puede cambiar, pero cada cambio se comprueba con un run en
   GitHub y no se vuelve a ocultar un job con `continue-on-error`. `windows/scripts/test.ps1` y los borradores de
@@ -73,6 +77,6 @@ núcleo compilando en Windows (desde el paso P2), los tests con `windows/scripts
 - docs/agentes/agentes.md: qué agente o skill usar y cómo se fusiona su trabajo. Los agentes, para trabajo grande y
   revisiones.
 - docs/agentes/publicar.md: cambio de versión, tag y Release (skill `netdeck-publicar` en .agents/skills).
-- docs/agentes/arquitectura.md · docs/agentes/idiomas.md · docs/agentes/comandos.md.
+- docs/agentes/arquitectura.md · docs/agentes/idiomas.md · docs/agentes/comandos.md · docs/agentes/paridad.md.
 - `windows/CLAUDE.md`: guía completa del port Windows (ramas `windows/*`). **Si trabajas desde Windows,
   léelo antes de nada**: allí no hay `./test.sh` ni demo y cambian los comandos.

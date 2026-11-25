@@ -1,4 +1,4 @@
-# Reune en una carpeta todo lo que lleva el instalador (la entrada de NetDeckWindows.wxs):
+﻿# Reune en una carpeta todo lo que lleva el instalador (la entrada de NetDeckWindows.wxs):
 #   - lo que compila windows/scripts/desktop.ps1: NetDeckWindows.exe, sus .dll y el bootstrapper de Windows App SDK
 #   - los .dll del runtime de Swift (la app los busca junto al exe; desktop.ps1 los pone en el PATH)
 #   - la carpeta Temas (los temas de color del terminal), AppxManifest.xml y sus iconos, los scripts de registro del Sparse Package y, si existe, NetDeckSparse.msix
