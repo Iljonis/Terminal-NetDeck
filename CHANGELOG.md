@@ -10,10 +10,24 @@ All notable changes to Terminal NetDeck are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-26
+
 ### Added
 
+- First official Windows release (Windows 10 2004+ and Windows 11, x64): a one-step `Setup.exe` that installs
+  Windows App Runtime 1.5 if it is missing, an `.msi` and a portable `.zip`. See the
+  [Windows changelog](windows/CHANGELOG.md).
+- Search all logs: regex, match case and whole word, device and period filters, highlighted matches, «N lines in M
+  files», copy line or path, and `.log.gz` support. The search engine is shared with Windows.
+- Configurable toolbar: Settings → General → «Toolbar» shows or hides each button. New Search (in the output or in all
+  logs), Workspaces and SFTP explorer buttons; «+», stop and Settings are always visible.
 - The shared session importer reads MobaXterm `.mobaconf` backups that contain sessions and skips stored passwords.
-- Windows desktop changes are tracked in the [Windows changelog](windows/CHANGELOG.md).
+
+### Fixed
+
+- A new tab gets the keyboard focus when it is opened from «+», ⌘T and the other ways to open one.
+- Shared core: files are replaced in one atomic step, credential renames handle CRLF files, and several accents lost
+  in the interface text are back.
 
 ## [1.0.1] - 2026-11-10
 
@@ -215,7 +229,8 @@ Paths shown with `~`, private permissions (0700/0600) for the app's data, and do
 First public release: background update checks (never installs without a click), standard `.dmg` install and
 rejection of names, hosts and users starting with `-`.
 
-[Unreleased]: https://github.com/Iljonis/Terminal-NetDeck/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/Iljonis/Terminal-NetDeck/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Iljonis/Terminal-NetDeck/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/Iljonis/Terminal-NetDeck/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.13...v1.0.0
 [0.9.13]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.12...v0.9.13

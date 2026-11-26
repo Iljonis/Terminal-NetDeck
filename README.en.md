@@ -10,7 +10,7 @@ SFTP browser with verified copies and output highlighting for Cisco, Juniper, Hu
 
 [![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v1.0.1](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.0.1)** · macOS 15 or later ·
+Current version: **[v1.1.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.1.0)** · macOS 15 or later ·
 Apple silicon · open source (MIT)
 
 [![Latest release](https://img.shields.io/github/v/release/Iljonis/Terminal-NetDeck?label=version&color=ff2e88)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
@@ -47,7 +47,7 @@ that into one macOS app, built around one idea: **it should never play a trick o
 **Who it's for:** network, systems and NOC engineers who work from a Mac with routers, switches, firewalls and Linux
 servers over SSH, Telnet or the console port.
 
-**What it isn't:** it doesn't do remote desktop (RDP, VNC), there's no Linux version (the [Windows](#windows) one is in development), and it has no full
+**What it isn't:** it doesn't do remote desktop (RDP, VNC), there's no Linux version (there is a [Windows](#windows) one), and it has no full
 scripting language: macros, buttons and device lists cover that ground.
 
 ### Install in a minute
@@ -59,6 +59,17 @@ scripting language: macros, buttons and device lists cover that ground.
 
 Rather build it? `git clone https://github.com/Iljonis/Terminal-NetDeck.git && cd Terminal-NetDeck && ./install.sh`
 (macOS 15.6+ and Swift 6.2). Full details in [Installation](#installation--first-run-on-macos-15-sequoia).
+
+## New in 1.1.0
+
+- **Terminal NetDeck for Windows:** the first official release for Windows 10 (2004 or later) and Windows 11 x64. The
+  `Terminal-NetDeck-1.1.0-Setup.exe` installer sets everything up in one step (including Windows App Runtime 1.5 if
+  it's missing); there is also an `.msi` and a portable `.zip`. Details in [Windows](#windows).
+- **Search all logs:** regular expressions, match case, whole word, device and period filters, highlighted matches and
+  a count per file; `.log.gz` files too.
+- **Your own toolbar:** Settings → General → «Toolbar» shows or hides each button. New Search, Workspaces and SFTP
+  explorer (next to the ssh terminal) buttons.
+- **A new tab gets the keyboard** when you open it from «+», ⌘T and the other ways.
 
 ## New in 1.0.1
 
@@ -364,7 +375,7 @@ are looking for a SecureCRT or MobaXterm alternative on macOS, this is what each
 
 | | Terminal NetDeck | SecureCRT | MobaXterm | iTerm2 | Royal TSX |
 |---|:-:|:-:|:-:|:-:|:-:|
-| Platforms | macOS (Windows in development) | macOS, Windows, Linux | Windows | macOS | macOS (Royal TS on Windows) |
+| Platforms | macOS and Windows | macOS, Windows, Linux | Windows | macOS | macOS (Royal TS on Windows) |
 | Price | Free | Paid | Free (Home) and paid (Pro) | Free | Free with limits and paid |
 | Open source | ✅ MIT | ❌ | ❌ | ✅ GPL | ❌ |
 | Session manager with folders | ✅ | ✅ | ✅ | ➖ profiles | ✅ |
@@ -591,7 +602,7 @@ they turn off with the Mac's accessibility options.
 <summary><b>Does it run on an Intel Mac? On Windows or Linux?</b></summary>
 
 The `.dmg` is for Apple silicon Macs with macOS 15 or later. On an Intel Mac you can build it from source with
-`./install.sh` (it isn't tested on Intel). There is no Linux version. The Windows 10/11 one is in development and has no release yet (see [Windows](#windows)); this is a native macOS app.
+`./install.sh` (it isn't tested on Intel). There is no Linux version. The Windows 10/11 one is on the same page (see [Windows](#windows)).
 
 </details>
 
@@ -620,7 +631,10 @@ Missing something? [Suggest a feature](https://github.com/Iljonis/Terminal-NetDe
 
 ## Windows
 
-The x64 desktop version for Windows 10 (2004 or later) and Windows 11 is in development. It includes a tabbed terminal with split layouts,
+The x64 desktop version for Windows 10 (2004 or later) and Windows 11 is on the
+[releases page](https://github.com/Iljonis/Terminal-NetDeck/releases/latest): `Terminal-NetDeck-X.Y.Z-Setup.exe` (it
+also installs Windows App Runtime 1.5 if it's missing), the `.msi` or the portable `.zip`. It isn't signed yet, so
+SmartScreen warns when you open it. It includes a tabbed terminal with split layouts,
 native session import, scrollback and recording, themes and screen filters, a COM console, a side-by-side SFTP
 browser, and MultiExec. The [Windows test report](windows/resultados/escritorio-2026-11-19.md) lists build and UI coverage.
 

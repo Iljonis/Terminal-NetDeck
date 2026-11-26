@@ -10,7 +10,7 @@ resaltado de la salida de Cisco, Juniper, Huawei y Nokia. En castellano o en ing
 
 [![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v1.0.1](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.0.1)** · macOS 15 o posterior ·
+Versión actual: **[v1.1.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.1.0)** · macOS 15 o posterior ·
 Apple Silicon · código abierto (MIT)
 
 [![Última versión](https://img.shields.io/github/v/release/Iljonis/Terminal-NetDeck?label=versi%C3%B3n&color=ff2e88)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
@@ -47,7 +47,7 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
 **Para quién es:** ingenieros de red, de sistemas y de NOC que trabajan desde un Mac con routers, switches,
 cortafuegos y servidores Linux por SSH, Telnet o el puerto de consola.
 
-**Qué no es:** no hace escritorio remoto (RDP, VNC), no tiene versión para Linux (la de [Windows](#windows) está en desarrollo) y no trae un lenguaje de
+**Qué no es:** no hace escritorio remoto (RDP, VNC), no tiene versión para Linux (sí para [Windows](#windows)) y no trae un lenguaje de
 scripting completo: para eso están las macros, los botones y las listas de equipos.
 
 ### Instalar en un minuto
@@ -59,6 +59,17 @@ scripting completo: para eso están las macros, los botones y las listas de equi
 
 ¿Prefieres compilarla? `git clone https://github.com/Iljonis/Terminal-NetDeck.git && cd Terminal-NetDeck && ./install.sh`
 (macOS 15.6+ y Swift 6.2). Todos los detalles, en [Instalación](#instalación-y-primer-uso-en-macos-15-sequoia).
+
+## Novedades de 1.1.0
+
+- **Terminal NetDeck para Windows:** primera versión oficial para Windows 10 (2004 o posterior) y Windows 11 x64. El
+  instalador `Terminal-NetDeck-1.1.0-Setup.exe` lo deja todo listo en un paso (también Windows App Runtime 1.5 si
+  falta); hay además `.msi` y versión portable `.zip`. Detalles en [Windows](#windows).
+- **Buscar en todos los registros:** expresiones regulares, mayúsculas, palabra completa, filtros por equipo y periodo,
+  coincidencias resaltadas y recuento por archivo; también en los `.log.gz`.
+- **Barra superior a tu gusto:** Ajustes → General → «Barra superior» muestra u oculta cada botón. Nuevos botones
+  Buscar, Espacios de trabajo y Explorador SFTP (al lado del terminal ssh).
+- **La pestaña nueva recibe el teclado** al abrirla desde «+», ⌘T y los demás caminos.
 
 ## Novedades de 1.0.1
 
@@ -364,7 +375,7 @@ alternativa a SecureCRT o a MobaXterm en macOS, esto es lo que hay en cada uno:
 
 | | Terminal NetDeck | SecureCRT | MobaXterm | iTerm2 | Royal TSX |
 |---|:-:|:-:|:-:|:-:|:-:|
-| Sistemas | macOS (Windows en desarrollo) | macOS, Windows, Linux | Windows | macOS | macOS (Royal TS en Windows) |
+| Sistemas | macOS y Windows | macOS, Windows, Linux | Windows | macOS | macOS (Royal TS en Windows) |
 | Precio | Gratis | De pago | Gratis (Home) y de pago (Pro) | Gratis | Gratis con límites y de pago |
 | Código abierto | ✅ MIT | ❌ | ❌ | ✅ GPL | ❌ |
 | Gestor de sesiones con carpetas | ✅ | ✅ | ✅ | ➖ perfiles | ✅ |
@@ -591,7 +602,7 @@ apagan con las opciones de accesibilidad del Mac.
 <summary><b>¿Funciona en un Mac con Intel? ¿Y en Windows o Linux?</b></summary>
 
 El `.dmg` es para Mac con Apple Silicon y macOS 15 o posterior. En un Mac con Intel puedes compilarla desde el código
-con `./install.sh` (no se prueba en Intel). No hay versión para Linux. La de Windows 10/11 está en desarrollo y todavía no tiene release (ver [Windows](#windows)); esta es una app nativa de macOS.
+con `./install.sh` (no se prueba en Intel). No hay versión para Linux. La de Windows 10/11 se descarga de la misma página (ver [Windows](#windows)).
 
 </details>
 
@@ -621,7 +632,10 @@ La 1.0.0 es la versión para trabajar en producción sin miedo. Lo que ha hecho 
 
 ## Windows
 
-La versión de escritorio para Windows 10 (2004 o superior) y Windows 11, ambos x64, está en desarrollo. Incluye terminal con pestañas y vista dividida,
+La versión de escritorio para Windows 10 (2004 o superior) y Windows 11, ambos x64, se descarga de la
+[página de versiones](https://github.com/Iljonis/Terminal-NetDeck/releases/latest): `Terminal-NetDeck-X.Y.Z-Setup.exe`
+(instala también Windows App Runtime 1.5 si falta), el `.msi` o la versión portable `.zip`. Aún no está firmada:
+SmartScreen avisa al abrirla. Incluye terminal con pestañas y vista dividida,
 importación nativa de sesiones, historial y grabación, temas y filtros, consola COM, SFTP lateral y MultiExec. La
 última compilación y la cobertura de ventana se detallan en el [informe de Windows](windows/resultados/escritorio-2026-11-19.md).
 
