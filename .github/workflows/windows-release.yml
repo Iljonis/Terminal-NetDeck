@@ -239,6 +239,8 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/detectar-runtime.ps1
           if ($LASTEXITCODE -eq 0) { throw 'Windows App Runtime 1.5 sigue instalado: no se puede probar el Setup.exe sin el' }
           Write-Host 'Sin Windows App Runtime 1.5: listo para probar'
+          # (el paso acaba con el código de la última orden externa: detectar-runtime.ps1 ha salido con 1 a propósito)
+          exit 0
 
       - name: Instalar con el Setup.exe, en silencio y sin pasos a mano
         shell: powershell
