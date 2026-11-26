@@ -32,7 +32,14 @@
   - La ventana del Setup.exe sale en castellano y con el logo (captura con PrintWindow, sin instalar). Se acortó la casilla «Acepto la licencia», que no cabía.
   - `test.ps1 --filter 'UpdateCheckerWindowsTests|IdiomaTests'`: 19 tests en verde.
   - Hay un aviso de WiX (WIX1161, sin DetectCondition) a propósito: no hay forma de detectar paquetes AppX desde Burn y el instalador de Microsoft no hace nada si ya está.
-- **Sin probar todavía:** el job `probar-instalador` (pide subir la rama). Tampoco se ha visto en pantalla el aviso de la portable sin runtime, porque este PC tiene el runtime: Windows Sandbox no está activado.
+- **Comprobado en GitHub (run 45892581493, `db8e591`):** el runner `windows-2022` no trae Windows App Runtime 1.5.
+  - `Setup.exe /quiet` sale con 0 y deja el runtime y `NetDeckWindows.exe` instalados.
+  - En «Aplicaciones» hay una sola entrada, «Terminal NetDeck».
+  - La app sigue abierta a los 20 s.
+  - `/uninstall /quiet` quita NetDeck y deja el runtime.
+  - Lo mismo con la versión 1.1.0 (run 45893779190, `f044c32`): la entrada sale como «Terminal NetDeck 1.1.0».
+  - El primer intento (45872225646) falló solo porque el paso de quitar el runtime heredaba el código 1 de `detectar-runtime.ps1`; se arregló con `exit 0`.
+- **Sin probar todavía:** el aviso de la portable sin runtime en pantalla. Este PC tiene el runtime y Windows Sandbox no está activado.
 
 ## 2026-11-26 · Windows · Arreglos de la prueba en limpio: Include repetido, idioma y explorador SFTP lateral
 
