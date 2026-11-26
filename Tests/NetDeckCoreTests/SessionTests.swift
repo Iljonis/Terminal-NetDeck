@@ -32,6 +32,17 @@ private let config = """
 @Suite struct SSHConfigParserTests {
     let profiles = SSHConfigParser().parse(config)
 
+    /// El Include que escribe la propia app se reconoce (en Windows «~» se expande a «C:/Users/…» y antes se tomaba
+    /// por relativo a ~/.ssh: cada guardado añadía otro bloque al ~/.ssh/config).
+    @Test func includePropioSeReconoce() {
+        let propio = AppPaths.home.appendingPathComponent(".config/netdeck/ssh_config").standardizedFileURL.path
+        #expect(SSHConfigParser.includePaths("~/.config/netdeck/ssh_config", sshDirectory: nil) == [propio])
+        #expect(SSHConfigParser.includePaths("\"\(propio)\"", sshDirectory: nil) == [propio])
+        #expect(SessionFile.hasInclude(SessionFile.includeLine + "\n"))
+        #expect(SSHConfigParser.esAbsoluta(propio))
+        #expect(!SSHConfigParser.esAbsoluta("otros/ssh_config"))
+    }
+
     @Test func aliasesConcretos() {
         #expect(profiles.map(\.name) == ["bastion", "core-01", "core-01b", "core-02", "olt-01"])
     }
@@ -204,6 +215,7 @@ private let config = """
     }
 }
 
+#if !os(Windows)
 @Suite struct UpdateCheckTests {
     @Test func releaseConDmgYSuSha256() throws {
         let h = String(repeating: "ab", count: 32)
@@ -319,7 +331,7 @@ private let config = """
         #expect(UpdateCheck.parse(Data(#"{"tag_name":"v1","html_url":"http://x"}"#.utf8)) == nil)   // sólo https
     }
 }
-
+#endif
 @Suite struct LoopbackTests {
     @Test func lasDeEsteMacNoSeReabren() throws {
         func ruta(_ s: String, saltos: [String] = []) throws -> ConnectionRoute {
@@ -345,6 +357,25 @@ private let config = """
         #expect(e["HOME"] == "/Users/x" && e["TERM"] == "xterm-256color")
     }
 
+    /// P9 (Windows): lo que el proceso padre haya puesto para ssh no llega a ssh.exe; lo propio de Windows que ssh necesita, si.
+    @Test func enWindowsAsshNoLeLlegaElAskpassNiGitSshAjenos() {
+        let heredado = ["SSH_ASKPASS": "C:/Git/askpass.exe", "SSH_ASKPASS_REQUIRE": "force", "GIT_SSH": "C:/x/plink.exe",
+                        "Git_Ssh_Command": "ssh -v", "USERPROFILE": "C:/Users/x", "APPDATA": "C:/Users/x/AppData/Roaming",
+                        "LOCALAPPDATA": "C:/Users/x/AppData/Local", "Path": "C:/Windows"]
+        let e = TerminalEnvironment.prepare(heredado, forSSH: true, sendLocale: false)
+        #if os(Windows)
+        #expect(e["SSH_ASKPASS"] == nil && e["SSH_ASKPASS_REQUIRE"] == nil)
+        #expect(e["GIT_SSH"] == nil && e["Git_Ssh_Command"] == nil)
+        #else
+        #expect(e["SSH_ASKPASS"] != nil)          // (macOS no cambia)
+        #endif
+        #expect(e["USERPROFILE"] == "C:/Users/x" && e["APPDATA"] != nil && e["LOCALAPPDATA"] != nil && e["Path"] == "C:/Windows")
+        // (una shell local, o ssh con el idioma pedido, conserva lo del usuario: no es la ruta de ssh de la app)
+        let local = TerminalEnvironment.prepare(heredado, forSSH: false, sendLocale: false)
+        #expect(local["SSH_ASKPASS"] == "C:/Git/askpass.exe" && local["GIT_SSH"] == "C:/x/plink.exe")
+        #expect(TerminalEnvironment.prepare(heredado, forSSH: true, sendLocale: true)["GIT_SSH"] == "C:/x/plink.exe")
+    }
+
     @Test func siLoPidesSiYEnLocalSeQueda() {
         #expect(TerminalEnvironment.prepare(mac, forSSH: true, sendLocale: true)["LC_CTYPE"] == "es_ES.UTF-8")
         #expect(TerminalEnvironment.prepare(mac, forSSH: false, sendLocale: false)["LANG"] == "es_ES.UTF-8")
@@ -359,17 +390,26 @@ private let config = """
         #expect(r.localShell == "/bin/bash")
         #expect(!r.isLoopback)                                           // (no es un ssh a este Mac: se guarda)
         #expect(r.sessionName == nil && r.jumps.isEmpty)
-        // (una shell que no está en /etc/shells, o ninguna: /bin/zsh)
-        #expect(ConnectionRoute.local(shell: "/tmp/x", allowed: ["/bin/zsh"]).localShell == "/bin/zsh")
-        #expect(ConnectionRoute.local(shell: nil, allowed: []).localShell == "/bin/zsh")
-        #expect(ConnectionRoute.loginShell("/bin/zsh", allowed: []) == "/bin/zsh")
+        // (una shell que no está en las permitidas, o ninguna: la del sistema)
+        #if os(Windows)
+        let shellFallback = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+        #else
+        let shellFallback = "/bin/zsh"
+        #endif
+        #expect(ConnectionRoute.local(shell: "/tmp/x", allowed: [shellFallback]).localShell == shellFallback)
+        #expect(ConnectionRoute.local(shell: nil, allowed: []).localShell == shellFallback)
+        #expect(ConnectionRoute.loginShell(shellFallback, allowed: []) == shellFallback)
         // (guardada en abiertas.json y leída de vuelta, sigue siendo local y de login)
         let back = try JSONDecoder().decode(ConnectionRoute.self, from: JSONEncoder().encode(r))
+        #if os(Windows)
+        #expect(back.isLocal && back.command.arguments == [])
+        #else
         #expect(back.isLocal && back.command.arguments == ["-l"])
+        #endif
         // (las guardadas antes, sin el campo, se siguen leyendo como remotas)
         let ssh = ConnectionRoute(title: "core-01", target: Endpoint(host: "192.0.2.11"))
         let old = #"{"title":"core-01","target":{"host":"192.0.2.11"},"jumps":[],"transport":"ssh"}"#
         #expect(try !JSONDecoder().decode(ConnectionRoute.self, from: Data(old.utf8)).isLocal)
-        #expect(ssh.command.executable == "/usr/bin/ssh")
+        #expect(ssh.command.executable == SystemTools.ssh)
     }
 }

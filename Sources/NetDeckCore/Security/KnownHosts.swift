@@ -96,7 +96,7 @@ public enum KnownHosts {
 
     /// «ssh -G» de la conexión de `route` (con el ssh_config de Ajustes, `configFile`), sin conectar. nil si no sale.
     /// Síncrono (hasta 10 s): desde la app, fuera del hilo principal.
-    public static func context(for route: ConnectionRoute, configFile: String?, ssh: String = "/usr/bin/ssh") -> Context? {
+    public static func context(for route: ConnectionRoute, configFile: String?, ssh: String = SystemTools.ssh) -> Context? {
         guard !route.isLocal, route.transport == .ssh || route.transport == .sftp else { return nil }
         var a = ConnectionRoute.configOptions(configFile) + ["-G"]
         if let alias = route.alias {
@@ -165,7 +165,7 @@ public enum KnownHosts {
     /// Quita las claves de `host` de `file` con «ssh-keygen -R» (también las de líneas cifradas con HashKnownHosts).
     /// Antes, copia con `SafeFile` (`.anterior`/`.original`; ssh-keygen deja además `.old`). Devuelve el error, o nil.
     /// Síncrono: desde la app, fuera del hilo principal.
-    public static func remove(host: String, from file: URL = defaultURL, keygen: String = "/usr/bin/ssh-keygen") -> String? {
+    public static func remove(host: String, from file: URL = defaultURL, keygen: String = SystemTools.sshKeygen) -> String? {
         guard isValidHost(host) else { return L("«\(host)» no es un equipo válido") }
         // (si es un enlace, se cambia el archivo al que apunta: ssh-keygen sustituiría el enlace por un archivo)
         let file = file.resolvingSymlinksInPath()

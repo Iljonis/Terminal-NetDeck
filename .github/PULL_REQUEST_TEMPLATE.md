@@ -17,5 +17,6 @@
 - [ ] Contraseñas sólo en el Llavero, nunca en argumentos, archivos ni registros · Passwords only in the Keychain
 - [ ] Archivos del usuario con `SafeFile` · User files through `SafeFile`
 - [ ] MultiExec y pegado sólo a pestañas SSH/Telnet · MultiExec and paste only to SSH/Telnet tabs
+- [ ] Paridad Mac/Windows: la lógica en `NetDeckCore`, o la diferencia anotada en `docs/agentes/paridad.md` · Mac/Windows parity: logic in `NetDeckCore`, or the gap noted in `docs/agentes/paridad.md`
 - [ ] Sin datos reales en código, tests ni capturas · No real data in code, tests or screenshots
 - [ ] Una línea en `[Unreleased]` de `CHANGELOG.md` si el cambio se nota · A `CHANGELOG.md` line if user-visible

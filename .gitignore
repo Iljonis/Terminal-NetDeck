@@ -12,7 +12,15 @@ tools/privacidad.local
 # Paquetes, registros y restos de tests o capturas que nunca se suben
 *.dmg
 *.log
+!tools/demo/**/*.log
 *.profraw
 *.xcresult/
 .env
 .env.*
+
+# Salidas en bruto de las pruebas en Windows (llevan rutas y datos de quien las ejecuta): sólo se suben los .md
+windows/resultados/*.txt
+windows/resultados/*.log
+
+# Recurso con el icono del .exe: lo genera windows/scripts/desktop.ps1 desde NetDeck.rc
+windows/Desktop/NetDeck.res

@@ -321,6 +321,19 @@ public struct SessionFile: Sendable {
         return Self.install(tmp, at: url, count: sessions.count)
     }
 
+    /// En Windows deja `url` sólo para ti y SYSTEM: cualquier otra ACL (p. ej. la heredada de ~/.config con «Derechos de
+    /// propietario») hace que OpenSSH se niegue a leerlo. Se llama antes de conectar, así que se corrige solo aunque otro
+    /// programa lo haya reescrito. No hace nada en otros sistemas.
+    @discardableResult
+    public static func repairPermissions(_ url: URL = defaultURL) -> Bool {
+        #if os(Windows)
+        guard FileManager.default.fileExists(atPath: url.path) else { return true }
+        return WindowsACL.restrict(url, directory: false)
+        #else
+        return true
+        #endif
+    }
+
     /// El archivo nuevo en «url.tmp», ya comprobado con «ssh -G» (si no vale, queda como «.rechazado»). Sin tocar `url`.
     func prepare(_ url: URL, validate: Bool) -> (URL?, String?) {
         if let p = problems().first { return (nil, p) }
@@ -330,6 +343,10 @@ public struct SessionFile: Sendable {
         do {
             try render().write(to: tmp, atomically: true, encoding: .utf8)
             try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tmp.path)
+            #if os(Windows)
+            // Sin esto el archivo hereda la ACL de ~/.config y OpenSSH lo rechaza («Bad owner or permissions»).
+            WindowsACL.restrict(tmp, directory: false)
+            #endif
         } catch {
             return (nil, error.localizedDescription)
         }
@@ -348,7 +365,7 @@ public struct SessionFile: Sendable {
         do {
             try SafeFile.backup(url)                     // (si no se puede leer o copiar, no se toca)
             if fm.fileExists(atPath: url.path) {
-                _ = try fm.replaceItemAt(url, withItemAt: tmp)
+                try SafeFile.replace(url, with: tmp)
             } else {
                 try fm.moveItem(at: tmp, to: url)
             }
@@ -369,7 +386,7 @@ public struct SessionFile: Sendable {
     /// «ssh -G» sobre `file`. Si ssh no se puede ejecutar (o no es /usr/bin/ssh), error: un archivo sin comprobar no
     /// se da por bueno. Es síncrono y puede tardar hasta `checkTimeout`: desde la app, sólo fuera del hilo principal
     /// (`saveInBackground`).
-    static func sshCheck(_ file: URL, host: String, ssh: String = "/usr/bin/ssh") -> String? {
+    static func sshCheck(_ file: URL, host: String, ssh: String = SystemTools.ssh) -> String? {
         guard FileManager.default.isExecutableFile(atPath: ssh) else { return L("no se puede ejecutar \(ssh)") }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: ssh)

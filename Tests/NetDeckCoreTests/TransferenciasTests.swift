@@ -1,3 +1,4 @@
+#if !os(Windows)
 import Foundation
 import Testing
 @testable import NetDeckCore
@@ -176,3 +177,4 @@ import Testing
         #expect(gate.blocks(.connect) == nil && gate.blocks(.close) == nil && !gate.saving)
     }
 }
+#endif

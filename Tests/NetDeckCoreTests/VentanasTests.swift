@@ -1,3 +1,4 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
 import Foundation
 import Testing
@@ -100,3 +101,4 @@ import Testing
         #expect(gone.name == nil && gone.device == nil)
     }
 }
+#endif

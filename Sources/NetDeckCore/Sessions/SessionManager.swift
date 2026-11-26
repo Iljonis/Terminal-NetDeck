@@ -194,6 +194,14 @@ public final class SessionManager {
         return r
     }
 
+    /// En Windows, el ProxyCommand que ssh arma para «-J» pasa por cmd.exe (con un OpenSSH anterior a 9.6 no filtra «&», «|»,
+    /// «^» ni «<»): sólo se admiten saltos con equipo y usuario «seguros». En macOS no cambia nada. (no verificado en Windows)
+    private static func requireSafeJump(_ e: Endpoint, _ spec: String) throws {
+        #if os(Windows)
+        guard e.isShellSafe else { throw RouteError.badJump(spec) }
+        #endif
+    }
+
     /// Los saltos de cada uno van antes que él (ProxyJump encadenados); un bucle es un error.
     func resolve(_ specs: [String], seen: Set<String>) throws -> [Endpoint] {
         var out: [Endpoint] = []
@@ -201,6 +209,7 @@ public final class SessionManager {
             let e = Endpoint(parsing: s)
             guard let name = profile(named: s)?.name ?? e.flatMap({ profile(named: $0.host)?.name }) else {
                 guard let e, !e.host.hasPrefix("-"), e.user?.hasPrefix("-") != true else { throw RouteError.badJump(s) }
+                try Self.requireSafeJump(e, s)
                 out.append(e)
                 continue
             }
@@ -214,6 +223,7 @@ public final class SessionManager {
             }
             // (un salto de otra sesión con equipo o usuario «-…» sería una opción de ssh: «ssh -t -oProxyCommand=…»)
             for v in [end.host, end.user ?? ""] where v.hasPrefix("-") { throw RouteError.badJump(s) }
+            try Self.requireSafeJump(end, s)
             out.append(end)
         }
         return out

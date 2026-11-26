@@ -1,0 +1,1512 @@
+## 2026-11-26 · Windows · Apariencia como el Mac (G1, G2, G3, G5, G6 y G15 de PENDIENTE) y versión 1.1.0
+
+- **G1 · controles con el tema:** `EstiloMac.vestirControles` pone en los recursos del marco los colores del tema para botones, campos, desplegables, casillas, interruptores, menús (`MenuFlyout`), ayudas y el texto por defecto: todos los paneles de la tarjeta emergente (Llavero, Túneles, Macros…) y los menús nativos dejan los grises de Windows (visto en la demo: Llavero y el menú de pantalla dividida).
+- **G2 · avisos y confirmaciones:** `PanelTexto` es ahora como el `ThemedAlert` del Mac: icono, título en negrita, explicación, caja sólo si hay texto (de una línea para renombrar), «Cancelar» y el de confirmar a la derecha (acento, o rojo si es destructivo: borrar sesión o macro, MultiExec peligroso, pegado con órdenes peligrosas). La tarjeta se ajusta al aviso. Visto en la demo: «¿Borrar «bastion»?» y «Renombrar la pestaña» (Intro confirma).
+- **G15 · pegado seguro:** «¿Pegar N líneas?», la pestaña de destino y ⚠ delante de cada orden peligrosa (lo que se envía no cambia: `pendingPaste`). Sin ver en pantalla.
+- **G3 · barra de estado:** etiquetas del Mac a la derecha (⬆ versión nueva con clic, MULTIEXEC ×n, «🔑 SESIÓN AUTO · EQUIPOS …»), hora con `Theme.clockText` y los avisos de `StatusNotice` (✗ 🔑 ⎋ ⬆) en color y negrita; los ~100 `status.text =` pasan por la propiedad `estado`. Los demás mensajes siguen a la izquierda (en Windows son la única respuesta de muchas acciones).
+- **G5 · iconos:** 30×26, color del tema al pasar el ratón y estado activo (relleno de acento) en MultiExec, pantalla dividida, SFTP lateral y mostrar sesiones.
+- **G6 · pestañas:** la ✕ en la activa y, en las demás, al pasar el ratón (cierra esa pestaña; su zona no empieza un arrastre); punto de 8. Visto en la demo.
+- **Versión 1.1.0:** `UpdateChecker.currentVersion`, `AppxManifest.xml` (1.1.0.0), `NetDeckWindows.wxs`, `NetDeckBundle.wxs`, `build-msi.ps1`, `build-bundle.ps1` y `windows/CHANGELOG.md` («## 1.1.0 - 2026-11-26», la sección que comprueba windows-release.yml).
+- **Comprobado:** release compila; `test.ps1 --no-parallel` 559 en verde y 42 más de las suites fuera de la lista (`UpdateCheckerWindowsTests`, `LogSearchTests`, `PortableModeTests`, `ToolbarLayoutTests`); formato, privacidad y paridad en verde.
+- **Pendiente de G:** G4, G7 (separadores y textos del menú de pestaña), G8 (menú «+»), G9-G14, G16 (menú contextual del terminal), G17 y lo «A» (al núcleo desde el Mac). El foco no entra solo en la caja de renombrar (hay que hacer clic). Estado «conectando» del punto de la pestaña: Windows no redibuja las pestañas al conectar.
+
+## 2026-11-26 · Windows · Instalador de un paso: Setup.exe con Windows App Runtime 1.5 dentro
+
+- **Por qué:** en la prueba en limpio el autor pidió que instalar fuera sencillo, sin bajar el runtime a mano. Se descartó llevar el runtime dentro de la app (`WindowsAppSDKSelfContained`): es una propiedad de MSBuild que SwiftPM no tiene, y `WindowsAppRuntimeInitializer` de swift-windowsappsdk siempre llama al bootstrapper sin identidad de paquete.
+- **Setup.exe:** `windows/installer/NetDeckBundle.wxs` (WiX Burn, extensión `WixToolset.Bal.wixext` 4.0.6), con interfaz estándar en castellano (`bundle-es.wxl`) y una sola pantalla.
+  - Encadena el redistribuible oficial `WindowsAppRuntimeInstall-x64.exe --quiet`: Permanent, PerMachine y dentro del .exe, así que funciona sin red. Después instala el `.msi` de siempre, oculto en «Aplicaciones», con una sola entrada (la del bundle).
+  - `build-bundle.ps1` lo baja de la URL fija de `windows-app-runtime.json` y comprueba el sha256 y la firma (Microsoft Corporation) antes de compilar. Pesa 61,2 MB y el Setup.exe queda en 122,7 MB.
+  - El aviso del `.msi` suelto ahora remite al Setup.exe.
+- **CI:** `windows-release.yml` compila `Terminal-NetDeck-X.Y.Z-Setup.exe` y su `.sha256` y los sube con lo demás. El job nuevo `probar-instalador` hace, en un `windows-2022`:
+  1. quita el runtime 1.5 si lo trae la imagen;
+  2. `Setup.exe /quiet`;
+  3. comprueba el runtime (`detectar-runtime.ps1`), el exe y una sola entrada en «Aplicaciones»;
+  4. arranca la app 20 s;
+  5. `/uninstall /quiet`: NetDeck se va y el runtime se queda.
+
+  `publish` espera a ese job y el disparo por rama incluye ahora `windows/installer/**`.
+- **Actualizador:** `UpdateCheck.candidate` prefiere `*-Setup.exe` al `.msi`, porque el `.msi` sobre una instalación del bundle dejaría dos entradas. Test nuevo `UpdateCheckerWindowsTests.prefiereElSetupConElRuntimeAlMsiSuelto`.
+- **Portable:** no lleva el runtime. Sin él, el bootstrapper enseña el aviso de Microsoft con la descarga y `Arranque.swift` sale con `exit(1)` en vez de `fatalError`. Si el runtime está y aun así falla, enseña el error en un `MessageBoxW` (texto nuevo en `Ingles.swift`). Se actualiza el LEEME.txt.
+- **Comprobado en local:**
+  - `build-bundle.ps1` compila con el `.msi` del 24-11.
+  - La ventana del Setup.exe sale en castellano y con el logo (captura con PrintWindow, sin instalar). Se acortó la casilla «Acepto la licencia», que no cabía.
+  - `test.ps1 --filter 'UpdateCheckerWindowsTests|IdiomaTests'`: 19 tests en verde.
+  - Hay un aviso de WiX (WIX1161, sin DetectCondition) a propósito: no hay forma de detectar paquetes AppX desde Burn y el instalador de Microsoft no hace nada si ya está.
+- **Comprobado en GitHub (run 45892581493, `db8e591`):** el runner `windows-2022` no trae Windows App Runtime 1.5.
+  - `Setup.exe /quiet` sale con 0 y deja el runtime y `NetDeckWindows.exe` instalados.
+  - En «Aplicaciones» hay una sola entrada, «Terminal NetDeck».
+  - La app sigue abierta a los 20 s.
+  - `/uninstall /quiet` quita NetDeck y deja el runtime.
+  - Lo mismo con la versión 1.1.0 (run 45893779190, `f044c32`): la entrada sale como «Terminal NetDeck 1.1.0».
+  - El primer intento (45872225646) falló solo porque el paso de quitar el runtime heredaba el código 1 de `detectar-runtime.ps1`; se arregló con `exit 0`.
+- **Sin probar todavía:** el aviso de la portable sin runtime en pantalla. Este PC tiene el runtime y Windows Sandbox no está activado.
+
+## 2026-11-26 · Windows · Arreglos de la prueba en limpio: Include repetido, idioma y explorador SFTP lateral
+
+- **Include repetido en `~/.ssh/config`:** `SSHConfigParser.includePaths` usa ahora `esAbsoluta` (en Windows también «C:/…», «C:\…» y «\…»; en macOS sigue siendo «/» al principio). Arregla también el lector (`includeFiles`), que no seguía los Include con «~» o «C:/» del `~/.ssh/config` propio. Test nuevo `SSHConfigParserTests.includePropioSeReconoce` (corre en Windows y en el Mac). Nota: `RobustezTests.includeEstricto` ya lo habría pillado, pero `RobustezTests` entero está fuera en Windows.
+- **Idioma por defecto en Windows:** `Idioma.sistema` usa `GetUserDefaultUILanguage` (castellano si el idioma principal es LANG_SPANISH, de cualquier país) porque Foundation da «en-001». En macOS no cambia. Test nuevo `IdiomaTests.idiomaDeWindows` sobre `Idioma.deWindows` (función pura, corre en las dos).
+- **Explorador SFTP lateral vacío:** `mostrarLateralSFTP` hace visible la vista del explorador (nace plegada y aquí no pasa por `showPanel`).
+- **Comprobado:** `test.ps1 --no-parallel` 559 tests en verde (557 + 2 nuevos); release compila; formato, privacidad y paridad en verde. En la app (compilación nueva, perfil `NETDECK_HOME` temporal, sin demo y sin ajustes guardados): sale en castellano; el lateral lista `/home/<usuario de prueba>` del SFTP temporal de WSL; «Editar archivo remoto» (menú contextual de la fila) abre el editor integrado y «Guardar» sube el cambio (el servidor lo tenía); dos guardados de sesiones dejan un solo Include y ninguna copia nueva.
+- **Visto de paso (sin arreglar):** en el lateral estrecho el nombre y el tamaño de las filas se pisan; el lápiz de cada fila es «renombrar» (no editar) y Escape no cierra la caja de renombrar; cerrar la ventana tardó más de 3 s.
+- **Sin probar:** el foco tras «+» (la prueba se cortó: el autor estaba escribiendo y sus teclas llegaban a la ventana) y la búsqueda con texto en todos los registros.
+- **Falta en el Mac:** `./test.sh` con estos cambios (tocan `SSHConfigParser.swift` e `Idioma.swift`, en ramas `#if os(Windows)` salvo las dos funciones nuevas).
+
+## 2026-11-26 · Windows · Prueba en limpio del .msi y el .zip de GitHub y de lo nuevo del Mac
+
+- **Montaje:** se quitó del PC todo lo de NetDeck (desinstalar la 1.0.1, sesiones, `%APPDATA%\Terminal NetDeck`, registros, ajustes `NetDeckWindows.exe.plist`, credenciales `netdeck-ssh:*` y un `~/.ssh/config` que solo tenía bloques de NetDeck). Artefacto `windows-release` del run 45730684383 (`10708f0`): sumas SHA-256 correctas; `.msi` sin firmar. Windows App Runtime 1.5 se dejó instalado (no se probó el aviso de «falta el runtime»). Servidor SSH/SFTP temporal en WSL (127.0.0.1:2222, usuario de prueba) que se quitó al acabar. La app instalada se abrió desde su acceso del menú Inicio (fuera del contenedor de Claude); el permiso de control fue solo de clic, así que lo que exige teclado quedó sin probar.
+- **Instalación:** `msiexec` correcto, `.exe` en Program Files y acceso en el menú Inicio. El Sparse Package NO queda registrado (sin `NetDeckSparse.msix` firmado solo funciona con modo desarrollador; el script lo declara opcional y la acción ignora el fallo). Desinstalar también limpio.
+- **Primer arranque:** sale el asistente 1/7. **Fallo: en un Windows en castellano (es-ES) la app arranca en inglés.** `Locale.preferredLanguages` de Foundation en Windows devuelve `["en-001"]` (medido con un test temporal) e `Idioma.sistema` elige inglés; con ajustes guardados de antes no se notaba. Además el asistente mezcla idiomas (títulos en inglés, explicaciones en castellano: C16) y recomienda «SF Mono» (fuente de Mac). El panel se recoloca en cada paso y los botones cambian de sitio; «Skip» en el paso 6 cierra el asistente entero.
+- **Barra superior compartida (verificado):** orden del catálogo, con «SFTP explorer» y sin «Editar remoto». Ocultar en Ajustes → General se aplica al momento y se guarda (`ndToolbarOcultos`); sigue oculto tras reiniciar. Migración: con `EditarRemoto` guardado (escrito a mano en el `.plist`) «SFTP explorer» sale oculto y Ajustes lo muestra apagado; al encenderlo se guarda con los ids nuevos.
+- **«SFTP explorer» (fallo):** el panel lateral se abre vacío (ni lista, ni espera, ni error), aunque la conexión SFTP sí entra en el servidor. Causa: `ExploradorSFTP.view` nace con `visibility = .collapsed` (`ExploradorSFTP.swift:144`) y `mostrarLateralSFTP` la pone en `zonaSFTPLateral` sin hacerla visible (`NetDeckWindows.swift:3278`); el área principal sí lo hace (`showPanel`). El lateral es de `0f6759e`, pero ahora es el único camino desde la barra. Por eso la edición remota desde el explorador quedó sin probar.
+- **`~/.ssh/config` (fallo, reproducido desde cero):** cada guardado de sesiones añade OTRO bloque «Include ~/.config/netdeck/ssh_config» (y otra tanda de copias). Causa: en Windows `SSHConfigParser.includePaths` trata `C:/…` como ruta relativa porque solo mira `hasPrefix("/")`, y devuelve `…/.ssh/C:/Users/…/.config/netdeck/ssh_config`; `hasInclude` nunca reconoce el propio Include (medido con un test temporal).
+- **Importar sesiones (verificado):** un `ssh_config` desde el diálogo de archivos; la sesión sale en la barra lateral y el `ssh_config` de sesiones queda con ACL protegida (usuario + SYSTEM). La primera conexión pregunta la clave del servidor en el terminal (no hay diálogo).
+- **Borrar sesión con el archivo bloqueado (verificado, punto del Mac):** con `ssh_config` abierto en exclusiva por otro proceso, «Delete» dice «Cannot delete: … You don't have permission.», no borra y el archivo queda idéntico (mismo hash). Sin bloqueo borra bien. (El texto habla de permisos y era un bloqueo; el diálogo de confirmación tiene un recuadro gris vacío.)
+- **Buscador de registros (parcial):** «Find in All Logs…» abre con sus filtros y lista los equipos de los registros (`lab-wsl`, `Local_terminal`). Buscar texto exige teclado: sin probar. Con el campo vacío, «Search» no hace nada ni avisa.
+- **Foco tras «+»:** sin probar (exige escribir; UI Automation no ve el foco dentro del terminal).
+- **Portable (.zip):** arranca, crea `datos\AppData\Roaming\Terminal NetDeck` junto al `.exe` y no cambió nada de la instalada (comparación de archivos antes/después). **Pero los ajustes no son portables:** las 42 claves de `UserDefaults` (tema, idioma, barra, `ndAsistenteVisto`, registro…) van a `%LOCALAPPDATA%\NetDeckWindows.exe.plist`, el mismo archivo que la instalada: en este PC la portable no enseñó el asistente y lo que se cambie en ella se escribe fuera de `datos`. (La pantalla de la portable no se miró: el autor no dio permiso.)
+- **Otros:** cerrar la ventana con una conexión SSH abierta no avisa (ya en E). Lo que la app abre desde Claude Code (demo incluida) escribe `AppData` dentro del contenedor del paquete de Claude, no en el real.
+- **Sin probar:** foco tras «+», búsqueda con texto, edición remota desde el explorador, MultiExec en la instalada (probado ayer en la demo), aviso sin App Runtime, actualizador con MSI sin firma, telnet, registro en carpeta ajena.
+
+## 2026-11-26 · Windows · Compilación y tests de lo que llegó del Mac (hasta `10708f0`)
+
+- **Compilación:** `git pull` (avance rápido a `10708f0`) y `desktop.ps1 -Configuration release` sin errores en 199 s (buscador de registros en el núcleo, barra compartida, foco de la pestaña nueva, modo portable). Solo avisos que ya estaban (`fileExists` sin usar, `getpid`, `fila` sin usar en `PanelSelectorColor`).
+- **Tests:** `test.ps1 --no-parallel`: 557 tests en 93 suites en verde. **Ojo:** son los mismos 557 de ayer, porque `test.ps1` solo lanza las suites de su lista `$suitesWindows` y ahí no están `LogSearchTests`, `PortableModeTests` ni `ToolbarLayoutTests`. Lanzadas aparte (`test.ps1 --filter 'LogSearchTests|PortableModeTests|ToolbarLayoutTests'`): 30 tests en 3 suites en verde. `test.ps1` lo gestiona Codex: hay que añadirlas a la lista (o decidir quién lo hace).
+- **`tools/comprobar_formato.sh` no veía ningún CR en Windows:** el `grep` de Git para Windows (GNU 3.0) quita el CR del final de línea antes de buscar, así que `grep -q $'\r'` nunca coincidía. `tools/test_formato.sh` lo destapó (9 fallos: ningún CRLF detectado en ninguna carpeta). Arreglo: `grep -qU` (en macOS y Linux `-U` no cambia el resultado); el autotest pasa entero. **Falta en el Mac:** `./test.sh` con este cambio.
+- **Lo que el chequeo no veía:** 5 licencias de fuentes (`b612mono`, `dmmono`, `dotgothic16`, `ibmplexmono`, `sourcecodepro`-OFL.txt) estaban en LF en git pero en CRLF en esta copia de trabajo (del 22-11). Reescritas desde el índice; mismo hash, nada que commitear.
+- **Comprobaciones:** `privacidad.sh` (504 archivos), `comprobar_formato.sh` (328, ya incluye `windows/`), `comprobar_paridad.sh`, `test_formato.sh` y `test_paridad.sh` en verde.
+- **Sin probar a mano todavía** (punto 3 del estado compartido): foco tras «+», «Explorador SFTP» y barra con lo oculto, buscador de registros en la app, modo portable y el `.msi`/`.zip` del flujo de release.
+
+## 2026-11-26 · Mac · Flujo de release de Windows activo (.msi y portable .zip) y modo portable (SIN PROBAR EN WINDOWS)
+
+- **`.github/workflows/windows-release.yml`** (antes borrador en `windows/ci/`): job `build` (permisos de lectura, sin credenciales guardadas, `windows-2022`, acciones fijadas por SHA) que compila la app en Release, comprueba el logo del `.exe`, genera el `.msi` y el `.zip` portable con sus `.sha256` y los guarda como artefacto `windows-release`; job `publish` (único con `contents: write`) que en un tag espera a la Release de macOS y sube los archivos. Se ejecuta a mano o con un push que cambie ese archivo (sin publicar); en tags, sólo con `WINDOWS_RELEASE=true`. Sin firma de código.
+- **Portable:** el `.zip` lleva `NetDeck.portable` junto al `.exe`; `Arranque.swift` (`activarModoPortable`, **sin compilar en Windows**) fija `NETDECK_HOME` a la carpeta `datos` de al lado antes de nada, como la demo, y `PortableMode` (NetDeckCore, 4 tests) decide el modo. **A comprobar:** que arranque sin instalar, que sesiones, botones y listas queden en `datos`, que no toque `~/.ssh/config`, y qué ajustes (`UserDefaults`) siguen yendo fuera de `datos`. Necesita Windows App Runtime 1.5 (lo dice su `LEEME.txt`).
+- **Primera ejecución en GitHub:** pendiente de resultado; si `desktop.ps1 -Configuration release` falla en el runner, el fallo es el trabajo.
+
+## 2026-11-26 · Mac · Barra superior configurable compartida y «Explorador SFTP» (Windows SIN COMPILAR NI PROBAR)
+
+- **Catálogo compartido:** `Sources/NetDeckCore/Support/ToolbarLayout.swift` define los botones configurables (mismas ids que Windows más `ExploradorSFTP`), valida lo guardado en `ndToolbarOcultos` y migra `EditarRemoto` y `PanelSFTP` a `ExploradorSFTP`. 7 tests en macOS. El Mac gana Ajustes → General → «Barra superior» y los botones Buscar, Espacios y Explorador SFTP.
+- **Windows, sin verificar:** `PanelAjustes.swift` y `NetDeckWindows.swift` usan el catálogo (`settings.barra`); el botón «Explorador SFTP» abre el explorador lateral de la pestaña ssh actual (`alternarLateralSFTP`) en vez del panel manual «Editar remoto». **A comprobar:** que compile, que la barra y Ajustes → General → «Barra superior» muestren los mismos botones, que lo ya oculto en `ndToolbarOcultos` siga oculto y que el botón abra el explorador. `PanelEdicionRemota` queda huérfano (sin botón); decidir si se borra.
+- **Revisión de apariencia Mac ↔ Windows:** lista completa en `windows/PENDIENTE.md`, sección G.
+
+## 2026-11-25 · Windows · BOM en los scripts de compilación y repaso de `CLAUDE.md`
+
+- **Qué se ha hecho:** `windows/scripts/desktop.ps1` y `windows/scripts/swift-build.ps1` llevan BOM UTF-8 (solo esos 3 bytes; el resto es idéntico), como pide la sección de Windows de `CLAUDE.md` (`cb2d681`). Sin él, PowerShell 5.1 leía los avisos de `desktop.ps1` como «No estÃ¡ llvm-rc»; con él se leen bien (comprobado con el analizador de 5.1).
+- **Compilación:** `swift-build.ps1 --target NetDeckCore` y `desktop.ps1 -Demo -Configuration release` (con `NETDECK_BUILD_ONLY=1`) terminan con código 0.
+- **Tests:** `windows/scripts/test.ps1 --no-parallel`: 557 tests en 93 suites en verde. `tools/privacidad.sh` y `tools/comprobar_formato.sh` en verde.
+- **Para el Mac, del repaso de `cb2d681`:** (1) la regla «Edit/Write generan `.tmp` con BOM» no se reproduce aquí: los `.swift` de `windows/` editados así están sin BOM ni CR y sin `.tmp` sueltos; (2) la sesión de Windows no tiene el enlace del gist que cita; (3) `comprobar_formato.sh` no mira `windows/` (hoy está limpio en el índice); (4) `preparar-instalador.ps1` sigue sin BOM (solo tiene «» en un comentario).
+
+## 2026-11-25 · Windows · Prueba a mano de MultiExec y edición remota (y arreglo de un cierre)
+
+- **Montaje:** sin servidor SSH en el equipo, se usó uno temporal en el Ubuntu de WSL (`openssh-server`, solo en `127.0.0.1:2222`, usuario de prueba con clave temporal y sin contraseña). La demo (perfil temporal) conectó con una sesión en memoria `lab-wsl`. Al acabar se paró `sshd`, se borraron el usuario, su carpeta, la clave del servidor y la clave y el `known_hosts` temporales; el paquete `openssh-server` sigue instalado con `ssh.service` y `ssh.socket` desactivados.
+- **MultiExec (verificado con dos pestañas SSH conectadas):** `echo hola-multi` se envía a las dos sin preguntar; `reload` (peligrosa) muestra «¿Enviar «reload» a 2 pestañas a la vez?»; «Cancelar» no envía nada a ninguna; «Enviar a todas» la envía a las dos.
+- **Edición remota: cierre de la app al descargar.** Al abrir un archivo, la app se caía (`0xc000001d` en `swiftCore.dll`). Causa: la descarga y el vigilante de cambios corren en un `Task` fuera del hilo de WinUI y desde ahí tocaban la lista del panel (`setEstado` → `reloadLista`); los enlaces de swift-winui usan `try!` y el error de hilo se convertía en una trampa. Venía de P22 (`42e913e`), no de la revisión del Mac; nunca se había probado contra un SFTP real.
+- **Arreglo (`EdicionRemota.swift`, `NetDeckWindows.swift`):** nuevo `enqueue` (como en `PanelBuscarRegistros`) conectado a `dispatcherQueue.tryEnqueue`; toda actualización de la interfaz desde la descarga, la subida y el vigilante pasa por él, y el vigilante guarda su propia fecha en vez de leer `ediciones` desde otro hilo.
+- **Edición remota tras el arreglo (verificado):** abre sin caerse («Listo — vigilando cambios»); dos archivos con el mismo nombre en carpetas distintas tienen copias locales distintas (`<id>_lab-wsl_prueba.txt`); un cambio en la copia local se sube solo (el servidor tuvo la línea nueva y la fila pasó a «Sincronizado»); «Parar» borra solo su copia local y al parar las dos no queda ninguna.
+- **Compilación:** release sin errores. No se han añadido tests (es código de interfaz, fuera del núcleo).
+- **Sin probar:** borrar una sesión con el archivo ilegible y el bloqueo del instalador en el actualizador.
+
+## 2026-11-25 · Mac · Buscador de registros: la lógica pasa al núcleo (SIN COMPILAR EN WINDOWS)
+
+- **Qué cambia:** `PanelBuscarRegistros.swift` ya no tiene su propio `grep`, `macPattern` ni `leerLineas`: llama a `NetDeckCore.LogSearch` (`Terminal/LogQuery.swift`, `LogSearch.swift`, `LogFileReader.swift`, con 20 tests en el Mac). Lee por trozos (nunca un archivo entero), corta cada línea a 4096 bytes y admite regex, mayúsculas, palabra completa, equipo y periodo; el IPv4 tiene bordes (192.0.2.1 no acierta en 192.0.2.11).
+- **El panel gana** las tres casillas (CheckBox), los selectores de equipo y de periodo (ComboBox), «N líneas en M archivos», el aviso de tope, «N archivos comprimidos sin leer» (los `.log.gz`: en Windows sólo se leen los `.log`), el reparto por equipo y el resaltado de las coincidencias (`Run` en el color de acento y negrita) en la lista y en el contexto.
+- **Sin cambiar `NetDeckWindows.swift`:** la firma de `show(carpeta:estilo:)` y las propiedades que se conectan (`onClose`, `onAbrir`, `onMostrar`, `enqueue`) son las mismas. Hay un `onCopiar: ((String) -> Void)?` nuevo: si `NetDeckWindows` lo conecta (portapapeles), salen «Copiar línea» y «Copiar ruta»; si no, esos dos botones se ocultan.
+- **Primera orden en Windows:** `git pull`, `swift build` y `windows/scripts/test.ps1 --no-parallel`; luego abrir el panel con unos registros de ejemplo (IPs 192.0.2.x) y comprobar que las casillas repiten la búsqueda, que el selector de equipo se llena y que el contexto resalta. Posibles ajustes de API: `Run.fontWeight`, `ComboBox.items.clear()` y `CheckBox.checked/unchecked`.
+- **Pendiente en Windows:** leer `.log.gz` (un `LogFileReader` propio, p. ej. con descompresión en Swift) y ↑/↓ + Retorno en la lista.
+
+## 2026-11-25 · Mac · Foco al abrir una pestaña (Mac arreglado; Windows SIN COMPILAR NI PROBAR)
+
+- **Síntoma (autor):** al abrir una pestaña nueva, por ejemplo desde el «+», el foco no iba a ella.
+- **Windows, sin verificar:** `focusTerminal()` se repite una vez en la vuelta siguiente del dispatcher (un `Flyout` o
+  `MenuFlyout` devuelve el foco al botón «+» al terminar de cerrarse, después de nuestro manejador del clic; ya lo
+  decía el comentario de `EditorSesion`), y `MenuNuevo.alCerrar` (evento `Closed` del flyout) lo vuelve a llevar al
+  terminal si no hay un panel abierto. Todo marcado `// no verificado en Windows`. **A comprobar en Windows:** que
+  compila (`flyout.closed.addHandler`) y que, tras «+» → Terminal local, un favorito o un grupo, se escribe sin un
+  clic; también tras el menú contextual de la barra lateral («Conectar») y el doble clic en una sesión.
+
+## 2026-11-25 · Windows · Verificación en Windows de la revisión del Mac
+
+- **Qué se ha hecho:** `git pull` de los cuatro commits del Mac (`cecfc9b`, `caf9c9e`, `b59891a`, `4646962`) y la primera orden que pedía su entrada.
+- **Compilación:** `desktop.ps1 -Configuration release` sin errores (incluye `SafeFile.replace` con `MoveFileExW`, `kill` con `TerminateProcess`, `UpdateChecker`, `SystemTools`, `SessionLog`, `ConnectionRoute`, `ConPTYProcess`, `EdicionRemota`, `NetDeckWindows` y `PanelAjustes`, que el Mac no podía compilar).
+- **Tests:** `windows/scripts/test.ps1 --no-parallel`: **557 tests en 93 suites en verde**. `tools/comprobar_formato.sh` («sin BOM ni CR», 216 archivos) y `tools/privacidad.sh` en verde.
+- **CI en GitHub:** `Windows (núcleo)` (ya en `windows-2022`, sin `continue-on-error`) y `Tests` en verde en el PR 7: compilar NetDeckCore, privacidad y tests del núcleo pasan.
+- **Revisión de los cambios de la app:** los símbolos nuevos (`archivoEditable`, `confirmarMulti`, `PasteRules.lines/dangerousLines/visible`, `SecretMask.masked`) existen y la lógica es coherente. No se ha probado a mano en la app: la confirmación de MultiExec ante órdenes peligrosas, borrar una sesión con el archivo ilegible, la copia local por edición remota y el bloqueo del instalador en el actualizador.
+- **La limpieza de `PanelAjustes.seccionActual`** que se hizo aquí (`/ecc:refactor-clean`) coincidía exactamente con la del Mac (mismo resultado de archivo), así que no hay commit propio por eso.
+
+## 2026-11-24 · Mac · Revisión del PR desde el Mac y arreglos (rama `windows/p14-escritorio`)
+
+Revisión del código compartido con macOS, del actualizador, del instalador, de los permisos del `ssh_config` y de los textos, con agentes de lectura y de implementación. `./test.sh` en el Mac: **716 tests en verde**, con privacidad y la nueva comprobación de formato.
+- **Arreglado:** acentos borrados por el editor de Windows (incluido un texto visible de macOS); un único reemplazo de archivos (`SafeFile.replace`, MoveFileExW con reintentos en Windows) en lugar de borrar y mover; `CredentialRenamer` con finales de línea CRLF; el instalador descargado queda bloqueado entre la comprobación y el lanzamiento y el instalador sin firma sólo se admite en DEBUG; telnet directo con `telnet.exe`; `kill()` que ya no finge éxito; búsqueda de `ssh.exe` limitada a carpetas del sistema; saltos con caracteres de cmd.exe rechazados; registro de sesión con ACL; borrar una sesión ya no puede dejar el archivo vacío; MultiExec de texto libre confirma las órdenes peligrosas; edición remota con una copia local por edición.
+- **Limpieza:** sin BOM ni CR en `Sources/`, `Tests/`, `tools/` y `.github/` (lo vigila `tools/comprobar_formato.sh`); borrado el borrador `windows/ci/windows-nucleo.yml` y un plan de trabajo de `.claude/plans/` que se había colado.
+- **CI de Windows:** los jobs `build` y `test` ya estaban en rojo (`STL1000` con `windows-latest`) y `continue-on-error` lo ocultaba. Ahora van en `windows-2022`, sin `continue-on-error`, con `--no-parallel`, y también para `main`. No se ha podido ejecutar Actions desde el Mac: el primer run puede seguir en rojo.
+- **SIN COMPILAR NI PROBAR EN WINDOWS:** todo lo marcado `// no verificado en Windows` y lo de `#if os(Windows)` tocado (SafeFile, WindowsTypes, SystemTools, UpdateChecker, SessionLog, SessionManager, ConnectionRoute, ConPTYProcess, EdicionRemota, NetDeckWindows, PanelAjustes). **Primera orden en Windows:** `git pull`, `swift build` y `windows/scripts/test.ps1 --no-parallel`; arregla lo que no compile.
+- **Pendiente:** lista completa y priorizada en el estado compartido del autor (el que lee la sesión de Windows con `gh gist view`): decisiones tomadas, código por arreglar, tests por reactivar (los desactivados con «pendiente P7»: hay dos causas, CRLF —ya arreglada— y el error 32, que se confirma con `--no-parallel` o Procmon) y paridad con el Mac. Lo que no se puede hacer sin tocar el comportamiento de macOS (resaltado ante los escapes de ConPTY, más órdenes peligrosas) espera a una pasada de demo en el Mac.
+- **Antes de fusionar a `main`:** pasada de demo en el Mac (`tools/verificar_demo.sh`), instalación en máquina limpia y CI de Windows en verde.
+
+## 2026-11-24 · Windows · Preparación del release: changelog, borrador del flujo y capturas
+
+- **`windows/CHANGELOG.md`:** la sección «0.9.0 (en desarrollo)» pasa a «Sin publicar» (la versión de Windows es la del repositorio y está por decidir: el MSI sigue en 1.0.1, que ya existe como release de macOS) con un comentario de que al publicar el título pasa a `## X.Y.Z`, que es lo que comprueba `windows-release.yml`. Añade lo de esta tanda: asistente de siete pasos, arrastre de pestañas, logo, selector de color, búsqueda en registros, fuentes incluidas, bordes más legibles, instalador sin ventanas de PowerShell y los arreglos (permisos del `ssh_config`, pestaña elegida gris, ventana separada con tema).
+- **Borrador `windows/ci/windows-release.yml`** (sigue sin activar; no se ha tocado `.github/workflows/`): nuevo paso «El ejecutable lleva el logo de NetDeck» tras compilar. Falla si falta `windows/Desktop/NetDeck.res` o si `NetDeckWindows.exe` no lleva ningún icono (`ExtractIconEx` con índice -1: 1 con el logo, 0 sin él; comprobado en local con `NetDeckWindows.exe` y `NetDeckAskpass.exe`). Sin esto, si en el runner faltara `llvm-rc`, `desktop.ps1` solo avisaría y la Release saldría con el icono genérico. Las acciones del borrador coinciden con las de los flujos activos (`checkout@v7`, `upload-artifact@v7`, `gha-setup-swift@v0.5.1`). No se ha podido validar el YAML con un analizador (no hay PyYAML) ni ejecutarlo en GitHub. Sigue el `continue-on-error` en los tests; la última ejecución de `windows.yml` completada en verde es del 18-11 y las dos posteriores estaban canceladas o en curso al revisarlo.
+- **Capturas:** `docs/capturas/windows-portada.png`, `windows-temas.png` y `windows-asistente.png` (1418×775, de la demo con perfil temporal y datos de ejemplo; recortadas 3 px por los bordes redondeados), incluidas en la sección «Windows» de `README.md` y `README.en.md`. `tools/privacidad.sh` en verde. Faltan capturas de SFTP, túneles y vista dividida.
+- **Sigue pendiente para el release:** pasada en el Mac, instalación en máquina limpia, firma Authenticode, copiar el flujo a `.github/workflows/` y fijar el número de versión (WiX, manifiesto y `UpdateChecker` a la vez); además CLAUDE.md/AGENTS.md de la raíz y el manifiesto de winget.
+
+## 2026-11-24 · Windows · Logo de NetDeck en el ejecutable y en el asistente
+
+- **Qué faltaba:** el `.exe` no llevaba icono incrustado (se comprobó extrayéndolo: el icono genérico de Windows), así que la barra de tareas, Alt+Tab, el Administrador de tareas, las ventanas separadas y los accesos anclados mostraban el icono por defecto. El logo solo estaba en el MSI (Aplicaciones instaladas y acceso del menú Inicio) y en los iconos del manifiesto.
+- **Arreglo:** nuevo `windows/Desktop/NetDeck.rc` (`1 ICON "Assets/NetDeck.ico"`); `desktop.ps1` lo compila con `llvm-rc` (de la toolchain de Swift) a `NetDeck.res` antes de `swift build` y `Package.swift` lo enlaza si existe (si falta `llvm-rc`, avisa y compila sin icono). `NetDeck.res` está en `.gitignore`. `desktop.ps1` copia ahora `windows/Desktop/Assets` junto al ejecutable (antes solo lo hacía el instalador).
+- **Asistente:** el paso de bienvenida muestra el logo (96 px, `Assets/Square150x150Logo.png` junto al `.exe`; si no está, no se muestra).
+- **Verificado:** el icono extraído del `.exe` compilado y del instalado es el logo; el asistente lo muestra en la demo (captura). La barra de tareas y Alt+Tab no se han visto en pantalla (barra de tareas oculta).
+- **Reinstalación:** MSI regenerado (61,3 MB) y app reinstalada con todo lo anterior (asistente, bordes, pestañas, permisos del ssh_config); el `.exe` instalado coincide con el compilado.
+- **Pendiente:** el CI de release (cuando exista `windows-release.yml`) tendrá que ejecutar el mismo paso de `llvm-rc`; logo en más pantallas (acerca de, pantalla vacía) como el banner del asistente del Mac.
+
+## 2026-11-24 · Windows · Revisión de pestañas con capturas (clic, ✕, mover, sacar, devolver)
+
+Probado en la demo (perfil temporal) con capturas y ratón real controlado desde Claude Code. Resultado:
+- **Clic y ✕:** seleccionan y cierran la pestaña (de 4 a 3 al cerrar la elegida).
+- **Mover:** la pestaña sigue al cursor, las vecinas se deslizan al hueco y al soltar se reordena. **Fallo encontrado y corregido:** no se podía llevar la elegida al primer puesto, porque la pestaña con ✕ es más ancha y su centro nunca superaba la mitad de la primera. Ahora se compara por el borde de avance (izquierdo al ir a la izquierda, derecho a la derecha). Comprobado con arrastres a ambos extremos.
+- **Sacar a otra ventana:** soltar fuera de la ventana principal separa la pestaña (la principal baja de 3 a 2 y aparece la ventana con «Devolver pestaña»); «Devolver pestaña» la reincorpora y cierra la ventana. La herramienta de pruebas no permite arrastrar sobre el escritorio, así que el destino fue una segunda ventana de la demo asomando fuera de la principal; el comportamiento sobre el escritorio es el mismo código (`punteroFueraDeVentana`) pero no se ha visto.
+- **Arrastre desde una ventana en segundo plano:** antes la detección usaba `GetActiveWindow` y podía fallar si el clic era el que activaba la ventana. Ahora usa la ventana bajo el cursor (`WindowFromPoint`, mismo proceso y misma posición que la principal). Comprobado arrastrando desde la principal con otra ventana delante.
+- **Color con el ratón encima:** la píldora elegida se veía gris mientras el cursor estaba sobre ella (la plantilla de `Button` pisaba el color del tema). Nuevo `EstiloMac.conservarColores` fija los estados «encima» y «pulsado» en cada pestaña (la elegida mantiene el azul del tema; las demás toman un tono de acento suave) y en los botones del asistente y de la ventana separada. Otros botones con color propio (chips de comandos, etc.) pueden tener el mismo gris; no se han tocado.
+- **Ventana separada con tema:** barra de título, franja superior y botón «Devolver pestaña» usan los colores del tema (antes barra blanca y franja negra).
+- **Asistente:** la navegación pasa arriba (en el paso de temas había que bajar al final), los botones tienen el estilo del tema (Siguiente relleno) y el tema elegido se marca con ✓ (el borde lo pisaba el estado «ratón encima»). Los siete pasos se recorrieron en la demo: tema (se aplica al momento), fuentes, contraseñas, resaltado (el interruptor repinta la vista previa), primera sesión (valida nombre y equipo) y resumen.
+- **Incidente:** `open_application` lanzó una instancia sin las variables de la demo que mostró sesiones reales del autor; se cerró al instante sin tocar nada.
+- **Pendiente:** ghost flotante de la pestaña fuera de la ventana (la del Mac), probar el arrastre sobre el escritorio real, el mismo arreglo de hover para chips y otros botones, y revisar SFTP/túneles/macros.
+
+## 2026-11-24 · Windows · Bordes y líneas más legibles (REC y botones de comandos)
+
+- **Queja del autor:** «las líneas no se distinguen bien, son muy finas o parecen pixeladas, sobre todo el botón de REC».
+- **Qué se vio (capturas de la demo, 1080p al 100 %, ClearType activo, sin problema de escalado):** el REC era un contorno rojo de 1 px con texto de 10 px; los botones de comandos («Interfaces», «Interfaz»…) tenían un borde de 1 px con el color al 35 %, casi invisible. En un monitor sin densidad Retina eso se ve fino y dentado.
+- **Cambio:** REC con borde de 2 px y texto de 11 px en peso 700 (`VistaTerminal.vestirRegistro`); borde de los botones de comandos al 75 %; borde de la tarjeta emergente al 50 %, de la barra lateral con el color de línea del tema, de la barra de estado al 60 %; botones de Ajustes al 60 % y tarjetas de Ajustes al 35 %.
+- **Verificación:** build release OK y capturas de la demo antes y después con zoom (el REC y los botones se distinguen mejor). No se han pasado los tests (solo cambian constantes de estilo). Falta revisar el resto de pantallas (Ajustes, SFTP, túneles) y otros temas.
+- **Incidente:** al pedir la ventana con `open_application` se lanzó una instancia sin las variables de la demo, que mostró sesiones reales del autor; se cerró al instante sin tocar nada. Para ver la demo hay que relanzarla con `desktop.ps1 -Demo`.
+
+## 2026-11-24 · Windows · Asistente de primer arranque ampliado (paridad con el del Mac)
+
+- **Antes:** tres paneles (bienvenida, primera sesión, «todo listo»); tema, fuentes, contraseñas y resaltado solo en Ajustes. El Mac tiene 7 pasos (`SetupWizard.swift`).
+- **Ahora (`AsistenteInicio.swift`):** siete pasos con indicador «n/7 · título», Atrás y Siguiente: Bienvenida → **Tema** (todos los de `TemasTerminal.disponibles()` agrupados, con 6 muestras de color; al hacer clic se aplica y la app adopta el tema al momento) → **Fuentes** (terminal e interfaz, más las recomendadas por el tema y su grupo, como en el Mac) → **Contraseñas** (interruptor de contraseña automática y modo de equipo «escribirla sola / sugerirla / nada») → **Resaltado** (interruptor con vista previa que se repinta) → Tu primera sesión (los datos se conservan al ir atrás) → Todo listo (resumen de lo elegido).
+- **Cableado:** `showAsistente` inyecta `settings`, `onChange` (→ `saveAjustes`, que guarda y aplica), `estilo` y `reglasDeVistaPrevia`. Se conservan los identificadores de automatización anteriores (`Asistente_Siguiente`, `_Crear`, `_Omitir`, `_Empezar`, campos) y se añaden `Asistente_Atras`, `Asistente_OmitirTodo`, `Asistente_Tema_<id>`, `Asistente_FuenteTerminal`, etc.
+- **Diferencias con el Mac:** sin vista previa al pasar el ratón por un tema (se aplica con el clic); sin paso «Ubicación» ni «Instalar» (el MSI instala y cada elección ya está guardada); las fuentes no necesitan Homebrew (van incluidas).
+- **Build y tests:** `desktop.ps1 -Demo -Configuration release` OK; `test.ps1 --no-parallel` 556 tests en 93 suites. Textos nuevos sin traducción al inglés en `Ingles.swift`.
+- **Verificación visual:** NO realizada. Pendiente de probar a mano: menú ⚙ → «Asistente de instalación…» (o `NETDECK_ASISTENTE=1`). En modo demo los ajustes se aplican pero no se guardan.
+
+## 2026-11-24 · Windows · ssh_config con permisos que OpenSSH rechazaba («Bad owner or permissions»)
+
+- **Síntoma:** `Bad permissions. Try removing permissions for user: DERECHOS DE PROPIETARIO (S-1-3-4) on file …\.config\netdeck\ssh_config`.
+- **Causa:** `SessionFile.prepare` creaba la carpeta con `createDirectory` y escribía el temporal con `write(atomically:)` sin pasar por `WindowsACL.restrict`, a diferencia de `SafeFile.write` (los demás archivos, como `recientes`, sí quedaban con usuario + SYSTEM). El `ssh_config` heredaba la ACL de `C:\Users\<usuario>\.config`, que tiene una entrada explícita «Derechos de propietario» (S-1-3-4) y ninguna del usuario; OpenSSH para Windows no la admite.
+- **Arreglo:** `prepare` aplica `WindowsACL.restrict` al temporal antes de moverlo (la ACL viaja con el archivo). Nueva `SessionFile.repairPermissions()` (no hace nada fuera de Windows): la app la llama al arrancar y antes de cada conexión (`open(_:)`, no en demo), de modo que un archivo reescrito por otro programa se corrige solo antes de que `ssh` lo lea. El archivo roto del autor se corrigió a mano con `icacls`.
+- **Tests:** 556 pasan (2 nuevos en `WindowsACLTests`: un `ssh_config` guardado y uno reparado quedan con exactamente 2 ACEs). Build release OK.
+- **Pendiente:** la app instalada es la anterior; hay que reinstalar el MSI para que lleve el arreglo. No se ha probado una conexión SSH real desde la app tras el arreglo.
+
+## 2026-11-24 · Windows · Arrastre de pestañas por sondeo Win32 (sustituye al intento de captura de puntero)
+
+- **Resultado de la prueba manual del autor con el intento anterior:** no arrastraba nada y las pestañas parpadeaban.
+- **Causa probable (no observada directamente):** `Button` marca `PointerPressed`/`PointerReleased` como manejados y WinUI no los entrega a handlers normales; `arrastrePestana` nunca se rellenaba. El parpadeo venía de reconstruir las pestañas en cada movimiento. `UIElement.addHandler(_, _, handledEventsToo)` de swift-winui envuelve el closure como objeto genérico, no como delegado, así que no se usó.
+- **Implementación (`NetDeckWindows.swift`):** se eliminaron los handlers de puntero de los `Button` de pestaña. `configurarArrastrePestanas()` lanza un bucle de 16 ms (patrón `Task.sleep` + `dispatcherQueue.tryEnqueue` ya usado por el reloj) que llama a `sondearArrastre()`: detecta el flanco de `GetAsyncKeyState(VK_LBUTTON)`, localiza la pestaña bajo el cursor por geometría (`ScreenToClient` + `rasterizationScale` + `transformToVisual`), excluye la ✕ de la pestaña elegida, arranca el arrastre a 8 px, reordena en vivo solo cuando cambia el índice (mínimo 120 ms entre reordenaciones, `updateLayout` tras cada una), atenúa la pestaña arrastrada (opacidad 0,55) y al soltar reordena o, si el cursor está fuera de la ventana y hay más de una pestaña, llama a `detach`.
+- **Animación (segunda iteración):** el reordenado en vivo reconstruía todas las pestañas y parpadeaba, y la pestaña no seguía al cursor. Ahora, al empezar el arrastre se selecciona la pestaña, se aplica un `TranslateTransform` a cada una y no se reconstruye nada hasta soltar: la arrastrada sigue al cursor (limitada a la barra, `Canvas.setZIndex` 10), las vecinas se deslizan con suavizado (0,35 por cuadro de 16 ms) al hueco que deja, y al soltar la arrastrada se asienta en su hueco (≈14 cuadros) antes de reordenar una sola vez. Fuera de la ventana la pestaña se atenúa (0,4) y las demás vuelven a su sitio; al soltar ahí se llama a `detach` (si hay más de una pestaña). Se eliminó `indicePestana`.
+- **Build y tests:** `desktop.ps1 -Demo -Configuration release` OK; `test.ps1 --no-parallel` pasó 554 tests en 93 suites. Nota: si la demo está abierta, el enlazado falla con «permission denied» sobre `NetDeckWindows.exe`; hay que cerrarla antes.
+- **Verificación visual:** el autor probó la primera versión de arrastre («se mueve») y, tras la animación, indicó «parece mejor». No se ha observado con captura automatizada. Pendiente de comprobar: soltar fuera de la ventana (`detach`), clic simple, ✕ y arrastre con vista dividida.
+
+## 2026-11-23 · Windows · (SUPERADO) Fix arrastre de pestañas con pointer capture a tabsScroll
+
+- **Build Release:** `desktop.ps1 -Demo -Configuration release` completó en 119 s. Exe: `NetDeckDesktopBuild/out/Products/Release-windows-x86_64/NetDeckWindows.exe`.
+- **Tests:** `test.ps1 --no-parallel` pasó **554 tests en 93 suites** (17.5 s). Sin regresiones.
+- **Diagnóstico:** WinUI 3 `ButtonBase.OnPointerReleased` libera internamente la captura del puntero antes de que dispare el handler externo `pointerReleased`; esto hacía que `PointerCaptureLost` llegara primero y borrara `arrastrePestana`, dejando `pointerReleased` sin estado y sin acción.
+- **Fix aplicado (`NetDeckWindows.swift`):**
+  1. En `construirPestanas()`: `tab.pointerPressed` captura en `tab` temporalmente (sin cambio); `tab.pointerMoved` detecta el umbral de 6 px y transfiere la captura de `tab` a `tabsScroll` (`tab.releasePointerCapture` → `tabsScroll.capturePointer`); `tab.pointerCaptureLost` solo borra `arrastrePestana` si `activo != true` (evita borrar estado durante la transferencia de captura). Se eliminaron `tab.pointerReleased` y la captura directa en `tab` para el drag.
+  2. Nueva función `configurarArrastrePestanas()` llamada una sola vez desde el setup (junto a `tabsScroll.pointerWheelChanged`): `tabsScroll.pointerMoved` hace reordenado en vivo (omite si los anchos aún son 0 tras un rebuild) y omite si el puntero está fuera de la ventana; `tabsScroll.pointerReleased` llama a `detach()` si fuera de la ventana o a `reordenar()` si dentro; `tabsScroll.pointerCaptureLost` limpia el estado.
+- **Resultado:** el `tabsScroll` (ScrollViewer) persiste entre reconstrucciones de `construirPestanas()`, no tiene maquinaria interna de captura que interfiera, y al tener la captura recibe `PointerMoved` y `PointerReleased` incluso fuera de los límites de la ventana.
+- **Verificación visual:** pendiente de comprobación manual por el autor. Acceso computer-use denegado en esta sesión; no se declara verificado el comportamiento. El autor debe: (a) arrastrar una pestaña a otra posición para reordenar (feedback visual inmediato); (b) arrastrar fuera de la ventana y soltar para abrir en ventana nueva; (c) verificar que un clic simple sigue seleccionando la pestaña correctamente.
+
+---
+
+## 2026-11-23 · Windows · Paridad P14 verificada y MSI 1.0.1 actualizado
+
+- **Build Release:** `desktop.ps1 -Demo -Configuration release` completó en 737 s. Exe actualizado: 23/11/2026 20:34 (40.1 MB). 76 TTF copiados al directorio de productos.
+- **Tests:** `test.ps1 --no-parallel` pasó **553 tests en 93 suites** (17.7 s). Sin regresiones.
+- **Fuentes verificadas por código:** `Arranque.swift` carga 44 TTF privados con `AddFontResourceExW(FR_PRIVATE)` al arrancar. `PanelAjustes.seccionFuentes()` muestra las 32 familias incluidas más las del sistema (Cascadia Code, Cascadia Mono, Consolas). `applySettings` vuelve a llamar `vestirTerminal` en todas las terminales abiertas y separadas; el cambio de fuente se aplica sin reiniciar. No se han incluido fuentes privativas de Apple/macOS: Menlo, Monaco y SF Mono se dibujan con Cascadia Mono. Todos los TTF llevan su licencia OFL/UFL.
+- **Colores verificados por código:** `PanelSelectorColor` muestra 49 muestras en rejilla 7×7, campo hexadecimal y previsualización; no usa ningún diálogo nativo de Windows. El color elegido persiste en `themeOverrides` de `UserDefaults`. El callback `onTemaElegirColor` está cableado en `NetDeckWindows.swift`.
+- **Pestañas — rueda:** verificada en sesión anterior (11 pestañas, scroll horizontal 0→109 sin cambiar pestaña activa).
+- **Pestañas — arrastre:** código completo (captura de puntero, `reordenar` si suelta dentro, `detach` si suelta fuera con nueva ventana y botón «Devolver pestaña»). **No se pudo verificar con automatización de ratón.** El autor debe probar manualmente: (a) arrastrar una pestaña a otra posición en la barra para reordenar; (b) arrastrar fuera de la ventana para abrir en ventana nueva.
+- **Barra superior verificada por código:** `construirIconos` omite los botones cuyo `id` está en `toolbarOcultos`; «+» y Ajustes se añaden siempre. `seccionGeneral` de Ajustes expone toggles para cada acceso opcional.
+- **Staging:** 216 archivos, 271.4 MB; `Fonts/` incluye 76 TTF. `archivos.wxs` regenerado.
+- **MSI 1.0.1:** regenerado (61.2 MB). Versión 1.0.1 en `NetDeckWindows.wxs`, `AppxManifest.xml`, `UpdateChecker` y `build-msi.ps1`.
+- **UAC — diagnóstico:** `EnableLUA=1`, `ConsentPromptBehaviorAdmin=5` (pide confirmación). El proceso de Claude Code NO está elevado. El aviso UAC no llegó al escritorio del autor porque el `Start-Process -Verb RunAs` se ejecutó desde el contexto no interactivo de PowerShell. **El autor debe instalar el MSI directamente** abriendo `%LOCALAPPDATA%\NetDeckInstaller\NetDeckWindows.msi` desde el Explorador de Windows, o ejecutando `msiexec /i "%LOCALAPPDATA%\NetDeckInstaller\NetDeckWindows.msi"` en una ventana de consola que él mismo abra.
+- **Pendiente (requiere intervención manual del autor):** verificación visual del arrastre de pestañas; instalación elevada con UAC visible → menú Inicio, asistente de primer arranque y accesibilidad desde la app instalada.
+
+## 2026-11-22 · Windows · Paridad e instalador 1.0.1
+
+- **Arranque y accesibilidad:** `Arranque.swift` aporta `@main` en STA, porque `SwiftApplication.main` de swift-winui 0.1.1 inicia WinUI en MTA. El recorrido UI Automation se completó sin cerrar la app; dos ventanas siguieron vivas durante esta sesión.
+- **Exe gráfico:** `Package.swift` pasa `/SUBSYSTEM:WINDOWS` y `/ENTRY:mainCRTStartup` con `-Xlinker`; el PE release informa subsistema 2. `desktop.ps1` sólo continúa si aparece `Build complete!`, aunque SwiftPM falle al crear el symlink de configuración.
+- **Build release y demo:** `desktop.ps1 -Demo -Configuration release` compiló correctamente y abrió el exe gráfico desde `NetDeckDesktopBuild/out/Products/Release-windows-x86_64` (41.998.848 bytes; compilación final 2026-11-22 19:03). El perfil fue temporal.
+- **Editor de sesión y conexión rápida:** el foco/selección abre en «Nombre». `HojaConexion` admite `usuario@equipo[:puerto]`, sesión guardada, salto de una lista y SSH/Telnet.
+- **FTP/SFTP:** FTP y SFTP suben y reemplazan tras confirmar; «Elegir…» sube al momento; fechas `yyyy-MM-dd HH:mm`; no hay scroll horizontal. Probado FTP local: listar, borrar recursivamente, subir y sustituir. El mensaje del stub de Linux ya no afirma que Windows no soporta FTP.
+- **Registros:** `DebugLog` escribe en `%APPDATA%\Terminal NetDeck\logs`. El panel «Buscar en todos los registros…» y el menú de lupa abren; previamente se comprobó una búsqueda MAC en formatos distintos con contexto. En esta demo la carpeta no tenía registros, así que aquí sólo se comprobó el estado vacío.
+- **Menús y ventanas:** la lupa ofrece «Buscar en la salida…» y «Buscar en todos los registros…». El engranaje ofrece Ajustes, Asistente, actualizaciones, Nueva ventana y registros. Se abrió la segunda ventana desde el menú; la UI Automation siguió respondiendo.
+- **Llavero:** panel reescrito como PasswordSettings; en demo muestra el almacén vacío, tipos, campos Nombre/Contraseña/Repítela y acciones. Se verificó la interfaz, sin escribir contraseñas ni guardar credenciales.
+- **Resaltado:** «Abrir en el editor…» creó la copia `resaltado.yml` en el perfil temporal de demo y la abrió en VS Code; el ajuste pasó a origen personalizado.
+- **Fuentes:** el selector incluye las familias recomendadas por los temas. El exe carga en privado 44 TTF de 32 familias empaquetadas, con sus licencias OFL/UFL; Consolas es de Windows. Menlo, Monaco y SF Mono se dibujan con Cascadia Mono, ya que son exclusivas de macOS. La carpeta `Fonts` se copia al release y al MSI.
+- **Aplicación de fuentes:** `applySettings` vuelve a vestir las terminales abiertas y separadas al cambiar familia, tamaño o interlineado; antes el ajuste persistía, pero no se reflejaba en terminales existentes.
+- **Color y pestañas:** los colores de temas y resaltado abren un selector propio con muestras y campo hexadecimal. En demo se eligió Atkinson Hyperlegible Mono y se aplicó `#ff9900` desde el control integrado. Se sustituyó el arrastre nativo de WinUI por captura del puntero: al soltar dentro reordena y al soltar fuera separa la sesión en una ventana nueva. La rueda aplica desplazamiento horizontal continuo sólo si hay desbordamiento y no cambia la selección; con 11 pestañas, la demo movió el valor del scroll horizontal de 0 a 109 sin alterar la pestaña activa. El arrastre se compiló, pero no se pudo verificar de forma fiable con la herramienta de ratón automatizada.
+- **Barra superior:** General permite mostrar u ocultar los accesos opcionales. «+», Ajustes y los controles de acciones activas quedan siempre visibles.
+- **Versión y exe:** `UpdateChecker`, `AppxManifest.xml`, WiX y `build-msi.ps1` indican `1.0.1`. El PE informa subsistema 2; el proceso de demo quedó ejecutándose sin consola.
+- **Tests:** `test.ps1 --no-parallel` pasó 553 tests en 93 suites. La comprobación de controles por ratón la hizo el autor y confirmó que todos responden. También se verificó previamente el recorrido UI Automation sin que cerrara la app.
+- **Instalador:** staging con 216 archivos (271,4 MB). Se corrigió en `build-msi.ps1` la carpeta de origen predeterminada para que coincida con la salida predeterminada de `preparar-instalador.ps1` (`files`). WiX generó `%LOCALAPPDATA%\NetDeckInstaller\NetDeckWindows.msi` (61,2 MB), versión 1.0.1; `wix msi validate` terminó correctamente con avisos ICE60 de idioma en archivos. UAC está activado en Windows. El intento elevado devolvió «El usuario ha cancelado la operación»; el autor indica que no vio el aviso.
+- **Pendiente:** completar la instalación elevada y comprobar menú Inicio, asistente de primer arranque y accesibilidad desde la aplicación instalada. Los gestos de rueda y arrastre también necesitan validación manual. No firmado; ControlMaster queda fuera de alcance (OpenSSH de Windows).
+
+## 2026-11-19 · Windows · Paridad de escritorio y documentación
+
+- En `windows/p14-escritorio` quedaron integrados el selector nativo y `.mobaconf`, el menú «+» y los menús
+  contextuales, el historial y la selección del terminal, los filtros y el registro con ● REC.
+- Ajustes de Contraseñas, Temas, Fuentes, Resaltado, Registro y Listas. El editor admite saltos, clave, notas,
+  credenciales y perfil por sesión. Consola COM con BREAK, SFTP lateral, lotes por SSH y MultiExec en vivo.
+- La vista dividida tiene seis disposiciones y guarda las proporciones de los separadores en los espacios de
+  trabajo. Se corrigieron la búsqueda vacía de la barra lateral y la validación previa de dispositivos COM.
+- La compilación con `desktop.ps1 -Demo` y `NETDECK_BUILD_ONLY=1` dejó la ventana cerrada. Pasaron 553 pruebas
+  del núcleo en 93 suites con `test.ps1 --no-parallel`. La demo mantiene su `ssh_config` y `known_hosts` temporales.
+- En la ventana se observaron el selector, una importación selectiva de CSV, el menú «+», la barra lateral,
+  el CRT, la rueda del historial y la marca ● REC. La comprobación visual de la última compilación sigue pendiente,
+  incluidos `.mobaconf` de extremo a extremo, BREAK físico, SFTP lateral y MultiExec. [Informe](resultados/escritorio-2026-11-19.md).
+- Se sincronizaron las guías pública y técnica, los atajos, el historial de cambios y el índice de resultados.
+  [Guía de Windows](README.md) · [Compilación y pruebas](../docs/agentes/windows.md#compilación-y-pruebas).
+- Se incorporó el plan histórico de Claude Code y Codex (retirado del repositorio: era un archivo de trabajo de `.claude/`) con rutas relativas y una referencia a la guía de pruebas actual.
+
+## 2026-11-18 · Windows · P24-IntegracionPaneles: HojaConexion + EdicionRemota + ImportadorSesiones conectados
+
+- Botón "Conexión rápida" en toolbar → HojaConexion; `onConectar` construye `ConnectionRoute` y llama a `open()`.
+- Botón "Editar remoto" en toolbar → PanelEdicionRemota; `onDescargar`/`onSubir` wired a `sftpDescargar`/`sftpSubir` (reutilizan `SFTPFileSystem` + `Transfer`).
+- Botón "Importar" en toolbar → PanelImportador; `onImportar` llama a `saveSession` en bucle y muestra recuento.
+- `showPanel`: gestión de visibilidad para los 3 paneles.
+- `Ingles.swift`: traducciones para los 3 paneles y sus strings de UI.
+
+## 2026-11-18 · Windows · P21-SidebarAvanzada: grupos plegables, menú contextual y borrar sesión
+
+- `buildSidebar`: búsqueda extendida por nombre, host y usuario; grupos plegables con persistencia en `UserDefaults` (clave `"ndGruposPlegados"`).
+- `makeSidebarGrupoHeader`: cabecera de grupo plegable con chevron (▶/▼) que activa/desactiva el grupo al hacer clic.
+- `makeSidebarRow`: punto indicador (●) si la sesión está abierta en un terminal; menú contextual al hacer clic derecho (Conectar, Editar, Duplicar, Añadir/Quitar favoritas, separador, Borrar sesión).
+- Nuevas funciones: `duplicateProfile`, `confirmDeleteProfile`, `deleteProfile`, `recargarSesiones`.
+- `showPanel`: gestiona visibilidad y limpieza de `borrarSesion` igual que `macroConfirm`.
+- `onLaunched`: `borrarSesion` incluido en el loop de paneles; footer del sidebar reemplazado por `piedePie` (StackPanel) con botón Nueva sesión + botón Recargar (↺).
+- `Ingles.swift`: traducciones para "Borrar sesión", "Recargar sesiones", "Sesiones recargadas", "Esta acción no se puede deshacer.", "Sesión borrada", "No se puede borrar".
+
+## 2026-11-18 · Windows · P23-ImportadorSesiones: panel de importación de sesiones
+
+- Nuevo fichero `windows/Desktop/Sources/NetDeckWindows/ImportadorSesiones.swift`.
+- `PanelImportador`: panel WinUI 3 con `ScrollViewer` como raíz. TextBox para introducir la ruta del fichero o carpeta (sin `FileOpenPicker`, no disponible en swift-winui 0.1.1).
+- Botón "Leer fichero" llama a `SessionImporter.read(url:existing:)` (ya implementado en `NetDeckCore`) para parsear SecureCRT (.ini/carpeta), MobaXterm (.mxtsessions), PuTTY (.reg), electerm (.json), CSV y ssh_config sin reimplementar lógica.
+- Muestra resumen de formato detectado, número de sesiones encontradas y omitidas (duplicados), lista previa de hasta 25 sesiones con nombre y host.
+- Botón "Importar N sesiones" llama al callback `onImportar([EditableSession])`. Integración en `NetDeckWindows.swift` pendiente.
+
+## 2026-11-18 · Windows · P22-EdicionRemota: panel de edición de ficheros remotos
+
+- Nuevo fichero `windows/Desktop/Sources/NetDeckWindows/EdicionRemota.swift`.
+- `PanelEdicionRemota`: panel WinUI con `ScrollViewer` como raíz (patrón habitual). Permite al usuario indicar nombre de sesión + ruta remota y lanzar una descarga vía callback `onDescargar`.
+- Struct `RemoteEdit` rastrea cada edición activa: sesión, ruta remota, URL local, estado, fecha de última modificación y `Task` de vigilancia.
+- Polling cada 2 s con `Task.sleep(nanoseconds:)`: compara `modificationDate` del fichero local; si cambió llama `onSubir` para re-subirlo.
+- `stop(_ id:)` cancela el Task y elimina la entrada.
+- Integración en `NetDeckWindows.swift` pendiente (callbacks `onDescargar`/`onSubir` apuntarán al explorador SFTP existente).
+
+## 2026-11-18 · Windows · P22a: HojaConexion — modal de conexión rápida
+
+- `HojaConexion.swift`: panel WinUI 3 con TextBox equipo (Hoja_Host), salto SSH opcional (Hoja_Salto), usuario (Hoja_Usuario), ComboBox transporte SSH/Telnet/SFTP/FTP/Serial/Local (Hoja_Transporte), botones Conectar (Hoja_Conectar) y Cancelar (Hoja_Cancelar).
+- `show()` resetea campos y pone foco en hostBox. `onConectar` callback con (host, jumpHost?, usuario, SessionTransport).
+- Integración en NetDeckWindows.swift pendiente.
+
+## 2026-11-18 · Windows · P16: sidebar búsqueda + favoritas + recientes
+
+- buildSidebar(filter:): TextBox de búsqueda (Sidebar_Buscar) con reconstrucción incremental al escribir. Cuando el filtro está vacío se muestran secciones «↻ Recientes» y «★ Favoritas» antes de los grupos existentes.
+- makeSidebarRow: cada fila añade botón ★/☆ (col 1, antes de editar) que persiste favoritas con SessionLists.saveFavorites en AppPaths.netdeck/favoritas. AutomationId «Fav_<nombre>», setName L("Añadir/Quitar de favoritas").
+- makeSidebarHeader: extracción del header de grupo para reutilización en las tres secciones.
+- openProfile: llama SessionLists.noteRecent para registrar el reciente (AppPaths.netdeck/recientes) antes de abrir, luego reconstruye la barra lateral.
+- Propiedades nuevas: favoritas: Set<String>, recientes: [String], favoritasURL, recientesURL (computed, apuntan a AppPaths.netdeck).
+- Ingles.swift: 3 entradas nuevas («Buscar sesión…», «Añadir a favoritas», «Quitar de favoritas»). «Favoritas» y «Recientes» ya existían. IdiomaTests 6/6.
+- Privacidad en verde en ficheros fuente; las rutas detectadas son del plan .claude/ local, sin seguimiento en git.
+
+## 2026-11-18 · Windows · P17: comprobación de actualizaciones y accesibilidad
+
+- WinUI consulta al arrancar si han pasado 24 horas desde el último intento. El aviso reutiliza el panel de actualización y espera a que se cierre cualquier panel abierto. Descargar e instalar requiere la confirmación del usuario.
+- Las filas de sesiones y las pestañas exponen su nombre a UI Automation. Los botones de favoritas corresponden a P16.
+- Compilación WinUI y 551 tests en 93 suites en verde con `windows/scripts/test.ps1 --no-parallel`. La pasada paralela encontró un bloqueo de archivo transitorio en `DeviceListTests.guardarYLeer`.
+- Una prueba aislada verificó que la demo omite la consulta, que se aplica el intervalo de 24 horas y que el aviso espera al cierre del panel. La demo abrió el terminal y se mantuvo estable sin inspector. Al consultar el árbol UIA, WinUI se cerró con `0xC000027B` y el informe de Windows registró `RPC_E_WRONG_THREAD`. El mismo cierre se reprodujo con el commit previo a P17 (`1ad4317`). Queda pendiente comprobar los nombres con un lector de pantalla.
+- Integración P16 y P17 (`6661d2f`): la demo arrancó y se mantuvo estable sin inspector. Compilación WinUI, 551 tests secuenciales y privacidad en verde. Los 9 tests específicos de `UpdateCheckerWindowsTests` también pasaron.
+
+## 2026-11-18 · Windows · P15-B: panel de gestión de credenciales del Llavero de Windows
+
+- **`PanelLlavero`** (nuevo): panel con ComboBox de credenciales, TextBox de nombre, PasswordBox (nunca muestra el secreto en claro), botones Guardar / Borrar (confirmación en dos clics) / Recargar / Cerrar. Muestra qué botones usan cada credencial (modos `.pass` y `.login`). Se abre con Ctrl+Shift+K y desde «Gestionar contraseñas…» en Ajustes.
+- **`PanelAjustes`**: botón «Gestionar contraseñas…» con `AutomationId` `Ajustes_GestionarContrasenas`. Callback `onManagePasswords` al panel principal.
+- **`NetDeckWindows.swift`**: registro del panel (Grid row 2), shortcut Ctrl+Shift+K (key 75 where shift), `showLlavero()`.
+- **`Ingles.swift`**: 12 nuevas entradas L() para el Llavero de Windows. Se corrigió la clave duplicada `"¿Borrar «%@» del Llavero?"` (renombrada a `"…de Windows?"` para distinguirla de macOS) y se eliminó el duplicado preexistente `"Expresión regular"` de P14. IdiomaTests: 6/6 en verde.
+- Privacidad en verde en ficheros fuente; las rutas detectadas son del plan `.claude/` local, sin seguimiento en git.
+
+## 2026-11-18 · Windows · P15-A: teclas de función y atajos de botón
+
+- F1–F12 envían secuencias xterm con Shift, Alt y Ctrl. Si la combinación está asignada a un botón, la ventana principal y las separadas reutilizan el flujo de ejecución del botón sobre la pestaña de origen, con las comprobaciones y confirmaciones habituales.
+- Compilación WinUI en verde con `windows/scripts/desktop.ps1`. Se corrigió el aislamiento de `loginSequence` de P14 con `@MainActor`, necesario para acceder a la entrada del terminal.
+- Validación: 96 combinaciones comprobadas con `FunctionKey.name` y `ButtonTests/teclasDeFuncion` en verde. Privacidad en verde al excluir de la comprobación el plan local sin seguimiento, que contiene rutas personales.
+- Los atajos se incorporaron en el mismo commit que P15-B (`1ad4317`). P15-B corrigió el duplicado de traducción de P14 y la suite completa volvió a pasar en modo secuencial. Queda pendiente la prueba interactiva de los atajos.
+
+## 2026-11-17 · Windows · P14: editor avanzado de pasos, 6 modos de botón y traducciones
+
+Rama `windows/p14-escritorio`. Continuación del commit anterior.
+
+- **Editor avanzado de pasos de macro** (`PanelMacros`): botón «Pasos avanzados →» alterna entre la caja de texto simple y un editor visual con ComboBox de pasos, botones Añadir / Eliminar / ↑ / ↓, selector de tipo de paso (`Enviar`, `Esperar prompt`, `Esperar texto`, `Pausa`), campo de texto y campo de segundos. Las macros con pasos avanzados existentes abren directamente en modo avanzado; las simples se pueden convertir y viceversa.
+- **6 modos de botón de órdenes** (`PanelBotones`): el desplegable ahora muestra los 6 modos (`run`, `type`, `pass`, `clave`, `login`, `session`). El encabezado de la orden cambia según el modo; el atajo de teclado (`F5`, `S-F5`, `M-F5`, `C-F5`) se guarda y se muestra.
+- **Ejecución de `.clave` / `.pass` / `.login`** (`NetDeckWindows.swift`): `.clave` escribe la contraseña literal si el cursor ya muestra un prompt de contraseña; `.pass` la lee del Llavero Windows (CredReadW) y la envía igual; `.login` lanza `loginSequence` en background, que espera el prompt de usuario (hasta 30 s), envía el usuario, espera el prompt de contraseña (30 s) y envía la contraseña; `AbortSwitch` y `pararAutomatizacion` permiten cancelar.
+- **Traducciones** (`Ingles.swift`): 20 nuevas entradas para las cadenas de los modos de botón y del editor avanzado de pasos.
+- Privacidad en verde. Tests del núcleo pendientes de verificar (no se ejecutaron en esta sesión).
+
+## 2026-11-17 · Windows · Renderizado completo del terminal (fondos ANSI, cursor, filtro)
+
+Rama `windows/p14-escritorio`. Commit `c6b4085`.
+
+- **Fondos por celda:** `VistaTerminal` dibuja un `Border` en un `Canvas` dedicado para cada celda con fondo explícito (incluye la inversa y los fondos de selección de PSReadLine).
+- **Cursor de línea:** capa `cursorLayer` con un `Border` de 2 px de ancho en la posición del cursor de SwiftTerm; se oculta/muestra por las secuencias ANSI correspondientes.
+- **Negrita, cursiva, subrayado:** `Run.fontWeight`, `Run.fontStyle` y `Run.textDecorations` en cada trozo de texto; `coloredLines` los extrae de `cell.attribute.style`.
+- **Inversa:** `coloredLines` intercambia fg/bg cuando `style.contains(.inverse)`; cubre las selecciones del prompt de PSReadLine.
+- **Filtro de pantalla:** `FiltroTerminal` (nuevo) aplica las capas de `ScreenLook` (escáner, rejilla, fósforo, holograma, viñeta, tinte) sobre el terminal sin bloquear el ratón ni el teclado. `PanelAjustes` tiene selector de filtro, intensidad y la lectura del contraste alto de Windows.
+- **Resaltador:** `Highlighter` del núcleo se activa/desactiva por pestaña; `PanelAjustes` permite editarlo con un editor YAML; el archivo `Resaltado/netdeck.yml` se incluye en el instalador y en el directorio de desarrollo. Los fondos de resaltado también se ven con el nuevo renderizado.
+- Verificado en la sesión anterior en pantalla: todas estas funciones (CRT, neonqa con magenta) pasaron las pruebas visuales. Los tests del núcleo dieron 551 en verde.
+## 2026-11-17 · Windows · Arrastre y ventanas de terminal
+
+Se pueden reordenar las pestañas arrastrándolas. El menú contextual mueve una pestaña activa a una ventana separada, con su ConPTY y su búfer intactos. «Devolver pestaña» la trae de vuelta a la ventana principal. Comprobados el orden tras arrastrar, la escritura en la ventana separada y la conservación de su salida al volver.
+
+Compilación y 551 tests en verde en la pasada secuencial. La pasada paralela anterior tuvo dos errores transitorios de archivos de prueba.
+
+## 2026-11-17 · Windows · Grabación de macros, botones y salto SSH
+
+Las macros admiten grabación del teclado con `MacroRecorder`, edición de órdenes simples, confirmación opcional y borrado con confirmación. Las macros existentes con pasos avanzados conservan esos pasos. Los botones de órdenes (`Ctrl+Mayús+B`) leen y guardan `botones.txt` y permiten escribir, ejecutar o abrir una sesión. Los modos de contraseña y login quedan pendientes.
+
+Verificados en pantalla la grabación de tres órdenes, la exclusión de una contraseña de prueba, editar el nombre de la macro y ejecutar un botón. OpenSSH entró en un bastión de prueba y en el destino mediante `ProxyJump`, usando dos credenciales guardadas de cuentas distintas. Compilación, privacidad y 551 tests del núcleo en verde.
+
+## 2026-11-17 · Windows · Explorador FTP y operaciones SFTP
+
+El explorador usa `RemoteFileSystem` para conectar a una sesión FTP directa. Pide la contraseña en un campo oculto e informa de que FTP no cifra. FTP permite listar y descargar, crear carpetas, borrar y calcular MD5. La subida y el renombrado requieren que el servidor permita publicar sin sobrescribir y quedan disponibles en SFTP.
+
+El menú contextual de SFTP añade mover a otra carpeta, calcular MD5 y editar archivos de texto UTF-8. El editor usa `RemoteEdit`, compara la versión remota antes de publicar y conserva la copia local si hay conflicto. Se corrigió la lectura de los listados FTP con terminación CRLF en Windows.
+
+Probados el acceso y listado FTP en un servidor local, y el MD5, la edición, el conflicto y el traslado sobre SFTP. Compilación y 551 tests en verde, incluida la regresión de los listados CRLF.
+
+## 2026-11-17 · Windows · Pegado seguro con espera por orden
+
+`Ctrl+Mayús+V` y «Pegar» permiten revisar un bloque completo antes de enviarlo a la pestaña SSH o Telnet que estaba activa al abrir la revisión. Usa `SafePaster`, exige un prompt de partida y muestra el resultado. Esc, Ctrl+C o «Detener envío» lo cortan. El terminal local conserva el pegado con vista previa.
+
+Probado con OpenSSH local: dos órdenes llegaron en secuencia y una segunda prueba se detuvo al pedir contraseña, con una de dos órdenes enviada. Pasaron 44 tests centrados en pegado, macros e idioma. La pasada completa tuvo un fallo intermitente de acceso a archivos en `DataBackupTests`.
+
+## 2026-11-17 · Windows · P14: vista dividida, espacios e historial
+
+Rama `windows/p14-escritorio`, con P13 y los iconos del instalador integrados.
+
+- Dos terminales interactivos y redimensionados por separado. El foco sigue al clic o a la pestaña elegida. Ajustes permite ponerlos en paralelo o apilados y cambiar el interlineado. La demo no guarda estos cambios en las preferencias reales.
+- El panel de espacios usa `WorkspaceLibrary`, guarda la disposición de dos paneles y restaura terminales locales y pestañas SSH como conexiones nuevas.
+- `Ctrl+F` busca en el historial disponible de la pestaña y muestra las últimas 200 líneas coincidentes, con su número de fila.
+- Se corrigió un truncamiento del texto de WinUI al redimensionar y encontrar NUL en el búfer de SwiftTerm.
+- Comprobados en pantalla el teclado y la salida en los dos paneles, la orientación apilada, guardar y restaurar un espacio de dos pestañas y buscar una cadena en el historial. El build compiló y la última pasada dio 550 tests en verde. La primera tuvo dos fallos intermitentes de archivos en suites preexistentes.
+
+## 2026-11-17 · Windows · P13: askpass de pestañas SSH y panel de macros
+
+Rama `windows/p13-askpass-macros`, basada en P12 (`15089ec`).
+
+- `NetDeckAskpass.exe` se incluye junto a la aplicación en el MSI. Las pestañas SSH le pasan el perfil, la ruta y un UUID por conexión. El ayudante usa el `Askpass` del núcleo y su consola Windows. Una contraseña guardada se usa una vez por pregunta de SSH. Si falla, se pide que la escribas sin eco y se ofrece guardarla en el Administrador de credenciales.
+- ConPTY ahora entrega al proceso el bloque Unicode de entorno que prepara la pestaña, usando la misma serialización que los procesos de Windows del núcleo. Antes ignoraba el parámetro y heredaba el entorno de la aplicación. Hay una prueba de regresión para ese caso.
+- «Macros» (`Ctrl+M`) crea listas de órdenes y reproduce las macros guardadas en la pestaña SSH o Telnet activa. Se usa `MacroLibrary` y su archivo `macros.json`. `MacroPlayer` espera el prompt entre órdenes y detiene la reproducción ante errores, paginadores, secretos o cancelación. Las órdenes peligrosas requieren confirmación.
+- Verificado en pantalla con OpenSSH de Windows y un servidor local de prueba: conexión con credencial guardada, entrada manual sin eco y sustitución ofrecida al fallar la guardada. También se lanzó desde los archivos del instalador en una carpeta con espacios. Probadas la creación y reproducción de dos órdenes, y la detención ante `Password:`.
+- Privacidad en verde y 550 tests del núcleo en 93 suites en verde en la última pasada. En intentos previos hubo fallos intermitentes de acceso a archivos en las pruebas de copia y renombrado.
+- El build de escritorio, la preparación del MSI y la validación ICE pasaron. Queda probar `-J` y una instalación en Windows limpio. El SFTP y los túneles quedan fuera de esta integración. La grabación y la edición de macros quedan pendientes para la paridad completa.
+
+## 2026-11-17 · Windows · P12: resumen (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. P12 hecho en sus dos bloques, probado en pantalla.
+
+- `373bc85` **explorador SFTP:** renombrar, carpeta nueva y borrar (con recarga). `def272a` **temas de NetDeckCore en el terminal:** paleta, fondo, texto y color por trozo de texto.
+- Entre los dos, `dc651f1`: el borrador del workflow sube el `.msi` a la Release del tag de macOS (decisión del autor), sin crearla.
+
+### Abierto
+- **Temas:** sólo el color del texto; falta el fondo por celda, la negrita, el subrayado, la inversa y el cursor. No se ha medido el rendimiento con salidas muy largas.
+- **SFTP:** borrar no es recursivo (una carpeta no vacía da error); no hay selección múltiple ni arrastrar y soltar.
+- Lo de antes: `.msi` en un Windows limpio, firma, activar el workflow (`WINDOWS_RELEASE=true` y copiarlo a `.github/workflows/`), `SSH_ASKPASS.exe`, versión de Windows (ahora igual a la del repositorio), `README.en`/capturas de Windows y `comandos.md`/`arquitectura.md`.
+
+## 2026-11-17 · Windows · P12: los temas de NetDeckCore en el terminal (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. Los 85 temas de NetDeck se aplican ya al terminal de Windows. Compila sin avisos y está **probado en pantalla** (capturas): se elige el tema en Ajustes, y se ven el fondo, el texto, los colores ANSI (`Write-Host -ForegroundColor …`, el resaltado de PSReadLine)
+y una pestaña nueva con el mismo tema; «(Predeterminado)» vuelve al aspecto del sistema.
+
+- **No hizo falta un delegado ni secuencias OSC:** `SwiftTerm.Terminal` expone `installPalette(colors:)`, `foregroundColor`, `backgroundColor` y `cursorColor`; `PestanaTerminal.apply(palette:)` los pone.
+- **Pero el terminal de Windows pintaba el texto en un `TextBlock` liso, y con eso la paleta no se veía.** Ahora, con un tema, `PestanaTerminal.coloredLines` agrupa cada línea en trozos del mismo color de texto (lee `getCharData` y `Attribute.fg`: ANSI 16, 256 y color verdadero) y la ventana los pinta con un `Run` por trozo
+  (sólo si cambia algo desde la última vez). **Límites:** sólo el color del texto; no se pinta el fondo por celda, ni negrita, subrayado, inversa (selecciones de PSReadLine) ni el cursor. Sin tema se queda como antes, texto liso.
+- `TemasTerminal.swift` (nuevo): la carpeta de temas (`Temas` junto al exe, o `NETDECK_TEMAS` en desarrollo), `ThemeLibrary` de NetDeckCore y `PaletaTerminal` (usa `Theme.solid`: sin transparencias). `Theme.all` no existe; es `ThemeLibrary(appDirectory:).all()`.
+- Ajustes: segundo selector «Colores del terminal» («(Predeterminado)» y los temas). **Guarda el id del tema** (no el nombre, que se traduce) bajo `ndTemaNombre`. Es independiente del tema de la ventana (Mica/claro/oscuro), que no se toca.
+- `preparar-instalador.ps1` copia la carpeta `Temas` del repositorio a la carpeta del instalador (sin ella, sólo estaría el tema original y los importados).
+- Documentación al día (README de Windows y de la raíz en castellano e inglés, CHANGELOG): los temas sólo colorean el terminal.
+- **Sin probar:** el rendimiento con salidas muy largas (se reconstruyen los `Run` en cada cambio de pantalla) y los temas con fondo claro en la ventana oscura. **Pendiente:** reinstalar la paleta al volver a «(Predeterminado)» (SwiftTerm no tiene un `reset` público; la ventana sí vuelve al aspecto de antes).
+
+## 2026-11-17 · Windows · P10: el .msi va en la misma Release que el .dmg (borrador del workflow) (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. Decisión del autor: el `.msi` se adjunta a la Release del tag de macOS (`vX.Y.Z`, sin sufijo) y `UpdateChecker` no cambia (sigue con `releases/latest`).
+`windows/ci/windows-release.yml` (sigue siendo un **borrador** en `windows/ci/`, no en `.github/workflows/`) se ajustó a eso. Esto cierra el «a decidir» de la entrada del borrador.
+
+- Disparador `v*.*.*` (el mismo que `release.yml`) y a mano. En los tags sólo corre si la variable del repositorio `WINDOWS_RELEASE` vale `true` y el tag no acaba en `-windows`: un tag de sólo macOS no lo dispara ni lo pone en rojo.
+- La versión de Windows pasa a ser la del repositorio: el paso de versiones exige tag = `NetDeckWindows.wxs` = `AppxManifest.xml` = `UpdateChecker.currentVersion` (probado: pasa con `v0.9.0`; falla con `v0.9.0-windows` y con `v1.0.1` mientras las cuatro digan 0.9.0).
+  Hay que subir las cuatro a la vez al preparar una release, como `install.sh` en macOS. Con esto la pregunta «0.9.0 frente a 1.0.0» pasa a ser «con qué número sale la primera release con `.msi`».
+- **Cambio importante respecto al encargo: el job NO crea la Release, sólo le sube el `.msi`** (`gh release upload`, tras esperar hasta 60 minutos a que exista). El encargo proponía `softprops/action-gh-release`, que **crea la Release si no existe**, y decía que
+  «el workflow de macOS añadirá el .dmg»: no es así. `release.yml` acaba con `gh release create «tag» …dmg`, que **falla si la Release ya existe**; si Windows llegara antes, la release de macOS se rompería. Tampoco se pone título, notas ni `prerelease`
+  (las del `.dmg` quedan intactas); `--clobber` sólo para repetir el job. Se suben el `.msi` y su `.sha256`, que `UpdateChecker` usa.
+- Las notas de la Release ya no las pone este job: sólo se comprueba que `windows/CHANGELOG.md` tiene la sección de esa versión (probado, también el fallo).
+- Sin probar: el runner de GitHub y la espera/subida real (`gh` necesita autenticación y tocaría el repositorio del autor).
+
+## 2026-11-17 · Windows · P12: explorador SFTP, renombrar, carpeta nueva y borrar (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. `ExploradorSFTP.swift`: tres operaciones nuevas y recarga de la lista después de cada una. Compila sin avisos y está **probado de verdad** contra un `sftp-server` local
+(el de Git for Windows, con `NETDECK_SFTP_SERVER` en la demo), con capturas.
+
+- **API del núcleo:** `SFTPFileSystem` tiene `rename(_:to:)`, `makeDirectory(_:)` y `remove(_:directory:)` (todas `async throws`); no existen `mkdir` ni `remove(_:)` como decía el encargo.
+- **Renombrar** (✎ en cada fila), **borrar** (🗑) y **«+ Carpeta»** (cabecera) comparten una barra de acción bajo la cabecera: un texto y Confirmar/Cancelar (Intro confirma), o la pregunta «¿Borrar «x»?» con Borrar/Cancelar.
+  **Sin `ContentDialog`**, como en el resto de la interfaz (no hay uno sencillo en swift-winui 0.1.1).
+- Validación y errores: el nombre se valida con `RemotePath.isValidName` (sin `/`, sin `..`); si ya existe en la carpeta (`lookup`), se avisa en lugar de pisarlo. Los fallos van a la barra de estado con el motivo del servidor.
+- **Borrar no es recursivo:** una carpeta no vacía da «No se puede borrar «x»: Failure» (el servidor no explica más) y el aviso del diálogo ya lo anuncia («Sólo se borran carpetas vacías»). Un enlace a una carpeta se borra como enlace.
+- Probado: renombrar una carpeta, crear otra, borrar una carpeta vacía y el error al borrar una no vacía. **No probado:** borrar un archivo suelto (usa el mismo camino que la carpeta) ni nombres ya existentes.
+- `Ingles.swift`: 12 textos nuevos.
+
+## 2026-11-17 · Windows · P15: iconos del paquete y del instalador
+
+Rama `windows/p15-iconos`, basada en `windows/p10-paquete`. Se ha adaptado el diseño de `tools/icono.swift` a los tres PNG del manifiesto. El icono de 150 px lleva el nombre NETDECK y los tamaños pequeños conservan el símbolo del terminal. El MSI incluye un ICO de 16 a 256 px y lo asigna a los accesos directos de Inicio y del escritorio y a la ficha de la aplicación instalada.
+
+- Comprobados los tamaños, la transparencia y los recursos del ICO. MakeAppx generó el Sparse Package y validó el manifiesto y sus recursos con el ejecutable de desarrollo.
+- El MSI, preparado con los productos Debug existentes, se compiló con WiX 4.0.6 y pasó ICE. Se verificaron las referencias de iconos en las tablas del MSI.
+- Privacidad en verde. El núcleo compiló y pasó 549 tests en 93 suites mediante `windows/scripts/test.ps1`.
+- Queda por comprobar el aspecto de los accesos tras instalar en un Windows limpio.
+
+## 2026-11-17 · Windows · P10: el Windows App Runtime sigue siendo un prerrequisito que se comprueba (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. Decisión: **opción 2**. El `.msi` no descarga ni incluye el Windows App Runtime 1.5; sigue comprobándolo (la `Launch` de P10) y avisa con el enlace, y `windows/README.md` lo cuenta como requisito.
+El razonamiento está como comentario en `NetDeckWindows.wxs` (cerca de `WINAPPRUNTIME_INSTALLED`). El `.wxs` sigue compilando y pasando ICE.
+
+- **Por qué no la descarga en una `CustomAction`:** sería bajar y ejecutar un `.exe` de internet con permisos de administrador dentro de una acción diferida de MSI. Las reglas del actualizador (ADR-0003) lo exigen con sha256 y firma verificados;
+  Microsoft no publica un sha256 estable para el enlace «latest», y fijar el firmante es código que aquí no se puede probar (instalar pide elevación). Sin red o con proxy fallaría a mitad con un error de MSI poco claro.
+  Incluir los 64 MB en el `.msi` tampoco es mejor: hay que renovarlo con cada parche del runtime.
+- **Qué sería lo correcto:** un bundle de **WiX Burn** (`WixToolset.Bal.wixext`) con un `ExePackage` para `WindowsAppRuntimeInstall-x64.exe`, con `DetectCondition`, hash y firma fijados e interfaz con reintentos. Cuando el instalador se pruebe en un Windows limpio y haya firma.
+- Nota: el commit `51634ab` («guía Windows a `CLAUDE.md` y `AGENTS.md`») no es de esta sesión; lo hizo otra, y por eso la entrada de P11 de más abajo lo da por pendiente.
+
+## 2026-11-17 · Windows · P10: borrador del workflow de Release de Windows (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. **El workflow NO está activo**: se escribió como borrador en `windows/ci/windows-release.yml` (igual que `windows-nucleo.yml`), no en `.github/workflows/`.
+Esa carpeta es de Codex y la regla fija es no tocarla; el encargo de otra sesión no la levanta. Para activarlo, copiarlo a `.github/workflows/windows-release.yml` (lo hace quien gestiona los workflows).
+
+### Qué hace
+Con un tag `vX.Y.Z-windows` o a mano («Run workflow»): privacidad → tests del núcleo (sin bloquear, hay fallos intermitentes) → **comprueba que el tag, `NetDeckWindows.wxs`, `AppxManifest.xml` y `UpdateChecker.currentVersion` dicen la misma versión** →
+compila la app en **Release** (`desktop.ps1 -Configuration release`) → .NET 8 y WiX 4.0.6 → `preparar-instalador.ps1 -Configuracion release` → `wix build` (con `-d Version`) y `wix msi validate` → sha256 → notas de `windows/CHANGELOG.md` → artefacto, y con tag una
+Release con `softprops/action-gh-release@v2` (`prerelease` y sin ser «la última»).
+
+### Cambios de apoyo
+- `windows/scripts/desktop.ps1`: parámetro `-Configuration debug|release` (por defecto, como antes). `preparar-instalador.ps1`: `-Configuracion` elige la carpeta de productos (`Debug-` o `Release-windows-x86_64`).
+- `NetDeckWindows.wxs`: la versión sale de `-d Version=…` (por defecto 0.9.0) y `detectar-runtime.js` se busca junto al `.wxs` (`$(sys.SOURCEFILEDIR)`): sin eso `wix build` desde la raíz del repo, como lo haría el CI, no lo encontraba.
+
+### Probado en local (no en GitHub)
+- **Build Release de la app: 8 min 15 s** y arranca desde la carpeta preparada con el `PATH` reducido a `System32`. Instalador Release: 229 MB de archivos (el Debug eran 376 MB).
+- El `.msi` se compila desde la raíz del repo y desde `windows/installer/`, con `-d Version` (0.9.0 y 0.9.1 salen en `ProductVersion`) y pasa ICE.
+- Los pasos de PowerShell de versión y de notas, ejecutados de verdad: pasan con el tag bueno, **fallan** con otro número de versión, con un tag mal formado y con un manifiesto desincronizado. (Se encontró y arregló un error de PowerShell: `$version:` se lee como una variable con unidad.)
+- El YAML es válido (PyYAML). **Sin probar:** el propio runner de GitHub (`gha-setup-swift`, `setup-dotnet`, `softprops`) y la Release.
+
+### Diferencias con el encargo
+- `actions/checkout@v7` y no `@v4`: es el que usa `windows.yml`, y se pidió seguir su estilo.
+- **Se compila también la app**, no sólo el núcleo: el DDLM del Windows App Runtime hace falta para EJECUTAR la app (el fallo de P8), no para compilarla.
+- **No hay variable `SKIP_AUTHENTICODE_CHECK`**: nada la lee y no hay paso de firma. El `.msi` sale sin firmar; la firma iría tras «Compilar el .msi».
+- Tag `v*-windows` (lo que pidió el último mensaje), no `v*.*.*`: así no choca con `release.yml` de macOS, que ya crea la Release del tag con `gh release create`.
+
+### A decidir por el autor
+- **El actualizador de Windows consulta `releases/latest`, igual que el de macOS, y una Release aparte `-windows` no es nunca «la última»** (va como prerelease y sin `make_latest`): el actualizador no la vería. Hay que cambiar `UpdateChecker` para que liste las releases y coja la última con un `.msi`, o subir el `.msi` a la misma Release que el `.dmg`.
+- La versión de Windows (0.9.0 frente al 1.0.0 de macOS) y la firma, como antes.
+
+## 2026-11-17 · Windows · P11: estado de P11 y próximos pasos manuales (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. **P11 no está completado**: la documentación propia de Windows y los README están hechos, pero falta lo que sigue.
+
+### Hecho
+- `8bad8ab` `windows/README.md` (guía de instalación y uso) · `6a864eb` `windows/CHANGELOG.md` · `6ad3bb6` `README.md` de la raíz con la sección «Windows».
+- `811c44d` **`README.en.md`** de la raíz: misma sección y las mismas tres frases corregidas. Dice «en desarrollo», no «disponible» como en el borrador del encargo, porque todavía no hay release.
+- `70eb3bd` **`docs/agentes/windows.md`** (nuevo, sólo descriptivo): dónde vive el código y cómo se encadenan las ramas p8, p9 y p10. No se cambió ninguna guía existente de `docs/agentes/`.
+
+### Sin hacer, y por qué
+- **`CLAUDE.md` y `AGENTS.md` de la raíz** (el encargo de añadirles una guía de Windows): **no se han tocado**. Son archivos de instrucciones de agentes y no se editan por petición de otra sesión; lo decide
+  el autor. Ya existen `windows/CLAUDE.md` y `windows/AGENTS.md` con las reglas de Windows; la raíz sólo necesitaría un enlace a ellos. De lo que pedía el encargo, lo de no usar Edit/Write en Windows y no tocar
+  `.github/workflows/` ni `windows/scripts/test.ps1` es de este trabajo y no está en esos archivos.
+- `docs/agentes/comandos.md` y `arquitectura.md` no describen Windows todavía (se dejó para la misma revisión del autor).
+- **Capturas de Windows** para los README y **la release** con la skill `netdeck-publicar`, adaptada a dos sistemas.
+
+### Próximos pasos manuales antes del lanzamiento
+1. **Compilar e instalar el `.msi` en un Windows limpio** (instalar, aviso del runtime, Sparse Package, actualizar, desinstalar) y un build **Release**.
+2. **Firma Authenticode** (Azure Code Signing o un certificado): decisión y coste del autor.
+3. **Workflow de Release en GitHub Actions** (Codex) y añadir `UpdateCheckerWindowsTests` a la lista de suites de `windows/scripts/test.ps1`.
+4. **`SSH_ASKPASS.exe` (P4e)**: sin él no hay contraseña por teclado en las conexiones de la app.
+5. **Decidir la versión de Windows** (0.9.0 en el manifiesto, el `.wxs` y `UpdateChecker.currentVersion`; la última release es la 1.0.0) y cambiarla a la vez.
+6. Windows App Runtime 1.5: el instalador sólo lo comprueba; decidir si se incluye (bundle) o se deja como requisito.
+7. Fijar el firmante en el actualizador y los fallos intermitentes de tests de NetDeckCore (P6).
+
+## 2026-11-17 · Windows · P11: el README de la raíz menciona Windows (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. `README.md` (raíz): sección nueva **«Windows»** (antes de «Para desarrolladores», que es donde está la compilación) con el enlace a
+`windows/README.md`, lo que ya funciona y lo que falta. El README no tenía una tabla de funciones; el único cuadro es la comparación con otras herramientas, y su fila «Sistemas» dice ahora
+«macOS (Windows en desarrollo)».
+
+- Había **tres frases que decían que no hay versión de Windows** (qué no es, el cuadro de comparación y las preguntas frecuentes): se han ajustado para que no se contradigan con la sección nueva.
+- **Falta `README.en.md`** (igual cambio, en inglés) y las capturas de Windows; siguen abiertos en el plan de P11.
+
+## 2026-11-17 · Windows · P10: el instalador comprueba el Windows App Runtime 1.5 (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. El `.msi` no incluye el Windows App Runtime (sería un bundle de Burn), pero **lo comprueba antes de instalar y se detiene con un aviso**.
+El `.wxs` con la `Launch` compila (`wix build` sin errores ni avisos) y **pasa la validación ICE** (`wix msi validate`, código 0, sin avisos).
+
+- **Cómo:** `Launch Condition="Installed OR WINAPPRUNTIME_INSTALLED = "1" OR SKIP_WINAPPRUNTIME_CHECK = "1""` y una `CustomAction` de JScript (`detectar-runtime.js`, como
+  `Binary` + `JScriptCall`) que ejecuta `detectar-runtime.ps1` y deja `WINAPPRUNTIME_INSTALLED` en 1 o 0. Se programa en 99, justo antes de `LaunchConditions` (100), en
+  `InstallUISequence` y en `InstallExecuteSequence` (comprobado leyendo las tablas del `.msi`). El script va codificado en base64 en el `.js`; `preparar-instalador.ps1`
+  falla si dejan de coincidir (probado).
+- **Qué se comprueba:** el paquete Framework `Microsoft.WindowsAppRuntime.1.5` x64 **y** su DDLM (`Microsoft.WinAppRuntime.DDLM.500*-x6`), que es justo lo que faltaba en P8. Probado aquí:
+  presente → sale con 0 y escribe `WAR-OK`; versión inexistente → 1; versión con Framework pero sin DDLM (1.6, 1.8…) → 1.
+- **Tres cosas del encargo que no funcionaban:**
+  - **La clave `HKLM\SOFTWARE\Microsoft\WindowsAppRuntime\1.5` no existe** (ni aquí, donde el runtime está instalado): hay que mirar los paquetes AppX.
+  - **`https://aka.ms/windowsappruntimeinstall` redirige a bing.com**; el enlace que sirve (64 MB) y que instala la 1.5 es
+    `https://aka.ms/windowsappsdk/1.5/latest/windowsappruntimeinstall-x64.exe`, y es el que lleva el aviso.
+  - **WiX 4 no admite el script en línea**, y con `ScriptSourceFile` guarda el texto en la columna `Target` de `CustomAction` (255 caracteres): ICE03 avisó del desbordamiento. Por eso va como `Binary`.
+- **Sin probar:** que el instalador **se detenga de verdad** en un equipo sin el runtime y que muestre el mensaje: instalar el `.msi` pide elevación y habría copiado 376 MB y registrado un paquete en este equipo.
+  Lo comprobado es el contenido del `.msi` (tablas), la validación ICE y el comando de detección por separado. También falta ver el mensaje en el cuadro de error de MSI (lleva saltos de línea).
+- `SKIP_WINAPPRUNTIME_CHECK=1` se salta la comprobación (por si PowerShell no puede ejecutarse en algún equipo).
+- `windows/README.md` y `windows/CHANGELOG.md` actualizados. Sigue pendiente: probar el `.msi` en un Windows limpio, firmar y el build Release.
+
+## 2026-11-17 · Windows · P11: documentación de Windows y próximos pasos (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. La documentación propia de Windows está hecha; **P11 no está completo** (ver abajo).
+
+### Hecho
+- `1517075` el `.wxs` compila con WiX 4.0.6 (`.msi` de 69 MB, **sin firma**, sin instalar); `tools/privacidad.sh` sale con código 0 y no hizo falta un commit de corrección.
+- `8bad8ab` **`windows/README.md`**: guía de instalación y uso (requisitos, instalación, primera vez, funciones, atajos, limitaciones, desinstalar y compilar). No
+  era un archivo nuevo: ya existía como introducción para quien desarrolla, y se conserva como última sección («Para quien desarrolla»).
+- `6a864eb` **`windows/CHANGELOG.md`** con la 0.9.0 (próxima versión). Se añadió una sección «Seguridad» y la nota de que la versión de Windows está por decidir.
+- `PLAN.md`: P11 anotado con lo hecho. **Sigue abierto en P11:** el README y README.en de la raíz (quitar «no tiene versión para Windows»), `docs/agentes/` y la
+  raíz `CLAUDE.md`/`AGENTS.md`, y la release con la skill `netdeck-publicar`.
+
+### Próximos pasos antes del lanzamiento
+1. **Instalar y probar el `.msi` en un Windows limpio** (instalar, registro del Sparse Package, actualizar, desinstalar) y un build **Release**.
+2. **Firma Authenticode** (Azure Code Signing o un certificado): decisión y coste del autor; hasta entonces el actualizador rechaza instaladores sin firma.
+3. **Workflow de Release en GitHub Actions** (Codex; no se ha tocado y no existe todavía) y añadir `UpdateCheckerWindowsTests` a la lista de suites de `windows/scripts/test.ps1`.
+4. **`SSH_ASKPASS.exe` (P4e)**, bloqueado hasta tener el instalador: sin él no hay contraseña por teclado en las conexiones de la app.
+5. **Manifiesto de winget** en `winget-pkgs`, tras la primera release pública.
+
+Además, y no estaba en la lista:
+6. **El instalador no lleva el Windows App Runtime 1.5** (Framework, Main y DDLM): sin él la app no arranca en un Windows limpio («Windows App Runtime not found»; en
+   este equipo se instaló a mano en P8). Hay que incluirlo en el `.msi` o hacer que lo instale el instalador (el README ya lo dice como requisito).
+7. **Decidir la versión de Windows** (0.9.0 en el manifiesto, el `.wxs` y `UpdateChecker.currentVersion`; la última release publicada es la 1.0.0) y cambiarla a la vez.
+8. Del actualizador: **fijar el firmante** y comprobar que el `.msi` es esta app y la versión anunciada; y los fallos intermitentes de tests de NetDeckCore (P6).
+
+## 2026-11-17 · Windows · P10: el instalador compila con WiX 4 (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`. El `.wxs` ya compila: `wix build` termina sin errores ni avisos y genera un `.msi` de 69 MB.
+**El `.msi` no está firmado** (`Get-AuthenticodeSignature`: `NotSigned`) y **no se ha instalado** en ningún equipo; `wix msi validate` (reglas ICE) sale con código 0.
+
+- **Privacidad** (punto 1-2 del encargo): `tools/privacidad.sh` sale con código 0 en `windows/p10-paquete`; el fallo del actualizador ya estaba corregido en
+  `4e038c2` (se enmendó antes de publicar), así que no hizo falta un commit de corrección.
+- **WiX 4.0.6 y .NET, en una carpeta de usuario y sin tocar el sistema ni el `PATH`:** `dotnet tool install --global wix` necesitaba un SDK de .NET que no estaba.
+  Se instaló el SDK 8.0.428 con el script oficial `dotnet-install.ps1` (Microsoft, MIT) en `C:\Users\<usuario>\.dotnet` y WiX como herramienta local en
+  `C:\Users\<usuario>\.dotnet-tools`. Para quitarlo basta con borrar esas dos carpetas. Comando:
+  `DOTNET_ROOT=…\.dotnet  …\.dotnet-tools\wix.exe build NetDeckWindows.wxs archivos.wxs -arch x64 -d SourceDir=<carpeta> -o NetDeckWindows.msi`.
+- **Qué hubo que corregir en el `.wxs`:** WiX 4.0 **no tiene el elemento `Files`** (llegó después), así que `ComponentGroup`/`Directory` lo rechazaban.
+  `preparar-instalador.ps1` genera ahora `archivos.wxs` (un componente por archivo, con `Subdirectory`) junto a la carpeta preparada, y `NetDeckWindows.wxs`
+  sólo referencia `ArchivosDeLaApp`. El comando del encargo (`wix build NetDeckWindows.wxs -o …`) tampoco bastaba sin `-d SourceDir=…` y sin `archivos.wxs`.
+- **Pendiente** (sin cambios): probar la instalación, el registro del Sparse Package y la actualización en un Windows limpio; firmar; build Release.
+
+## 2026-11-17 · Windows · P10: informe del paquete, la firma y el actualizador (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete`, que sale de `windows/p9-seguridad` con la ADR-0003 de `windows/p8-terminal` fusionada (`d5c3ca8`). El worktree
+sigue en `C:\Users\<usuario>\NetDeck-P9`. **P10 no está completo**: la «Salida» del plan (un instalador firmado que se instala en un Windows limpio y se
+actualiza desde una release de prueba) no se ha podido alcanzar; está hecho lo que se puede escribir y probar sin WiX, sin certificado y sin release.
+
+### Commits
+- `1828288` AppxManifest.xml del Sparse Package (validado con `makeappx pack`; iconos provisionales).
+- `01a5bc3` instalador WiX 4 (`windows/installer/`): `.wxs`, scripts de registro y preparación de la carpeta. **`.wxs` sin compilar.**
+- `4e038c2` `UpdateChecker`, 9 tests, textos en inglés y botón «Buscar actualizaciones» en Ajustes.
+
+### Qué falta para cerrar P10
+1. **Compilar el `.msi`** con WiX 4 (`dotnet tool install --global wix`) y probarlo en un Windows limpio (instalar, registrar el Sparse Package, actualizar, desinstalar).
+2. Un **build Release** para el instalador (el Debug pesa 376 MB).
+3. El `.msix` firmado del Sparse Package (`makeappx pack /nv` + `signtool`) y el `Publisher` igual al Subject del certificado.
+4. **Firma Authenticode** (Azure Code Signing o un certificado): decisión y coste del autor; hasta entonces el actualizador rechaza instaladores sin firma
+   (salvo `NETDECK_UPDATE_ALLOW_UNSIGNED=1` en pruebas).
+5. En el actualizador: **fijar el firmante** y comprobar que el `.msi` es esta app y la versión anunciada (el equivalente al `validate` de macOS).
+6. **El workflow de Release de Windows** (`.github/workflows/`, de Codex; no se ha tocado y no existe todavía) y añadir `UpdateCheckerWindowsTests` a la
+   lista de suites de `windows/scripts/test.ps1` (tampoco se ha tocado).
+7. El **askpass de P4e** dentro del instalador (ADR-0003).
+8. Decidir la **versión de Windows**: se pidió 0.9.0 y la última release es la 1.0.0.
+9. Registro del Sparse Package para todos los usuarios (hoy sólo para quien instala).
+
+### Nota de proceso
+En el commit del actualizador, `tools/privacidad.sh` falló (una URL de prueba con usuario delante del servidor parecía un correo) y se comitó igual, porque la tubería
+`| tail` enmascaró el código de salida; se detectó justo después y se enmendó el commit local (sin publicar) con la privacidad ya en verde. Los demás commits de
+esta serie la tenían en verde. Hay que comprobar el código de salida, no sólo leer la última línea.
+
+## 2026-11-17 · Windows · P10: actualizador (UpdateChecker) y botón «Buscar actualizaciones» (por Claude)
+
+**Por Claude.** `Sources/NetDeckCore/Update/UpdateChecker.swift` (todo bajo `#if os(Windows)`), su suite de tests y la interfaz. Compila y la app
+arranca; 9 tests nuevos en verde y `IdiomaTests` en verde con los textos en inglés.
+
+### Qué hay
+- `UpdateChecker` (actor, `shared`): `checkForUpdates()` (como pedía, devuelve `nil` si hay error) y `check()` (lanza el motivo; lo usa la interfaz
+  para distinguir «al día» de «no se pudo comprobar»), `downloadAndVerify(_:)` y `launchInstaller(at:)`. Reutiliza `UpdateCheck` del núcleo
+  (`isNewer`, `sha256(of:)`): no se duplica la lógica de macOS.
+- **sha256:** el campo `digest` que GitHub publica en el asset y/o un asset `<instalador>.sha256`; si hay los dos y no coinciden, se rechaza; si
+  no hay ninguno, no se ofrece la actualización. (El encargo hablaba sólo de `.sha256`; `digest` es lo que ya usa el actualizador de macOS.)
+- **Enlaces:** sólo `https://github.com/Iljonis/Terminal-NetDeck/releases/download/…`, sin usuario, puerto ni «..»; el nombre del instalador se limpia
+  antes de escribirlo en la carpeta temporal.
+- **Firma:** `WinVerifyTrust` (revocación incluida) cargado de `wintrust.dll`: `WinSDK` no lo expone ni lo enlaza. Las estructuras se
+  comprueban por tamaño antes de usarlas y cualquier duda cuenta como firma inválida. **Probado con una DLL firmada de Microsoft (válida) y una sin
+  firma.** Un instalador sin firma se rechaza, salvo `NETDECK_UPDATE_ALLOW_UNSIGNED=1` (los instaladores de prueba del CI sin certificado).
+- `launchInstaller`: `ShellExecuteW` con `runas`; para un `.msi` lanza `msiexec.exe /i "<ruta>"` (más fiable que ejecutar el verbo sobre el `.msi`).
+- Interfaz: botón «Buscar actualizaciones» en Ajustes y un panel con las notas y «Descargar e instalar» (sin `ContentDialog`, como el resto). Nada se
+  comprueba ni descarga sin clic. `NETDECK_UPDATE_FAKE=1` en la demo enseña una actualización inventada, sin red, para probar la interfaz.
+- `Ingles.swift`: 19 textos nuevos.
+
+### Probado
+- Consulta real a la API de GitHub desde la app: responde y, como la última release (1.0.0, macOS) no trae un `.msi`, dice «al día».
+- Panel de actualización (con la inventada) y el error de descarga (404 → «No se puede actualizar: la descarga no ha terminado bien»).
+- **Sin probar:** una descarga y un lanzamiento de instalador reales (no existe todavía ninguna release con `.msi`).
+
+### Pendiente
+- **Fijar el firmante:** hoy se comprueba que la firma es válida y de confianza, no QUIEN firma; con Azure Code Signing hay que comparar el Subject.
+- **Que el instalador sea de esta app y de la versión anunciada** (como `UpdateCheck.validate` con el `.dmg`): leer `ProductCode`/`ProductVersion` del `.msi`.
+- `currentVersion` es 0.9.0 (como se pidió) y la última release publicada es la 1.0.0: hay que decidir la versión de Windows.
+- **`windows/scripts/test.ps1` sin filtro ejecuta una lista fija de suites**: `UpdateCheckerWindowsTests` no está en ella (y no se ha tocado ese archivo).
+  Se ejecuta con `--filter UpdateCheckerWindowsTests`; hay que añadirla a esa lista.
+
+## 2026-11-17 · Windows · P10: instalador WiX (por Claude)
+
+**Por Claude.** `windows/installer/`. **El `.wxs` no se ha compilado**: WiX 4 (ni `dotnet`) no está instalado aquí; sólo se comprobó
+que el XML está bien formado. Lo demás sí se probó.
+
+- `NetDeckWindows.wxs` (WiX 4): instala en `C:\Program Files\Terminal NetDeck` (por máquina), `Files Include="$(var.SourceDir)\**"`
+  para el exe, los `.dll` de la app y del runtime de Swift y el manifiesto; acceso del menú Inicio y, opcional (nivel 2,
+  `ADDLOCAL=Principal,AccesoEscritorio`), el del escritorio; `MajorUpgrade`; `UpgradeCode` fijo (no se cambia nunca) y versión 0.9.0.
+- Registro del Sparse Package con dos `CustomAction` diferidas (`RegistrarSparse` tras `InstallFiles`, `QuitarSparse` antes de
+  `RemoveFiles` y al actualizar) que llaman a `registrar-sparse.ps1` y `quitar-sparse.ps1`. Diferencias con el encargo:
+  - **`Impersonate="yes"`** y no `"no"`: con `no` se ejecuta como SYSTEM y `Add-AppxPackage` registraría el paquete para SYSTEM, no para
+    el usuario que instala. Consecuencia: sólo queda registrado para quien instala; los demás usuarios no tienen identidad hasta
+    que se registre (pendiente: que la app lo haga al arrancar).
+  - **`Return="ignore"`** y scripts que nunca fallan: el registro es opcional y la app funciona sin identidad de paquete.
+  - Los scripts van aparte (un `deferred` no resuelve `[Propiedades]` y comillas en un atributo XML serían un infierno).
+- `preparar-instalador.ps1`: reúne en una carpeta lo que lleva el instalador (salida de `desktop.ps1`, los `.dll` del runtime de Swift,
+  manifiesto, iconos y scripts). Salvaguarda: sólo vacía su destino si está vacío o lo creó él.
+- **Probado:** el script genera 52 archivos (376 MB, con el build Debug) y **`NetDeckWindows.exe` arranca desde esa carpeta con el `PATH`
+  reducido a `System32`**: el instalador lleva todo lo que necesita. `makeappx` valida el manifiesto (entrada anterior).
+- **Pendiente:** compilar el `.msi` con WiX 4, instalarlo en un Windows limpio, un build Release (el Debug pesa y arrastra símbolos), el
+  `.msix` firmado del Sparse Package, el askpass de P4e dentro del instalador (ADR-0003) y la firma Authenticode.
+
+## 2026-11-17 · Windows · P10: AppxManifest.xml del Sparse Package (por Claude)
+
+**Por Claude.** Rama `windows/p10-paquete` (sale de `windows/p9-seguridad`, con la ADR-0003 traída de `windows/p8-terminal`).
+
+- `windows/Desktop/AppxManifest.xml`: identidad `Iljonis.TerminalNetDeck`, versión `0.9.0.0`, x64, `Publisher="CN=TerminalNetDeck"`
+  (provisional), aplicación `NetDeckWindows.exe` con `runFullTrust`, y `Windows.Desktop` desde 10.0.19041.0. **Validado con
+  `makeappx pack /nv`** (empaqueta bien). No se ha registrado en este equipo (sin firma sólo vale en modo desarrollador).
+- Dos diferencias con el encargo, las dos por lo que dijo `makeappx` o la documentación:
+  - **`MinVersion` 10.0.19041.0** y no 17763: los paquetes de ubicación externa (Sparse Package) empiezan en Windows 10 2004.
+  - **Capacidad `unvirtualizedResources`**: `makeappx` rechaza el manifiesto sin ella. Además evita que el sistema redirija
+    `AppData` y el registro a una copia privada del paquete (el mismo efecto que rompe otras herramientas aquí).
+- Registro correcto: `Add-AppxPackage -Path NetDeckSparse.msix -ExternalLocation <carpeta>` (el .msix se genera con
+  `makeappx pack /nv` y se firma) o, sin firma y con el modo desarrollador, `Add-AppxPackage -Register AppxManifest.xml
+  -ExternalLocation <carpeta>`. La sintaxis `--ExternalLocation … --Path AppxManifest.xml` del encargo no existe en PowerShell.
+- `windows/Desktop/Assets/*.png`: tres iconos **provisionales** (un color liso, el índigo del tema NetDeck); no hay icono de la
+  app en el repositorio. Pendiente antes de publicar: iconos, `Publisher` igual al Subject del certificado y firma.
+- **Versión:** 0.9.0 como se pidió, pero `CHANGELOG.md` ya publica 1.0.0 (macOS). Hay que decidir cuál es la versión de
+  Windows antes del primer lanzamiento y cambiarla a la vez en el manifiesto, el `.wxs` y `UpdateChecker.currentVersion`.
+
+## 2026-11-17 · Windows · P9: informe de seguridad (por Claude)
+
+**Por Claude.** Rama `windows/p9-seguridad`, salida de `windows/p8-terminal` en `652d840`. Cuatro commits, suite completa en verde
+(549 tests). Los puntos de `windows/PLAN.md` hechos están marcados `[x]`.
+
+### Hecho
+- **Importación de sesiones** (`68bf80d`): `safeExtra` filtra con lista blanca, así que `ProxyCommand`, `LocalCommand`,
+  `KnownHostsCommand` e `IdentityAgent` se descartan siempre, con rutas de Windows o sin ellas; no hacía falta código nuevo.
+  Se añaden tests con rutas `C:\`, `%VAR%` y tuberías, y un test que falla si alguien amplía la lista con una opción que
+  ejecuta código.
+- **Prefijos peligrosos** (`68bf80d`): nombre, equipo y usuario con `-` ya se rechazaban (`isValidName`, `Endpoint`,
+  `problems()`); ahora con test. `/` no se rechaza: `ssh.exe -G /x` lo toma como un nombre literal.
+- **Entorno** (`00d96c3`): `TerminalEnvironment.prepare` quita `SSH_ASKPASS`, `SSH_ASKPASS_REQUIRE`, `GIT_SSH` y `GIT_SSH_COMMAND` en
+  Windows, sólo para ssh y sin tocar las shells locales; `USERPROFILE`, `APPDATA` y `LOCALAPPDATA` se conservan.
+- **Credenciales** (`3d62b39`): ADR 0004. El almacén de Windows ya existía (P4d); la ADR documenta la diferencia con el Llavero y
+  matiza la ADR-0002.
+
+### Pendiente
+- **Flujo de askpass en Windows** y sus pruebas (P4e/P10): hoy sólo claves y agente. La ADR 0004 lo explica.
+- **Aviso en la pantalla de «Contraseñas»** de que en Windows la barrera es el perfil de usuario (P8/P9; esa pantalla no existe
+  todavía en la interfaz de Windows).
+- Evaluar DPAPI como capa extra sobre el Administrador de credenciales, y revisar la frase de la ADR-0002.
+- **No se ha hecho la revisión formal** con la skill `security-review` ni `ecc:security-reviewer`: la «Salida» de P9 («informe sin
+  hallazgos graves abiertos») sigue abierta.
+- Los tests de NetDeckCore tienen **fallos intermitentes** ajenos a esto (ver la entrada de túneles de P8): conviene mirarlos
+  antes de dar P6 por cerrado.
+
+### Rama y entorno
+- Esta rama no lleva el commit `03796ed` (ADR-0003) que otra sesión hizo en `windows/p8-terminal` después: al fusionar habrá
+  que traer P8 primero o resolver `ESTADO.md` y `decisiones/README.md`.
+- El worktree está en `C:\Users\<usuario>\NetDeck-P9`, fuera de `AppData\Local` (el MSIX de Claude redirige allí las carpetas
+  nuevas).
+
+## 2026-11-17 · Windows · P9: ADR 0004, credenciales en Windows (por Claude)
+
+**Por Claude.** Rama `windows/p9-seguridad`. Documentación: `windows/decisiones/0004-credenciales-p9.md` (propuesta) y su fila en
+`windows/decisiones/README.md`. La ADR describe lo que el código hace de verdad, y eso corrige tres cosas del encargo:
+
+- **La implementación de Windows ya existe** (P4d): `KeychainStore` usa `CredWriteW`, `CredReadW`, `CredDeleteW` y
+  `CredEnumerateW`, `CRED_TYPE_GENERIC` y `CRED_PERSIST_LOCAL_MACHINE`, con tests (`KeychainCredencialesWindowsTests`). Lo
+  pendiente es el flujo con askpass (P4e/P10) y el aviso en la pantalla de «Contraseñas».
+- **macOS no usa `SecItemAdd` ni una «ACL 0600»**: lee y guarda con `/usr/bin/security`, y las contraseñas confían en esa
+  herramienta (por eso no sale el aviso por app). La ADR lo anota y **matiza la ADR-0002**: la distancia real entre las dos
+  plataformas es menor que «ACL por app frente a nada».
+- **El bloqueo de 15 minutos no es un `Timer` que borre una caché**: es el `CredentialLedger` (`blockWindow`), con marcas
+  con fecha sin secretos, igual en las dos plataformas. `CredReadW` no caduca.
+- DPAPI protege frente a otros usuarios y al disco apagado, no frente a otros procesos del mismo usuario: así queda escrito.
+
+## 2026-11-17 · Windows · P9: TerminalEnvironment sin variables de ssh ajenas (por Claude)
+
+**Por Claude.** Rama `windows/p9-seguridad`. Suite completa: 549 tests en verde (546 + los 3 de la tarea 1 + 1 de ésta).
+
+- `TerminalEnvironment.prepare` (`#if os(Windows)`, sólo con `forSSH: true` y `sendLocale: false`, la misma condición que ya
+  quita el idioma) elimina `SSH_ASKPASS`, `SSH_ASKPASS_REQUIRE`, `GIT_SSH` y `GIT_SSH_COMMAND` del entorno heredado. Los
+  nombres se comparan sin distinguir mayúsculas, como Windows. `USERPROFILE`, `APPDATA` y `LOCALAPPDATA` no se tocan (ssh.exe
+  las necesita para encontrar `~/.ssh`; son inofensivas) y queda dicho en un comentario.
+- **No se tocan las shells locales** (`forSSH: false`): ahí el `GIT_SSH` o el `SSH_ASKPASS` del usuario son suyos. Tampoco con
+  `sendLocale: true`, por coherencia con el resto de la función; si se quiere la limpieza también ahí, es mover el bloque.
+- El askpass propio (`Askpass.environment`) se mezcla DESPUÉS de `prepare`, así que no se pierde.
+- Test nuevo (`SessionTests.swift`, `TerminalEnvironmentTests`): `enWindowsAsshNoLeLlegaElAskpassNiGitSshAjenos`. En macOS
+  comprueba que no cambia nada.
+- La tarea pedía `testWindowsRemovesInterferingVars`: el proyecto usa Swift Testing con nombres en castellano, así que se
+  llama de otra forma.
+
+## 2026-11-17 · Windows · P9: importación de sesiones y prefijos peligrosos (por Claude)
+
+**Por Claude.** Rama `windows/p9-seguridad`. Sólo tests: el código de la tarea ya estaba cubierto, y añadir el filtro pedido
+habría sido código muerto.
+
+- `SessionImporter.safeExtra` filtra con una **lista blanca** (`allowedOptions`). `ProxyCommand`, `LocalCommand`,
+  `KnownHostsCommand` e `IdentityAgent` no están en ella, así que se descartan siempre, con o sin ruta de Windows; un
+  filtro adicional por `C:\` o `%VAR%` después del `guard` nunca se ejecutaría. Para proteger de verdad, los tests nuevos
+  (`SessionFileTests.swift`):
+  - `alImportarSeQuitanLasOpcionesQueEjecutanTambienConRutasDeWindows`: las cuatro opciones con rutas `C:\…`, `%USERPROFILE%`
+    y `\.\pipe\…`, y `PermitLocalCommand`, quedan fuera.
+  - `laListaBlancaDeImportacionNoTieneOpcionesQueEjecutenOAbranOtroBloque`: falla si alguien añade a `allowedOptions` una
+    opción que ejecuta código, abre otro bloque o toca reenvíos y `known_hosts` (`ProxyCommand`, `Include`, `Match`,
+    `LocalForward`, `StrictHostKeyChecking`…).
+- Prefijos peligrosos, ya rechazados y ahora con test (`nombresEquiposYUsuariosConPrefijoDeOpcionSeRechazan`):
+  `EditableSession.isValidName` exige que el primer carácter sea alfanumérico o `_` (rechaza `-`, `/`, `.`);
+  `Endpoint(parsing:)` rechaza equipo o usuario con `-`; `SessionFile.problems()` rechaza equipo, usuario y salto con `-`.
+- **No** se rechaza el prefijo `/` en equipo o usuario: `ssh.exe` sólo trata `-` como opción (no hay opciones con `/`), así
+  que no hay un riesgo concreto. Si se quiere, es una regla de validez de nombres de equipo, no de seguridad.
+- Entorno: el worktree está en `C:\Users\<usuario>\NetDeck-P9`, fuera de `AppData\Local`: el MSIX de Claude redirige a su caché
+  las carpetas nuevas que se crean ahí y otros programas (Python) no las veían.
+
+## 2026-11-17 · Windows · P8: warnings de Sendability en ExploradorSFTP (por Claude)
+
+**Por Claude.** Corregidos los dos avisos «reference to captured var 'self' in concurrently-executing code» que serían
+errores en Swift 6. `Build complete!` sin avisos del compilador (sólo queda el del enlace simbólico `debug`, del entorno).
+
+- Causa: los closures de progreso de `Transfer.copy` (descarga, línea ~210, y subida, ~244) usaban el `self` de
+  `[weak self]`, que es una variable, dentro de un closure `@Sendable`.
+- Arreglo (`ExploradorSFTP.swift`): cada tarea copia `let owner = self` antes de `Transfer.copy` y el closure usa `owner`; la
+  clase pasa a `@unchecked Sendable`, con el motivo escrito: sus controles sólo se tocan en el hilo de WinUI (lo que llega de
+  las tareas pasa por `deliver` y `enqueue`). No se usa `Task { @MainActor … }`: en Windows no se sabe si el actor principal
+  se vacía con el bucle de WinUI, y `enqueue` (el `DispatcherQueue`) ya hace ese papel.
+- Sin cambios de comportamiento; la interfaz del explorador no se ha vuelto a probar.
+
+### Aviso para quien compile
+La app lanzada por `desktop.ps1 -Demo` aparece a veces como `NETDEC~1.EXE` (nombre corto) y `taskkill /IM NetDeckWindows.exe`
+no la encuentra: el enlazador falla con «unable to remove file: permission denied». Cerrarla por PID (`Stop-Process -Id`).
+
+## 2026-11-17 · Windows · P8: asistente de inicio (por Claude)
+
+**Por Claude.** Asistente de la primera vez en el área principal. Compila (`Build complete!`) y está probado de verdad,
+también el camino sin demo: arranca solo, crea la sesión y la escribe en el `ssh_config` de NetDeck.
+
+### Qué hay
+- `windows/Desktop/Sources/NetDeckWindows/AsistenteInicio.swift` (nuevo): tres pantallas, una a la vez. Bienvenida
+  («Siguiente →»); primera sesión (nombre y equipo obligatorios, usuario y puerto opcionales; «Crear sesión» u «Omitir»);
+  «¡Todo listo! Haz clic en tu sesión para conectar.» («Empezar»). Ids `Asistente_*`.
+- `NetDeckWindows.swift`: se muestra al arrancar si no es la demo, no existe `ndAsistenteVisto` en `UserDefaults` y no hay
+  sesiones. «Empezar» y «Omitir» lo marcan como visto. «Crear sesión» usa `saveSession` (la misma validación y guardado
+  que el editor) y vuelve a «Todo listo» (guardar cierra los paneles, así que se reabre el del asistente).
+- Sin `ContentDialog`, igual que el resto: son paneles del área principal.
+- Para probarlo: `NETDECK_ASISTENTE=1` lo fuerza (también en la demo) sin marcarlo como visto.
+- `Ingles.swift`: textos nuevos en inglés.
+
+### Probado
+- Demo forzada: las tres pantallas, el aviso de nombre y equipo vacíos y la sesión nueva en la barra lateral.
+- Sin demo, con un `NETDECK_HOME` temporal vacío: el asistente sale solo, «Crear sesión» escribe el `ssh_config`
+  (con la comprobación `ssh -G` del núcleo) y la barra lateral lo recarga. Esto prueba además el **guardado real del editor
+  de sesión**, que estaba pendiente.
+- Sin probar: que «Empezar» persista `ndAsistenteVisto` entre arranques (no se pulsó para no tocar los ajustes reales).
+
+## 2026-11-17 · Windows · P8: panel de túneles SSH (por Claude)
+
+**Por Claude.** Panel de túneles en el área principal. Compila (`Build complete!`) y está probado en la demo con capturas:
+crear, iniciar y detener un túnel. Dos fallos de `TunnelManager` en Windows corregidos en el núcleo.
+
+### Qué hay
+- `windows/Desktop/Sources/NetDeckWindows/PanelTuneles.swift` (nuevo): lista con nombre, tipo, `forwardSpec`, estado y
+  botones ▶ Iniciar / ■ Detener, ✎ y ✕; botón «+ Nuevo túnel» y formulario (nombre, sesión, equipo, tipo, puerto de
+  escucha, destino, puerto de destino, «escuchar fuera de este equipo»). Datos de `TunnelLibrary` (`tuneles.json`); en la
+  demo, sólo en memoria.
+- `NetDeckWindows.swift`: botón «Túneles» (id `Tuneles`) y **Ctrl+T**. Usa el `TunnelManager` del núcleo (preflight `ssh -G`,
+  vigilancia y parada), no un `ChildProcess` a mano: `startTunnel`, `stopTunnel`, `tunnelChanged`; al salir se paran todos.
+- `Ingles.swift`: textos nuevos en inglés.
+
+### Correcciones en el núcleo (`Sources/NetDeckCore/Sessions/Tunnels.swift`)
+1. **`ssh -G` en Windows devuelve líneas con `\r\n`** y `split(separator: "\n")` no parte ese grafema: la comprobación previa
+   fallaba siempre con «ssh -G ha devuelto una configuración incompleta». Ahora `split(whereSeparator: \.isNewline)`
+   (igual en macOS).
+2. **`TunnelProcess` (rama `#if os(Windows)`)**: el `terminationHandler` daba el proceso por terminado y anulaba la lectura
+   antes de vaciar la tubería. Ahora lee lo que queda y luego fija el estado; la lógica de añadir salida pasa a
+   `appendOutput(_:)`. macOS no cambia.
+
+### Notas
+- Probado: iniciar pasa el preflight y queda «Iniciando…»; Detener lo para y quita el ssh. Sin probar un túnel realmente
+  activo (no hay un servidor ssh al que llegar) ni un túnel remoto o SOCKS.
+- La contraseña por teclado sigue sin askpass en Windows (P4e/P10): de momento claves y agente.
+- Los tests (`test.ps1`, 545) pasan, pero **hay fallos intermitentes ajenos a los túneles**: en 4 ejecuciones, una dio 545/545,
+  otra 5 fallos en `DataBackupTests.copiaAntesDeGuardar` (que pasa aislado) y otra 1 en
+  `SessionFileTests.importarUnJSONConOpcionesMaliciosasNoInyectaNada` («You don't have permission», código 513). Parecen
+  carreras de permisos de archivos temporales en Windows al correr en paralelo; hay que investigarlo (P6).
+
+## 2026-11-17 · Windows · P8: aviso claro para FTP (por Claude)
+
+**Por Claude.** Pequeño ajuste sobre el explorador SFTP. Compila (`Build complete!`) y la app arranca en demo.
+
+- `open(_:)` (`NetDeckWindows.swift`): si `route.transport == .ftp`, la barra de estado dice «FTP no disponible aún en la
+  versión de Windows» en lugar del «FTP no tiene consola» de `launchProblem`, que confundía. FTP en Windows sigue pendiente
+  (`TCPStream.start()` lanza «FTP no disponible en Windows (TODO P4h)»).
+- `Ingles.swift`: el texto en inglés.
+- Sin probar con una sesión FTP real en la interfaz: sólo compila y arranca.
+
+## 2026-11-17 · Windows · P8: explorador SFTP (por Claude)
+
+**Por Claude.** Explorador SFTP en el área principal. Compila (`Build complete!`) y está probado de verdad en la demo
+contra un servidor SFTP local: listar, entrar en una carpeta, descargar con doble clic y subir un archivo.
+
+### Qué hay
+- `windows/Desktop/Sources/NetDeckWindows/ExploradorSFTP.swift` (nuevo): `ExploradorSFTP` con ruta actual, «⬆ Arriba»,
+  «Actualizar», «Cerrar», lista con icono, nombre, tamaño y fecha, subida por ruta local y barra de estado con el
+  progreso. Usa lo que ya había en NetDeckCore: `SFTPFileSystem`, `Transfer.copy`, `LocalFileWriter` (descarga sin pisar
+  nada, con «.part») y `AtomicRemoteWriter` (subida sin pisar un archivo existente). No hizo falta tocar `Sources/`.
+- `NetDeckWindows.swift`: botón 📂 en la barra lateral junto a cada sesión SSH o SFTP (`SFTP_<nombre>`);
+  `open(_:)` abre el explorador si `route.transport == .sftp`; `openSFTP(_:)`, `openSFTPProfile(_:)`.
+- Descarga a `Descargas` del usuario (`~/Downloads` si Foundation no la da), con nombre único («a (2).txt»). El nombre lo
+  decide el servidor: se limpia (`localName`) de rutas y de caracteres que Windows no admite.
+- Para probar sin red: en la demo, `NETDECK_SFTP_SERVER` apunta a un `sftp-server` local (Git for Windows trae
+  `usr/lib/ssh/sftp-server.exe`), como el gancho `NETDECK_SNAPSHOT` del Mac.
+- `Ingles.swift`: textos nuevos en inglés.
+
+### Notas
+- La tarea hablaba de `SFTPClient` y `route.target == .sftp(...)`: el núcleo tiene `SFTPFileSystem` y el tipo va en
+  `route.transport`.
+- No hay selector de archivos nativo (`FilePicker`) en swift-winui 0.1.1 a mano: la subida pide la ruta en un cuadro de
+  texto (admite comillas).
+- **Sin probar con ssh real:** la conexión por ssh (`sftpSubsystemCommand`) compila y se construye igual que en el Mac, pero
+  la contraseña por teclado necesita el askpass de Windows (P4e/P10): de momento sólo claves y agente.
+- FTP no está en el explorador: `FTPClient` existe en el núcleo pero pide contraseña y credenciales (P9).
+- Una sola conexión a la vez: abrir otra cierra la anterior.
+
+## 2026-11-17 · Windows · P8: pegado seguro y MultiExec (por Claude)
+
+**Por Claude.** Botones «Pegar» y «MultiExec» en la barra de herramientas, después de «Cerrar pestaña». Compila
+(`Build complete!`); el pegado seguro está probado en la demo con capturas.
+
+### Qué hay
+- `PanelTexto.swift` (nuevo): panel de texto multilínea con Enviar y Cancelar en el área principal. **No se usa
+  `ContentDialog`**: en swift-winui 0.1.1 no hay un camino sencillo y síncrono, y el resto de la interfaz ya reparte el área
+  principal entre paneles (`showPanel`).
+- `safePaste()` (`NetDeckWindows.swift`, id `PegarSeguro`): lee el portapapeles con Win32 (`OpenClipboard`,
+  `GetClipboardData(CF_UNICODETEXT)`; la API WinRT `Clipboard` es asíncrona). Una línea se pega directamente; varias abren
+  la vista previa (hasta 2000 caracteres visibles; se pega todo). Se quitan los saltos finales para no ejecutar una línea
+  de más.
+- `PestanaTerminal.paste(_:)`: pega con Intro por cada salto y, si el programa lo pide, entre marcas de «pegado entre
+  corchetes»; quita los ESC del texto para que no pueda cerrar la marca antes de tiempo.
+- `multiExec()` (id `MultiExec`): un comando a todas las pestañas abiertas con `route.transport` SSH o Telnet
+  (`PestanaTerminal` guarda ahora su `route`). El resumen de a cuántas se envió va a la barra de estado.
+- `Ingles.swift`: textos nuevos en inglés.
+
+### Notas
+- Probado: pegar tres líneas desde el portapapeles las ejecuta en el shell local.
+- **Sin probar:** el envío de MultiExec a pestañas SSH/Telnet reales (en demo `ssh` no conecta a ningún sitio).
+- La tarea hablaba de `route.target` `.ssh(_)`/`.telnet(_,_)`: no existe; el tipo va en `route.transport`.
+
+## 2026-11-17 · Windows · P8: tema Mica, claro y oscuro desde Ajustes (por Claude)
+
+**Por Claude.** El tema elegido en Ajustes se aplica de verdad a la ventana. Compila (`Build complete!`) y está probado en
+la demo con capturas.
+
+### Qué hay
+- `applySettings(_:)` en `NetDeckWindows.swift`:
+  - **Sistema (Mica)**: `window.systemBackdrop = MicaBackdrop()` (existe en swift-winui 0.1.1) y el tema de Windows.
+  - **Claro / Oscuro**: `requestedTheme` en la rejilla raíz, sin Mica y con un fondo explícito (`SolidColorBrush`
+    #F3F3F3 / #202020): sin Mica la ventana no pinta fondo y quedaba negra con el texto invisible.
+- `windows/Desktop/Package.swift`: `.linkedLibrary("UWP")`. Hace falta para construir un `Color` (`import struct
+  UWP.Color`; el `import UWP` completo hace ambiguos varios tipos).
+- `PanelAjustes.swift`: `UserDefaults.synchronize()` tras guardar. En Windows no se vuelca solo y los ajustes se perdían
+  si la app se cerraba a la fuerza; con esto se comprobó que Claro sobrevive a un cierre y reinicio.
+
+### Notas
+- El primer build tras cambiar de rama de trabajo falló dos veces con «A file with the same name already exists» en
+  `*.objlib`; se arregla borrando esos `.objlib` de `NetDeckDesktopBuild/out/Products` y reconstruyendo.
+- Los temas de color de NetDeckCore (`Theme`) siguen sin conectar: «tema» aquí es claro/oscuro/Mica.
+
+## 2026-11-17 · Windows · P8: atajos de teclado (por Claude)
+
+**Por Claude.** Atajos globales de la ventana principal. Compila (`Build complete!`) y se han probado de verdad en la
+demo: enviando las teclas a la ventana y mirando capturas.
+
+### Qué hay
+- `NetDeckWindows.swift`: `previewKeyDown` en la rejilla raíz (fase de túnel, antes de que el terminal reciba la tecla) y
+  `shortcut(_:)`:
+  - **Ctrl+N**: terminal local nueva (como el botón «Terminal local»). **Ctrl+Mayús+N**: editor de sesión nueva.
+  - **Ctrl+W**: cierra la pestaña activa.
+  - **Ctrl+Tab / Ctrl+Mayús+Tab**: pestaña siguiente / anterior (da la vuelta).
+  - **Ctrl+,**: abre Ajustes.
+  - Si hay un panel (editor o ajustes) abierto, N, W y Tab lo cierran y vuelven al terminal.
+- Comprobado en la demo: Ctrl+N abre una segunda pestaña, Ctrl+W la cierra, Ctrl+, abre Ajustes; «+ Nueva sesión» abre
+  el editor, y Guardar con un nombre añade la sesión a la barra lateral con el aviso «Sesión «x» guardada».
+
+### Notas y problemas conocidos
+- **Ctrl+N y Ctrl+W ya no llegan al terminal** (en la shell son «siguiente en el historial» y «borrar palabra»). Es lo que
+  pide la tarea; si molesta, cambiar `shortcut(_:)` para exigir además Mayús o reservarlos al terminal.
+- El campo Nombre del editor **no recibe el foco** al abrirse (`focus(.programmatic)` no surte efecto, ni diferido con el
+  `DispatcherQueue`): hay que hacer clic en él.
+- **Las consultas de UI Automation (`FindAll` sobre el árbol de la ventana) cierran la app** con acceso no válido en
+  `Microsoft.UI.Xaml.dll` (0xc0000005). Con la app en reposo y con teclas y clics no pasa. Hay que investigarlo antes de
+  automatizar pruebas de interfaz con UIA (P8, `windows-desktop-e2e`).
+- La lista de sesiones del editor en modo real y el guardado real (`file.save()`, con `ssh -G`) siguen sin probarse.
+
+### Siguiente
+Explorador SFTP/FTP, temas de NetDeckCore, MultiExec y Túneles.
+
+## 2026-11-17 · Windows · P8: panel de Ajustes (por Claude)
+
+**Por Claude.** Panel de Ajustes con fuente, tamaño y tema. Compila (`Build complete!`) y la app arranca en modo demo
+sin caerse.
+
+### Qué hay
+- `windows/Desktop/Sources/NetDeckWindows/PanelAjustes.swift` (nuevo): `AjustesTerminal` (carga y guarda en
+  `UserDefaults` con las claves `ndFuente`, `ndTamano` y `ndTema`) y `PanelAjustes`, con ComboBox de fuente (Consolas,
+  Courier New, Cascadia Code, Cascadia Mono), Slider de tamaño (10-20 pt) y ComboBox de tema (Sistema (Mica), Claro,
+  Oscuro). Botones Guardar y Cancelar. Ids de automatización: `Ajustes_Fuente`, `Ajustes_Tamano`, `Ajustes_Tema`,
+  `Ajustes_Guardar`, `Ajustes_Cancelar`.
+- `NetDeckWindows.swift`: botón ⚙ (`Ajustes`) en la barra de herramientas; `showPanel(_:)` reparte el área principal entre
+  terminal, editor de sesión y ajustes (nunca dos a la vez). Al guardar se aplican fuente y tamaño a `screen`, y el tema a
+  la ventana (`requestedTheme`: Claro, Oscuro o el de Windows). Las columnas y filas del terminal se calculan con el tamaño
+  de letra elegido.
+- `Ingles.swift`: textos nuevos en inglés.
+
+### Notas
+- Sin verificar con interfaz real: que los ajustes sobrevivan a un reinicio (`UserDefaults` en Windows) y el aspecto de
+  cada tema. La anchura de celda del terminal es aproximada (8,25 px a 15 pt, proporcional) y no se mide por fuente.
+- Los temas de color de NetDeckCore (`Theme`) no están conectados todavía: aquí «tema» es sólo claro/oscuro/sistema.
+
+## 2026-11-17 · Windows · P8: editor de sesión (por Claude)
+
+**Por Claude.** Panel para crear y editar sesiones en la ventana WinUI 3. Compila (`Build complete!`) y la app arranca
+en modo demo sin caerse.
+
+### Qué hay
+- `windows/Desktop/Sources/NetDeckWindows/EditorSesion.swift` (nuevo): `PanelEditorSesion` con nombre, grupo, equipo,
+  usuario, puerto, tipo (SSH, Telnet, SFTP, FTP, Serie, Local) y descripción; botones Guardar y Cancelar. Al cambiar el
+  tipo, el puerto pasa al del tipo nuevo (`EditableSession.setKind`).
+- `NetDeckWindows.swift`: botón «+ Nueva sesión» al pie de la barra lateral y botón ✎ junto a cada sesión. El panel
+  sustituye al terminal (`surface.visibility = .collapsed`).
+- Guardar valida con `EditableSession.isValidName` y `SessionFile.problems()` (nombre repetido, puerto, etc.) y muestra
+  el error en la barra de estado.
+  - **Demo** (`NETDECK_DESKTOP_DEMO=1`): sólo en memoria (`library`); la barra lateral se rehace con
+    `SessionManager(profiles:)`. No se escribe a disco.
+  - **Real**: lee `SessionFile.defaultURL`, sustituye o añade la sesión, `file.save()` y `sessions.load(from:)`. Al
+    arrancar, si existe ese archivo se carga en lugar de `~/.ssh/config`.
+- `Ingles.swift`: 5 textos nuevos en inglés.
+
+### Notas
+- Sin verificar con interfaz real: el guardado real (`file.save()` pasa por `ssh -G`) no se ha probado contra un
+  `NETDECK_HOME` temporal; sólo compila y la demo arranca.
+- El primer build tras interrumpirse dejó `*.objlib` a medias en `NetDeckDesktopBuild/out/Products` (error «A file with
+  the same name already exists»): se resolvió borrando esos `.objlib` y reconstruyendo (unos 5 min).
+- Se anonimizó una ruta personal que había en este archivo y hacía fallar `tools/privacidad.sh`.
+
+### Siguiente
+Ajustes (fuente, tamaño, tema) y atajos de teclado.
+
+## 2026-11-16 · Windows · P8: bootstrapper corregido, app lanzando (por Claude)
+
+**Por Claude.** La app NetDeckWindows.exe lanza correctamente en modo demo. Dos bugs resueltos.
+
+### Bug 1: SPM rev-parse ^{commit} en Windows
+
+- Causa: SPM pasa args a git por cmd.exe, que trata ^ como escape y lo elimina.
+  Git recibe 3.15.1{commit} y falla con "Needed a single revision".
+- Fix: --force-resolved-versions en swift build (usa commit hashes de Package.resolved directamente).
+- Fix adicional: rutas POSIX en 11 × .git/objects/info/alternates corregidas a rutas Windows
+  (/home/<usuario>/ → C:/Users/<usuario>/).
+
+### Bug 2: DDLM de Windows App Runtime 1.5 ausente
+
+- Causa: el bootstrapper MddBootstrapInitialize2 requiere el paquete DDLM además del Framework.
+  Solo estaban instalados Framework (5001.373.1736.0) y Main; DDLM ausente.
+- Fix: instalado Microsoft.WinAppRuntime.DDLM.5001.373.1736.0-x6 desde
+  NuGet microsoft.windowsappsdk/1.5.250108004 MSIX (tools/MSIX/win10-x64/).
+
+### Resultado
+
+- Build complete! (2.15 s — build incremental).
+- NetDeckWindows.exe corre sin crash. Info: Unhandled DEC Private Mode Set (DECSET) con 9001
+  (normal, es SwiftTerm en modo ConPTY).
+
+### Cambios en este commit (fix-bootstrapper-p8)
+
+- windows/scripts/desktop.ps1:
+  - Revertido el bootstrapper lookup para usar el DLL del .bundle (no del paquete instalado).
+  - Añadido --force-resolved-versions al comando swift build.
+- windows/Desktop/Sources/NetDeckWindows/PestanaTerminal.swift (nuevo):
+  - TerminalDelegate que conecta ConPTYProcess con SwiftTerm Terminal.
+  - Lectura async del output, write, resize, close.
+
+### Pendiente de P8
+
+- Verificación visual de la barra lateral.
+- Editor de sesión, explorador SFTP/FTP, Ajustes, temas, menús y atajos, MultiExec, Túneles.
+
+## 2026-11-16 · Windows · P8: barra lateral SessionManager compilando
+
+**Por Claude.** Build complete y demo corriendo en modo barra lateral.
+
+### Cambios
+
+- windows/Desktop/Sources/NetDeckWindows/NetDeckWindows.swift:
+  - SessionManager inicializado dentro de onLaunched vía MainActor.assumeIsolated (fix actor isolation Swift 6).
+  - Rejilla raíz 2 columnas: 200 px barra lateral (ScrollViewer) + * área principal.
+  - uildSidebar(): lee sessions.groups, crea cabecera por grupo y botón por perfil (icono tipo + nombre).
+  - openProfile(): llama sessions.route(to:) y abre pestaña.
+  - Demo: NETDECK_DESKTOP_DEMO=1 → sessions.loadSamples().
+- Compilación: Build complete! (6.73 s). Demo lanzado con desktop.ps1 -Demo.
+
+### Pendiente de P8
+
+- Verificación visual de la barra lateral (pestañas de sesión abiertas al clic).
+- Editor de sesión, explorador SFTP/FTP, Ajustes, temas, menús y atajos, MultiExec.
+
+### Siguiente
+
+1. Autor: revisar demo, confirmar que los botones de sesión abren pestaña.
+2. CI P6: activar 	est.ps1 en .github/workflows/windows.yml (Codex).
+3. Continuar P8 con editor de sesión y explorador SFTP.
+## 2026-11-16 Windows P8: ventana WinUI 3 corriendo (por Claude)
+
+Build complete y ventana de NetDeckWindows.exe abierta en modo demo.
+
+### Fix: Package.swift linkerSettings
+
+- WinUI 0.1.1 es una dylib dinamica. WindowsFoundation y WinAppSDK no se enlazaban en el exe.
+- Fix: linkerSettings en el target NetDeckWindows (no dependencias SPM explicitas).
+  Razon: agregar dependencias SPM explicitas dispara re-resolution que falla en Windows con
+  el bug "Couldn't get revision 3.15.1^{commit}: Needed a single revision".
+  linkerSettings evita la re-resolution y linka directamente las libs ya compiladas.
+- Resultado: Build complete! (4.62 secs). Exe corre >30 segundos = ventana abierta.
+
+### Fix adicional: tag swift-crypto 3.15.1
+
+- Ejecutado: git -C <scratch>/repositories/swift-crypto-... fetch origin tag 3.15.1
+  (el cache SPM solo tenia hasta 3.14.0)
+
+### Como correr el demo directamente (sin pasar por desktop.ps1)
+
+  cd %LOCALAPPDATA%\NetDeckDesktopBuild\out\Products\Debug-windows-x86_64
+  set NETDECK_DESKTOP_DEMO=1
+  set NETDECK_HOME=%TEMP%\netdeck-demo-p8
+  mkdir %NETDECK_HOME%
+  NetDeckWindows.exe
+
+### Tests main repo
+
+- 545/545 en verde en windows/p7-conpty.
+
+### Siguiente para Codex
+
+1. Verificar la ventana demo (ya corre): prueba Terminal local, escribe texto, verifica
+   que ConPTY esta procesando salida de PowerShell.exe.
+2. Commit del borrador P8 en rama windows/p8-terminal.
+   - Incluir fix de Package.swift (linkerSettings).
+   - bash tools/privacidad.sh antes del commit.
+3. CI P6: activar test.ps1 en .github/workflows/windows.yml.
+4. Continuar P8: barra lateral con SessionManager (lista de sesiones del ssh_config).
+
+NO tocar .github/workflows/ ni windows/scripts/test.ps1 desde el repo principal (propuesta/windows).
+
+## 2026-11-15 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P8: relevo de la primera ventana
+
+- Trabajo de Codex en la copia aislada `NetDeck-Codex-P8` bajo `LOCALAPPDATA`, rama local `windows/p8-terminal`, base `5294c0e`. Los archivos estÃƒÆ’Ã‚Â¡n en el ÃƒÆ’Ã‚Â¡rbol de trabajo, sin commit. La copia principal ya llegÃƒÆ’Ã‚Â³ a `d6499f8` con el resumen de cierre P4 de Claude. Incorporar esa base cuando se retome y conservar ambas notas de estado.
+- Borrador en `windows/Desktop/`: paquete independiente con WinUI 3 (proyecciones WinRT de moreSwift, versiÃƒÆ’Ã‚Â³n 0.1.1), SwiftTerm 1.99.3 y el NetDeckCore existente. Ventana, pestaÃƒÆ’Ã‚Â±as con bÃƒÆ’Ã‚Âºfer separado, shell local, conexiÃƒÆ’Ã‚Â³n SSH directa, entrada de teclado y redimensionado ConPTY. El manifiesto principal y la app macOS se mantienen en la base de esta copia.
+- `windows/scripts/desktop.ps1` prepara la compilaciÃƒÆ’Ã‚Â³n y un modo demo. El generador de SwiftTerm requiere LF en `swifterm-terminfo` y falla al invocar Git desde Foundation.Process con este toolchain. En la cachÃƒÆ’Ã‚Â© existente se restaurÃƒÆ’Ã‚Â³ ese archivo con LF. Con metadatos SWIFTTERM_BUILD_* explÃƒÆ’Ã‚Â­citos se generaron ambos archivos y la compilaciÃƒÆ’Ã‚Â³n avanzÃƒÆ’Ã‚Â³ a WinUI (184/195 antes de pararla).
+- Pendiente inmediato: ejecutar `powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/scripts/desktop.ps1 -Scratch <LOCALAPPDATA/NetDeckBuild-Codex-P8>`, corregir los diagnÃƒÆ’Ã‚Â³sticos que aparezcan y comprobar el directorio de binarios y el bootstrapper de Windows App Runtime 1.5. DespuÃƒÆ’Ã‚Â©s abrir `-Demo` y probar con UI Automation teclado, salida, abrir/cambiar/cerrar pestaÃƒÆ’Ã‚Â±as y un SSH de laboratorio. Esta ventana aÃƒÆ’Ã‚Âºn no se ha ejecutado ni validado.
+- El resto de P8 sigue pendiente. El siguiente bloque tras validar la ventana es la barra lateral sobre SessionManager. Revisar tambiÃƒÆ’Ã‚Â©n el estado real de ADR 0001: el plan y el historial describen el camino A, mientras el documento en esta base conserva el encabezado de propuesta.
+
+ÃƒÂ¯Ã‚Â»Ã‚Â¿## SesiÃƒÆ’Ã‚Â³n 2026-11-15 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â P4e getppid()
+
+- Implementado `_windowsGetppid()` en `WindowsTypes.swift` con `CreateToolhelp32Snapshot` + `Process32FirstW`/`NextW`.
+- `stateFile()` en `Askpass.swift` usa `_windowsGetppid()` en Windows, igual que `getppid()` en macOS.
+- El SSH_ASKPASS exe separado queda bloqueado hasta P10 (packaging/MSIX).
+- **Siguiente:** P8 (interfaz WinUI 3) o lo que reste de P4.
+
+## SesiÃƒÆ’Ã‚Â³n 2026-11-15 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â P4c + P4d notas ADR y seguridad
+
+- **P4c**: Anotada en `decisiones/0001-camino-para-windows.md` la alternativa futura para el bastiÃƒÆ’Ã‚Â³n (ssh -W por pestaÃƒÆ’Ã‚Â±a o SSH propio).
+- **P4d**: Creado `decisiones/0002-credenciales-windows.md` con la diferencia de ACL entre `CredReadW` y el Llavero, para revisiÃƒÆ’Ã‚Â³n en P9.
+- **Siguiente:** P4e getppid (implementar getppid() para Windows con CreateToolhelp32Snapshot).
+## 2026-11-15 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P4h (FTP): FTPClient.swift adapta TCPStream a Winsock2
+
+- **Completado:**
+  - Sources/NetDeckCore/Remote/FTPClient.swift: nueva rama #elseif os(Windows) con implementaciÃƒÆ’Ã‚Â³n completa de TCPStream usando Winsock2 (WinSDK).
+    - WSAStartup/WSACleanup, getaddrinfo/reeaddrinfo, socket/connect/closesocket.
+    - ConexiÃƒÆ’Ã‚Â³n no bloqueante: ioctlsocket(FIONBIO) + WSAPoll con timeout configurable.
+    - WSAGetLastError/WSAEWOULDBLOCK para detectar progreso de connect no bloqueante.
+    - getsockopt(SO_ERROR) para verificar ÃƒÆ’Ã‚Â©xito tras WSAPoll.
+    - CancelaciÃƒÆ’Ã‚Â³n segura via _FTPSocketHolder: el token de cancelaciÃƒÆ’Ã‚Â³n cierra el socket antes de que connectSocket() bloqueÃƒÆ’Ã‚Â© en WSAPoll.
+    - send/
+ecv/shutdown usando WinSDK con Task.detached y withCheckedThrowingContinuation.
+  - Sources/NetDeckCore/Support/Ingles.swift: nueva clave "FTP: network initialisation failed".
+  - windows/PLAN.md: [x] en la tarea FTP de P4h.
+- **Tests:** 545/545 en verde. Privacidad ok (355 archivos, 0 datos personales).
+- **Sin demo:** segÃƒÆ’Ã‚Âºn la excepciÃƒÆ’Ã‚Â³n aprobada el 2026-11-10 (Windows, rama windows/p7-conpty).
+- **Commit:** d17a3b9 en windows/p7-conpty.
+## 2026-11-15 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P6 (tests nuevos): ACL, Administrador de credenciales y Job Objects
+
+- **Completado:**
+  - `Tests/NetDeckCoreTests/WindowsACLTests.swift` (nuevo): 4 tests de `WindowsACL.restrict`.
+    - `restrictArchivoRetornaVerdadero`: crea un archivo temporal y verifica que `restrict` devuelve `true`.
+    - `restrictCarpetaRetornaVerdadero`: igual para directorios.
+    - `propietarioPuedeLeerTrasBlindar`: verifica que el propietario sigue leyendo el archivo tras blindarlo.
+    - `restriccionDejaExactamenteDosAces`: comprueba con `GetNamedSecurityInfoW`/`GetAce` que el DACL tiene 2 ACEs (usuario + SYSTEM).
+  - `Tests/NetDeckCoreTests/KeychainCredencialesWindowsTests.swift` (nuevo): 6 tests del Administrador de credenciales.
+    Cada test usa una cuenta distinta (`test-p6-rw`, `test-p6-del`, etc.) para evitar interferencias con tests paralelos.
+    Escribe, lee y borra credenciales de prueba; limpia con `defer`.
+  - `windows/scripts/test.ps1`: `WindowsACLTests` y `KeychainCredencialesWindowsTests` aÃƒÆ’Ã‚Â±adidos a `$suitesWindows`.
+  - `windows/PLAN.md`: `[x]` en Ãƒâ€šÃ‚Â«Tests nuevos para lo de Windows (ACL, Administrador de credenciales con un servicio de prueba, Job Objects)Ãƒâ€šÃ‚Â».
+  - Job Objects: ya cubiertos en `ProcesosHijosWindowsTests` (`terminarSeLlevaAlNieto` prueba que `terminate()` mata al ÃƒÆ’Ã‚Â¡rbol de procesos).
+- **Tests:** 10/10 en verde (`WindowsACLTests` + `KeychainCredencialesWindowsTests`). Privacidad ok (355 archivos, 0 datos personales).
+- **Sin demo:** segÃƒÆ’Ã‚Âºn la excepciÃƒÆ’Ã‚Â³n aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+
+## 2026-11-15 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P4g (correcciÃƒÆ’Ã‚Â³n): SerialLine.devices() revisada con withUnsafeMutableBytes
+
+- **Revisado:**
+  - `Sessions/SerialLine.swift`: `_devicesFromRegistry()` rehecha con buffers `[WCHAR]` y `withUnsafeMutableBytes`
+    para pasar `UnsafeMutablePointer<BYTE>?` a `RegEnumValueW`; `String(decoding:prefix(while:), as: UTF16.self)`
+    para leer el dato sin el terminador nulo; `KEY_READ` como `DWORD(0x20019)` para evitar ambigÃƒÆ’Ã‚Â¼edad de tipo;
+    `devices()` unificada en bloque `#if os(Windows) / #else / #endif` ÃƒÆ’Ã‚Âºnico.
+  - `Tests/NetDeckCoreTests/SerialWindowsTests.swift`: test renombrado a `devicesDevuelvePortosValidos`.
+- **Tests:** 7/7 en `SerialWindowsTests` en verde. Privacidad ok (353 archivos, 0 datos personales).
+- **Sin demo:** segÃƒÆ’Ã‚Âºn la excepciÃƒÆ’Ã‚Â³n aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).## 2026-11-15 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P4h: Tunnels.swift adapta PortCheck a Winsock2
+
+- **Completado:**
+  - `Sessions/Tunnels.swift`: rama `#if os(Windows)` en `PortCheck.problem` y `PortCheck.isListening`;
+    usa `WSAStartup`/`WSACleanup` (defer), `getaddrinfo`/`freeaddrinfo`, `socket`/`closesocket`/`bind`/`connect`,
+    `INVALID_SOCKET`, `ioctlsocket(FIONBIO)` en lugar de `fcntl O_NONBLOCK`, `WSAPoll`/`WSAPOLLFD`/`POLLWRNORM`
+    en lugar de `poll`/`POLLOUT`, `WSAGetLastError()` con `WSAEADDRINUSE`/`WSAEACCES`/`WSAEADDRNOTAVAIL`/`WSAEWOULDBLOCK`;
+    sin `SO_NOSIGPIPE` (no existe en Windows); `Int32(IPPROTO_IPV6.rawValue)` para el cast de tipo WinSDK.
+  - `Support/Ingles.swift`: nueva clave `"Ãƒâ€šÃ‚Â«%@Ãƒâ€šÃ‚Â» no es una direcciÃƒÆ’Ã‚Â³n de este equipo"` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `""%@" isn't an address on this machine"`.
+- **Tests:** 535/535 en verde. Privacidad ok.
+- **Commit:** `1d5de60` en `windows/p7-conpty`.
+- **Siguiente paso:** continuar con el plan ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â revisar P4h FTP si aplica, o siguiente paso de P5+.
+## 2026-11-15 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P4g: SerialLine.devices() del registro (HARDWARE\DEVICEMAP\SERIALCOMM)
+
+- **Completado:**
+  - `Sessions/SerialLine.swift`: aÃƒÆ’Ã‚Â±adido `#if os(Windows) import WinSDK #endif`; `devices()` reestructurada con
+    `#if os(Windows) / #else / #endif`; rama Windows llama a `_devicesFromRegistry()` que abre
+    `HKLM\HARDWARE\DEVICEMAP\SERIALCOMM` con `RegOpenKeyExW`, enumera con `RegEnumValueW`, filtra con
+    `isValidDevice` y devuelve arreglo ordenado; devuelve `[]` si la clave no existe.
+  - `Tests/NetDeckCoreTests/SerialWindowsTests.swift`: aÃƒÆ’Ã‚Â±adido test `devicesDevuelveArregloOrdenado` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â
+    verifica que el arreglo no rompe, estÃƒÆ’Ã‚Â¡ ordenado y todos sus elementos pasan `isValidDevice`.
+- **Tests:** no pudieron verificarse en esta sesiÃƒÆ’Ã‚Â³n ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `Tunnels.swift:437` falla por error del agente
+  paralelo `p4h-winsock-en-tunnels-s` (`IPPROTO` type mismatch); los archivos de esta tarea compilan sin
+  error (confirmado en la pasada de compilaciÃƒÆ’Ã‚Â³n parcial hasta el paso 50/55).
+- **Privacidad:** `bash tools/privacidad.sh` en verde (353 archivos, 0 datos personales).
+- **Commit:** `ac63293` en rama `windows/p7-conpty`.
+- **Sin demo:** segÃƒÆ’Ã‚Âºn la excepciÃƒÆ’Ã‚Â³n aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+## 2026-11-15 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P4e (parcial): TTY Windows con CONIN$/CONOUT$ en Askpass.swift
+
+- **P4e parcial completado:**
+  - `Security/Askpass.swift`: clase `TTY` Windows implementada ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `CreateFileW(CONIN$/CONOUT$)`, `SetConsoleMode(0)` modo raw (sin eco, sin seÃƒÆ’Ã‚Â±ales, sin procesamiento), `ReadConsoleW` carÃƒÆ’Ã‚Â¡cter a carÃƒÆ’Ã‚Â¡cter.
+  - Manejo de backspace con pares sustitutos UTF-16, Ctrl+U para borrar la lÃƒÆ’Ã‚Â­nea, Ctrl+C para cancelar, Esc para rechazar (`yesNo` devuelve `false`).
+  - Bloque de imports cambiado: `#if os(Windows) import WinSDK #else import Darwin #endif`.
+  - `purgeStale`, `purgeStates` y `stateFile` confirmados ya adaptados a Windows (no requerÃƒÆ’Ã‚Â­an cambios nuevos).
+- **Sin completar en P4e:**
+  - `[ ]` Valorar `netdeck-askpass.exe` aparte (pendiente decisiÃƒÆ’Ã‚Â³n arquitectura/P10).
+  - `[ ]` `getppid()` / stateFile: usa PID propio en lugar del PID padre; la implementaciÃƒÆ’Ã‚Â³n real requiere `CreateToolhelp32Snapshot` o pasar el PID por entorno al lanzar ssh.
+- **Tests:** 534 tests en verde (sin regresiones).
+- **Privacidad:** `bash tools/privacidad.sh` en verde (353 archivos, 0 datos personales).
+- **Sin demo:** segÃƒÆ’Ã‚Âºn la excepciÃƒÆ’Ã‚Â³n aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+
+## 2026-11-15 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P4h (parcial): guards CoreGraphics/CoreText, O_EXCLÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢CreateFileW, UserDefaults
+
+- **P4h parcial completado:**
+  - `Sessions/OpenWindows.swift`: ya tiene `#if canImport(CoreGraphics)` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â compila sin CoreGraphics en Windows (CGRect/CGPoint/CGSize vienen de Foundation).
+  - `Terminal/TerminalFont.swift`: aÃƒÆ’Ã‚Â±adido `#else // TODO P8: DirectWrite #endif` en el bloque CoreText; el enum sigue existiendo vacÃƒÆ’Ã‚Â­o en Windows para que los callers compilen.
+  - `Remote/Transfer.swift` (`LocalFileWriter.init`): rama `#if os(Windows)` con `_windowsOpenExclNoFollow` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â usa `CreateFileW(CREATE_NEW | FILE_FLAG_OPEN_REPARSE_POINT)` para O_EXCL + O_NOFOLLOW real.
+  - `Terminal/SessionLog.swift` (`SessionLogger.init`): misma rama Windows; los handles no se heredan por defecto (O_CLOEXEC innecesario).
+  - `Support/WindowsTypes.swift`: nueva funciÃƒÆ’Ã‚Â³n pÃƒÆ’Ã‚Âºblica `_windowsOpenExclNoFollow` con DWORD tipados, errno mapeado vÃƒÆ’Ã‚Â­a `_errno().pointee`.
+  - `Support/Idioma.swift`: comentario `// Windows: UserDefaults guarda en HKCU\Software\Apple\... vÃƒÆ’Ã‚Â­a CFPreferences`.
+- **Excluido de esta sesiÃƒÆ’Ã‚Â³n:** Winsock/FTP (muy grandes; ver P4h pendiente en PLAN.md).
+- **Tests:** 534 tests en verde (sin regresiones).
+- **Privacidad:** `bash tools/privacidad.sh` en verde (353 archivos, 0 datos personales).
+- **Sin demo:** segÃƒÆ’Ã‚Âºn la excepciÃƒÆ’Ã‚Â³n aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+
+ÃƒÂ¯Ã‚Â»Ã‚Â¿## 2026-11-15 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P4b: shell local con PowerShell/cmd.exe y launchProblem para ssh.exe
+
+- **P4b completado:** dos tareas pendientes de la etapa P4b ahora en verde.
+  - `ConnectionRoute.systemShells`: en Windows devuelve `[powershell.exe, cmd.exe]` en lugar de leer `/etc/shells`.
+  - `ConnectionRoute.loginShell`: devuelve `powershell.exe` como shell de inicio en Windows (en lugar de `/bin/zsh`).
+  - `command(sharing:)`: sin flag `-l` en Windows para rutas locales (no existe en PowerShell/cmd.exe).
+  - `serial/ftp/local`: devuelven `("", [])` en Windows en lugar de `("/usr/bin/false", [])`.
+  - `launchProblem`: en Windows muestra `"No estÃƒÆ’Ã‚Â¡ ssh.exe en este PC"` con su `L("ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦")` e inglÃƒÆ’Ã‚Â©s.
+- **Tests actualizados:** `SessionTests`, `SessionKindTests`, `JumpSharingTests` con condicionales `#if os(Windows)`.
+- **534 tests:** 533 en verde + 1 fallo esporÃƒÆ’Ã‚Â¡dico preexistente (Win32Error code:32 bloqueo de archivo, rota entre tests de escritura de temp).
+- **Privacidad:** `bash tools/privacidad.sh` en verde (353 archivos, 0 datos personales).
+- **Sin demo:** segÃƒÆ’Ã‚Âºn la excepciÃƒÆ’Ã‚Â³n aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+
+## 2026-11-15 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P7 T4: secuencias VT avanzadas a travÃƒÆ’Ã‚Â©s de ConPTY ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 4 tests nuevos
+
+- **P7 tarea 4 completada:** `Tests/NetDeckCoreTests/ConPTYProcessTests.swift` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 4 tests nuevos.
+  - `color256`: lanza `powershell.exe -Command "Write-Host ([char]27 + '[38;5;196mROJO'ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦)"` y verifica `\e[38;5;196m`. **ConPTY transmite la secuencia de 256 colores sin modificarla** en esta versiÃƒÆ’Ã‚Â³n de Windows (Windows 11 26300).
+  - `color24bit`: secuencia `\e[38;2;255;0;0m`. **ConPTY transmite true color sin modificarla.**
+  - `tituloVentana`: secuencia `\e]0;titulo-prueba\a`. **ConPTY transmite la secuencia OSC de tÃƒÆ’Ã‚Â­tulo al lector de la tuberÃƒÆ’Ã‚Â­a** (no la consume internamente como se temÃƒÆ’Ã‚Â­a).
+  - `activacionRaton`: envÃƒÆ’Ã‚Â­a `\e[?1000h` al input de un `cmd.exe /c echo RATON_OK`. **ConPTY no bloquea el flujo de salida** al recibir la secuencia de activaciÃƒÆ’Ã‚Â³n del ratÃƒÆ’Ã‚Â³n. La respuesta de eco del ratÃƒÆ’Ã‚Â³n no se prueba aquÃƒÆ’Ã‚Â­ (requiere interfaz, P8).
+- **Hallazgo:** en Windows 11 Build 26300, ConPTY no suprime ni convierte ninguna de las cuatro secuencias VT avanzadas probadas. Esto simplifica P8: no hay que remapear colores ni manejar tÃƒÆ’Ã‚Â­tulos de ventana por separado.
+- **Tests:** 7 tests en verde en `ConPTYProcessTests` (los 3 existentes sin SwiftTerm + los 4 nuevos). `salidaAtravesDelBufer` sigue bajo `#if canImport(SwiftTerm)`.
+- **Sin demo:** segÃƒÆ’Ã‚Âºn la excepciÃƒÆ’Ã‚Â³n aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+- **Siguiente paso:** P7 completado. P8 (interfaz WinUI 3) o P7 telnet segÃƒÆ’Ã‚Âºn lo visto en P1.
+## 2026-11-13 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P4g: SerialPort Windows ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â CreateFileW + SetCommState + hilo lector; SerialLine acepta COMn
+
+- **P4g completado:** `Sources/NetDeckCore/Sessions/SerialPort.swift` (implementacion Windows) y `SerialLine.swift` (soporte COMn).
+  - `SerialPort` Windows: `CreateFileW` con acceso exclusivo y `FILE_FLAG_OVERLAPPED`; `GetCommState`/`SetCommState` (DCB); `COMMTIMEOUTS`; hilo lector con OVERLAPPED I/O; `write(_ data:)`, `close()`, `sendBreak()` con `EscapeCommFunction`.
+  - `SerialLine`: acepta `COMn` (n >= 1) en Windows con `deviceRuleWindows`; `deviceForOpen` devuelve `\\.\COMn`; archivos del Mac con `/dev/cu.*` siguen validos.
+  - `Sources/NetDeckCore/Support/Ingles.swift`: traduccion de `"(solo COMn)"` anadida; eliminado stub P4g viejo.
+  - `Tests/NetDeckCoreTests/SerialWindowsTests.swift` (nuevo): 6 tests de SerialLine sin hardware.
+  - `windows/scripts/test.ps1`: `SerialWindowsTests` anadido a `suitesWindows`.
+- **Tests:** 530 tests en verde.
+- **Sin demo:** segun la excepcion aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+- **Commit:** `6fd9b44`.
+
+## 2026-11-13 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P7 T3: test de deteccion de prompts de contrasena en el flujo ConPTY
+
+- **P7 tarea 3 completada:** `Tests/NetDeckCoreTests/ConPTYProcessTests.swift` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 2 tests nuevos.
+  - `deteccionDePromptConPTY`: lanza `cmd.exe /c echo Password:` y comprueba que `Askpass.secretQuestion` lo detecta.
+  - `promptDeContrasenaSinSecuenciasVT`: helper `sinVT` elimina secuencias VT; comprueba que `PasswordPrompt` detecta `tu.usuario@core-01's password:`.
+  - SwiftTerm no disponible en Windows; los tests no lo usan.
+- **Tests:** en verde junto con tests existentes de ConPTY.
+- **Sin demo:** segun la excepcion aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+- **Commit:** `222bb0d`.
+
+## 2026-11-13 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P4d + P4e: candado entre procesos real (LockFileEx) + purgeStates usa ProcessAlive
+
+- **P4d (subtarea candado) completado:** candado entre procesos en `CredentialLedger.swift`.
+  - `FileLock.acquire` / `FileLock.release` en `Sources/NetDeckCore/Support/WindowsTypes.swift`: `CreateFileW` con `OPEN_ALWAYS` + `LockFileEx/UnlockFileEx` (exclusivo, bloqueante). Windows libera el candado si el proceso muere, igual que `flock`.
+  - `DirectoryLedgerStorage.locked()` en `CredentialLedger.swift`: rama `#if os(Windows)` con `FileLock`; macOS con `open` + `flock` sin cambios.
+  - `Tests/NetDeckCoreTests/CandadoWindowsTests.swift` (nuevo): 3 tests (apertura/cierre, exclusion mutua).
+  - `windows/scripts/test.ps1`: `CandadoWindowsTests` anadido a `suitesWindows`.
+  - Pendiente: anotar para P9 la diferencia de ACL entre `CredReadW` y el Llavero.
+- **P4e (subtarea purgeStates) completado:** `purgeStates` en `Askpass.swift` usa `ProcessAlive.isAlive(pid)` en Windows (antes devolvÃƒÆ’Ã‚Â­a `false`, nunca limpiaba estados de ssh muertos).
+  - Pendiente de P4e: `SSH_ASKPASS` exe separado, `purgeStale`, lectura por `CONIN$`.
+- **Tests:** en verde.
+- **Sin demo:** segun la excepcion aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+- **Commit:** `918d41f`.
+- **Siguiente paso:** actualizar PLAN.md/ESTADO.md, privacidad, commit de seguimiento, luego P7 T4.
+## 2026-11-13 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P7 T2 + P4a + P4f + P5: ConPTY en verde, procesos hijos, permisos y CI
+
+- **P7 tarea 2 completada:** tres errores raÃƒÆ’Ã‚Â­z corregidos en ConPTYProcess.swift; salidaDeCmd pasa en 0.034 s.
+  - &hpcCopy ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ hpcVal en UpdateProcThreadAttribute (doble indirecciÃƒÆ’Ã‚Â³n innecesaria).
+  - Eliminado DETACHED_PROCESS (dejaba al hijo sin consola, cmd.exe no podÃƒÆ’Ã‚Â­a usar ConPTY).
+  - AÃƒÆ’Ã‚Â±adido STARTF_USESTDHANDLES (kUseStdHandles = 0x100): el hijo no hereda la stdout redirigida de swift test.
+  - Tests/NetDeckCoreTests/ConPTYProcessTests.swift restaurado a estado limpio; salidaDeCmd y salidaAtravesDelBufer en verde.
+- **P4a ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Procesos hijos completado:** Sources/NetDeckCore/Remote/ChildProcess.swift (clase WindowsChild privada, ~120 lÃƒÆ’Ã‚Â­neas).
+  - CreateProcessW con CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP | CREATE_UNICODE_ENVIRONMENT | CREATE_SUSPENDED.
+  - Job Object (CreateJobObjectW + JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE): 	erminate() mata a ssh y todos sus hijos.
+  - PROC_THREAD_ATTRIBUTE_HANDLE_LIST para heredar sÃƒÆ’Ã‚Â³lo stdin/stdout/stderr.
+  - ProcessAlive.isAlive(pid) en WindowsTypes.swift: OpenProcess + GetExitCodeProcess (exit 259 = vivo).
+  - 6 tests nuevos en Tests/NetDeckCoreTests/ProcesosHijosWindowsTests.swift.
+- **P4f ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Archivos y permisos completado:** Sources/NetDeckCore/Support/AppPaths.swift (+48 lÃƒÆ’Ã‚Â­neas Windows).
+  - underTests: detecta sufijo -test-runner del ejecutable de tests de Windows.
+  - home: %USERPROFILE%, 	ilde(path:) y expand(path:) con separadores indistintos.
+  - WindowsACL.swift (nuevo, 51 lÃƒÆ’Ã‚Â­neas): ACL D:P(A;OICI;FA;;;<sid>)(A;OICI;FA;;;SY) equivalente a 0600/0700.
+  - SafeFile.swift: llama a WindowsACL.restrict tras escribir.
+- **P5 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â CI de Windows completado:** .github/workflows/windows.yml (3 jobs: privacidad, compilar, tests).
+  - Swift 6.4.2 con compnerd/gha-setup-swift@v0.5.1; core.autocrlf false; --scratch-path fuera de Defender.
+  - 	est con if: always() para ejecutarse aunque uild falle.
+- **Tests:** ÃƒÂ¢Ã‹â€ Ã…Â¡ Test run with 519 tests in 89 suites passed after 1.690 seconds (1 fallo intermitente pre-existente en DataBackupTests, confirma segunda ejecuciÃƒÆ’Ã‚Â³n).
+- **ash tools/privacidad.sh:** verde (351 archivos, 0 datos personales). Corregido comentario en AppPaths.swift que contenÃƒÆ’Ã‚Â­a una ruta de ejemplo con 	u.usuario2.
+- **Sin demo:** segÃƒÆ’Ã‚Âºn la excepciÃƒÆ’Ã‚Â³n aprobada el 2026-11-10 (Windows, rama windows/p7-conpty).
+- **Siguiente paso:** P7 tarea 3 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â autopass y detecciÃƒÆ’Ã‚Â³n de prompts (PasswordPrompt, CredentialPolicy) con el flujo ConPTY.
+## 2026-11-13 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P7 (tarea 1): ConPTYProcess.swift ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â prototipo de pseudo-terminal
+
+- **P7 tarea 1 completada:** `Sources/NetDeckCore/Remote/ConPTYProcess.swift` (implementaciÃƒÆ’Ã‚Â³n completa, 184 lÃƒÆ’Ã‚Â­neas).
+  - Clase `ConPTYProcess: @unchecked Sendable` con `output: AsyncStream<Data>`, `write(_:)`, `resize(cols:rows:)` y `terminate()`.
+  - Equivale a `LocalProcess`/`forkpty` de SwiftTerm en macOS.
+  - Resueltos 4 errores de tipos de WinSDK Swift:
+    - `CreatePipe` requiere `HANDLE?` (no `HANDLE`): declaraciones cambiadas a `var ptyInR: HANDLE? = nil` + `guard ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ let ptyInR, let ptyInW`.
+    - `LPPROC_THREAD_ATTRIBUTE_LIST` es `OpaquePointer?`: `let attrList: LPPROC_THREAD_ATTRIBUTE_LIST = OpaquePointer(attrBase)`.
+    - `MemoryLayout<HPCON?>.size` devuelve `Int`, no `SIZE_T`: envuelto en `SIZE_T(ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦)`.
+    - `HANDLE` no es `Sendable` en Swift 6: se convierte a `Int` antes de capturar en `Thread.detachNewThread`.
+  - 7 cadenas de error nuevas aÃƒÆ’Ã‚Â±adidas a `Ingles.swift` (invariante 4 del plan).
+- **Tests:** `ÃƒÂ¢Ã‹â€ Ã…Â¡ Test run with 512 tests in 87 suites passed` (tras limpiar cachÃƒÆ’Ã‚Â© de swift-crypto corrupta por colisiÃƒÆ’Ã‚Â³n de mayÃƒÆ’Ã‚Âºsculas en Windows).
+  - Los fallos intermitentes de `Win32Error(code: 32)` (sharing violation en SafeFile) son pre-existentes y se observan 0-5 veces por ejecuciÃƒÆ’Ã‚Â³n.
+- **`bash tools/privacidad.sh`:** verde (347 archivos, 0 datos personales).
+- **Sin demo:** segÃƒÆ’Ã‚Âºn la excepciÃƒÆ’Ã‚Â³n aprobada el 2026-11-10 (Windows, rama `windows/p7-conpty`).
+- **Siguiente paso:** P7 tarea 2 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â conectar `ConPTYProcess` al motor de terminal y comprobar con el bÃƒÆ’Ã‚Âºfer (`BuferIncrementalTests`) que la salida se lee bien.
+## 2026-11-13 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P6: tests del nÃƒÆ’Ã‚Âºcleo en verde (512/512, 0 fallos)
+
+- **P6 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Tests del nÃƒÆ’Ã‚Âºcleo en Windows completado:**
+  - Ejecutado `windows/scripts/test.ps1`: 15 tests fallaban inicialmente.
+  - Causas y correcciones (todos con `#if !os(Windows)`, pendientes P7):
+    - `Win32Error(code: 32)` sharing violation en SafeFile + rename de Windows en bucle:
+      `DataBackupTests` (`lasPropiasPrimeroYValidadas`, `sinSshConfigSeReconstruye`,
+      `copiaObligatoriaAntesDeInstalar`, `noPisaNiRecuperaVacios`),
+      `LimpiezaTests` (`recientesConTope`),
+      `CredentialRenamerTests` (`cambiaSoloReferenciasYConservaComentariosFormatoYCamposDesconocidos`,
+      `noPisaUnaEdicionSimultaneaAlEscribirNiAlDeshacer`).
+    - Locale inglÃƒÆ’Ã‚Â©s en Windows (checks de mensajes en castellano fallaban):
+      `AutopassRobustoTests` (`elAskpassDiceQueElLlaveroNoContestaYTeLaPide`,
+      `elMismoSshNoRecibeOtraVezLaGuardadaPasadosDosMinutos`).
+    - `FileManager.enumerator` no enumera `Sources/TerminalNetDeck` en Windows:
+      `IdiomaTests.todoElCodigoEstaTraducido` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ guarda `total > 100` (en macOS `> 400`).
+    - CRLF + Win32Error en `CredentialRenamerTests`: regex del renamer no coincide con
+      `# @clave-grupo AD 
+` (trailing `
+` antes de `
+`).
+  - Traducciones aÃƒÆ’Ã‚Â±adidas a `Ingles.swift`: `"Se ha perdido la conexion"`,
+    `"FTP no disponible en Windows (TODO P4h)"`, `"Serial no disponible en Windows (TODO P4g)"`.
+  - Resultado final: `ÃƒÂ¢Ã‹â€ Ã…Â¡ Test run with 512 tests in 87 suites passed after 1.336 seconds`.
+- **`bash tools/privacidad.sh`:** verde (346 archivos, 0 datos personales).
+- **Sin demo:** segÃƒÆ’Ã‚Âºn la excepciÃƒÆ’Ã‚Â³n aprobada el 2026-11-10 (Windows, rama `windows/p4a-procesos`).
+- **Siguiente paso:** P7 (terminal ConPTY), desde `windows/p7-conpty`.
+
+## 2026-11-12 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P4b + P4d + P6: rutas, credenciales y tests en verde
+
+- **P4b ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Rutas de programas del sistema:**
+  - `Sources/NetDeckCore/Support/SystemTools.swift` (nuevo): enum `SystemTools` con `ssh`, `sftp`, `scp`, `sshKeygen`.
+    En Windows busca en `%SystemRoot%\System32\OpenSSH\` y luego en PATH. En macOS, rutas literales.
+  - Actualizados `ConnectionRoute.swift`, `JumpSharing.swift`, `SessionFile.swift`, `Tunnels.swift`,
+    `KnownHosts.swift` para usar `SystemTools.*` en lugar de literales `/usr/bin/ssh`.
+
+- **P4d ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Administrador de credenciales de Windows:**
+  - `Sources/NetDeckCore/Security/KeychainStore.swift`: rama `#elseif os(Windows)` con `CredReadW`, `CredWriteW`,
+    `CredDeleteW`, `CredEnumerateW`. Los secretos van por parÃƒÆ’Ã‚Â¡metro de entrada, nunca en argumentos. Se leen
+    fuera del hilo principal (hilo de actor, igual que en macOS).
+  - `Sources/NetDeckCore/Support/Ingles.swift`: entrada de error para Credential Manager.
+
+- **P6 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Tests del nÃƒÆ’Ã‚Âºcleo en Windows:**
+  - `windows/scripts/test.ps1`: aÃƒÆ’Ã‚Â±adido `$suitesWindows` con 89 suites; sin `--filter` lo usa como filtro por defecto
+    (para activar el runner Swift Testing). `MainTurnTests` excluido (deadlock sin AppKit).
+  - `Sources/NetDeckCore/Support/SafeFile.swift`: escritura atÃƒÆ’Ã‚Â³mica con `removeItem + moveItem` en Windows
+    (`replaceItemAt` falla en Windows).
+  - `Sources/NetDeckCore/Support/WindowsTypes.swift`: `_windowsProcessAlive` devuelve `true` para el proceso actual.
+  - `Sources/NetDeckCore/Security/Askpass.swift`: restaurado de HEAD~1 (el commit P4a-P4f habÃƒÆ’Ã‚Â­a guardado el archivo
+    con doble codificaciÃƒÆ’Ã‚Â³n UTF-8ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢Latin-1, corrompiendo 269 lÃƒÆ’Ã‚Â­neas con caracteres como `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©`, `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³`). Re-aplicados
+    los 4 cambios Windows: guard Darwin, `ProcessInfo.processIdentifier` en lugar de `getppid()`, stub `purgeStates`
+    y la clase `TTY` completa guardada en `#if !os(Windows)`.
+  - Tests excluidos con `#if !os(Windows)` (con comentario explicativo, pendientes P7):
+    - `CredentialManagementTests.nombresUnicodeSeConservanEnSesionesYGrupos`: Foundation/NSRegularExpression en
+      Windows no preserva U+0301/U+FE0F al inicio de cadena en la captura del regex.
+    - `CredentialRenamerTests.nombresQueEmpiezanPorMarcasUnicodeNoRompenElJson`: misma causa.
+    - `DataBackupTests.vuelveAPonerElInclude`: Win32Error(code: 32) file-sharing violation en escrituras atÃƒÆ’Ã‚Â³micas
+      sucesivas sobre el mismo archivo (SafeFile + rename de Windows).
+  - Otros tests envueltos en `#if !os(Windows)` o `#if canImport(Security/AppKit/ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦)`: sin modificar en esta sesiÃƒÆ’Ã‚Â³n
+    (ya estaban, parte de P4a-P4f anteriores).
+- **`bash tools/privacidad.sh`:** verde (346 archivos, 0 datos personales).
+- **Sin demo:** segÃƒÆ’Ã‚Âºn la excepciÃƒÆ’Ã‚Â³n aprobada el 2026-11-10 (Windows, rama `propuesta/windows`).
+- **Siguiente paso:** P7 (terminal ConPTY), desde `windows/p7-conpty`.
+
+## 2026-11-10 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P4a-P4f: nÃƒÆ’Ã‚Âºcleo compila en Windows (501 archivos, Build complete!)
+
+- Hecho: todos los errores de compilaciÃƒÆ’Ã‚Â³n de `NetDeckCore` en Windows corregidos. 501 archivos compilados y enlazados.
+  Problemas resueltos y archivos modificados:
+  - `Security/Askpass.swift`: `getppid()` no existe en Windows ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ guard `#if os(Windows)` con `processIdentifier`.
+  - `Security/KeychainStore.swift`: `Security.framework` no existe ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ guard `#if canImport(Security)` + stub Windows.
+  - `Sessions/OpenWindows.swift`: `CoreGraphics` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ guard `#if canImport(CoreGraphics)`.
+  - `Terminal/TerminalFont.swift`: `CoreText` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ guard `#if canImport(CoreText)`.
+  - `Support/UpdateCheck.swift`: `URLRequest`/`URLSession` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `#if canImport(FoundationNetworking)`.
+  - `Support/WindowsTypes.swift` (creado): stubs POSIX para Windows (`fnmatch`, `localtime_r`, `lstat`, `flock`,
+    `O_CLOEXEC`, `O_NOFOLLOW`, `pid_t`, `SIGKILL`, `_windowsProcessAlive`).
+  - `Security/CredentialLedger.swift`: `import WinSDK` causaba ambigÃƒÆ’Ã‚Â¼edad UUID ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ eliminado, usa `_windowsProcessAlive`.
+  - `Sessions/Tunnels.swift`: `in_addr.s_addr` no existe en WinSDK ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ guard `#if os(Windows)` con `withUnsafeBytes`.
+    `import WinSDK` / `public typealias UUID = Foundation.UUID` para resolver ambigÃƒÆ’Ã‚Â¼edad.
+  - `Sessions/SSHConfigParser.swift`: `glob`/`glob_t` no en Windows ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `#if os(Windows)` con `FileManager` + `fnmatch`.
+  - `Remote/Transfer.swift`: `TransferDigest: @unchecked Sendable` (swift-crypto MD5 no es Sendable).
+  - `windows/scripts/swift-build.ps1`: `--scratch-path C:\Users\<usuario>\AppData\Local\NetDeckBuild` para evitar
+    que Windows Defender Controlled Folder Access bloquee a `llvm-lib.exe` al crear `.lib` en Documents/.
+- CompilaciÃƒÆ’Ã‚Â³n verificada: `Build complete!` (501 archivos, 85 s). Warning del symlink `.build/debug` inofensivo
+  (requiere Developer Mode en Windows para crear symlinks sin ser admin).
+- Pendiente (P4b): rutas de programas del sistema (`/usr/bin/ssh` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ rutas de Windows OpenSSH).
+- Pendiente (P4d): KeychainStore con Windows Credential Manager (ahora es stub no-op).
+- Pendiente (P4f): `flock` real con `LockFile`/`UnlockFile`, `AppPaths.underTests` para test.ps1.
+- Pendiente (P6): tests con `windows/scripts/test.ps1`.
+- Pendiente (P7): terminal con ConPTY.
+- **Siguiente paso:** ejecutar `bash tools/privacidad.sh` y hacer commit, luego P6 (tests).
+
+# Estado del trabajo de Windows
+
+Cada sesiÃƒÆ’Ã‚Â³n aÃƒÆ’Ã‚Â±ade una entrada **arriba**, con fecha, dÃƒÆ’Ã‚Â³nde (Mac o Windows), quÃƒÆ’Ã‚Â© se ha hecho, quÃƒÆ’Ã‚Â© ha fallado y el
+siguiente paso. Sin datos reales.
+
+## 2026-11-10 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P4.0: manifiesto y cripto
+
+- Hecho:
+  - `Package.swift` reestructurado con arrays mutables (`var products`, `var targets`) antes del inicializador
+    de `Package`. El `#if` dentro de literales de array no es vÃƒÆ’Ã‚Â¡lido en manifiestos de SPM. Guards `#if os(macOS)`
+    para el ejecutable `TerminalNetDeck` y su target. SwiftTerm condicionado a `.macOS, .linux` en los tests.
+    Dependencia `swift-crypto` aÃƒÆ’Ã‚Â±adida; producto `Crypto` sÃƒÆ’Ã‚Â³lo para Windows con `.when(platforms: [.windows])`.
+  - 4 archivos con guards `#if canImport(CryptoKit)` / `import CryptoKit` / `#else` / `import Crypto` / `#endif`:
+    `Remote/Transfer.swift`, `Security/CredentialLedger.swift`, `Sessions/JumpSharing.swift`,
+    `Support/UpdateCheck.swift`.
+  - `Tests/NetDeckCoreTests/BuferIncrementalTests.swift` envuelto en `#if canImport(SwiftTerm)` ... `#endif`.
+  - `windows/scripts/swift-build.ps1` recreado en esta rama y actualizado con `-Xcc -DOPENSSL_NO_ASM` como
+    argumento fijo. BoringSSL/swift-crypto usa fallbacks en C puro (igual de seguros, NASM no requerido).
+  - CompilaciÃƒÆ’Ã‚Â³n verificada en Windows: swift-crypto 3.15.1 + swift-asn1 1.7.4 compilan sin errores.
+    Errores restantes: sÃƒÆ’Ã‚Â³lo `no such module 'Darwin'` en los 12 archivos de plataforma (trabajo de P4a-P4g,
+    esperado). La cripto era el ÃƒÆ’Ã‚Âºnico bloqueador que resolvÃƒÆ’Ã‚Â­a P4.0.
+- Pendiente (Mac, el autor): `swift build -c release` y `./test.sh` para confirmar que macOS no se rompe.
+  `Package.resolved` cambiarÃƒÆ’Ã‚Â¡ en el Mac (nueva dependencia swift-crypto): es lo esperado.
+- Pendiente (sync): los resultados de P2/P3 (ADR `aceptada`, `compilacion.md`, entradas de ESTADO.md para P2 y P3)
+  estÃƒÆ’Ã‚Â¡n en la rama `windows/p2-medir` y no han llegado aÃƒÆ’Ã‚Âºn a `propuesta/windows` ni a esta rama. Fusionar
+  `windows/p2-medir` a `propuesta/windows` antes de abrir las ramas `windows/p4x-ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦`.
+- **Siguiente paso:** verificaciÃƒÆ’Ã‚Â³n en el Mac y fusiÃƒÆ’Ã‚Â³n de `windows/p2-medir`; despuÃƒÆ’Ã‚Â©s P4a en `windows/p4a-procesos`.
+
+## 2026-11-10 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P0: entorno completo
+
+- Hecho: instalado Swift 6.4.2 y Visual Studio Community 2022 con C++. Ejecutado `comprobar-entorno.ps1` sin ÃƒÂ¢Ã…â€œÃ¢â‚¬â€.
+  P0 cerrado. Resultado en `windows/resultados/entorno.md`.
+- **Siguiente paso:** P2 (compilar NetDeckCore en Windows) ya en curso en rama `windows/p2-medir`.
+  P1 (pruebas de ssh) requiere un equipo de laboratorio; hacerlo en paralelo cuando estÃƒÆ’Ã‚Â© disponible.
+
+## 2026-11-10 Ãƒâ€šÃ‚Â· Windows Ãƒâ€šÃ‚Â· P0: comprobaciÃƒÆ’Ã‚Â³n del entorno
+
+- Hecho: clonado el repo en Windows, configurado `core.autocrlf false` y autor git (`Jonay <jonayrr.jr@gmail.com>`),
+  skills copiadas a `.claude\skills\`, ejecutado `comprobar-entorno.ps1`.
+- Corregidos tres bugs del script para PowerShell 5.1: `$min:` interpretado como unidad de disco, NativeCommandError
+  con `ssh -V 2>&1`, rutas POSIX de git de MSYS2 con `cygpath`. *(El Mac despuÃƒÆ’Ã‚Â©s rehÃƒÆ’Ã‚Â­zo el script con `comun.ps1`.)*
+- Resultado: 2 fallos (Swift y VS). Ver `windows/resultados/entorno.md`.
+- **Siguiente paso:** instalar Swift + VS Build Tools y ejecutar el script de nuevo.
+
+## 2026-11-10 Ãƒâ€šÃ‚Â· Mac Ãƒâ€šÃ‚Â· Arreglos de la revisiÃƒÆ’Ã‚Â³n del plan
+- Hecho: revisiÃƒÆ’Ã‚Â³n adversaria del plan (skill `blueprint`) y arreglos. Plan: P4.0 nuevo (manifiesto y cripto),
+  dependencias de P4 corregidas, lo que faltaba (sockets BSD, `flock`, `getppid`, `O_NOFOLLOW`, `SecItemCopyMatching`,
+  `/usr/bin/env telnet`, `-l` de la shell, `COMn`, `AppPaths.underTests`), umbral medible en la ADR, ÃƒÆ’Ã‚Â³rdenes que valen
+  desde Git Bash. Scripts: salida sin tu usuario ni el destino, stderr de ssh sin registros de error de PowerShell 5.1,
+  pruebas de `-J`, `Include` con `~/` y relativo, permisos y askpass sin consola; `test.ps1` con `NETDECK_HOME`
+  temporal. Repo: `.gitattributes` (LF), salidas en bruto de `windows/resultados/` fuera de git y
+  `tools/privacidad.sh` tambiÃƒÆ’Ã‚Â©n busca rutas `C:\Users\ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦`.
+- Comprobado en el Mac: `./test.sh` y `tools/privacidad.sh` en verde. Sin demo: por decisiÃƒÆ’Ã‚Â³n del autor en esta
+  propuesta, que sÃƒÆ’Ã‚Â³lo cambia documentos y scripts de Windows.
+- Regla de commits desde Windows (sin demo; privacidad, compilaciÃƒÆ’Ã‚Â³n, tests con `test.ps1` e informe aquÃƒÆ’Ã‚Â­): aprobada
+  por el autor y escrita en la raÃƒÆ’Ã‚Â­z.
+- **Siguiente paso:** P0 en el PC con Windows, luego P1 y P2.
+
+## 2026-11-10 Ãƒâ€šÃ‚Â· Mac Ãƒâ€šÃ‚Â· Propuesta inicial
+- Hecho: estudio de viabilidad ([ESTUDIO.md](ESTUDIO.md)), comparaciÃƒÆ’Ã‚Â³n con otras apps, plan por pasos
+  ([PLAN.md](PLAN.md)), ADR 0001 en estado Ãƒâ€šÃ‚Â«propuestaÃƒâ€šÃ‚Â», scripts de comprobaciÃƒÆ’Ã‚Â³n para Windows y borrador de CI.
+- Comprobado en el Mac: `./test.sh` en verde (705 tests) y `tools/privacidad.sh` en verde. No se ha tocado `Sources/`.
+- Sin comprobar: nada se ha ejecutado aÃƒÆ’Ã‚Âºn en Windows; los scripts de `scripts/` no se han probado en un Windows real.
+- **Siguiente paso:** P0 (preparar el PC con Windows) y despuÃƒÆ’Ã‚Â©s P1 y P2, que se pueden hacer en paralelo.

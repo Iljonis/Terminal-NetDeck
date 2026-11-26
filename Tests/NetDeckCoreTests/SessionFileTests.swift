@@ -83,11 +83,12 @@ private let netdeckFile = """
         a.port = "70000"
         f.sessions = [a, EditableSession(name: "x"), EditableSession(name: "X")]
         let p = f.problems()
-        #expect(p.contains { $0.contains("espacios") })
-        #expect(p.contains { $0.contains("puerto") })
-        #expect(p.contains { $0.contains("repetida") })
+        #expect(p.contains { $0.contains("espacios") || $0.contains("spaces") })
+        #expect(p.contains { $0.contains("puerto") || $0.contains("port") })
+        #expect(p.contains { $0.contains("repetida") || $0.contains("duplicated") })
     }
 
+#if !os(Windows)
     @Test func guardaComprobandoConSsh() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -99,6 +100,7 @@ private let netdeckFile = """
         #expect(FileManager.default.fileExists(atPath: url.appendingPathExtension("rechazado").path))
         #expect(SessionFile(text: try String(contentsOf: url, encoding: .utf8)).sessions[0].extra.isEmpty)
     }
+#endif
 }
 
 @Suite struct ImporterTests {
@@ -123,6 +125,30 @@ private let netdeckFile = """
         #expect(r.skipped.contains { $0.1 == "RDP" })
     }
 
+    #if os(Windows)
+    @Test func mobaConfLeeSoloMarcadoresDespuesDeLaConfiguracion() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mobaconf")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let text = """
+            [Misc]
+            Padding=\(String(repeating: "x", count: 22_000))
+            [Passwords]
+            marcador-ficticio=#109#0%203.0.113.9%22%admin
+            [Bookmarks_2]
+            SubRep=Inventario\\Core
+            core-01=#109#0%192.0.2.11%2222%tu.usuario
+            """
+        try text.write(to: url, atomically: true, encoding: .utf8)
+        let result = SessionImporter.read(url, existing: [])
+        #expect(result.format == "MobaXterm")
+        #expect(result.sessions.map(\.name) == ["core-01"])
+        #expect(result.sessions.first?.group == "Inventario/Core")
+        #expect(result.sessions.first?.port == "2222")
+        #expect(result.sessions.first?.credential.isEmpty == true)
+    }
+
+    #endif
+
     @Test func mobaXtermConTelnetYRepetidos() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mxtsessions")
         defer { try? FileManager.default.removeItem(at: url) }
@@ -143,6 +169,23 @@ private let netdeckFile = """
         #expect(r.sessions[0].summary == "core 01")
         #expect(r.sessions[1].telnet && r.sessions[1].port == "23")
         #expect(r.skipped.contains { $0.1 == "RDP" })
+    }
+
+    @Test func mobaXtermUsuarioEnCorchetes() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mxtsessions")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try """
+            [Bookmarks]
+            SubRep=
+            SW-Router ([Jonay])=#109#0%192.0.2.1%22%[Jonay]%%-1%-1%%%%%0%0%0%%%-1%0%0%0%%1080%%0%0%1#MobaFont%10#0# #-1
+            192.0.2.2 (test)=#109#0%192.0.2.2%22%[Jonay]%%-1%-1%%%%%0%0%0%%%-1%0%0%0%%1080%%0%0%1#MobaFont%10#0# #-1
+            """.write(to: url, atomically: true, encoding: .utf8)
+        let r = SessionImporter.read(url, existing: [])
+        // validName convierte «192.0.2.2 (test)» → «192.0.2.2-test» (paréntesis y espacios → guiones)
+        #expect(r.sessions.map(\.name).sorted() == ["192.0.2.2-test", "SW-Router"])
+        #expect(r.sessions.first { $0.name == "SW-Router" }?.user == "Jonay")
+        #expect(r.sessions.first { $0.name == "192.0.2.2-test" }?.user == "Jonay")
+        #expect(r.skipped.isEmpty)
     }
 
     @Test func csvConCabeceraYValidacion() throws {
@@ -199,6 +242,40 @@ private let netdeckFile = """
                      "Match exec \"touch /tmp/x\"", "# @clave AD"]
         #expect(SessionImporter.safeExtra(extra, session: "x")
                 == ["ServerAliveInterval 5", "Compression yes", "Ciphers aes256-ctr", "ConnectTimeout 10"])
+    }
+
+    /// P9 (Windows): lo que un export ajeno trae con rutas de Windows no se cuela por ningún camino. No hace falta un filtro
+    /// aparte para rutas: estas opciones no están en `allowedOptions`, y este test lo vigila.
+    @Test func alImportarSeQuitanLasOpcionesQueEjecutanTambienConRutasDeWindows() {
+        let extra = [#"ProxyCommand C:\Windows\System32\cmd.exe /c nc %h %p"#, #"LocalCommand %USERPROFILE%\x.bat"#,
+                     #"KnownHostsCommand C:\tools\kh.exe %H"#, #"IdentityAgent \.\pipe\openssh-ssh-agent"#,
+                     #"PermitLocalCommand yes"#, "ServerAliveInterval 30"]
+        #expect(SessionImporter.safeExtra(extra, session: "x") == ["ServerAliveInterval 30"])
+    }
+
+    @Test func laListaBlancaDeImportacionNoTieneOpcionesQueEjecutenOAbranOtroBloque() {
+        let peligrosas: Set<String> = [
+            "proxycommand", "localcommand", "permitlocalcommand", "knownhostscommand", "identityagent", "include", "match",
+            "host", "proxyjump", "localforward", "remoteforward", "dynamicforward", "sendenv", "setenv", "forwardagent",
+            "userknownhostsfile", "globalknownhostsfile", "stricthostkeychecking", "pkcs11provider", "securitykeyprovider",
+        ]
+        #expect(SessionImporter.allowedOptions.isDisjoint(with: peligrosas))
+    }
+
+    /// Un nombre, equipo o usuario que empieza por «-» llegaría a ssh como una opción («-oProxyCommand=…»).
+    @Test func nombresEquiposYUsuariosConPrefijoDeOpcionSeRechazan() {
+        for nombre in ["-oProxyCommand=x", "-", "/etc/passwd", ".oculto"] { #expect(!EditableSession.isValidName(nombre)) }
+        #expect(Endpoint(parsing: "-oProxyCommand=calc") == nil)
+        #expect(Endpoint(parsing: "admin@-oProxyCommand=calc") == nil)
+        #expect(Endpoint(parsing: "-x@servidor") == nil)
+        for (host, user) in [("-oProxyCommand=calc", "admin"), ("192.0.2.1", "-oProxyCommand=calc")] {
+            var s = EditableSession(group: "G", name: "ok")
+            s.host = host
+            s.user = user
+            var f = SessionFile()
+            f.sessions = [s]
+            #expect(!f.problems().isEmpty)
+        }
     }
 
     @Test func importarUnJSONConOpcionesMaliciosasNoInyectaNada() throws {

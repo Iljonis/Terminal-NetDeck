@@ -1,3 +1,4 @@
+#if canImport(Security)
 import Foundation
 import Testing
 @testable import NetDeckCore
@@ -54,3 +55,4 @@ import Testing
         }
     }
 }
+#endif

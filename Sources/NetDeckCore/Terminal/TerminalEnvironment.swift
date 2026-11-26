@@ -13,6 +13,15 @@ public enum TerminalEnvironment {
         if forSSH, !sendLocale {
             for k in env.keys where k == "LANG" || k == "LANGUAGE" || k.hasPrefix("LC_") { env[k] = nil }
             env["LC_CTYPE"] = "C.UTF-8"
+            #if os(Windows)
+            // Windows: lo heredado del proceso padre no debe mandar sobre ssh.exe. SSH_ASKPASS(_REQUIRE) lo pone la app
+            // (Askpass.environment, DESPUES de esta funcion); si ya vienen puestos (Git for Windows, otro lanzador) harian
+            // que ssh preguntase por otro programa. GIT_SSH y GIT_SSH_COMMAND son de git, pero asi no hay dudas de que ssh
+            // se usa. Los nombres de variable en Windows no distinguen mayusculas. USERPROFILE, APPDATA y LOCALAPPDATA
+            // NO se tocan: ssh.exe las necesita para encontrar ~/.ssh y no cambian ningun comportamiento de seguridad.
+            let interferentes: Set<String> = ["SSH_ASKPASS", "SSH_ASKPASS_REQUIRE", "GIT_SSH", "GIT_SSH_COMMAND"]
+            for k in env.keys where interferentes.contains(k.uppercased()) { env[k] = nil }
+            #endif
         } else if env["LANG"] == nil {
             env["LANG"] = "en_US.UTF-8"                  // (local o si lo pides: UTF-8 sin imponer un idioma)
         }

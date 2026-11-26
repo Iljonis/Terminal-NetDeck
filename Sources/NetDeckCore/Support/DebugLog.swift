@@ -3,7 +3,14 @@ import Foundation
 /// Registro de depuración: ~/Library/Logs/Terminal NetDeck/debug.log (app y askpass escriben en el mismo).
 /// Nunca contraseñas ni lo que se teclea: sólo qué pasa (pestañas, saltos, MultiExec, decisiones de contraseña…).
 public enum DebugLog {
-    public static var directory: URL { AppPaths.home.appendingPathComponent("Library/Logs/Terminal NetDeck", isDirectory: true) }
+    public static var directory: URL {
+        #if os(Windows)
+        // (%APPDATA%\Terminal NetDeck\logs, junto a error.log: en Windows no hay ~/Library/Logs)
+        AppPaths.support.appendingPathComponent("logs", isDirectory: true)
+        #else
+        AppPaths.home.appendingPathComponent("Library/Logs/Terminal NetDeck", isDirectory: true)
+        #endif
+    }
     public static var file: URL { directory.appendingPathComponent("debug.log") }
     /// Se puede apagar en Ajustes → General (y con NETDECK_DEBUG=0).
     nonisolated(unsafe) public static var enabled = ProcessInfo.processInfo.environment["NETDECK_DEBUG"] != "0"

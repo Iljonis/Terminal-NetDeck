@@ -164,8 +164,21 @@ public struct SSHConfigParser: Sendable {
         let base = sshDirectory ?? AppPaths.home.appendingPathComponent(".ssh")
         return arguments(value).map { tok in
             let path = AppPaths.expand(tok)
-            return URL(fileURLWithPath: path.hasPrefix("/") ? path : base.appendingPathComponent(path).path).standardizedFileURL.path
+            return URL(fileURLWithPath: esAbsoluta(path) ? path : base.appendingPathComponent(path).path).standardizedFileURL.path
         }
+    }
+
+    /// ¿Ruta absoluta? En Windows también «C:/…», «C:\…» y «\\servidor\…»: mirando sólo la «/» del principio, el «~/…»
+    /// ya expandido (C:/Users/…) se tomaba por relativo a ~/.ssh, el Include propio no se reconocía y se añadía otro en
+    /// cada guardado.
+    static func esAbsoluta(_ path: String) -> Bool {
+        #if os(Windows)
+        let c = Array(path)
+        return path.hasPrefix("/") || path.hasPrefix("\\")
+            || (c.count >= 3 && c[0].isLetter && c[1] == ":" && (c[2] == "/" || c[2] == "\\"))
+        #else
+        return path.hasPrefix("/")
+        #endif
     }
 
     /// «# @clave AD ES» → ("clave", "AD ES"); «# @antiguo» → ("antiguo", "").
@@ -194,12 +207,23 @@ public struct SSHConfigParser: Sendable {
     /// Archivos de un «Include» (`includePaths` con sus comodines).
     static func includeFiles(_ value: String, sshDirectory: URL?) -> [URL] {
         includePaths(value, sshDirectory: sshDirectory).flatMap { path -> [URL] in
+            #if os(Windows)
+            let url = URL(fileURLWithPath: path)
+            let dir = url.deletingLastPathComponent()
+            let pat = url.lastPathComponent
+            guard let entries = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { return [url] }
+            if pat.contains("*") || pat.contains("?") {
+                return entries.filter { fnmatch(pat, $0.lastPathComponent, 0) == 0 }
+            }
+            return FileManager.default.fileExists(atPath: path) ? [url] : []
+            #else
             var g = glob_t()
             defer { globfree(&g) }
             guard glob(path, 0, nil, &g) == 0 else { return [] }
             return (0..<Int(g.gl_pathc)).compactMap { i in
                 g.gl_pathv[i].map { URL(fileURLWithPath: String(cString: $0)) }
             }
+            #endif
         }
     }
 }

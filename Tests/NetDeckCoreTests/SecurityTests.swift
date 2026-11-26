@@ -191,6 +191,7 @@ final class Clock: @unchecked Sendable {
     }
 }
 
+#if canImport(Security)
 @Suite struct KeychainQuotingTests {
     /// La contraseña va por la entrada de «security -i», entre comillas: «"» y «\» escapados, lo demás tal cual.
     @Test func comillasParaSecurityInteractivo() {
@@ -210,3 +211,4 @@ final class Clock: @unchecked Sendable {
         #expect(KeychainStore.decodePassword("password: 0xZZ") == nil)
     }
 }
+#endif

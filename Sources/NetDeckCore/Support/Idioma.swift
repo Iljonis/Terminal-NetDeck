@@ -1,5 +1,8 @@
 import Foundation
 import Synchronization
+#if os(Windows)
+import WinSDK
+#endif
 
 /// Idioma de la interfaz: castellano de España (el del código) o inglés. Los textos se escriben en castellano con
 /// `L("…")`; en inglés se buscan en `Ingles.textos`, cuya clave es el texto con «%@» en lugar de cada valor
@@ -14,6 +17,7 @@ public enum Idioma: String, CaseIterable, Identifiable, Sendable {
     /// Clave en UserDefaults (la app y su askpass, que es el mismo ejecutable, leen la misma).
     public static let clave = "idioma"
 
+    // Windows: UserDefaults guarda en HKCU\Software\Apple\... vía CFPreferences (implementado en Swift Foundation).
     private static let guardado = Mutex<Idioma>(UserDefaults.standard.string(forKey: clave).flatMap(Idioma.init) ?? .sistema)
 
     public static var actual: Idioma {
@@ -23,7 +27,18 @@ public enum Idioma: String, CaseIterable, Identifiable, Sendable {
 
     /// El del sistema: castellano si el primer idioma preferido lo es; si no, inglés.
     public static var sistema: Idioma {
+        #if os(Windows)
+        // (Foundation en Windows da «en-001» aunque Windows esté en castellano: una instalación nueva salía en inglés)
+        deWindows(GetUserDefaultUILanguage())
+        #else
         (Locale.preferredLanguages.first ?? "es").hasPrefix("es") ? .es : .en
+        #endif
+    }
+
+    /// Un LANGID de Windows: castellano si su idioma principal (los 10 bits bajos) es LANG_SPANISH (0x0A), sea de España,
+    /// México o cualquier otro país; si no, inglés.
+    static func deWindows(_ langID: UInt16) -> Idioma {
+        langID & 0x3FF == 0x0A ? .es : .en
     }
 
     /// El texto en ese idioma (por defecto, el actual).

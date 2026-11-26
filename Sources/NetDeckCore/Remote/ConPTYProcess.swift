@@ -1,0 +1,199 @@
+#if os(Windows)
+import WinSDK
+import Foundation
+
+// PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE no se exporta como macro desde WinSDK Swift.
+// ProcThreadAttributeValue(22, FALSE, TRUE, FALSE) = 0x00020016
+private let kConPTYAttr: DWORD_PTR   = 0x00020016
+private let kExtStartup: DWORD       = 0x00080000  // EXTENDED_STARTUPINFO_PRESENT
+private let kUnicodeEnv: DWORD       = 0x00000400  // CREATE_UNICODE_ENVIRONMENT
+// STARTF_USESTDHANDLES con los tres handles nulos: si el padre tiene la salida redirigida (swift test, un servicio),
+// el hijo no la hereda y usa la del ConPTY. DETACHED_PROCESS no vale: deja al hijo sin consola y no sale nada.
+private let kUseStdHandles: DWORD    = 0x00000100
+
+/// Proceso con pseudo-terminal (ConPTY) para Windows.
+/// Equivalente a LocalProcess/forkpty de SwiftTerm en macOS.
+public final class ConPTYProcess: @unchecked Sendable {
+    private let lock = NSLock()
+    private var hPC: HPCON?
+    private var hProcess: HANDLE = INVALID_HANDLE_VALUE
+    private let ptyInWrite: HANDLE
+    private var done = false
+
+    public let output: AsyncStream<Data>
+
+    public init(executable: String, arguments: [String], environment: [String: String],
+                cols: Int = 80, rows: Int = 24) throws {
+        var ptyInR:  HANDLE? = nil
+        var ptyInW:  HANDLE? = nil
+        var ptyOutR: HANDLE? = nil
+        var ptyOutW: HANDLE? = nil
+
+        guard CreatePipe(&ptyInR, &ptyInW, nil, 0),
+              let ptyInR, let ptyInW else {
+            throw RemoteError(L("No arranca \(executable): tuberias de entrada"))
+        }
+        guard CreatePipe(&ptyOutR, &ptyOutW, nil, 0),
+              let ptyOutR, let ptyOutW else {
+            CloseHandle(ptyInR); CloseHandle(ptyInW)
+            throw RemoteError(L("No arranca \(executable): tuberias de salida"))
+        }
+
+        let coord = COORD(X: Int16(min(max(cols, 1), 32767)), Y: Int16(min(max(rows, 1), 32767)))
+        var hpc: HPCON?
+        let hr = CreatePseudoConsole(coord, ptyInR, ptyOutW, 0, &hpc)
+        CloseHandle(ptyInR)
+        CloseHandle(ptyOutW)
+        guard hr == S_OK, let hpcVal = hpc else {
+            CloseHandle(ptyInW); CloseHandle(ptyOutR)
+            throw RemoteError(L("No arranca \(executable): CreatePseudoConsole 0x\(String(UInt32(bitPattern: hr), radix: 16))"))
+        }
+        hPC = hpcVal
+        ptyInWrite = ptyInW
+
+        var cont: AsyncStream<Data>.Continuation!
+        output = AsyncStream(bufferingPolicy: .unbounded) { cont = $0 }
+        let c = cont!
+
+        // Convertir HANDLE (UnsafeMutableRawPointer, no Sendable) a Int para cruzar el limite @Sendable.
+        let ptyOutRAddr = Int(bitPattern: ptyOutR)
+        Thread.detachNewThread {
+            let ptyOutR: HANDLE = UnsafeMutableRawPointer(bitPattern: ptyOutRAddr)!
+            defer { CloseHandle(ptyOutR) }
+            var buf = [UInt8](repeating: 0, count: 4096)
+            while true {
+                var n: DWORD = 0
+                let ok = buf.withUnsafeMutableBytes { ReadFile(ptyOutR, $0.baseAddress!, DWORD($0.count), &n, nil) }
+                guard ok, n > 0 else { break }
+                c.yield(Data(buf[..<Int(n)]))
+            }
+            c.finish()
+        }
+
+        var attrSize: SIZE_T = 0
+        InitializeProcThreadAttributeList(nil, 1, 0, &attrSize)
+        let attrMem = UnsafeMutableRawBufferPointer.allocate(byteCount: Int(attrSize),
+                                                              alignment: MemoryLayout<UInt>.alignment)
+        defer { attrMem.deallocate() }
+        guard let attrBase = attrMem.baseAddress else {
+            throw RemoteError(L("No arranca \(executable): atributos (alloc)"))
+        }
+        let attrList: LPPROC_THREAD_ATTRIBUTE_LIST = OpaquePointer(attrBase)
+        guard InitializeProcThreadAttributeList(attrList, 1, 0, &attrSize) else {
+            throw RemoteError(L("No arranca \(executable): InitializeProcThreadAttributeList"))
+        }
+        defer { DeleteProcThreadAttributeList(attrList) }
+
+        // lpValue para PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE es el propio HPCON (void*).
+        // El kernel lee ese puntero como el handle del ConPTY; NO pasar &hpcCopy (doble indirección).
+        guard UpdateProcThreadAttribute(attrList, 0, kConPTYAttr,
+                                        hpcVal, SIZE_T(MemoryLayout<HPCON>.size),
+                                        nil, nil) else {
+            throw RemoteError(L("No arranca \(executable): UpdateProcThreadAttribute"))
+        }
+
+        var siEx = STARTUPINFOEXW()
+        siEx.StartupInfo.cb = DWORD(MemoryLayout<STARTUPINFOEXW>.size)
+        siEx.StartupInfo.dwFlags = kUseStdHandles
+        siEx.lpAttributeList = attrList
+
+        var pi = PROCESS_INFORMATION()
+        let cmd = ConPTYProcess.commandLine(executable, arguments)
+        var environmentBlock = windowsEnvironmentBlock(environment)
+
+        let launched: Bool = cmd.withUTF16CStr { cmdW in
+            environmentBlock.withUnsafeMutableBytes { block in
+                withUnsafeMutablePointer(to: &siEx) { siExPtr in
+                    siExPtr.withMemoryRebound(to: STARTUPINFOW.self, capacity: 1) { siPtr in
+                        CreateProcessW(nil, cmdW, nil, nil, false, kExtStartup | kUnicodeEnv,
+                                       block.baseAddress, nil, siPtr, &pi)
+                    }
+                }
+            }
+        }
+        guard launched else {
+            throw RemoteError(L("No arranca \(executable)"))
+        }
+        hProcess = pi.hProcess ?? INVALID_HANDLE_VALUE
+        if let ht = pi.hThread { CloseHandle(ht) }
+    }
+
+    deinit { terminate() }
+
+    public func write(_ data: Data) throws {
+        guard !data.isEmpty else { return }                 // (baseAddress sería nil)
+        // (no verificado en Windows) tras `terminate()` el handle ya está cerrado: no se escribe en él
+        guard !lock.withLock({ done }) else { throw RemoteError(L("Se ha perdido la conexión")) }
+        try data.withUnsafeBytes { ptr in
+            var written: DWORD = 0
+            guard WriteFile(ptyInWrite, ptr.baseAddress!, DWORD(ptr.count), &written, nil) else {
+                throw RemoteError(L("Se ha perdido la conexión"))
+            }
+        }
+    }
+
+    public func resize(cols: Int, rows: Int) {
+        let hpc = lock.withLock { hPC }
+        guard let hpc else { return }
+        ResizePseudoConsole(hpc, COORD(X: Int16(min(max(cols, 1), 32767)), Y: Int16(min(max(rows, 1), 32767))))
+    }
+
+    /// Termina el proceso. `ClosePseudoConsole` hace que `ReadFile` en el hilo lector devuelva 0,
+    /// por lo que el hilo llama a `c.finish()` y el stream cierra de forma natural — sin race con
+    /// datos que conhost.exe aun no haya volcado a la tuberia.
+    public func terminate() {
+        lock.withLock {
+            guard !done else { return }
+            done = true
+            CloseHandle(ptyInWrite)
+            if hProcess != INVALID_HANDLE_VALUE {
+                TerminateProcess(hProcess, 1)
+                CloseHandle(hProcess)
+                hProcess = INVALID_HANDLE_VALUE
+            }
+            if let hpc = hPC { ClosePseudoConsole(hpc); hPC = nil }
+        }
+    }
+
+    // MARK: - Helpers privados
+
+    private static func commandLine(_ exe: String, _ args: [String]) -> String {
+        let dq = Character(UnicodeScalar(34)!)
+        let bsl = Character(UnicodeScalar(92)!)
+        return ([exe] + args).map { arg in
+            // Solo citar si hay espacios, comillas dobles, o el argumento esta vacio.
+            // Las barras invertidas solas no requieren comillas en lineas de ordenes de Windows.
+            guard arg.contains(dq) || arg.contains(" ") || arg.isEmpty else { return arg }
+            var r = String(dq)
+            var bs = 0
+            for c in arg {
+                if c == bsl {
+                    bs += 1
+                } else if c == dq {
+                    // Doblar las barras pendientes antes de la comilla escapada
+                    for _ in 0..<bs { r.append(bsl); r.append(bsl) }
+                    r.append(bsl); r.append(dq)
+                    bs = 0
+                } else {
+                    for _ in 0..<bs { r.append(bsl) }
+                    bs = 0
+                    r.append(c)
+                }
+            }
+            // Doblar barras finales antes del cierre de comilla
+            for _ in 0..<bs { r.append(bsl); r.append(bsl) }
+            r.append(dq)
+            return r
+        }.joined(separator: " ")
+    }
+}
+
+private extension String {
+    func withUTF16CStr<T>(_ body: (UnsafeMutablePointer<WCHAR>?) throws -> T) rethrows -> T {
+        var chars = Array(self.utf16) + [UInt16(0)]
+        return try chars.withUnsafeMutableBufferPointer { buf in
+            try buf.baseAddress!.withMemoryRebound(to: WCHAR.self, capacity: buf.count, body)
+        }
+    }
+}
+#endif

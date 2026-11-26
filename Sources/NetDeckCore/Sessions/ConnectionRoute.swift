@@ -134,7 +134,7 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
             if let u = target.user { a += ["-l", u] }
             a += ["--", target.host]
         }
-        return ("/usr/bin/ssh", a + ["sftp"])
+        return (SystemTools.ssh, a + ["sftp"])
     }
 
     /// Por qué no se puede abrir la pestaña (falta el programa o el puerto serie), o nil. `exists`: para los tests.
@@ -142,23 +142,50 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
         if transport == .serial {
             let s = serial ?? SerialLine()                  // (sin puerto: «ruta no válida»)
             if let p = s.problem { return p }
-            if !exists(s.device) { return L("No está «\(s.device)»: ¿está conectado el adaptador USB-serie?") }
+            // Los COM de Windows son dispositivos Win32: la comprobación la hace CreateFileW al abrirlos.
+            if s.deviceForOpen == s.device, !exists(s.device) {
+                return L("No está «\(s.device)»: ¿está conectado el adaptador USB-serie?")
+            }
             return nil
         }
         if transport == .ftp { return L("FTP no tiene consola: usa la vista gráfica") }
         let exe = command.executable
-        return exists(exe) ? nil : L("No está \(exe) en este Mac")
+        #if os(Windows)
+        return exists(exe) ? nil : Self.missingProgram(exe, windows: true)
+        #else
+        return exists(exe) ? nil : Self.missingProgram(exe, windows: false)
+        #endif
+    }
+
+    /// El aviso de que falta el programa que abriría la pestaña (ssh.exe, telnet.exe…: el que falta de verdad). `windows`
+    /// sólo se fuerza en los tests; telnet.exe es una característica opcional de Windows y el aviso dice cómo activarla.
+    static func missingProgram(_ exe: String, windows: Bool) -> String {
+        guard windows else { return L("No está \(exe) en este Mac") }
+        let name = exe.split(whereSeparator: { $0 == "\\" || $0 == "/" }).last.map(String.init) ?? exe
+        if name.lowercased() == "telnet.exe" { return L("No está telnet.exe en este PC: actívalo en «Características de Windows» (Cliente Telnet)") }
+        return L("No está \(name) en este PC")
     }
 
     /// Las shells de /etc/shells (las que macOS deja como shell de inicio).
     public static var systemShells: [String] {
-        ((try? String(contentsOfFile: "/etc/shells", encoding: .utf8)) ?? "").split(separator: "\n")
+        #if os(Windows)
+        return ["C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                "C:\\Windows\\System32\\cmd.exe"]
+        #else
+        return ((try? String(contentsOfFile: "/etc/shells", encoding: .utf8)) ?? "").split(separator: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }.filter { $0.hasPrefix("/") }
+        #endif
     }
 
     /// La shell si es una de las permitidas (la ruta guardada en abiertas.json no se ejecuta a ciegas); si no, /bin/zsh.
     public static func loginShell(_ shell: String?, allowed: [String]) -> String {
-        guard let shell, allowed.contains(shell) else { return "/bin/zsh" }
+        guard let shell, allowed.contains(shell) else {
+            #if os(Windows)
+            return "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+            #else
+            return "/bin/zsh"
+            #endif
+        }
         return shell
     }
 
@@ -197,7 +224,11 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
     /// leen con «-F» (y ssh lo pasa a los saltos de -J y al ProxyCommand compartido).
     public func command(sharing: JumpSharing?, configFile: String? = nil) -> (executable: String, arguments: [String]) {
         let f = Self.configOptions(configFile)
+        #if os(Windows)
+        if isLocal { return (Self.loginShell(localShell, allowed: Self.systemShells), []) }
+        #else
         if isLocal { return (Self.loginShell(localShell, allowed: Self.systemShells), ["-l"]) }
+        #endif
         switch transport {
         case .ssh:
             var a = f + jumpOptions(sharing, configFile: configFile)
@@ -208,14 +239,20 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
                 if let u = target.user { a += ["-l", u] }
                 a += ["--", target.host]
             }
-            return ("/usr/bin/ssh", a)
+            return (SystemTools.ssh, a)
         case .telnet:
             let telnet = [target.host] + (target.port.map { [String($0)] } ?? [])
-            guard let last = jumps.last else { return ("/usr/bin/env", ["telnet"] + telnet) }
+            guard let last = jumps.last else {
+                #if os(Windows)
+                return (SystemTools.telnet, telnet)         // (telnet.exe de System32; no /usr/bin/env) no verificado en Windows
+                #else
+                return ("/usr/bin/env", ["telnet"] + telnet)
+                #endif
+            }
             var a = f + ["-t"]
             if let sharing, let socket = sharing.socket(for: jumps.map(\.description)) { a += sharing.options(socket: socket) }
             if jumps.count > 1 { a += ["-J", jumps.dropLast().map(\.description).joined(separator: ",")] }
-            return ("/usr/bin/ssh", a + ["--", last.description, "telnet"] + telnet)
+            return (SystemTools.ssh, a + ["--", last.description, "telnet"] + telnet)
         case .sftp:
             var a = f + jumpOptions(sharing, configFile: configFile)
             if let alias {
@@ -225,9 +262,13 @@ public struct ConnectionRoute: Hashable, Sendable, Codable {
                 let h = target.host.contains(":") ? "[\(target.host)]" : target.host       // (IPv6)
                 a += ["--", (target.user.map { "\($0)@" } ?? "") + h]
             }
-            return ("/usr/bin/sftp", a)
+            return (SystemTools.sftp, a)
         case .serial, .ftp, .local:
+            #if os(Windows)
+            return ("", [])
+            #else
             return ("/usr/bin/false", [])
+            #endif
         }
     }
 

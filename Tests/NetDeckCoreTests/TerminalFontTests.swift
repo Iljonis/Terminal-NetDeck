@@ -1,3 +1,4 @@
+#if canImport(AppKit)
 import AppKit
 import CoreText
 import Testing
@@ -78,3 +79,4 @@ import Testing
         #expect(c.height == ceil(ceil(f.ascender - f.descender + f.leading) * 2) / 2)
     }
 }
+#endif

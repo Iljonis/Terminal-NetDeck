@@ -265,6 +265,72 @@ enum SnapshotDrags {
         let landed = await until { model.tabs.count == n + 1 && model.current.map { w.firstResponder === $0.view } == true }
         check(landed, "foco: doble clic en la sesión «\(row.key.dropFirst(7))» → el terminal de su pestaña nueva (\(responder(w)))")
         try? await Task.sleep(for: .milliseconds(400))
+        await newTabFocus(model, w)
+    }
+
+    /// Abrir una pestaña, venga de donde venga (el «+» con el ratón o con el teclado, el botón de la terminal local, ⌘T):
+    /// la nueva queda elegida y el teclado va a su terminal sin un clic más (se mira tras un momento: un foco que se
+    /// pierde después de darlo también cuenta).
+    private static func newTabFocus(_ model: AppModel, _ w: NSWindow) async {
+        func landed(_ what: String, _ go: () async -> Void) async {
+            let n = model.tabs.count
+            await go()
+            let came = await until { model.tabs.count == n + 1 }
+            try? await Task.sleep(for: .milliseconds(600))
+            let s = model.tabs.last
+            check(came && s != nil && model.current === s && w.firstResponder === s?.view && w.isKeyWindow,
+                  "foco: \(what) → el terminal de su pestaña nueva (pestañas \(n)→\(model.tabs.count), elegida=\(model.current === s)"
+                  + ", \(responder(w)), ventana clave=\(w.isKeyWindow))")
+        }
+        func key(_ code: UInt16, _ chars: String, in pw: NSWindow) {
+            guard let e = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
+                                           timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: pw.windowNumber,
+                                           context: nil, characters: chars, charactersIgnoringModifiers: chars,
+                                           isARepeat: false, keyCode: code) else { return }
+            NSApp.postEvent(e, atStart: false)
+        }
+        func openMenu() async -> NSWindow? {
+            guard let f = frames["nuevo"] else { check(false, "foco: sin el botón «+»"); return nil }
+            await click(w, CGPoint(x: f.midX, y: f.midY))
+            guard await until({ popover != nil }) else { check(false, "foco: el «+» no abre su menú"); return nil }
+            try? await Task.sleep(for: .milliseconds(300))
+            return popover
+        }
+        await landed("«+» → Terminal local con el ratón") {
+            guard let pw = await openMenu(), let r = frames["nuevo:\(L("Terminal local"))"] else { return }
+            // (el marco de la fila va desde arriba a la izquierda de la ventana del panel, flecha incluida)
+            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                guard let e = NSEvent.mouseEvent(with: type, location: NSPoint(x: r.midX, y: pw.frame.height - r.midY),
+                                                 modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                                 windowNumber: pw.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
+                                                 pressure: type == .leftMouseUp ? 0 : 1) else { continue }
+                NSApp.postEvent(e, atStart: false)
+                try? await Task.sleep(for: .milliseconds(60))
+            }
+        }
+        await landed("«+» → Terminal local con el teclado") {
+            guard let pw = await openMenu() else { return }
+            key(125, "\u{F701}", in: pw)                 // (abajo: Conectar)
+            try? await Task.sleep(for: .milliseconds(80))
+            key(125, "\u{F701}", in: pw)                 // (abajo: Terminal local)
+            try? await Task.sleep(for: .milliseconds(80))
+            key(36, "\r", in: pw)
+        }
+        await landed("el botón de la terminal local (junto al «+»)") {
+            guard let f = frames["crear"] else { return }
+            await click(w, CGPoint(x: f.maxX - 15, y: f.midY))
+        }
+        await landed("⌘T (Nueva terminal local)") {
+            perform(L("Nueva terminal local"))
+        }
+        // (la hoja «Conectar»: `ConnectSheet.connect()` abre la pestaña y luego la cierra, en ese orden)
+        await landed("la hoja «Conectar» al conectar") {
+            model.sheet = .connect
+            _ = await until { w.attachedSheet != nil }
+            try? await Task.sleep(for: .milliseconds(400))
+            model.open(ConnectionRoute(title: "lab-hoja", target: Endpoint(user: "tu.usuario", host: "198.51.100.77")))
+            model.sheet = nil
+        }
     }
 
     /// El menú con tema abierto (un `NSPopover`, en su propia ventana), si lo hay.

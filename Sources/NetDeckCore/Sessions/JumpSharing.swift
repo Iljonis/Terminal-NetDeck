@@ -1,5 +1,11 @@
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
+#if !os(Windows)
 import Darwin
+#endif
 import Foundation
 
 /// La conexión al último salto, compartida entre pestañas (como SecureCRT): la primera que entra por el bastión deja un
@@ -18,6 +24,9 @@ public struct JumpSharing: Hashable, Sendable {
     /// La de la app: «$TMPDIR/nd» (la carpeta temporal de macOS ya es sólo tuya). nil si no se puede crear o no es
     /// tuya y 0700 (entonces se conecta como siempre, sin compartir).
     public static func standard(base: String = NSTemporaryDirectory()) -> JumpSharing? {
+        #if os(Windows)
+        return nil // TODO P4c: ControlMaster no disponible en Windows
+        #else
         let dir = (base.hasSuffix("/") ? String(base.dropLast()) : base) + "/nd"
         mkdir(dir, 0o700)
         var st = stat()
@@ -25,6 +34,7 @@ public struct JumpSharing: Hashable, Sendable {
         if st.st_mode & 0o077 != 0, chmod(dir, 0o700) != 0 { return nil }
         let s = JumpSharing(directory: dir)
         return s.socket(for: ["x"]) == nil ? nil : s
+        #endif
     }
 
     /// Lo más largo que puede ser la ruta: ssh crea el socket como «ruta.XXXXXXXXXXXXXXXX» (17 más) y sun_path son 104
@@ -54,7 +64,7 @@ public struct JumpSharing: Hashable, Sendable {
         guard let last = parsed.last, parsed.count == hops.count,
               parsed.allSatisfy({ $0.isShellSafe && !$0.host.contains(":") }),      // (IPv6 en -J: sin multiplexar)
               Self.safePath.matches(socket), configFile.map(Self.safePath.matches) ?? true else { return nil }
-        var a = ["/usr/bin/ssh"] + ConnectionRoute.configOptions(configFile) + options(socket: socket)
+        var a = [SystemTools.ssh] + ConnectionRoute.configOptions(configFile) + options(socket: socket)
         if parsed.count > 1 { a += ["-J", parsed.dropLast().map(\.description).joined(separator: ",")] }
         if let u = last.user { a += ["-l", u] }
         if let p = last.port { a += ["-p", String(p)] }

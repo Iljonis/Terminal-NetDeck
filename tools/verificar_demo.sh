@@ -51,7 +51,7 @@ caso() {   # nombre idioma tema acción [clic x,y] [subcarpeta del explorador] [
   NETDECK_SNAPSHOT_CLICK="$clic" NETDECK_SNAPSHOT_BLOCK="${BLOQUE:-}" \
     "$bin" -idioma "$idioma" -themeID "$tema" -themeAuto NO -sshConfigPath "$casa/.ssh/config" -configured YES \
            -asistenteVisto YES -sidebarVisible YES -buttonBar arriba -highlightEnabled YES -highlightSource app \
-           -highlightDisabled '()' -highlightThemeColors YES ${FILTRO:+-screenFilter "$FILTRO" -screenFilterOn YES} \
+           -highlightDisabled '()' -highlightThemeColors YES ${FILTRO:+-screenFilter "$FILTRO" -screenFilterOn YES} -ndToolbarOcultos "${OCULTOS:-()}" \
            >"$OUT/$nombre-proceso.log" 2>&1 &
   local pid=$!
   for _ in $(seq 1 60); do [ -s "$png" ] && break; sleep 0.25; done
@@ -170,6 +170,9 @@ caso espacios              es neo-tokyo     espacios:verificar
 caso espacios-en           en neo-tokyo     espacios:verificar
 caso sesion-nueva          es neo-tokyo     sesion-nueva
 caso ajustes-general       en neo-tokyo     settings:general
+# (barra superior: por defecto todo visible, aunque tus ajustes reales tengan algo oculto: el binario sin .app lee los de TerminalNetDeck; reducida: los ids ocultos van como en Ajustes → General; con pestañas, para ver que se encogen las pestañas, no los botones)
+OCULTOS='(Macros,Tuneles,DividirTerminal,Llavero,MultiExec,Espacios)' caso barra-reducida es neo-tokyo "pestañas:12"
+OCULTOS='(NuevaLocal,PegarSeguro,Macros,Tuneles,DividirTerminal,Llavero,MultiExec,BuscarTerminal,Espacios,ExploradorSFTP,MostrarSesiones)' caso barra-minima-en en neo-tokyo ""
 caso ajustes-contrasenas   es neo-tokyo     settings:contraseñas
 caso ajustes-credencial    es neo-tokyo     settings:credencial
 caso password-selector     es neo-tokyo     password-selector
@@ -184,6 +187,8 @@ caso ajustes-temas         es neo-tokyo     settings:temas
 caso ajustes-resaltado     es neo-tokyo     settings:resaltado
 caso ajustes-botones       es neo-tokyo     settings:botones
 caso asistente             es neo-tokyo     setup:0
+caso buscar-registros      es neo-tokyo     buscar-registros
+caso buscar-registros-en   en papel         "buscar-registros:aa:bb:cc:dd:ee:ff"
 # (menús de clic derecho: puntos de la ventana, desde arriba a la izquierda; «fila-cortada», la última, que asoma a
 # medias por abajo: con «y» negativa, desde abajo, porque la ventana mide 1512×860 aquí y 1024×674 en GitHub Actions;
 # «fondo-lista», la zona vacía de una carpeta con un solo archivo)

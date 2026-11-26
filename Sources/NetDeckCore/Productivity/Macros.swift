@@ -247,12 +247,14 @@ public struct MacroLibrary: Sendable, Equatable {
         try fm.moveItem(at: url, to: held)
         do {
             try write(text, url)
-            if fm.fileExists(atPath: aside.path) { _ = try fm.replaceItemAt(aside, withItemAt: held) }
-            else { try fm.moveItem(at: held, to: aside) }
+            if fm.fileExists(atPath: aside.path) {
+                try SafeFile.replace(aside, with: held)
+            } else { try fm.moveItem(at: held, to: aside) }
         } catch {
             if fm.fileExists(atPath: held.path) {
-                if fm.fileExists(atPath: url.path) { _ = try fm.replaceItemAt(url, withItemAt: held) }
-                else { try fm.moveItem(at: held, to: url) }
+                if fm.fileExists(atPath: url.path) {
+                    try SafeFile.replace(url, with: held)
+                } else { try fm.moveItem(at: held, to: url) }
             }
             throw error
         }

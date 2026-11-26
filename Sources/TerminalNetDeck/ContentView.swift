@@ -279,6 +279,7 @@ extension ContentView {
                 model.sheet = .workspaces
             }
         }
+        if a.hasPrefix("buscar-registros") { model.sheet = .logs }     // (la hoja busca sola: ver `LogSearchSheet.onAppear`)
         if a == "macros" {                           // «macros»: el editor con una recién grabada (sin guardar)
             model.macroDraft = Macro(name: "Revisar interfaces", confirm: true, steps: Macro.recorded(
                 ["terminal length 0", "show ip interface brief", "show interfaces GigabitEthernet0/0/1"]) + [.text(#"core-01#"#, timeout: 30), .pause(1)])
@@ -311,7 +312,8 @@ extension ContentView {
 // MARK: - barra superior
 
 /// Una sola fila en la barra de título: pestañas y, a la derecha, los accesos directos (pegado, dividir, Llavero,
-/// MultiExec, cortar, sesiones, ajustes). El menú de la app solo guarda las órdenes con atajo.
+/// MultiExec, cortar, buscar, sesiones, ajustes). Los de `ToolbarLayout` se pueden ocultar desde Ajustes → General. El
+/// menú de la app solo guarda las órdenes con atajo.
 struct TopBar: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var t
@@ -329,11 +331,92 @@ struct TopBar: View {
     private static let spacing: CGFloat = 6
     private static let spacerMin: CGFloat = 12
 
+    private var bar: ToolbarLayout { model.settings.toolbar }
+    /// ¿La pestaña actual ofrece el explorador SFTP al lado (ssh con equipo)?
+    private var sftpOffered: Bool { model.current.map { SFTPPanel.offers($0.route) } ?? false }
+
     var body: some View {
         GeometryReader { geometry in
             row(width: geometry.size.width)
         }
         .frame(height: 38)
+    }
+
+    /// Los botones de la derecha (los de `ToolbarLayout` se ocultan desde Ajustes) y los controles que siempre se ven.
+    private var controls: some View {
+        GlassGroup { HStack(spacing: Self.spacing) {
+            if bar.isVisible(.pegarSeguro) {
+                IconButton(icon: "doc.on.clipboard.fill",
+                           help: L("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)")) { model.sheet = .paste }
+            }
+            if bar.isVisible(.macros) {
+                MacroMenu()
+                    .help(L("Macros: grabar, reproducir (en la pestaña o en MultiExec) y editar"))
+            } else if model.recording != nil {      // (sin el botón, la grabación en curso se para desde aquí)
+                IconButton(icon: "record.circle.fill", tint: t.bad, help: L("Parar la grabación")) { model.stopRecording() }
+            }
+            if bar.isVisible(.tuneles) {
+                IconButton(icon: "point.3.connected.trianglepath.dotted", active: model.tunnelRunner.activeCount > 0,
+                           badge: model.tunnelRunner.activeCount > 0 ? "\(model.tunnelRunner.activeCount)" : nil,
+                           help: L("Túneles SSH: locales, remotos y SOCKS; iniciar, parar y su estado")) { model.present(.tunnels) }
+            }
+            if bar.isVisible(.dividirTerminal) {
+                IconMenu(icon: "rectangle.split.3x1.fill", active: model.split != nil, help: L("Dividir la pantalla")) {
+                    ForEach(Split.Layout.allCases) { l in Button(l.title) { model.makeSplit(l) } }
+                    MenuDivider()
+                    Button(L("Volver a pestañas sueltas")) { model.unsplit() }.disabled(model.split == nil)
+                }
+            }
+            if bar.isVisible(.llavero) {
+                IconMenu(icon: "key.fill", label: L("Escribir una contraseña"),
+                         help: L("Escribir una contraseña del Llavero en la pestaña actual")) {
+                    if let s = model.current {
+                        MenuHeader(title: L("Escribir en «\(s.title)»"))
+                        ForEach(model.keychainAccounts, id: \.self) { ref in
+                            Button { model.typePassword(ref, in: s) } label: { Label(ref.menuTitle, systemImage: "key") }
+                        }
+                        ThemedSubmenu(title: L("Escribir sin esperar a que la pida")) {
+                            ForEach(model.keychainAccounts, id: \.self) { ref in
+                                ThemedSubmenu(title: ref.menuTitle) {
+                                    Button(L("Sin Intro")) { model.typePasswordAnyway(ref, in: s, pressReturn: false) }
+                                    Button(L("Con Intro")) { model.typePasswordAnyway(ref, in: s, pressReturn: true) }
+                                }
+                            }
+                        }
+                        MenuDivider()
+                    }
+                    Button(L("Contraseñas y Llavero…")) { model.openSettings("contraseñas") }
+                }
+            }
+            if bar.isVisible(.multiExec) {
+                IconButton(icon: "square.stack.3d.forward.dottedline.fill", tint: t.warning, active: model.multiExecOn,
+                           badge: model.multiExecOn ? "\(model.multiExecTargets.count)" : nil,
+                           help: L("MultiExec: lo que escribes va a la vez a los paneles (⇧⌘M). Clic derecho en un panel → excluirlo")) { model.multiExecOn.toggle() }
+            }
+            IconButton(icon: "stop.circle.fill", tint: t.bad,
+                       help: L("Corta cualquier secuencia automática (Esc o Ctrl+C en el terminal, ⌘.)")) { model.core.abortEverywhere() }
+            if bar.isVisible(.buscarTerminal) {
+                IconMenu(icon: "magnifyingglass", label: L("Buscar"),
+                         help: L("Buscar en la salida de la pestaña (⌘F) o en todos los registros (⇧⌘F)")) {
+                    Button(L("Buscar en la salida…")) { model.current?.view.showFind() }.disabled(model.current == nil)
+                    Button(L("Buscar en todos los registros…")) { model.sheet = .logs }
+                }
+            }
+            if bar.isVisible(.espacios) {
+                IconButton(icon: "square.grid.2x2.fill",
+                           help: L("Espacios de trabajo: guarda y recupera un conjunto de pestañas")) { model.sheet = .workspaces }
+            }
+            if bar.isVisible(.exploradorSFTP) {
+                IconButton(icon: "sidebar.right", active: model.current?.sidePanel?.visible == true,
+                           help: L("Explorador SFTP al lado del terminal ssh: mismo equipo, usuario y saltos (⇧⌘B)")) { model.current.map(model.toggleSidePanel) }
+                    .disabled(!sftpOffered || model.showSplit)
+            }
+            if bar.isVisible(.mostrarSesiones) {
+                IconButton(icon: "sidebar.left", active: model.settings.sidebarVisible,
+                           help: L("Mostrar/ocultar sesiones (⌃⌘S)")) { model.settings.sidebarVisible.toggle() }
+            }
+            IconButton(icon: "gearshape.fill", help: L("Ajustes (⌘,)")) { model.openSettings() }
+        } }
     }
 
     private func row(width: CGFloat) -> some View {
@@ -380,57 +463,16 @@ struct TopBar: View {
             GlassGroup { HStack(spacing: Self.spacing) {
                 NewButton()
                     .help(L("Conectar, terminal local, sesión nueva o una favorita"))
-                IconButton(icon: "apple.terminal",
-                           help: L("Nueva terminal local: tu shell en este Mac (⌘T)")) { model.openLocal() }
+                if bar.isVisible(.nuevaLocal) {
+                    IconButton(icon: "apple.terminal",
+                               help: L("Nueva terminal local: tu shell en este Mac (⌘T)")) { model.openLocal() }
+                }
             } }
             .fixedSize()
             .layoutPriority(1)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { leftWidth = $0 }
             .snapshotFrame("crear")
-            GlassGroup { HStack(spacing: Self.spacing) {
-                IconButton(icon: "doc.on.clipboard.fill",
-                           help: L("Pegado seguro: revisa líneas peligrosas antes de enviarlas (⇧⌘V)")) { model.sheet = .paste }
-                MacroMenu()
-                    .help(L("Macros: grabar, reproducir (en la pestaña o en MultiExec) y editar"))
-                IconButton(icon: "point.3.connected.trianglepath.dotted", active: model.tunnelRunner.activeCount > 0,
-                           badge: model.tunnelRunner.activeCount > 0 ? "\(model.tunnelRunner.activeCount)" : nil,
-                           help: L("Túneles SSH: locales, remotos y SOCKS; iniciar, parar y su estado")) { model.present(.tunnels) }
-                IconMenu(icon: "rectangle.split.3x1.fill", active: model.split != nil, help: L("Dividir la pantalla")) {
-                    ForEach(Split.Layout.allCases) { l in Button(l.title) { model.makeSplit(l) } }
-                    MenuDivider()
-                    Button(L("Volver a pestañas sueltas")) { model.unsplit() }.disabled(model.split == nil)
-                }
-                IconMenu(icon: "key.fill", label: L("Escribir una contraseña"),
-                         help: L("Escribir una contraseña del Llavero en la pestaña actual")) {
-                    if let s = model.current {
-                        MenuHeader(title: L("Escribir en «\(s.title)»"))
-                        ForEach(model.keychainAccounts, id: \.self) { ref in
-                            Button { model.typePassword(ref, in: s) } label: { Label(ref.menuTitle, systemImage: "key") }
-                        }
-                        ThemedSubmenu(title: L("Escribir sin esperar a que la pida")) {
-                            ForEach(model.keychainAccounts, id: \.self) { ref in
-                                ThemedSubmenu(title: ref.menuTitle) {
-                                    Button(L("Sin Intro")) { model.typePasswordAnyway(ref, in: s, pressReturn: false) }
-                                    Button(L("Con Intro")) { model.typePasswordAnyway(ref, in: s, pressReturn: true) }
-                                }
-                            }
-                        }
-                        MenuDivider()
-                    }
-                    Button(L("Contraseñas y Llavero…")) { model.openSettings("contraseñas") }
-                }
-                IconButton(icon: "square.stack.3d.forward.dottedline.fill", tint: t.warning, active: model.multiExecOn,
-                           badge: model.multiExecOn ? "\(model.multiExecTargets.count)" : nil,
-                           help: L("MultiExec: lo que escribes va a la vez a los paneles (⇧⌘M). Clic derecho en un panel → excluirlo")) { model.multiExecOn.toggle() }
-                IconButton(icon: "stop.circle.fill", tint: t.bad,
-                           help: L("Corta cualquier secuencia automática (Esc o Ctrl+C en el terminal, ⌘.)")) { model.core.abortEverywhere() }
-                IconButton(icon: "sidebar.right", active: model.current?.sidePanel?.visible == true,
-                           help: L("Explorador SFTP al lado del terminal ssh: mismo equipo, usuario y saltos (⇧⌘B)")) { model.current.map(model.toggleSidePanel) }
-                    .disabled(!(model.current.map { SFTPPanel.offers($0.route) } ?? false) || model.showSplit)
-                IconButton(icon: "sidebar.left", active: model.settings.sidebarVisible,
-                           help: L("Mostrar/ocultar sesiones (⌃⌘S)")) { model.settings.sidebarVisible.toggle() }
-                IconButton(icon: "gearshape.fill", help: L("Ajustes (⌘,)")) { model.openSettings() }
-            } }
+            controls
             // (los botones de la derecha, siempre enteros y dentro de la ventana: las pestañas se encogen antes)
             .fixedSize()
             .layoutPriority(1)
@@ -461,6 +503,7 @@ struct NewButton: View {
 
     var body: some View {
         IconButton(icon: "plus", active: open, label: L("Nuevo")) { open.toggle() }
+            .snapshotFrame("nuevo")
             .popover(isPresented: $open, arrowEdge: .bottom) {
                 NewMenu { open = false }
             }
@@ -637,6 +680,7 @@ private struct NewMenuItem: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .snapshotFrame("nuevo:\(title)")
         .menuKey(id, hover: $hover, run: action)
     }
 }
@@ -1173,10 +1217,29 @@ struct TerminalHost: NSViewRepresentable {
     let session: TerminalSession
     var focused = false
 
+    /// El contenedor avisa de que ha entrado en una ventana: una pestaña recién creada aún no está en ella cuando
+    /// SwiftUI la actualiza (pasa al abrirla desde el menú «+» o con ⌘T), y la petición de teclado, hecha una sola vez,
+    /// se perdía.
+    final class Box: NSView {
+        var enteredWindow: (() -> Void)?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window != nil { enteredWindow?() }
+        }
+    }
+
     func makeNSView(context: Context) -> NSView {
-        let box = NSView()
+        let box = Box()
         session.host = box
         adopt(into: box)
+        let c = context.coordinator
+        box.enteredWindow = { [weak c, weak box, weak session] in
+            DispatchQueue.main.async {
+                guard let c, let box, let session else { return }
+                c.take(session, in: box)
+            }
+        }
         return box
     }
 
@@ -1184,6 +1247,17 @@ struct TerminalHost: NSViewRepresentable {
     @MainActor final class Coordinator {
         var focused = false
         var claim = false
+
+        func take(_ session: TerminalSession, in box: NSView) {
+            let v = session.view
+            guard focused, v.superview === box, let w = v.window else { return }
+            if w.firstResponder === v { claim = false; return }
+            // (al redibujarse no quita el teclado al panel en el que acabas de hacer clic —lo tecleado, «ssh …»
+            // incluido, iría a otro— ni a un campo de texto: sólo al cambiar de activa o si no lo tiene nadie)
+            let r = w.firstResponder
+            guard claim || r == nil || r === w || (r as? NSView)?.window !== w else { return }
+            if w.makeFirstResponder(v) { claim = false }
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -1193,16 +1267,7 @@ struct TerminalHost: NSViewRepresentable {
         let c = context.coordinator
         if c.focused != focused { c.focused = focused; c.claim = focused }
         guard focused else { return }
-        DispatchQueue.main.async {
-            let v = session.view
-            guard c.focused, v.superview === box, let w = v.window else { return }
-            if w.firstResponder === v { c.claim = false; return }
-            // (al redibujarse no quita el teclado al panel en el que acabas de hacer clic —lo tecleado, «ssh …»
-            // incluido, iría a otro— ni a un campo de texto: sólo al cambiar de activa o si no lo tiene nadie)
-            let r = w.firstResponder
-            guard c.claim || r == nil || r === w || (r as? NSView)?.window !== w else { return }
-            if w.makeFirstResponder(v) { c.claim = false }
-        }
+        DispatchQueue.main.async { c.take(session, in: box) }
     }
 
     private func adopt(into box: NSView) {

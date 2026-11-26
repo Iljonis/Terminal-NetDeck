@@ -1,4 +1,8 @@
+#if os(Windows)
+import WinSDK
+#else
 import Darwin
+#endif
 import Foundation
 
 /// El SSH_ASKPASS de la app: el mismo ejecutable con NETDECK_ASKPASS=1. ssh lo llama con la pregunta y lee la
@@ -25,6 +29,10 @@ public enum Askpass {
 
     /// Sólo preguntar (sin escribir ninguna guardada): el explorador SFTP con la contraseña automática apagada.
     public static let manualFlag = "NETDECK_ASKPASS_MANUAL"
+
+    #if os(Windows)
+    public static let noOfferSaveFlag = "NETDECK_ASKPASS_NO_OFFER_SAVE"
+    #endif
 
     /// Variables para el proceso ssh de una pestaña. `manual`: no se prueba ninguna guardada, se pregunta siempre.
     /// `profile`: la sesión guardada; `route`: sus extremos exactos, también al conectar sin guardar. La predeterminada
@@ -264,7 +272,12 @@ public enum Askpass {
             L("otra autenticación con «\(r)» sigue pendiente; escríbela a mano o, si ya terminó, restablécela en Ajustes → Contraseñas → «Restablecer pendiente»")
         case .unknownUser: L("no se sabe qué usuario la pide: escríbela tú")
         case .noCredential: L("no hay ninguna guardada")
-        case .keychainUnavailable: L("no se ha podido leer el Llavero (¿bloqueado?): escríbela tú")
+        case .keychainUnavailable:
+            #if os(Windows)
+            L("no se ha podido leer el Administrador de credenciales: escríbela tú")
+            #else
+            L("no se ha podido leer el Llavero (¿bloqueado?): escríbela tú")
+            #endif
         }
     }
 
@@ -297,12 +310,22 @@ public enum Askpass {
         purgeStale(in: dir)
         purgeStates(in: dir)
         let id = session.flatMap(UUID.init(uuidString:))?.uuidString ?? "externa"
+        #if os(Windows)
+        return dir.appendingPathComponent("ndapp-askpass.\(id).\(_windowsGetppid())")
+        #else
         return dir.appendingPathComponent("ndapp-askpass.\(id).\(getppid())")
+        #endif
     }
 
     /// Fuera los de ssh que ya no están (pasados 10 min) y, aunque siga vivo, los de más de un día: el de un ssh vivo
     /// que repregunta tarde se queda, para no volver a darle la guardada que ya falló.
-    static func purgeStates(in dir: URL, now: Date = Date(), alive: (pid_t) -> Bool = { kill($0, 0) == 0 || errno == EPERM }) {
+    static func purgeStates(in dir: URL, now: Date = Date(), alive: (pid_t) -> Bool = { pid in
+        #if os(Windows)
+        return ProcessAlive.isAlive(pid)
+        #else
+        return kill(pid, 0) == 0 || errno == EPERM
+        #endif
+    }) {
         guard let old = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]) else { return }
         for f in old where f.lastPathComponent.hasPrefix("ndapp-askpass.") {
             guard let m = (try? f.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate else { continue }
@@ -430,10 +453,21 @@ public enum Askpass {
                 note(hostField(host) + "\t" + cancelMark, session: session, directory: directory)
                 return 1
             }
+            #if os(Windows)
+            if ProcessInfo.processInfo.environment[noOfferSaveFlag] == "1" {
+                given(nil)
+                return reply(pw)
+            }
+            #endif
             // (Intro = sí: la respuesta es una pulsación nueva, el TTY descarta lo que quedara de antes)
             let target = named.map(CredentialRef.named) ?? .device(user, host)
-            let question = named.map { L("¿Guardarla como «\($0)»?") }
-                ?? L("¿Guardar la \(failed != nil ? L("nueva ") : "")contraseña de \(account) en el Llavero?")
+            let prefix = failed != nil ? L("nueva ") : ""
+            #if os(Windows)
+            let saveAccount = L("¿Guardar la \(prefix)contraseña de \(account) en el Administrador de credenciales?")
+            #else
+            let saveAccount = L("¿Guardar la \(prefix)contraseña de \(account) en el Llavero?")
+            #endif
+            let question = named.map { L("¿Guardarla como «\($0)»?") } ?? saveAccount
             guard let yes = tty.yesNo(question + (store.contains(target) ? L(" (sustituye la guardada)") : ""), default: true) else {
                 DebugLog.log("askpass", "guardar: cancelado con Ctrl+C (\(target))")
                 tty.say(L("\(yellow)\(marker) cancelado\(reset)\n"))
@@ -452,7 +486,11 @@ public enum Askpass {
                 } catch {
                     // (nunca la salida de security en la pestaña: podría llevar la orden con la contraseña)
                     ErrorLog.warning("askpass", "no se ha podido guardar «\(target)» en el Llavero")
+                    #if os(Windows)
+                    tty.say(L("\(red)\(marker) no guardada: el Administrador de credenciales no la ha aceptado\(reset)\n"))
+                    #else
                     tty.say(L("\(red)\(marker) no guardada: el Llavero no la ha aceptado\(reset)\n"))
+                    #endif
                     if tty.reportsSaved { noteSaved(target, ok: false, session: session, directory: directory) }
                 }
             } else {
@@ -565,6 +603,7 @@ enum TTYLine: Equatable {
     }
 }
 
+#if !os(Windows)
 /// La pestaña de la sesión (/dev/tty), no la salida que lee ssh.
 final class TTY: AskpassUI {
     let fd: Int32
@@ -659,3 +698,86 @@ final class TTY: AskpassUI {
         return Darwin.read(fd, &b, 1) == 1 ? b : nil
     }
 }
+#else
+final class TTY: AskpassUI {
+    private static let genericRW:    DWORD = 0xC000_0000   // GENERIC_READ | GENERIC_WRITE
+    private static let shareRW:      DWORD = 0x0000_0003   // FILE_SHARE_READ | FILE_SHARE_WRITE
+    private static let openExisting: DWORD = 3             // OPEN_EXISTING
+
+    private let hIn:  HANDLE
+    private let hOut: HANDLE
+    private var lastWasEsc = false
+
+    init?() {
+        let hI = "CONIN$".withCString(encodedAs: UTF16.self) {
+            CreateFileW($0, TTY.genericRW, TTY.shareRW, nil, TTY.openExisting, 0, nil)
+        }
+        guard let hI, hI != INVALID_HANDLE_VALUE else { return nil }
+        let hO = "CONOUT$".withCString(encodedAs: UTF16.self) {
+            CreateFileW($0, TTY.genericRW, TTY.shareRW, nil, TTY.openExisting, 0, nil)
+        }
+        guard let hO, hO != INVALID_HANDLE_VALUE else { CloseHandle(hI); return nil }
+        hIn = hI; hOut = hO
+    }
+
+    deinit { CloseHandle(hIn); CloseHandle(hOut) }
+
+    func say(_ s: String) {
+        let u16 = Array(s.utf16)
+        u16.withUnsafeBufferPointer {
+            var n: DWORD = 0
+            WriteConsoleW(hOut, $0.baseAddress, DWORD($0.count), &n, nil)
+        }
+    }
+
+    func read(secret: Bool) -> String? { readLine(secret: secret, flush: false) }
+
+    private func readLine(secret: Bool, flush: Bool) -> String? {
+        var old: DWORD = 0
+        guard GetConsoleMode(hIn, &old) else { return nil }
+        SetConsoleMode(hIn, 0)                  // carácter a carácter, sin eco, sin señales
+        if flush { FlushConsoleInputBuffer(hIn) }
+        defer { SetConsoleMode(hIn, old); if secret { say("\n") } }
+        var chars: [WCHAR] = []
+        lastWasEsc = false
+        while true {
+            var wch: WCHAR = 0
+            var n: DWORD = 0
+            guard ReadConsoleW(hIn, &wch, 1, &n, nil), n == 1 else { return nil }
+            switch wch {
+            case 13, 10:    // CR / LF → fin de línea
+                return String(decoding: chars, as: UTF16.self)
+            case 3:         // Ctrl+C → cancelar
+                return nil
+            case 27:        // Esc
+                lastWasEsc = true; return nil
+            case 8, 0x7F:   // Retroceso / Supr
+                if !chars.isEmpty {
+                    if chars.count >= 2, chars.last! & 0xFC00 == 0xDC00 { chars.removeLast() }
+                    chars.removeLast()
+                    if !secret { say("\u{8} \u{8}") }
+                }
+            case 21:        // Ctrl+U – borrar la línea
+                let count = String(decoding: chars, as: UTF16.self).count
+                if !secret { say(String(repeating: "\u{8} \u{8}", count: count)) }
+                chars = []
+            default:
+                if wch >= 0x20 {
+                    chars.append(wch)
+                    if !secret { say(String(decoding: [wch], as: UTF16.self)) }
+                }
+            }
+        }
+    }
+
+    func yesNo(_ question: String, default d: Bool) -> Bool? {
+        say("\(Askpass.cyan)\(Askpass.marker) \(question) \(d ? L("[S/n]") : L("[s/N]")) (Esc = no)\(Askpass.reset) ")
+        guard let r = readLine(secret: false, flush: true)?.trimmingCharacters(in: .whitespaces).lowercased() else {
+            say("\n")
+            return lastWasEsc ? false : nil
+        }
+        say("\n")
+        return r.isEmpty ? d : ["s", "si", "sí", "y", "yes"].contains(r)
+    }
+}
+#endif

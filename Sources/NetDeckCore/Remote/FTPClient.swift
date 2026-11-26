@@ -1,6 +1,9 @@
 import Foundation
+#if canImport(Network)
 import Network
+#endif
 
+#if canImport(Network)
 /// Conexión TCP con lectura y escritura asíncronas (Network.framework). Cancelar la tarea que espera cierra la
 /// conexión al momento (y la espera termina con error): así «Cancelar» no se queda colgado en un servidor mudo.
 final class TCPStream: @unchecked Sendable {
@@ -124,6 +127,190 @@ final class TCPStream: @unchecked Sendable {
 
     func cancel() { connection.cancel() }
 }
+#elseif os(Windows)
+import WinSDK
+
+// (referencia compartida al socket en curso para cancelar el connect desde otro hilo)
+private final class _FTPSocketHolder: @unchecked Sendable {
+    let lock = NSLock()
+    var sock: SOCKET = INVALID_SOCKET
+}
+
+final class TCPStream: @unchecked Sendable {
+    static let connectTimeout: TimeInterval = 10
+    private let host: String
+    private let port: UInt16
+    private let ended = Once()
+    private let lock = NSLock()
+    private var sock: SOCKET = INVALID_SOCKET
+    private let wsaOK: Bool
+
+    init(host: String, port: UInt16) {
+        self.host = host
+        self.port = port
+        var startup = WSADATA()
+        wsaOK = WSAStartup(0x0202, &startup) == 0
+    }
+
+    deinit {
+        lock.lock(); let s = sock; sock = INVALID_SOCKET; lock.unlock()
+        if s != INVALID_SOCKET { closesocket(s) }
+        if wsaOK { WSACleanup() }
+    }
+
+    func start() async throws {
+        guard wsaOK else { throw RemoteError(L("FTP: no se pudo inicializar la red")) }
+        try Task.checkCancellation()
+        let host = self.host, port = self.port, timeout = Self.connectTimeout
+        let holder = _FTPSocketHolder()
+        let s: SOCKET = try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { c in
+                Task.detached {
+                    do { c.resume(returning: try TCPStream.connectSocket(host: host, port: port, timeout: timeout, holder: holder)) }
+                    catch { c.resume(throwing: error) }
+                }
+            }
+        } onCancel: {
+            let s2 = holder.lock.withLock { defer { holder.sock = INVALID_SOCKET }; return holder.sock }
+            if s2 != INVALID_SOCKET { closesocket(s2) }
+        }
+        guard !Task.isCancelled else { closesocket(s); throw CancellationError() }
+        lock.withLock { self.sock = s }
+    }
+
+    private static func connectSocket(host: String, port: UInt16, timeout: TimeInterval,
+                                      holder: _FTPSocketHolder) throws -> SOCKET {
+        var hints = addrinfo()
+        hints.ai_socktype = SOCK_STREAM
+        hints.ai_family = AF_UNSPEC
+        var list: UnsafeMutablePointer<addrinfo>?
+        guard getaddrinfo(host, String(port), &hints, &list) == 0, let first = list else {
+            throw RemoteError(L("No se encuentra el equipo «\(host)»"))
+        }
+        defer { freeaddrinfo(list) }
+        var p: UnsafeMutablePointer<addrinfo>? = first
+        var last: Error = RemoteError(L("\(host):\(String(port)) no contesta en \(Int(timeout)) s (¿cortafuegos, VPN o puerto equivocado?)"))
+        while let ai = p {
+            defer { p = ai.pointee.ai_next }
+            let s = socket(ai.pointee.ai_family, ai.pointee.ai_socktype, ai.pointee.ai_protocol)
+            guard s != INVALID_SOCKET else { continue }
+            let cancelled = holder.lock.withLock { () -> Bool in
+                if holder.sock == INVALID_SOCKET { holder.sock = s; return false }
+                return true
+            }
+            if cancelled { closesocket(s); throw CancellationError() }
+            var mode: UInt32 = 1
+            ioctlsocket(s, FIONBIO, &mode)
+            if connect(s, ai.pointee.ai_addr, Int32(ai.pointee.ai_addrlen)) == 0 {
+                mode = 0; ioctlsocket(s, FIONBIO, &mode)
+                holder.lock.withLock { holder.sock = INVALID_SOCKET }
+                return s
+            }
+            guard WSAGetLastError() == WSAEWOULDBLOCK else {
+                holder.lock.withLock { holder.sock = INVALID_SOCKET }
+                closesocket(s)
+                last = RemoteError(L("\(host) rechaza la conexión en el puerto \(String(port))"))
+                continue
+            }
+            var pfd = WSAPOLLFD(); pfd.fd = s; pfd.events = Int16(POLLWRNORM)
+            guard WSAPoll(&pfd, 1, Int32(timeout * 1000)) == 1 else {
+                holder.lock.withLock { holder.sock = INVALID_SOCKET }
+                closesocket(s)
+                last = RemoteError(L("\(host):\(String(port)) no contesta en \(Int(timeout)) s (¿cortafuegos, VPN o puerto equivocado?)"))
+                continue
+            }
+            var soErr: Int32 = 0, optLen: Int32 = Int32(MemoryLayout<Int32>.size)
+            getsockopt(s, SOL_SOCKET, SO_ERROR, &soErr, &optLen)
+            holder.lock.withLock { holder.sock = INVALID_SOCKET }
+            if soErr != 0 {
+                closesocket(s)
+                last = RemoteError(L("\(host) rechaza la conexión en el puerto \(String(port))"))
+                continue
+            }
+            mode = 0; ioctlsocket(s, FIONBIO, &mode)
+            return s
+        }
+        throw last
+    }
+
+    func send(_ d: Data) async throws {
+        try Task.checkCancellation()
+        let s = lock.withLock { sock }
+        guard s != INVALID_SOCKET else { throw RemoteError(L("Conexión cerrada")) }
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+                Task.detached {
+                    var offset = 0
+                    while offset < d.count {
+                        let sent: Int32 = d.withUnsafeBytes { raw in
+                            WinSDK.send(s, raw.baseAddress!.advanced(by: offset).assumingMemoryBound(to: Int8.self),
+                                        Int32(d.count - offset), 0)
+                        }
+                        if sent == Int32(-1) { c.resume(throwing: RemoteError(L("Conexión cerrada"))); return }
+                        offset += Int(sent)
+                    }
+                    c.resume()
+                }
+            }
+        } onCancel: { self.cancel() }
+    }
+
+    func receive(timeout: TimeInterval? = nil) async throws -> Data? {
+        if ended.isTaken { return nil }
+        try Task.checkCancellation()
+        let s = lock.withLock { sock }
+        guard s != INVALID_SOCKET else { return nil }
+        let ended = self.ended
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (c: CheckedContinuation<Data?, Error>) in
+                Task.detached {
+                    if let t = timeout {
+                        var pfd = WSAPOLLFD(); pfd.fd = s; pfd.events = Int16(POLLRDNORM)
+                        let pr = WSAPoll(&pfd, 1, Int32(t * 1000))
+                        if pr == 0 {
+                            c.resume(throwing: RemoteError(L("FTP: el servidor no contesta (\(Int(t)) s)")))
+                            return
+                        }
+                        if pr < 0 { _ = ended.take(); c.resume(returning: nil); return }
+                    }
+                    var buf = [UInt8](repeating: 0, count: 256 * 1024)
+                    let r = buf.withUnsafeMutableBufferPointer { bp in
+                        bp.baseAddress!.withMemoryRebound(to: Int8.self, capacity: bp.count) {
+                            WinSDK.recv(s, $0, Int32(bp.count), 0)
+                        }
+                    }
+                    if r <= 0 { _ = ended.take(); c.resume(returning: nil) }
+                    else { c.resume(returning: Data(buf[0..<Int(r)])) }
+                }
+            }
+        } onCancel: { self.cancel() }
+    }
+
+    func finishSending() async throws {
+        let s = lock.withLock { sock }
+        if s != INVALID_SOCKET { _ = WinSDK.shutdown(s, 1) }  // SD_SEND = 1
+    }
+
+    func cancel() {
+        lock.lock(); let s = sock; sock = INVALID_SOCKET; lock.unlock()
+        if s != INVALID_SOCKET { closesocket(s) }
+    }
+}
+#else
+// Ni Mac ni Windows (Linux): sin conexión TCP propia todavía.
+final class TCPStream: @unchecked Sendable {
+    static let connectTimeout: TimeInterval = 10
+    private let host: String
+    private let port: UInt16
+    private let ended = Once()
+    init(host: String, port: UInt16) { self.host = host; self.port = port }
+    func start() async throws { throw RemoteError(L("FTP no disponible en este sistema")) }
+    func send(_ d: Data) async throws { throw RemoteError(L("FTP no disponible en este sistema")) }
+    func receive(timeout: TimeInterval? = nil) async throws -> Data? { throw RemoteError(L("FTP no disponible en este sistema")) }
+    func finishSending() async throws { throw RemoteError(L("FTP no disponible en este sistema")) }
+    func cancel() {}
+}
+#endif
 
 /// Sólo la primera vez (para no reanudar dos veces una continuación).
 final class Once: @unchecked Sendable {
@@ -191,6 +378,13 @@ public enum FTPParse {
         }
         return nil
     }
+
+    #if os(Windows)
+    static func windowsListingLines(_ raw: Data) -> [String] {
+        // CRLF es un solo Character. Buscar un LF suelto deja el listado completo como una única línea.
+        String(decoding: raw, as: UTF8.self).split(whereSeparator: \.isNewline).map(String.init)
+    }
+    #endif
 
     /// Una línea de MLSD: «type=dir;modify=20240101120000;UNIX.mode=0755; nombre».
     public static func mlsd(_ line: String, in dir: String) -> RemoteEntry? {
@@ -540,8 +734,12 @@ public final class FTPFileSystem: RemoteFileSystem, @unchecked Sendable {
             } catch { data.cancel(); throw error }
             data.cancel()
             try await c.end()
+            #if os(Windows)
+            let lines = FTPParse.windowsListingLines(raw)
+            #else
             let lines = String(decoding: raw, as: UTF8.self).components(separatedBy: "\n")
                 .map { $0.hasSuffix("\r") ? String($0.dropLast()) : $0 }.filter { !$0.isEmpty }
+            #endif
             let entries = lines.compactMap { mlsd ? FTPParse.mlsd($0, in: path) : FTPParse.list($0, in: path) }
             return RemoteEntry.sorted(entries)
         }

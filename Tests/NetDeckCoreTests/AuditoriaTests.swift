@@ -1,3 +1,4 @@
+#if !os(Windows)
 import Darwin
 import Foundation
 import Testing
@@ -434,3 +435,4 @@ final class MiniFTPServer: @unchecked Sendable {
         #expect(a.sent.last == "show users\r" && b.sent.last == "show users\r" && c.sent == ["show users\r"])
     }
 }
+#endif

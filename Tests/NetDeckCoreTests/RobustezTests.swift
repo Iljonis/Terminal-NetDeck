@@ -1,3 +1,4 @@
+#if !os(Windows)
 import Darwin
 import Foundation
 import Testing
@@ -242,7 +243,7 @@ import Testing
         #expect(!ssh.command(sharing: nil).arguments.contains("-F"))                         // (el de siempre: sin -F)
         var sftp = ssh
         sftp.transport = .sftp
-        #expect(sftp.command(sharing: nil, configFile: cfg).executable == "/usr/bin/sftp")
+        #expect(sftp.command(sharing: nil, configFile: cfg).executable == SystemTools.sftp)
         #expect(f(sftp.command(sharing: nil, configFile: cfg).arguments))
         #expect(f(sftp.sftpSubsystemCommand(sharing: nil, configFile: cfg)?.arguments ?? []))
         let telnet = ConnectionRoute(title: "olt-01", target: Endpoint(host: "192.0.2.21"), jumps: [Endpoint(host: "198.51.100.1")], transport: .telnet)
@@ -341,7 +342,7 @@ import Testing
         func clave(_ n: String) throws -> String {
             let k = c.raiz.appendingPathComponent(n)
             let p = Process()
-            p.executableURL = URL(fileURLWithPath: "/usr/bin/ssh-keygen")
+            p.executableURL = URL(fileURLWithPath: SystemTools.sshKeygen)
             p.arguments = ["-q", "-t", "ed25519", "-N", "", "-C", "", "-f", k.path]
             p.standardOutput = FileHandle.nullDevice
             p.standardError = FileHandle.nullDevice
@@ -362,7 +363,7 @@ import Testing
 
         // (HashKnownHosts: la línea no dice el equipo, ssh-keygen la encuentra igual)
         let h = Process()
-        h.executableURL = URL(fileURLWithPath: "/usr/bin/ssh-keygen")
+        h.executableURL = URL(fileURLWithPath: SystemTools.sshKeygen)
         h.arguments = ["-H", "-f", kh.path]
         h.standardOutput = FileHandle.nullDevice
         h.standardError = FileHandle.nullDevice
@@ -437,7 +438,7 @@ import Testing
         #expect(ctx2.names == ["olt-alias"])
 
         let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/ssh-keygen")
+        p.executableURL = URL(fileURLWithPath: SystemTools.sshKeygen)
         p.arguments = ["-q", "-t", "ed25519", "-N", "", "-C", "", "-f", c.raiz.appendingPathComponent("k").path]
         try p.run()
         p.waitUntilExit()
@@ -463,3 +464,4 @@ import Testing
         #expect(Idioma.traducir("Aceptar y Actualizar Clave", a: .en) == "Accept and Update Key")
     }
 }
+#endif
