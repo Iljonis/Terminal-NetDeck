@@ -30,7 +30,9 @@ while IFS= read -r f; do
       fi ;;
     *) if [ "$bom" = si ]; then aviso "$f empieza con BOM UTF-8 (quítalo: los 3 primeros bytes)"; fi ;;
   esac
-  grep -q $'\r' "$f"; estado=$?
+  # (-U: el grep de Git para Windows quita el CR del final de línea antes de buscar y sin -U no ve ninguno; en macOS y
+  # Linux no cambia nada)
+  grep -qU $'\r' "$f"; estado=$?
   if [ "$estado" -eq 0 ]; then aviso "$f tiene CR (fin de línea CRLF: tiene que ser LF)"
   elif [ "$estado" -gt 1 ]; then aviso "$f: ha fallado la lectura (grep)"; fi
 done <<< "$listado"
