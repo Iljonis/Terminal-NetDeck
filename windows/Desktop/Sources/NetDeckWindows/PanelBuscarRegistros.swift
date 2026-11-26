@@ -1,6 +1,7 @@
 import Foundation
 import NetDeckCore
 import WinUI
+import struct UWP.FontWeight
 
 // no verificado en Windows: escrito desde el Mac contra la API de los demás paneles (CheckBox, ComboBox, Run); la
 // búsqueda, el contexto, los textos y el resaltado son los de `NetDeckCore.LogSearch`, que sí se prueba en el Mac.
