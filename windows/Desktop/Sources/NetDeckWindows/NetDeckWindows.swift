@@ -161,6 +161,38 @@ final class NetDeckWindows: SwiftApplication {
     private let barraEstadoBorde = Border()
     private let temaEtiqueta = TextBlock()
     private let reloj = TextBlock()
+    /// Las etiquetas de la barra de estado del Mac (`StatusBar`): ⬆ versión, MULTIEXEC ×n y el modo de las contraseñas.
+    private let etiquetas = StackPanel()
+    /// Los iconos de la barra que tienen estado (activo con relleno de acento, como el Mac) y su tinte sin activar.
+    private var iconosActivables: [ToolbarButton: (Button, TextBlock, SolidColorBrush?)] = [:]
+
+    private func actualizarIconosActivos() {
+        let e = estilo
+        for (boton, (b, glifo, tinte)) in iconosActivables {
+            let activo: Bool
+            switch boton {
+            case .multiExec: activo = multiActivo
+            case .dividirTerminal: activo = panelDividido
+            case .exploradorSFTP: activo = selected.map { panelesSFTP[ObjectIdentifier($0)]?.visible == true } ?? false
+            case .mostrarSesiones: activo = settings.listaSesiones
+            default: activo = false
+            }
+            e.marcarIcono(b, glifo: glifo, activo: activo, tinte: tinte)
+        }
+    }
+    /// El mensaje de la barra de estado. Los avisos (✗ errores, 🔑 contraseñas, ⎋ cortes, ⬆ versiones: `StatusNotice`)
+    /// salen con su color y en negrita, como el aviso del Mac; lo demás, apagado.
+    private var estado: String {
+        get { status.text }
+        set {
+            status.text = newValue
+            let e = estilo
+            let aviso = StatusNotice.isImportant(newValue)
+            let s = newValue.trimmingCharacters(in: .whitespaces)
+            status.foreground = !aviso ? e.apagado : s.hasPrefix("✗") ? e.mal : s.hasPrefix("⬆") ? e.bien : e.aviso
+            status.fontWeight = FontWeight(weight: aviso ? 600 : 400)
+        }
+    }
     /// El tema con el que se dibujó el marco (nil: aún no): sólo se rehace al cambiarlo.
     private var temaMarco: Theme?
     private var fuenteMarco: String?
@@ -329,11 +361,15 @@ final class NetDeckWindows: SwiftApplication {
         // Barra de estado: mensajes a la izquierda; el tema y la hora a la derecha, como en el Mac.
         let barraEstado = Grid()
         barraEstado.height = 26
-        for ancho in [GridUnitType.star, .auto, .auto, .auto] {
+        for ancho in [GridUnitType.star, .auto, .auto, .auto, .auto] {
             let columna = ColumnDefinition()
             columna.width = GridLength(value: 1, gridUnitType: ancho)
             barraEstado.columnDefinitions.append(columna)
         }
+        etiquetas.orientation = .horizontal
+        etiquetas.spacing = 10
+        etiquetas.verticalAlignment = .center
+        etiquetas.margin = Thickness(left: 0, top: 0, right: 14, bottom: 0)
         status.fontSize = 10.5
         status.verticalAlignment = .center
         status.textTrimming = .characterEllipsis
@@ -350,10 +386,12 @@ final class NetDeckWindows: SwiftApplication {
         sugerirClave.visibility = .collapsed
         sugerirClave.click.addHandler { [weak self] _, _ in self?.usarSugerenciaClave() }
         Grid.setColumn(sugerirClave, 1)
-        Grid.setColumn(temaEtiqueta, 2)
-        Grid.setColumn(reloj, 3)
+        Grid.setColumn(etiquetas, 2)
+        Grid.setColumn(temaEtiqueta, 3)
+        Grid.setColumn(reloj, 4)
         barraEstado.children.append(status)
         barraEstado.children.append(sugerirClave)
+        barraEstado.children.append(etiquetas)
         barraEstado.children.append(temaEtiqueta)
         barraEstado.children.append(reloj)
         barraEstadoBorde.child = barraEstado
@@ -443,7 +481,7 @@ final class NetDeckWindows: SwiftApplication {
                 showPanel(nil)
                 open(ruta, perfil: session.terminal)
             } catch {
-                status.text = error.localizedDescription
+                estado = error.localizedDescription
             }
         }
         editor.onSave = { [weak self] session, original in self?.saveSession(session, replacing: original) ?? false }
@@ -545,7 +583,7 @@ final class NetDeckWindows: SwiftApplication {
         }
         llavero.ledger = ledgerClaves
         llavero.usoDe = { [weak self] ref in self?.usoCredencial(ref) }
-        llavero.onEstado = { [weak self] texto in self?.status.text = texto }
+        llavero.onEstado = { [weak self] texto in self?.estado = texto }
         llavero.onRenombrada = { [weak self] anterior, nueva in
             guard let self else { return }
             if anterior.service == .named, settings.clavePorDefecto == anterior.account {
@@ -589,7 +627,7 @@ final class NetDeckWindows: SwiftApplication {
                     }
                     self.open(ruta)
                 } catch {
-                    self.status.text = "\u{2717} \(error.localizedDescription)"
+                    self.estado = "\u{2717} \(error.localizedDescription)"
                 }
             } else if let perfil = MainActor.assumeIsolated({ self.sessions.profile(named: equipo) }) {
                 self.openProfile(perfil)
@@ -647,7 +685,7 @@ final class NetDeckWindows: SwiftApplication {
             file.sessions += nuevas
             guard self.persistirSesiones(file) else { return }
             self.showPanel(nil)
-            self.status.text = L("Importadas \(nuevas.count) sesiones")
+            self.estado = L("Importadas \(nuevas.count) sesiones")
         }
         reglas.onConfirm = { [weak self] in self?.saveHighlightRules($0) }
         reglas.onCancel = { [weak self] in self?.showAjustes() }
@@ -691,7 +729,7 @@ final class NetDeckWindows: SwiftApplication {
         }
         ajustes.onReloadHighlight = { [weak self] in
             self?.reloadHighlight()
-            self?.status.text = L("Reglas de resaltado recargadas")
+            self?.estado = L("Reglas de resaltado recargadas")
         }
         ajustes.onCustomizeHighlight = { [weak self] in self?.personalizarResaltado() }
         ajustes.rutaResaltado = { [weak self] in
@@ -784,27 +822,14 @@ final class NetDeckWindows: SwiftApplication {
     /// Colores del tema en el marco y todo lo que se dibuja con ellos (iconos, pestañas, barra lateral, botones).
     private func aplicarMarco(_ tema: Theme, fuente: String) {
         estilo = EstiloMac(tema: tema)
+        EstiloMac.actual = estilo
         EstiloMac.fuenteInterfaz = FontFamily(fuente)
         let e = estilo
         marco.background = e.fondo
         marco.requestedTheme = ElementTheme(rawValue: e.tema.isLight ? 1 : 2)
-        // Interruptores, deslizadores, casillas y el foco de los campos con el acento del tema (como los controles
-        // «themed» del Mac), no con el color de acento de Windows: se cambian los recursos de WinUI en el marco.
-        if let recursos = marco.resources {
-            let sobreAcento = EstiloMac.pincel(e.tema.accent.readable)
-            for clave in ["AccentFillColorDefaultBrush", "AccentFillColorSecondaryBrush", "AccentFillColorTertiaryBrush",
-                          "ToggleSwitchFillOn", "ToggleSwitchFillOnPointerOver", "ToggleSwitchFillOnPressed",
-                          "SliderTrackValueFill", "SliderTrackValueFillPointerOver", "SliderTrackValueFillPressed",
-                          "SliderThumbBackground", "SliderThumbBackgroundPointerOver", "SliderThumbBackgroundPressed",
-                          "CheckBoxCheckBackgroundFillChecked", "CheckBoxCheckBackgroundFillCheckedPointerOver",
-                          "TextControlBorderBrushFocused", "ComboBoxItemPillFillBrush"] {
-                _ = recursos.insert(clave, e.acento)
-            }
-            for clave in ["ToggleSwitchKnobFillOn", "ToggleSwitchKnobFillOnPointerOver", "ToggleSwitchKnobFillOnPressed",
-                          "CheckBoxCheckGlyphForegroundChecked"] {
-                _ = recursos.insert(clave, sobreAcento)
-            }
-        }
+        // Todos los controles de WinUI (botones, campos, desplegables, interruptores, casillas, menús) con los colores
+        // del tema, como los controles «themed» del Mac, y no con los de Windows: se cambian los recursos en el marco.
+        if let recursos = marco.resources { e.vestirControles(recursos) }
         bordeSuperior.background = e.barra
         bordeSuperior.borderBrush = e.pestana
         barraBotonesFondo.background = e.barra
@@ -823,6 +848,8 @@ final class NetDeckWindows: SwiftApplication {
         temaEtiqueta.foreground = e.apagado
         temaEtiqueta.text = e.tema.name.uppercased()
         reloj.foreground = e.acento
+        reloj.text = e.tema.clockText()
+        refrescarEtiquetas()
         tarjeta.background = e.fondo
         tarjeta.borderBrush = e.acento(alfa: 0.5)
         e.vestirIcono(cerrarTarjeta, Glifo.cerrar, ayuda: L("Cerrar (Esc)"), id: "CerrarVentana")
@@ -874,7 +901,9 @@ final class NetDeckWindows: SwiftApplication {
             iconos.children.append(e.botonIcono(Glifo.tuneles, ayuda: L("T\u{00FA}neles SSH: locales, remotos y SOCKS"),
                                                 id: ToolbarButton.tuneles.rawValue) { [weak self] in self?.showTuneles() })
         }
-        e.vestirIcono(dividir, Glifo.dividir, ayuda: L("Pantalla dividida"), id: ToolbarButton.dividirTerminal.rawValue)
+        iconosActivables = [:]
+        iconosActivables[.dividirTerminal] = (dividir, e.vestirIcono(dividir, Glifo.dividir, ayuda: L("Pantalla dividida"),
+                                                                     id: ToolbarButton.dividirTerminal.rawValue), nil)
         prepararMenuDivision()
         if barra.isVisible(.dividirTerminal) { iconos.children.append(dividir) }
         if barra.isVisible(.llavero) {
@@ -882,9 +911,9 @@ final class NetDeckWindows: SwiftApplication {
                 [weak self] in self?.showLlavero()
             })
         }
-        e.vestirIcono(botonMulti, Glifo.multiExec,
+        iconosActivables[.multiExec] = (botonMulti, e.vestirIcono(botonMulti, Glifo.multiExec,
                       ayuda: L("MultiExec: lo que escribes va a la vez a los paneles (Ctrl+Mayús+M). Clic derecho en un panel → excluirlo"),
-                      id: ToolbarButton.multiExec.rawValue, tinte: e.aviso)
+                      id: ToolbarButton.multiExec.rawValue, tinte: e.aviso), e.aviso)
         if barra.isVisible(.multiExec) { iconos.children.append(botonMulti) }
         actualizarMultiExec()
         e.vestirIcono(pararAutomatizacion, Glifo.parar, ayuda: L("Detener env\u{00ED}o"), id: "Macros_Parar", tinte: e.mal)
@@ -909,8 +938,13 @@ final class NetDeckWindows: SwiftApplication {
             (.mostrarSesiones, Glifo.barraLateral, L("Mostrar/ocultar sesiones"), { [weak self] in self?.alternarLateral() }),
         ]
         for (boton, glifo, ayuda, accion) in resto where barra.isVisible(boton) {
-            iconos.children.append(e.botonIcono(glifo, ayuda: ayuda, id: boton.rawValue, accion: accion))
+            let b = Button()
+            let g = e.vestirIcono(b, glifo, ayuda: ayuda, id: boton.rawValue)
+            b.click.addHandler { _, _ in accion() }
+            if boton != .espacios { iconosActivables[boton] = (b, g, nil) }
+            iconos.children.append(b)
         }
+        actualizarIconosActivos()
         // (lo del menú de la app y el de Ayuda del Mac)
         let ajustesBoton = Button()
         e.vestirIcono(ajustesBoton, Glifo.ajustes, ayuda: L("Ajustes"), id: "Ajustes")
@@ -969,7 +1003,7 @@ final class NetDeckWindows: SwiftApplication {
 
     private func showBuscarRegistros() {
         buscarRegistros.show(carpeta: settings.urlRegistro, estilo: estilo)
-        status.text = ""
+        estado = ""
         showPanel(buscarRegistros.view)
     }
 
@@ -1165,6 +1199,7 @@ final class NetDeckWindows: SwiftApplication {
         settings.listaSesiones.toggle()
         if !isDemo { settings.guardar() }
         mostrarLateral(settings.listaSesiones)
+        actualizarIconosActivos()
         resize()
     }
 
@@ -1185,9 +1220,57 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     private func actualizarReloj() {
-        let formato = DateFormatter()
-        formato.dateFormat = "HH:mm"
-        reloj.text = formato.string(from: Date())
+        // (con el formato de cada tema, como el Mac: hay temas con segundos fuera, con la fecha o al estilo militar)
+        reloj.text = estilo.tema.clockText()
+        refrescarEtiquetas()
+    }
+
+    /// Las etiquetas de la derecha de la barra de estado, como el `StatusBar` del Mac: la versión nueva (clic para
+    /// verla), MultiExec con cuántas pestañas recibe y el modo de las contraseñas de sesión y de equipos.
+    private func refrescarEtiquetas() {
+        let e = estilo
+        etiquetas.children.clear()
+        func etiqueta(_ texto: String, _ color: SolidColorBrush, _ rgb: RGB, ayuda: String? = nil,
+                      accion: (() -> Void)? = nil) {
+            let t = EstiloMac.letra(texto, tamano: 10.5, peso: 600, color: color)
+            let caja = Border()
+            caja.child = t
+            caja.background = EstiloMac.pincel(rgb, alfa: 0.14)
+            caja.cornerRadius = EstiloMac.radio(4)
+            caja.padding = Thickness(left: 6, top: 1, right: 6, bottom: 1)
+            if let ayuda { ToolTipService.setToolTip(caja, ayuda) }
+            if let accion {
+                let b = Button()
+                e.plano(b)
+                b.padding = Thickness(left: 0, top: 0, right: 0, bottom: 0)
+                b.content = caja
+                b.click.addHandler { _, _ in accion() }
+                EstiloMac.conservarColores(b, encima: e.transparente, pulsado: e.transparente)
+                etiquetas.children.append(b)
+            } else {
+                etiquetas.children.append(caja)
+            }
+        }
+        if let info = startupUpdate {
+            etiqueta(L("⬆ Versión \(info.version) disponible"), e.bien, e.tema.good,
+                     ayuda: L("Hay una versión nueva de Terminal NetDeck: clic para verla")) { [weak self] in
+                self?.startupUpdate = nil
+                self?.offerUpdate(info)
+                self?.refrescarEtiquetas()
+            }
+        }
+        if multiActivo {
+            let n = terminals.filter { $0.route.acceptsMultiExec && !$0.closed }.count
+            etiqueta(L("MULTIEXEC ×\(n)"), e.aviso, e.tema.warning)
+        }
+        let equipos: String
+        switch settings.modoClaveEquipo {
+        case .autoType: equipos = L("AUTO")
+        case .suggest: equipos = L("SUGERIR")
+        case .off: equipos = L("NO")
+        }
+        etiqueta(L("🔑 SESIÓN \(settings.contrasenaAutomatica ? "AUTO" : "MANUAL") · EQUIPOS \(equipos)"),
+                 EstiloMac.pincel(e.tema.accent2), e.tema.accent2)
     }
 
     // MARK: - barra lateral
@@ -1477,7 +1560,7 @@ final class NetDeckWindows: SwiftApplication {
             try SessionLists.saveFavorites(orden, to: favoritasURL)
             buildSidebar()
         } catch {
-            status.text = error.localizedDescription
+            estado = error.localizedDescription
         }
     }
 
@@ -1517,7 +1600,8 @@ final class NetDeckWindows: SwiftApplication {
 
     private func renombrarPestana(_ tab: PestanaTerminal) {
         renombrar.show(title: L("Renombrar la pesta\u{00F1}a"), hint: L("Vac\u{00ED}o: vuelve a su nombre."),
-                       text: nombresPestana[ObjectIdentifier(tab)] ?? tab.title, editable: true, confirmTitle: L("Renombrar"))
+                       text: nombresPestana[ObjectIdentifier(tab)] ?? tab.title, editable: true, confirmTitle: L("Renombrar"),
+                       unaLinea: true, icono: Glifo.editar)
         renombrar.onConfirm = { [weak self, weak tab] texto in
             guard let self, let tab else { return }
             let limpio = texto.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1543,7 +1627,7 @@ final class NetDeckWindows: SwiftApplication {
         }
         guard nuevo != settings else { return }
         saveAjustes(nuevo)
-        status.text = L("Letra: \(nuevo.tamano) pt")
+        estado = L("Letra: \(nuevo.tamano) pt")
     }
 
     private func irAPestana(_ numero: Int) {
@@ -1558,7 +1642,7 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     private func showEditor(_ session: EditableSession, original: String?) {
-        status.text = ""
+        estado = ""
         let credenciales = nombresCredenciales()
         let saltos = MainActor.assumeIsolated { sessions.profiles.filter { $0.name != session.name }.map(\.name) }
         editor.show(session, original: original, estilo: estilo, credenciales: credenciales, saltos: saltos)
@@ -1579,7 +1663,7 @@ final class NetDeckWindows: SwiftApplication {
     private func confirmDeleteProfile(_ perfil: SessionProfile) {
         borrarSesion.show(title: L("\u{00BF}Borrar \u{00AB}\(perfil.name)\u{00BB}?"),
                           hint: L("Esta acci\u{00F3}n no se puede deshacer."),
-                          text: "", editable: false, confirmTitle: L("Borrar"))
+                          text: "", editable: false, confirmTitle: L("Borrar"), destructivo: true)
         borrarSesion.onConfirm = { [weak self] _ in self?.deleteProfile(perfil) }
         showPanel(borrarSesion.view)
     }
@@ -1594,12 +1678,12 @@ final class NetDeckWindows: SwiftApplication {
             library = file
             MainActor.assumeIsolated { sessions = SessionManager(profiles: SSHConfigParser().parse(file.render())) }
         } else {
-            if let error = file.save() { status.text = L("No se puede borrar: \(error)"); return }
+            if let error = file.save() { estado = L("No se puede borrar: \(error)"); return }
             MainActor.assumeIsolated { sessions.load(from: SessionFile.defaultURL) }
         }
         buildSidebar()
         showPanel(nil)
-        status.text = L("Sesi\u{00F3}n \u{00AB}\(perfil.name)\u{00BB} borrada")
+        estado = L("Sesi\u{00F3}n \u{00AB}\(perfil.name)\u{00BB} borrada")
     }
 
     private func recargarSesiones() {
@@ -1610,13 +1694,17 @@ final class NetDeckWindows: SwiftApplication {
             MainActor.assumeIsolated { sessions.load() }
         }
         buildSidebar()
-        status.text = L("Sesiones recargadas")
+        estado = L("Sesiones recargadas")
     }
 
     /// El area principal muestra el terminal o uno de los paneles (editor, ajustes), nunca varios a la vez.
     private func showPanel(_ panel: ScrollViewer?) {
         if panel !== selectorColor.view { selectorColor.abandonar() }
         capaEmergente.visibility = panel == nil ? .collapsed : .visible
+        // (los avisos y confirmaciones, como las alertas del Mac: la tarjeta del tamaño de lo que dice, no de 900)
+        let avisos = [borrarSesion, macroConfirm, confirmarMulti, renombrar, actualizacion, pegado, confirmarGrupo,
+                      confirmarBoton, multi, reglas].map(\.view)
+        tarjeta.horizontalAlignment = avisos.contains { $0 === panel } ? .center : .stretch
         // Ajustes, como en el Mac: hasta 1000×720, sin márgenes y con su propio «Cerrar».
         let sonAjustes = panel === ajustes.view
         tarjeta.maxWidth = sonAjustes ? 1000 : 900
@@ -1680,12 +1768,12 @@ final class NetDeckWindows: SwiftApplication {
     /// Una línea se pega sin Intro. Las órdenes remotas multilínea esperan al equipo una a una.
     private func safePaste() {
         guard let selected, !selected.closed else {
-            status.text = L("No hay ningún terminal abierto")
+            estado = L("No hay ningún terminal abierto")
             return
         }
         guard automatizacionActiva?.tab !== selected else { return }
         guard let text = pasteboardText(), !text.isEmpty else {
-            status.text = L("El portapapeles no tiene texto")
+            estado = L("El portapapeles no tiene texto")
             return
         }
         let clean = String(text.unicodeScalars.filter {
@@ -1696,7 +1784,7 @@ final class NetDeckWindows: SwiftApplication {
             return
         }
         guard clean.utf8.count <= 100_000 else {
-            status.text = L("El texto supera el límite de pegado de 100 KB")
+            estado = L("El texto supera el límite de pegado de 100 KB")
             return
         }
         let lines = PasteRules.lines(of: clean)
@@ -1708,12 +1796,18 @@ final class NetDeckWindows: SwiftApplication {
             return
         }
         let dangerous = !selected.route.isLocal && !PasteRules.dangerousLines(in: clean).isEmpty
-        status.text = ""
+        estado = ""
         pendingPaste = (selected, clean, dangerous)
-        let hint = dangerous ? L("El texto contiene órdenes peligrosas. Revísalas antes de continuar.")
-            : L("\(lines.count) órdenes en \(selected.title)")
-        pegado.show(title: L("Pegar varias líneas"), hint: hint,
-                    text: clean, editable: false, confirmTitle: dangerous ? L("Enviar órdenes peligrosas") : nil)
+        let hint = dangerous ? L("En «\(selected.title)». Las marcadas con ⚠ son órdenes peligrosas: revísalas antes de continuar.")
+            : L("En «\(selected.title)», línea a línea.")
+        // (como la hoja del Mac: ⚠ delante de cada orden peligrosa y los caracteres de control a la vista; lo que se
+        // envía es `pendingPaste`, no este texto)
+        let peligrosas = dangerous ? Set(PasteRules.dangerousLines(in: clean)) : []
+        let vista = PasteRules.rows(of: clean).map { (peligrosas.contains($0) ? "⚠ " : "   ") + PasteRules.visible($0) }
+        pegado.show(title: L("¿Pegar \(lines.count) líneas?"), hint: hint,
+                    text: vista.joined(separator: "\n"), editable: false,
+                    confirmTitle: dangerous ? L("Enviar órdenes peligrosas") : L("Pegar"),
+                    destructivo: dangerous, icono: Glifo.pegar)
         showPanel(pegado.view)
     }
 
@@ -1750,6 +1844,7 @@ final class NetDeckWindows: SwiftApplication {
 
     private func multiExec() {
         multiActivo.toggle()
+        refrescarEtiquetas()
         actualizarMultiExec()
         construirPestanas()
         focusTerminal()
@@ -1770,7 +1865,7 @@ final class NetDeckWindows: SwiftApplication {
                 }
             }
         }
-        botonMulti.background = multiActivo ? estilo.acento(alfa: 0.24) : estilo.panel(alfa: 0.4)
+        actualizarIconosActivos()
         if multiActivo {
             botonMulti.content = EstiloMac.letra(L("MULTIEXEC ×\(ids.count)"), tamano: 10, peso: 700, color: estilo.aviso)
         } else {
@@ -1782,7 +1877,7 @@ final class NetDeckWindows: SwiftApplication {
         let comando = SecretMask.masked(orden)
         confirmarMulti.show(title: L("¿Enviar «\(comando)» a \(pestañas) pestañas a la vez?"),
                             hint: L("Es una orden peligrosa y MultiExec la escribe en todas las pestañas en las que estás tecleando."),
-                            text: comando, editable: false, confirmTitle: L("Enviar a todas"))
+                            text: comando, editable: false, confirmTitle: L("Enviar a todas"), destructivo: true)
         showPanel(confirmarMulti.view)
         confirmarMulti.onConfirm = { [weak self, weak tab] _ in
             guard let self, let tab, !tab.closed, multiActivo, selected === tab else { return }
@@ -1797,7 +1892,7 @@ final class NetDeckWindows: SwiftApplication {
 
     /// Un mismo comando a todas las pestanas SSH y Telnet abiertas.
     private func mostrarEnvioMultiple() {
-        status.text = ""
+        estado = ""
         multi.show(title: L("MultiExec"),
                    hint: L("El comando se env\u{00ED}a a todas las pesta\u{00F1}as SSH y Telnet abiertas."),
                    text: "", editable: true)
@@ -1807,7 +1902,7 @@ final class NetDeckWindows: SwiftApplication {
     private func confirmMultiExec(_ text: String) {
         let command = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !command.isEmpty else {
-            status.text = L("Escribe un comando")
+            estado = L("Escribe un comando")
             return
         }
         let targets = MainActor.assumeIsolated {
@@ -1821,7 +1916,7 @@ final class NetDeckWindows: SwiftApplication {
         }
         showPanel(nil)
         guard !targets.isEmpty else {
-            status.text = L("No hay pesta\u{00F1}as SSH o Telnet abiertas")
+            estado = L("No hay pesta\u{00F1}as SSH o Telnet abiertas")
             return
         }
         // (como el pegado en macOS: «\r\n» es un solo Intro, y las órdenes peligrosas se confirman ANTES de enviarlas a todas)
@@ -1830,14 +1925,14 @@ final class NetDeckWindows: SwiftApplication {
         let enviar = { [weak self] in
             guard let self else { return }
             for tab in targets where !tab.closed { tab.write(payload) }
-            self.status.text = L("Comando enviado a \(count) pesta\u{00F1}as")
+            self.estado = L("Comando enviado a \(count) pesta\u{00F1}as")
         }
         let peligrosas = PasteRules.dangerousLines(in: command)
         guard !peligrosas.isEmpty else { enviar(); return }
         let visible = SecretMask.masked(PasteRules.visible(command))
         confirmarMulti.show(title: L("¿Enviar «\(visible)» a \(count) pestañas a la vez?"),
                             hint: L("Es una orden peligrosa y MultiExec la escribe en todas las pestañas en las que estás tecleando."),
-                            text: visible, editable: false, confirmTitle: L("Enviar a todas"))
+                            text: visible, editable: false, confirmTitle: L("Enviar a todas"), destructivo: true)
         showPanel(confirmarMulti.view)
         confirmarMulti.onConfirm = { [weak self] _ in
             self?.showPanel(nil)
@@ -1853,7 +1948,7 @@ final class NetDeckWindows: SwiftApplication {
             let saltos = MainActor.assumeIsolated { sessions.profiles.filter { $0.transport == .ssh }.map(\.name) }
             panel.mostrar(biblioteca: archivo, estilo: estilo, credenciales: nombresCredenciales(), saltos: saltos)
         } catch {
-            status.text = error.localizedDescription
+            estado = error.localizedDescription
         }
     }
 
@@ -1888,7 +1983,7 @@ final class NetDeckWindows: SwiftApplication {
                 abiertas[equipo] = tab
                 return makeTerminalInput(tab)
             }
-            runner.onChange = { [weak self] equipo, estado in self?.status.text = "\(lista.name) · \(equipo.host): \(estado.texto)" }
+            runner.onChange = { [weak self] equipo, estado in self?.estado = "\(lista.name) · \(equipo.host): \(estado.texto)" }
             await runner.run()
             for _ in 0..<runner.settings.maxRetries where !abort.isTripped { await runner.retryFailed() }
             loteListas = nil
@@ -1902,7 +1997,7 @@ final class NetDeckWindows: SwiftApplication {
             if let primero = tabs.first, tabs.count > 1 {
                 mostrarDivision(tabs, modo: tabs.count <= 4 ? .grid4 : .grid, activa: primero)
             }
-            status.text = L("\(lista.name): \(conectados)/\(lista.devices.count) dentro")
+            estado = L("\(lista.name): \(conectados)/\(lista.devices.count) dentro")
         }
     }
 
@@ -1919,10 +2014,10 @@ final class NetDeckWindows: SwiftApplication {
             archivoBotones = try readCommandButtons()
             construirBarraBotones()
             botones.show(archivoBotones)
-            status.text = archivoBotones.problems.first ?? ""
+            estado = archivoBotones.problems.first ?? ""
             showPanel(botones.view)
         } catch {
-            status.text = error.localizedDescription
+            estado = error.localizedDescription
         }
     }
 
@@ -1930,7 +2025,7 @@ final class NetDeckWindows: SwiftApplication {
         let fields = [button.group, button.name, button.command]
         guard fields.allSatisfy(Self.esUnaLinea),
               !button.group.contains(" :: "), !button.name.contains(" :: ") else {
-            status.text = L("Completa el grupo, el nombre y la orden en una sola línea")
+            estado = L("Completa el grupo, el nombre y la orden en una sola línea")
             return
         }
         do {
@@ -1951,9 +2046,9 @@ final class NetDeckWindows: SwiftApplication {
             archivoBotones = file
             construirBarraBotones()
             botones.show(file, select: button)
-            status.text = L("Botón «\(button.name)» guardado")
+            estado = L("Botón «\(button.name)» guardado")
         } catch {
-            status.text = L("No se puede guardar: \(error.localizedDescription)")
+            estado = L("No se puede guardar: \(error.localizedDescription)")
         }
     }
 
@@ -1967,7 +2062,7 @@ final class NetDeckWindows: SwiftApplication {
     private func useCommandButton(_ button: CommandButton, on target: PestanaTerminal? = nil) {
         if button.mode == .session {
             guard let profile = MainActor.assumeIsolated({ sessions.profile(named: button.command) }) else {
-                status.text = L("No existe la sesión «\(button.command)»")
+                estado = L("No existe la sesión «\(button.command)»")
                 return
             }
             showPanel(nil)
@@ -1978,29 +2073,29 @@ final class NetDeckWindows: SwiftApplication {
         if button.mode == .clave {
             guard let tab = target ?? selected, !tab.closed, !tab.route.isLocal,
                   [.ssh, .telnet].contains(tab.route.transport) else {
-                status.text = L("No hay pestañas SSH o Telnet abiertas")
+                estado = L("No hay pestañas SSH o Telnet abiertas")
                 return
             }
             let io = makeTerminalInput(tab)
             guard MainActor.assumeIsolated({ SecretPrompt.asks(io.cursorLine) }) else {
-                status.text = L("Espera a que la sesión pida «Password:»")
+                estado = L("Espera a que la sesión pida «Password:»")
                 return
             }
             showPanel(nil)
             tab.write(button.command + "\r")
-            status.text = L("Contraseña enviada")
+            estado = L("Contraseña enviada")
             return
         }
 
         if button.mode == .pass {
             guard let tab = target ?? selected, !tab.closed, !tab.route.isLocal,
                   [.ssh, .telnet].contains(tab.route.transport) else {
-                status.text = L("No hay pestañas SSH o Telnet abiertas")
+                estado = L("No hay pestañas SSH o Telnet abiertas")
                 return
             }
             let io = makeTerminalInput(tab)
             guard MainActor.assumeIsolated({ SecretPrompt.asks(io.cursorLine) }) else {
-                status.text = L("Espera a que la sesión pida «Password:»")
+                estado = L("Espera a que la sesión pida «Password:»")
                 return
             }
             let credName = button.command
@@ -2009,14 +2104,14 @@ final class NetDeckWindows: SwiftApplication {
                 guard let self, let tab, !tab.closed else { return }
                 do {
                     guard let password = try KeychainStore().password(for: ref) else {
-                        self.status.text = L("🔑 «%@» no está en el Llavero").replacingOccurrences(of: "%@", with: credName)
+                        self.estado = L("🔑 «%@» no está en el Llavero").replacingOccurrences(of: "%@", with: credName)
                         return
                     }
                     self.showPanel(nil)
                     tab.write(password + "\r")
-                    self.status.text = L("Contraseña enviada")
+                    self.estado = L("Contraseña enviada")
                 } catch {
-                    self.status.text = L("Llavero: %@").replacingOccurrences(of: "%@", with: error.localizedDescription)
+                    self.estado = L("Llavero: %@").replacingOccurrences(of: "%@", with: error.localizedDescription)
                 }
             }
             return
@@ -2025,15 +2120,15 @@ final class NetDeckWindows: SwiftApplication {
         if button.mode == .login {
             guard let tab = target ?? selected, !tab.closed, !tab.route.isLocal,
                   [.ssh, .telnet].contains(tab.route.transport) else {
-                status.text = L("No hay pestañas SSH o Telnet abiertas")
+                estado = L("No hay pestañas SSH o Telnet abiertas")
                 return
             }
             guard let (user, credName) = CommandButton.loginParts(button.command) else {
-                status.text = L("El botón login necesita «usuario / nombre-de-la-contraseña»")
+                estado = L("El botón login necesita «usuario / nombre-de-la-contraseña»")
                 return
             }
             guard automatizacionActiva == nil else {
-                status.text = L("Ya hay un envío en curso")
+                estado = L("Ya hay un envío en curso")
                 return
             }
             let ref = CredentialRef(service: .named, account: credName)
@@ -2042,21 +2137,21 @@ final class NetDeckWindows: SwiftApplication {
                 guard let self, let tab, !tab.closed else { return }
                 do {
                     guard let password = try KeychainStore().password(for: ref) else {
-                        self.status.text = L("🔑 «%@» no está en el Llavero").replacingOccurrences(of: "%@", with: credName)
+                        self.estado = L("🔑 «%@» no está en el Llavero").replacingOccurrences(of: "%@", with: credName)
                         return
                     }
                     let abort = AbortSwitch()
                     self.automatizacionActiva = (tab, abort)
                     self.pararAutomatizacion.visibility = .visible
                     self.showPanel(nil)
-                    self.status.text = L("Login «%@»").replacingOccurrences(of: "%@", with: bname) + L(" · Esc para cortar")
+                    self.estado = L("Login «%@»").replacingOccurrences(of: "%@", with: bname) + L(" · Esc para cortar")
                     let io = self.makeTerminalInput(tab)
                     let result = await self.loginSequence(user: user, password: password, io: io, abort: abort)
                     self.automatizacionActiva = nil
                     self.pararAutomatizacion.visibility = .collapsed
-                    self.status.text = result
+                    self.estado = result
                 } catch {
-                    self.status.text = L("Llavero: %@").replacingOccurrences(of: "%@", with: error.localizedDescription)
+                    self.estado = L("Llavero: %@").replacingOccurrences(of: "%@", with: error.localizedDescription)
                 }
             }
             return
@@ -2064,7 +2159,7 @@ final class NetDeckWindows: SwiftApplication {
 
         guard let tab = target ?? selected, !tab.closed, !tab.route.isLocal,
               [.ssh, .telnet].contains(tab.route.transport) else {
-            status.text = L("No hay pestañas SSH o Telnet abiertas")
+            estado = L("No hay pestañas SSH o Telnet abiertas")
             return
         }
         let values = Dictionary(uniqueKeysWithValues: button.holes.map { ($0.name, $0.value) })
@@ -2107,14 +2202,14 @@ final class NetDeckWindows: SwiftApplication {
 
     private func applyCommandButton(_ button: CommandButton, text: String, to tab: PestanaTerminal) {
         guard Self.esUnaLinea(text) else {
-            status.text = L("Escribe un comando válido de una línea")
+            estado = L("Escribe un comando válido de una línea")
             return
         }
         if button.mode == .type {
             let io = makeTerminalInput(tab)
             guard automatizacionActiva?.tab !== tab, grabando?.tab !== tab,
                   MainActor.assumeIsolated({ PromptRule.isPrompt(io.cursorLine, custom: io.promptRule) }) else {
-                status.text = L("Espera al prompt de la sesión antes de enviar órdenes")
+                estado = L("Espera al prompt de la sesión antes de enviar órdenes")
                 return
             }
             showPanel(nil)
@@ -2130,23 +2225,23 @@ final class NetDeckWindows: SwiftApplication {
     private func showMacros() {
         let loaded = isDemo ? nil : MacroLibrary.load()
         macros.show(loaded?.library ?? macrosDemo)
-        status.text = loaded?.error ?? loaded?.warnings.first ?? ""
+        estado = loaded?.error ?? loaded?.warnings.first ?? ""
         showPanel(macros.view)
     }
 
     private func saveMacro(_ macro: Macro) {
         if let problem = macro.problem {
-            status.text = L("✗ macro no válida: \(problem)")
+            estado = L("✗ macro no válida: \(problem)")
             return
         }
         let loaded = isDemo ? nil : MacroLibrary.load()
         if let error = loaded?.error {
-            status.text = error
+            estado = error
             return
         }
         var library = loaded?.library ?? macrosDemo
         guard library.uniqueName(macro.name, except: macro.id) == macro.name else {
-            status.text = L("ya hay una macro con ese nombre")
+            estado = L("ya hay una macro con ese nombre")
             return
         }
         if let index = library.macros.firstIndex(where: { $0.id == macro.id }) {
@@ -2158,16 +2253,16 @@ final class NetDeckWindows: SwiftApplication {
             if isDemo { macrosDemo = library } else { try library.save() }
             macros.clearDraft()
             macros.show(library, selected: macro.id)
-            status.text = L("✓ Macro «\(macro.name)» guardada")
+            estado = L("✓ Macro «\(macro.name)» guardada")
         } catch {
-            status.text = L("No se puede guardar: \(error.localizedDescription)")
+            estado = L("No se puede guardar: \(error.localizedDescription)")
         }
     }
 
     private func confirmMacroDeletion(_ macro: Macro) {
         macroConfirm.show(title: L("¿Borrar la macro «\(macro.name)»?"),
                           hint: L("Queda una copia en macros.json.anterior."), text: "",
-                          editable: false, confirmTitle: L("Borrar"))
+                          editable: false, confirmTitle: L("Borrar"), destructivo: true)
         macroConfirm.onConfirm = { [weak self] _ in self?.deleteMacro(macro.id) }
         showPanel(macroConfirm.view)
     }
@@ -2175,7 +2270,7 @@ final class NetDeckWindows: SwiftApplication {
     private func deleteMacro(_ id: Macro.ID) {
         let loaded = isDemo ? nil : MacroLibrary.load()
         if let error = loaded?.error {
-            status.text = error
+            estado = error
             return
         }
         var library = loaded?.library ?? macrosDemo
@@ -2185,7 +2280,7 @@ final class NetDeckWindows: SwiftApplication {
             macros.clearDraft()
             showMacros()
         } catch {
-            status.text = error.localizedDescription
+            estado = error.localizedDescription
         }
     }
 
@@ -2200,14 +2295,14 @@ final class NetDeckWindows: SwiftApplication {
               [.ssh, .telnet].contains(tab.route.transport), automatizacionActiva?.tab !== tab else { return }
         let io = makeTerminalInput(tab)
         guard MainActor.assumeIsolated({ PromptRule.isPrompt(io.cursorLine, custom: io.promptRule) }) else {
-            status.text = L("Espera al prompt de la sesión antes de grabar")
+            estado = L("Espera al prompt de la sesión antes de grabar")
             return
         }
         let recorder = MainActor.assumeIsolated { MacroRecorder(allowScreenFallback: false, soloConexiones: true) }
         grabando = (tab, recorder, io)
         showPanel(nil)
         pararGrabacion.visibility = .visible
-        status.text = L("● Grabando una macro en «\(tab.title)»: escribe las órdenes (las contraseñas no se graban)")
+        estado = L("● Grabando una macro en «\(tab.title)»: escribe las órdenes (las contraseñas no se graban)")
     }
 
     private func recordKeys(_ text: String, tab: PestanaTerminal) {
@@ -2222,17 +2317,17 @@ final class NetDeckWindows: SwiftApplication {
         let lines = MainActor.assumeIsolated { recording.recorder.lines }
         showMacros()
         if lines.isEmpty {
-            status.text = L("Grabación parada: no hay órdenes que guardar")
+            estado = L("Grabación parada: no hay órdenes que guardar")
         } else {
             macros.recorded(lines)
-            status.text = L("■ Grabadas \(lines.count) órdenes")
+            estado = L("■ Grabadas \(lines.count) órdenes")
         }
     }
 
     private func playMacro(_ macro: Macro, on target: PestanaTerminal? = nil) {
         guard let tab = target ?? selected, !tab.closed, !tab.route.isLocal,
               [.ssh, .telnet].contains(tab.route.transport) else {
-            status.text = L("No hay pestañas SSH o Telnet abiertas")
+            estado = L("No hay pestañas SSH o Telnet abiertas")
             return
         }
         if macro.confirm || !macro.dangerousLines.isEmpty {
@@ -2260,30 +2355,30 @@ final class NetDeckWindows: SwiftApplication {
     private func startAutomation(on tab: PestanaTerminal, title: String,
                                  run: @escaping @MainActor (EntradaMacro, AbortSwitch) async -> String) {
         guard automatizacionActiva == nil else {
-            status.text = L("Ya hay un envío en curso")
+            estado = L("Ya hay un envío en curso")
             return
         }
         guard !tab.closed, selected === tab || ventanasPestana[ObjectIdentifier(tab)] != nil else { return }
         let abort = AbortSwitch()
         guard grabando?.tab !== tab else {
-            status.text = L("Para la grabación antes de enviar órdenes en esa pestaña")
+            estado = L("Para la grabación antes de enviar órdenes en esa pestaña")
             return
         }
         let io = makeTerminalInput(tab)
         guard MainActor.assumeIsolated({ PromptRule.isPrompt(io.cursorLine, custom: io.promptRule) }) else {
-            status.text = L("Espera al prompt de la sesión antes de enviar órdenes")
+            estado = L("Espera al prompt de la sesión antes de enviar órdenes")
             return
         }
         automatizacionActiva = (tab, abort)
         showPanel(nil)
         pararAutomatizacion.visibility = .visible
-        status.text = title + L(" · Esc para cortar")
+        estado = title + L(" · Esc para cortar")
         Task { @MainActor [weak self] in
             let result = await run(io, abort)
             self?.onUI { app in
                 app.automatizacionActiva = nil
                 app.pararAutomatizacion.visibility = .collapsed
-                app.status.text = result
+                app.estado = result
             }
         }
     }
@@ -2307,17 +2402,17 @@ final class NetDeckWindows: SwiftApplication {
         guard let selected else { return }
         pestañaBuscada = selected
         buscarTerminal.reset(title: selected.title)
-        status.text = ""
+        estado = ""
         showPanel(buscarTerminal.view)
     }
 
     private func showWorkspaces() {
         do {
             espacios.show(isDemo ? espaciosDemo : try WorkspaceLibrary.load())
-            status.text = ""
+            estado = ""
             showPanel(espacios.view)
         } catch {
-            status.text = error.localizedDescription
+            estado = error.localizedDescription
         }
     }
 
@@ -2337,14 +2432,15 @@ final class NetDeckWindows: SwiftApplication {
             if let problem = lib.problem { throw WorkspaceError(problem) }
             if isDemo { espaciosDemo = lib } else { try lib.save() }
             espacios.show(lib, selected: workspace.id)
-            status.text = L("Espacio «\(workspace.name)» guardado")
+            estado = L("Espacio «\(workspace.name)» guardado")
         } catch {
-            status.text = L("No se puede guardar: \(error.localizedDescription)")
+            estado = L("No se puede guardar: \(error.localizedDescription)")
         }
     }
 
     private func restoreWorkspace(_ workspace: Workspace) {
         multiActivo = false
+        refrescarEtiquetas()
 
         do {
             let resolved = try MainActor.assumeIsolated { try workspace.resolve(using: sessions) }
@@ -2354,7 +2450,7 @@ final class NetDeckWindows: SwiftApplication {
             }
             guard let selected = workspace.selected.flatMap({ restored[$0] })
                 ?? resolved.tabs.lazy.compactMap({ restored[$0.id] }).first else {
-                status.text = L("No se ha podido abrir ninguna pestaña del espacio")
+                estado = L("No se ha podido abrir ninguna pestaña del espacio")
                 return
             }
             let panes = workspace.panes.compactMap { restored[$0] }
@@ -2367,9 +2463,9 @@ final class NetDeckWindows: SwiftApplication {
                 vistaGuardada = nil
                 vistaIndividual(selected)
             }
-            status.text = L("Pestañas restauradas: \(restored.count) de \(workspace.tabs.count)")
+            estado = L("Pestañas restauradas: \(restored.count) de \(workspace.tabs.count)")
         } catch {
-            status.text = error.localizedDescription
+            estado = error.localizedDescription
         }
     }
 
@@ -2395,6 +2491,7 @@ final class NetDeckWindows: SwiftApplication {
             self?.onUI { app in
                 guard !app.manualUpdateRequested else { return }
                 app.startupUpdate = found
+                app.refrescarEtiquetas()
                 app.offerStartupUpdateIfIdle()
             }
         }
@@ -2445,19 +2542,19 @@ final class NetDeckWindows: SwiftApplication {
     private func installUpdate() {
         guard let info = pendingUpdate else { return }
         showPanel(nil)
-        status.text = L("Descargando la actualizaci\u{00F3}n\u{2026}")
+        estado = L("Descargando la actualizaci\u{00F3}n\u{2026}")
         Task { [weak self] in
             do {
                 let installer = try await UpdateChecker.shared.downloadAndVerify(info)
                 let launched = UpdateChecker.shared.launchInstaller(at: installer)
                 self?.onUI { me in
                     me.pendingUpdate = nil
-                    me.status.text = launched ? L("Instalador lanzado: cierra Terminal NetDeck para completar la actualizaci\u{00F3}n")
+                    me.estado = launched ? L("Instalador lanzado: cierra Terminal NetDeck para completar la actualizaci\u{00F3}n")
                                               : L("No se ha podido lanzar el instalador")
                 }
             } catch {
                 let reason = error.localizedDescription
-                self?.onUI { $0.status.text = L("No se puede actualizar: \(reason)") }
+                self?.onUI { $0.estado = L("No se puede actualizar: \(reason)") }
             }
         }
     }
@@ -2492,7 +2589,7 @@ final class NetDeckWindows: SwiftApplication {
     // MARK: - tuneles
 
     private func showTuneles() {
-        status.text = ""
+        estado = ""
         tuneles.show()
         showPanel(tuneles.view)
     }
@@ -2673,11 +2770,11 @@ final class NetDeckWindows: SwiftApplication {
                 self?.onUI { _ in accion() }
             }, alFallar: { [weak self, weak tab] motivo in
                 guard let self, let tab else { return }
-                status.text = L("✗ Se ha dejado de grabar «\(tab.title)»: \(motivo)")
+                estado = L("✗ Se ha dejado de grabar «\(tab.title)»: \(motivo)")
                 actualizarRegistro(tab)
             })
         } catch {
-            status.text = L("✗ No se graba «\(tab.title)»: no se puede escribir en \(AppPaths.tilde(carpeta.path)) (\(error.localizedDescription))")
+            estado = L("✗ No se graba «\(tab.title)»: no se puede escribir en \(AppPaths.tilde(carpeta.path)) (\(error.localizedDescription))")
         }
     }
 
@@ -2799,7 +2896,7 @@ final class NetDeckWindows: SwiftApplication {
             highlightConfig = try HighlightConfig(text: highlightText())
         } catch {
             highlightConfig = nil
-            status.text = error.localizedDescription
+            estado = error.localizedDescription
         }
         for tab in terminals { aplicarResaltado(tab) }
         for detached in ventanasPestana.values { aplicarResaltado(detached.session) }
@@ -2814,7 +2911,7 @@ final class NetDeckWindows: SwiftApplication {
                 _ = AppPaths.ensure(destino.deletingLastPathComponent())
                 try SafeFile.write(texto, to: destino)
             } catch {
-                status.text = L("No se puede guardar: \(error.localizedDescription)")
+                estado = L("No se puede guardar: \(error.localizedDescription)")
                 return
             }
         }
@@ -2831,7 +2928,7 @@ final class NetDeckWindows: SwiftApplication {
                         text: try highlightText(), editable: true, confirmTitle: L("Guardar"))
             showPanel(reglas.view)
         } catch {
-            status.text = error.localizedDescription
+            estado = error.localizedDescription
         }
     }
 
@@ -2854,9 +2951,9 @@ final class NetDeckWindows: SwiftApplication {
             reloadHighlight()
             render()
             showAjustes()
-            status.text = L("Reglas de resaltado guardadas")
+            estado = L("Reglas de resaltado guardadas")
         } catch {
-            status.text = L("No se puede guardar: \(error.localizedDescription)")
+            estado = L("No se puede guardar: \(error.localizedDescription)")
         }
     }
 
@@ -2866,7 +2963,7 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     private func showAjustes() {
-        status.text = ""
+        estado = ""
         ajustes.show(settings, estilo: estilo)
         showPanel(ajustes.view)
     }
@@ -2962,7 +3059,7 @@ final class NetDeckWindows: SwiftApplication {
         Task { @MainActor [weak self, weak control] in
             guard let self, let control, let oferta = control.automatizacion.offer, let ref = oferta.refs.first else { return }
             let resultado = await control.automatizacion.choose(ref, offer: oferta.id, into: control.io)
-            if resultado == .typed { self.status.text = L("Contraseña enviada") }
+            if resultado == .typed { self.estado = L("Contraseña enviada") }
             self.actualizarSugerenciaClave()
         }
     }
@@ -3055,6 +3152,7 @@ final class NetDeckWindows: SwiftApplication {
 
     /// Fuente y tamano al terminal; el tema, a la ventana (Sistema = el de Windows).
     private func applySettings(_ a: AjustesTerminal) {
+        defer { refrescarEtiquetas() }
         DebugLog.enabled = a.depuracion
         updateSplitLayout()
         let temaTerminal = a.temaPersonalizado()
@@ -3096,7 +3194,7 @@ final class NetDeckWindows: SwiftApplication {
     /// Guarda la sesion: en demo solo en memoria; en real, en el ssh_config de NetDeck. Devuelve true si se guardo.
     private func saveSession(_ session: EditableSession, replacing original: String?) -> Bool {
         guard EditableSession.isValidName(session.name) else {
-            status.text = L("El nombre es obligatorio y no puede llevar espacios ni * ? !")
+            estado = L("El nombre es obligatorio y no puede llevar espacios ni * ? !")
             return false
         }
         guard var file = archivoEditable() else { return false }
@@ -3107,7 +3205,7 @@ final class NetDeckWindows: SwiftApplication {
         }
         guard persistirSesiones(file) else { return false }
         hideEditor()
-        status.text = L("Sesión «\(session.name)» guardada")
+        estado = L("Sesión «\(session.name)» guardada")
         return true
     }
 
@@ -3117,14 +3215,14 @@ final class NetDeckWindows: SwiftApplication {
             let url = SessionFile.defaultURL
             return FileManager.default.fileExists(atPath: url.path) ? try SessionFile(contentsOf: url) : SessionFile()
         } catch {
-            status.text = L("No se puede leer el archivo de sesiones: \(error.localizedDescription)")
+            estado = L("No se puede leer el archivo de sesiones: \(error.localizedDescription)")
             return nil
         }
     }
 
     private func persistirSesiones(_ file: SessionFile) -> Bool {
         if let problem = file.problems().first {
-            status.text = problem
+            estado = problem
             return false
         }
         if isDemo {
@@ -3135,7 +3233,7 @@ final class NetDeckWindows: SwiftApplication {
         } else {
             let config = MainActor.assumeIsolated { SessionManager.defaultConfigURL }
             if let error = file.save(including: config, backup: .standard) {
-                status.text = L("No se puede guardar: \(error)")
+                estado = L("No se puede guardar: \(error)")
                 return false
             }
             MainActor.assumeIsolated { sessions.load(from: SessionFile.defaultURL) }
@@ -3170,7 +3268,7 @@ final class NetDeckWindows: SwiftApplication {
             buildSidebar()
             return tab
         } catch {
-            status.text = L("No se puede abrir \u{00AB}\(perfil.name)\u{00BB}: \(error.localizedDescription)")
+            estado = L("No se puede abrir \u{00AB}\(perfil.name)\u{00BB}: \(error.localizedDescription)")
             return nil
         }
     }
@@ -3182,7 +3280,7 @@ final class NetDeckWindows: SwiftApplication {
             if ruta.transport == .ssh { ruta = try SFTPPanel.route(for: ruta) }
             openSFTP(ruta)
         } catch {
-            status.text = L("No se puede abrir \u{00AB}\(perfil.name)\u{00BB}: \(error.localizedDescription)")
+            estado = L("No se puede abrir \u{00AB}\(perfil.name)\u{00BB}: \(error.localizedDescription)")
         }
     }
 
@@ -3244,7 +3342,7 @@ final class NetDeckWindows: SwiftApplication {
             }
             panelesSFTP[ObjectIdentifier(tab)] = panel
         } catch {
-            status.text = error.localizedDescription
+            estado = error.localizedDescription
         }
     }
 
@@ -3270,13 +3368,18 @@ final class NetDeckWindows: SwiftApplication {
         guard !panelDividido, let selected, let panel = panelesSFTP[ObjectIdentifier(selected)], panel.visible else {
             zonaSFTPLateral.child = nil
             marcoSFTPLateral.visibility = .collapsed
+            actualizarIconosActivos()
             return
         }
         let disposicion = ajustesSFTP.layout(for: SFTPPanel.key(for: selected.route))
         zonaSFTPLateral.width = SFTPPanelLayout.clamp(disposicion.width, available: rootView?.actualWidth)
+        // (la vista del explorador nace plegada, como los paneles del área principal: aquí no pasa por `showPanel` y
+        // sin esto el lateral salía vacío aunque la conexión SFTP hubiera entrado)
+        if panel.iniciado { panel.explorador.view.visibility = .visible }
         let contenido = panel.iniciado ? (panel.explorador.view as UIElement) : esperaSFTP
         if zonaSFTPLateral.child != contenido { zonaSFTPLateral.child = contenido }
         marcoSFTPLateral.visibility = .visible
+        actualizarIconosActivos()
     }
 
     private func intentarLateralSFTP(_ tab: PestanaTerminal, forzar: Bool) {
@@ -3332,7 +3435,7 @@ final class NetDeckWindows: SwiftApplication {
             explorador.connect(label: ruta.title, executable: command.0, arguments: command.1, environment: env)
             return true
         } catch {
-            status.text = error.localizedDescription
+            estado = error.localizedDescription
             return false
         }
     }
@@ -3345,7 +3448,7 @@ final class NetDeckWindows: SwiftApplication {
 
     private func connect() {
         guard let target = Endpoint(parsing: destination.text), target.isShellSafe else {
-            status.text = L("Destino no v\u{00E1}lido: \u{00AB}\(destination.text)\u{00BB}")
+            estado = L("Destino no v\u{00E1}lido: \u{00AB}\(destination.text)\u{00BB}")
             return
         }
         open(ConnectionRoute(title: target.description, target: target))
@@ -3360,10 +3463,10 @@ final class NetDeckWindows: SwiftApplication {
         }
         if route.transport == .ftp {
             guard route.jumps.isEmpty else {
-                status.text = L("FTP requiere una conexión directa")
+                estado = L("FTP requiere una conexión directa")
                 return nil
             }
-            status.text = ""
+            estado = ""
             accesoFTP.show(route)
             showPanel(accesoFTP.view)
             return nil
@@ -3407,12 +3510,12 @@ final class NetDeckWindows: SwiftApplication {
                 if session.closed {
                     self.construirPestanas()
                     self.actualizarMultiExec()
-                    if self.selected === session { self.status.text = L("Conexión cerrada") }
+                    if self.selected === session { self.estado = L("Conexión cerrada") }
                 }
             })
             return session
         } catch {
-            status.text = L("No se puede abrir \u{00AB}\(route.title)\u{00BB}: \(error.localizedDescription)")
+            estado = L("No se puede abrir \u{00AB}\(route.title)\u{00BB}: \(error.localizedDescription)")
             return nil
         }
     }
@@ -3430,7 +3533,7 @@ final class NetDeckWindows: SwiftApplication {
             terminalesVisibles = [session]
         }
         selected = session
-        status.text = session?.closed == true ? L("Conexión cerrada") : ""
+        estado = session?.closed == true ? L("Conexión cerrada") : ""
         construirPestanas()
         actualizarSugerenciaClave()
         actualizarMultiExec()
@@ -3471,34 +3574,40 @@ final class NetDeckWindows: SwiftApplication {
         for candidate in terminals {
             let elegida = candidate === selected
             let contenido = filaLateral(columnas: [.auto, .star, .auto])
-            let punto = EstiloMac.letra("\u{25CF}", tamano: 9, color: candidate.closed ? e.mal : e.bien)
+            let punto = EstiloMac.letra("\u{25CF}", tamano: 8, color: candidate.closed ? e.mal : e.bien)
             punto.margin = Thickness(left: 0, top: 0, right: 7, bottom: 0)
             let titulo = EstiloMac.letra(self.titulo(candidate), tamano: 12, peso: 600,
                                          color: elegida ? e.sobrePestana : e.acento2)
-            var partes: [FrameworkElement] = [punto, titulo]
-            if elegida {
-                let cerrar = Button()
-                cerrar.content = EstiloMac.icono(Glifo.cerrar, tamano: 9, color: e.sobrePestana)
-                cerrar.background = e.transparente
-                cerrar.borderThickness = Thickness(left: 0, top: 0, right: 0, bottom: 0)
-                cerrar.cornerRadius = EstiloMac.radio(5)
-                cerrar.width = 22
-                cerrar.height = 22
-                cerrar.padding = Thickness(left: 0, top: 0, right: 0, bottom: 0)
-                cerrar.margin = Thickness(left: 6, top: 0, right: 0, bottom: 0)
-                AutomationProperties.setAutomationId(cerrar, "CerrarPestana")
-                AutomationProperties.setName(cerrar, L("Cerrar pesta\u{00F1}a"))
-                ToolTipService.setToolTip(cerrar, L("Cerrar pesta\u{00F1}a"))
-                cerrar.click.addHandler { [weak self] _, _ in self?.closeSelected() }
-                partes.append(cerrar)
+            // (como el Mac: la ✕ en la activa y, en las demás, al pasar el ratón; sin ella el título se lleva el hueco)
+            let cerrar = Button()
+            cerrar.content = EstiloMac.icono(Glifo.cerrar, tamano: 9, color: elegida ? e.sobrePestana : e.acento2)
+            cerrar.background = e.transparente
+            cerrar.borderThickness = Thickness(left: 0, top: 0, right: 0, bottom: 0)
+            cerrar.cornerRadius = EstiloMac.radio(5)
+            cerrar.width = 22
+            cerrar.height = 22
+            cerrar.padding = Thickness(left: 0, top: 0, right: 0, bottom: 0)
+            cerrar.margin = Thickness(left: 6, top: 0, right: 0, bottom: 0)
+            cerrar.visibility = elegida ? .visible : .collapsed
+            EstiloMac.conservarColores(cerrar, encima: e.panel(alfa: 0.6), pulsado: e.acento(alfa: 0.4))
+            AutomationProperties.setAutomationId(cerrar, elegida ? "CerrarPestana" : "CerrarPestana_\(self.titulo(candidate))")
+            AutomationProperties.setName(cerrar, L("Cerrar «\(self.titulo(candidate))»"))
+            ToolTipService.setToolTip(cerrar, L("Cerrar pesta\u{00F1}a"))
+            cerrar.click.addHandler { [weak self, weak candidate] _, _ in
+                guard let candidate else { return }
+                self?.cerrarPestana(candidate)
             }
-            colocar(partes, en: contenido)
+            colocar([punto, titulo, cerrar], en: contenido)
             let tab = Button()
             tab.content = contenido
             tab.height = 29
             tab.minWidth = 96
             tab.maxWidth = 200
-            tab.padding = Thickness(left: 12, top: 0, right: elegida ? 4 : 12, bottom: 0)
+            tab.padding = Thickness(left: 12, top: 0, right: 4, bottom: 0)
+            if !elegida {
+                tab.pointerEntered.addHandler { _, _ in cerrar.visibility = .visible }
+                tab.pointerExited.addHandler { _, _ in cerrar.visibility = .collapsed }
+            }
             tab.cornerRadius = EstiloMac.radio(10)
             tab.borderThickness = Thickness(left: 0, top: 0, right: 0, bottom: 0)
             tab.background = elegida ? e.pestana : e.panel(alfa: 0.6)
@@ -3640,7 +3749,8 @@ final class NetDeckWindows: SwiftApplication {
             let ancho = elemento.actualWidth, alto = elemento.actualHeight
             guard punto.x >= origen.x, punto.x < origen.x + ancho, punto.y >= origen.y, punto.y < origen.y + alto else { continue }
             let candidata = terminals[posicion]
-            if candidata === selected && punto.x > origen.x + ancho - 30 { return nil }
+            // (la ✕ está en la activa y, al pasar el ratón, en las demás: pulsarla no empieza un arrastre)
+            if punto.x > origen.x + ancho - 30 { return nil }
             return candidata
         }
         return nil
@@ -3910,7 +4020,7 @@ final class NetDeckWindows: SwiftApplication {
             _ = try? vista.surface.focus(.programmatic)
         } catch {
             ventanasPestana[id] = nil
-            status.text = error.localizedDescription
+            estado = error.localizedDescription
         }
     }
 
@@ -4130,6 +4240,7 @@ final class NetDeckWindows: SwiftApplication {
     }
 
     private func updateSplitLayout(forzar: Bool = false) {
+        defer { actualizarIconosActivos() }
         let cantidad = terminalesVisibles.count
         guard forzar || panelesMostrados != cantidad || disposicionMostrada != modoDivision else {
             prepararMenuDivision()

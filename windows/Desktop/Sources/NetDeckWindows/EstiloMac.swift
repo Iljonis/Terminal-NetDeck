@@ -10,6 +10,8 @@ struct EstiloMac {
     static let idPorDefecto = "liquid-glass"
     static var fuenteInterfaz = FontFamily("Segoe UI Variable, Segoe UI")
     static let fuenteIconos = FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets")
+    /// El del tema elegido ahora (lo fija `aplicarMarco`): para lo que se pinta fuera del marco o sin recibirlo.
+    static var actual = EstiloMac(tema: nil)
 
     let tema: Theme
     let fondo: SolidColorBrush
@@ -86,25 +88,39 @@ struct EstiloMac {
         return t
     }
 
-    /// Un botón de la barra de iconos (32×28, esquinas de 6, relleno del panel al 40 %), con su ayuda al pasar el ratón.
-    func vestirIcono(_ boton: Button, _ glifo: String, ayuda: String, id: String, tinte: SolidColorBrush? = nil) {
-        boton.content = Self.icono(glifo, tamano: 14, color: tinte ?? texto)
-        boton.minWidth = 32
-        boton.height = 28
+    /// Un botón de la barra de iconos como los del Mac (30×26, esquinas de 6, relleno del panel al 40 % y, al pasar el
+    /// ratón, del panel al 70 %; no el gris de Windows), con su ayuda. Devuelve el glifo para marcarlo activo.
+    @discardableResult
+    func vestirIcono(_ boton: Button, _ glifo: String, ayuda: String, id: String, tinte: SolidColorBrush? = nil) -> TextBlock {
+        let g = Self.icono(glifo, tamano: 14, color: tinte ?? texto)
+        boton.content = g
+        boton.minWidth = 30
+        boton.height = 26
         boton.padding = Thickness(left: 8, top: 0, right: 8, bottom: 0)
         boton.cornerRadius = Self.radio(6)
         boton.background = panel(alfa: 0.4)
         boton.borderThickness = Thickness(left: 0, top: 0, right: 0, bottom: 0)
         boton.verticalAlignment = .center
+        Self.conservarColores(boton, encima: panel(alfa: 0.7), pulsado: acento(alfa: 0.3))
         ToolTipService.setToolTip(boton, ayuda)
         AutomationProperties.setName(boton, ayuda)
         AutomationProperties.setAutomationId(boton, id)
+        return g
+    }
+
+    /// Estado activo de un icono de la barra (MultiExec, pantalla dividida, SFTP lateral, sesiones), como el Mac:
+    /// relleno de acento y el glifo con el color que se lee sobre él.
+    func marcarIcono(_ boton: Button, glifo: TextBlock, activo: Bool, tinte: SolidColorBrush? = nil) {
+        boton.background = activo ? acento : panel(alfa: 0.4)
+        glifo.foreground = activo ? Self.pincel(tema.accent.readable) : (tinte ?? texto)
+        Self.conservarColores(boton, encima: activo ? acento(alfa: 0.85) : panel(alfa: 0.7),
+                              pulsado: activo ? acento(alfa: 0.7) : acento(alfa: 0.3))
     }
 
     func botonIcono(_ glifo: String, ayuda: String, id: String, tinte: SolidColorBrush? = nil,
                     accion: @escaping () -> Void) -> Button {
         let b = Button()
-        vestirIcono(b, glifo, ayuda: ayuda, id: id, tinte: tinte)
+        _ = vestirIcono(b, glifo, ayuda: ayuda, id: id, tinte: tinte)
         b.click.addHandler { _, _ in accion() }
         return b
     }
@@ -116,6 +132,64 @@ struct EstiloMac {
         boton.cornerRadius = Self.radio(6)
         boton.horizontalAlignment = .stretch
         boton.horizontalContentAlignment = .stretch
+    }
+
+    /// Los controles de WinUI con los colores del tema y no con los de Windows (G1 de PENDIENTE): botones, campos,
+    /// desplegables, casillas, interruptores, menús, ayudas y el texto por defecto. Se ponen en los recursos del marco y
+    /// los heredan todos los paneles de la tarjeta emergente; lo que ya lleva su color (iconos, pestañas, filas) no cambia.
+    func vestirControles(_ recursos: ResourceDictionary) {
+        let sobreAcento = Self.pincel(tema.accent.readable)
+        let valores: [(SolidColorBrush, [String])] = [
+            (texto, ["TextFillColorPrimaryBrush", "SystemControlForegroundBaseHighBrush", "ButtonForeground",
+                     "ButtonForegroundPointerOver", "ButtonForegroundPressed", "TextControlForeground",
+                     "TextControlForegroundPointerOver", "TextControlForegroundFocused", "ComboBoxForeground",
+                     "ComboBoxForegroundPointerOver", "ComboBoxForegroundPressed", "ComboBoxItemForeground",
+                     "ComboBoxItemForegroundPointerOver", "ComboBoxItemForegroundSelected", "CheckBoxForegroundUnchecked",
+                     "CheckBoxForegroundChecked", "RadioButtonForeground", "ToggleSwitchContentForeground",
+                     "ToggleSwitchHeaderForeground", "MenuFlyoutItemForeground", "MenuFlyoutItemForegroundPointerOver",
+                     "MenuFlyoutItemForegroundPressed", "MenuFlyoutSubItemForeground", "ToolTipForeground",
+                     "ListViewItemForeground", "ListViewItemForegroundPointerOver", "HyperlinkButtonForeground",
+                     "ComboBoxDropDownGlyphForeground", "TextControlButtonForeground"]),
+            (apagado, ["TextFillColorSecondaryBrush", "TextFillColorTertiaryBrush", "TextFillColorDisabledBrush",
+                       "TextControlPlaceholderForeground", "TextControlPlaceholderForegroundPointerOver",
+                       "TextControlPlaceholderForegroundFocused", "TextControlHeaderForeground", "ComboBoxPlaceHolderForeground",
+                       "ButtonForegroundDisabled", "TextControlForegroundDisabled", "ComboBoxForegroundDisabled",
+                       "MenuFlyoutItemKeyboardAcceleratorTextForeground", "ToggleSwitchStrokeOff", "ToggleSwitchKnobFillOff",
+                       "CheckBoxCheckBackgroundStrokeUnchecked"]),
+            (panel(alfa: 0.6), ["ButtonBackground", "ComboBoxBackground", "ToggleButtonBackground"]),
+            (panel(alfa: 0.85), ["ButtonBackgroundPointerOver", "ComboBoxBackgroundPointerOver",
+                                 "ToggleButtonBackgroundPointerOver"]),
+            (acento(alfa: 0.3), ["ButtonBackgroundPressed", "ComboBoxBackgroundPressed", "ToggleButtonBackgroundPressed",
+                                 "ComboBoxItemBackgroundSelected", "ComboBoxItemBackgroundSelectedPointerOver",
+                                 "ListViewItemBackgroundSelected", "ListViewItemBackgroundSelectedPointerOver"]),
+            (panel(alfa: 0.3), ["ButtonBackgroundDisabled", "ComboBoxBackgroundDisabled", "TextControlBackgroundDisabled"]),
+            (acento(alfa: 0.6), ["ButtonBorderBrush", "ComboBoxBorderBrush", "ToggleButtonBorderBrush"]),
+            (acento, ["ButtonBorderBrushPointerOver", "ButtonBorderBrushPressed", "ComboBoxBorderBrushPointerOver",
+                      "ComboBoxBorderBrushPressed", "ComboBoxBorderBrushFocused", "TextControlBorderBrushPointerOver",
+                      "HyperlinkButtonForegroundPointerOver"]),
+            (acento(alfa: 0.35), ["TextControlBorderBrush", "ComboBoxDropDownBorderBrush", "MenuFlyoutPresenterBorderBrush",
+                                  "FlyoutBorderThemeBrush", "ToolTipBorderBrush", "ButtonBorderBrushDisabled"]),
+            (panel(alfa: 0.45), ["TextControlBackground", "TextControlBackgroundPointerOver", "ToggleSwitchFillOff",
+                                 "ToggleSwitchFillOffPointerOver", "CheckBoxCheckBackgroundFillUnchecked"]),
+            (fondo, ["TextControlBackgroundFocused"]),
+            (barra, ["ComboBoxDropDownBackground", "MenuFlyoutPresenterBackground", "FlyoutPresenterBackground",
+                     "ToolTipBackground"]),
+            (panel, ["MenuFlyoutItemBackgroundPointerOver", "MenuFlyoutItemBackgroundPressed", "ComboBoxItemBackgroundPointerOver",
+                     "ComboBoxItemBackgroundPressed", "ListViewItemBackgroundPointerOver", "MenuFlyoutSeparatorBackground",
+                     "MenuFlyoutSubItemBackgroundPointerOver"]),
+            (sobreAcento, ["ToggleSwitchKnobFillOn", "ToggleSwitchKnobFillOnPointerOver", "ToggleSwitchKnobFillOnPressed",
+                           "CheckBoxCheckGlyphForegroundChecked", "CheckBoxCheckGlyphForegroundCheckedPointerOver"]),
+            (acento, ["AccentFillColorDefaultBrush", "AccentFillColorSecondaryBrush", "AccentFillColorTertiaryBrush",
+                      "ToggleSwitchFillOn", "ToggleSwitchFillOnPointerOver", "ToggleSwitchFillOnPressed",
+                      "SliderTrackValueFill", "SliderTrackValueFillPointerOver", "SliderTrackValueFillPressed",
+                      "SliderThumbBackground", "SliderThumbBackgroundPointerOver", "SliderThumbBackgroundPressed",
+                      "CheckBoxCheckBackgroundFillChecked", "CheckBoxCheckBackgroundFillCheckedPointerOver",
+                      "CheckBoxCheckBackgroundStrokeChecked", "TextControlBorderBrushFocused", "ComboBoxItemPillFillBrush",
+                      "ProgressBarForeground"]),
+        ]
+        for (pincel, claves) in valores {
+            for clave in claves { _ = recursos.insert(clave, pincel) }
+        }
     }
 
     /// Con el ratón encima o pulsado, la plantilla de Button pone su gris y pisa el color del tema (la pestaña elegida se
@@ -163,4 +237,7 @@ enum Glifo {
     static let disco = "\u{E8F7}"
     static let salto = "\u{E72A}"
     static let conectar = "\u{E703}"
+    static let aviso = "\u{E7BA}"
+    static let info = "\u{E946}"
+    static let descargar = "\u{E896}"
 }
