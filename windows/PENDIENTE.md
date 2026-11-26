@@ -89,6 +89,8 @@ Ocho extracciones baratas a NetDeckCore con tests en el Mac (hacerlas primero, l
 - PR #6 (borrador «Propuesta») sigue abierto: ciérralo o fusiónalo cuando el #7 lo sustituya.
 
 ### G. Paridad visual Mac ↔ Windows (revisión del 25-11, por lectura de código y de las capturas `docs/capturas/windows-*.png`)
+**Criterio del autor (26-11):** la apariencia mantiene la esencia de NetDeck (sus temas, colores, iconos y tipografía) con el estilo del Mac
+en las ventanas emergentes, menús, diálogos y el resto del marco; nada de controles WinUI con su aspecto por defecto.
 Clases: **A** = dato o constante que puede vivir en NetDeckCore y compartirse; **B** = sólo interfaz WinUI; **C** = limitación de la
 plataforma. Rutas: `M` = `Sources/TerminalNetDeck/`, `W` = `windows/Desktop/Sources/NetDeckWindows/`. No comprobado: modo claro, ventana
 estrecha (Windows no fija tamaño mínimo y ~13 iconos pueden recortarse; el Mac sí, `AppCore.swift:247`), foco y flechas en los flyouts y el aspecto

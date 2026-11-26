@@ -3,10 +3,12 @@
 Historial de cambios de la versión de Windows de Terminal NetDeck. Sigue el formato de
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). El de la versión de macOS está en el [CHANGELOG de la raíz](../CHANGELOG.md).
 
-## Sin publicar
+## 1.1.0 - 2026-11-26
 
-<!-- Al publicar, el título pasa a ser «## X.Y.Z» (la versión de Windows es la del repositorio y va en la misma Release que
-     el .dmg): windows-release.yml comprueba que existe esa sección. -->
+<!-- La versión de Windows es la del repositorio y va en la misma Release que el .dmg: windows-release.yml comprueba que
+     existe la sección «## X.Y.Z» de la versión del tag. Lo nuevo después de publicar va en una sección «## Sin publicar». -->
+
+Primera versión oficial para Windows.
 
 ### Añadido
 
@@ -47,6 +49,16 @@ Historial de cambios de la versión de Windows de Terminal NetDeck. Sigue el for
 - Bordes y líneas más contrastados (botón REC, botones de comandos, tarjetas y barras): con 1 px y el acento al 30 %
   se veían finos y dentados en pantallas sin densidad alta.
 - La instalación y la desinstalación ya no abren ventanas de PowerShell.
+- Apariencia más cercana a la del Mac, con la esencia de cada tema:
+  - Todos los controles de las ventanas emergentes (botones, campos, desplegables, casillas, interruptores, menús y
+    ayudas) usan los colores del tema, no los de Windows.
+  - Avisos y confirmaciones como los del Mac: icono, título y explicación; «Cancelar» y el botón de confirmar a la
+    derecha, en rojo si no se puede deshacer (borrar, órdenes peligrosas); caja de una línea para renombrar.
+  - Pegado seguro: «¿Pegar N líneas?», la pestaña de destino y ⚠ delante de cada orden peligrosa.
+  - Barra de estado con las etiquetas del Mac (⬆ versión nueva, MULTIEXEC ×n, modo de las contraseñas), la hora con
+    el formato del tema y los avisos importantes (✗ 🔑 ⎋ ⬆) en color.
+  - Iconos de la barra de 30×26 con el color del tema al pasar el ratón y estado activo (MultiExec, pantalla
+    dividida, SFTP lateral, sesiones).
 
 ### Corregido
 
@@ -55,6 +67,11 @@ Historial de cambios de la versión de Windows de Terminal NetDeck. Sigue el for
 - La pestaña elegida ya no se ve gris con el ratón encima y se puede llevar al primer puesto al arrastrarla. El
   arrastre funciona también desde una ventana en segundo plano.
 - La ventana de una pestaña separada usa el tema (barra de título y botón).
+- Guardar sesiones ya no añade otro bloque «Include» al `~/.ssh/config` cada vez, y se siguen los Include con «~» o
+  «C:/…» del `~/.ssh/config` propio.
+- Una instalación nueva en un Windows en castellano arranca en castellano (antes, en inglés).
+- El explorador SFTP lateral ya no sale vacío.
+- La edición remota ya no cierra la app al abrir un archivo.
 
 - El buscador vacío de la barra lateral vuelve a mostrar todas las sesiones.
 - Los dispositivos COM válidos llegan a la apertura Win32, aunque no existan como archivos.

@@ -7,11 +7,11 @@
 # permisos de administrador en el equipo de quien instale.
 #
 # Uso: powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/build-bundle.ps1 -Msi <ruta del .msi>
-#        [-Out <ruta del Setup.exe>] [-Version 1.0.1] [-Runtime <WindowsAppRuntimeInstall-x64.exe ya bajado>]
+#        [-Out <ruta del Setup.exe>] [-Version 1.1.0] [-Runtime <WindowsAppRuntimeInstall-x64.exe ya bajado>]
 param(
     [Parameter(Mandatory = $true)][string]$Msi,
     [string]$Out = (Join-Path $env:LOCALAPPDATA 'NetDeckInstaller\Terminal-NetDeck-Setup.exe'),
-    [string]$Version = '1.0.1',
+    [string]$Version = '1.1.0',
     [string]$Runtime = ''
 )
 $ErrorActionPreference = 'Stop'

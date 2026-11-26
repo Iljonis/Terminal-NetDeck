@@ -4,7 +4,7 @@
 param(
     [string]$SourceDir = (Join-Path $env:LOCALAPPDATA 'NetDeckInstaller\files'),
     [string]$Out      = (Join-Path $env:LOCALAPPDATA 'NetDeckInstaller\NetDeckWindows.msi'),
-    [string]$Version  = '1.0.1'
+    [string]$Version  = '1.1.0'
 )
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
