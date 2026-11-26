@@ -79,15 +79,12 @@
       SKIP_WINAPPRUNTIME_CHECK=1 se salta la comprobacion (por si el script no puede ejecutarse en algun equipo).
     -->
     <!--
-      DECISION (P10): el Windows App Runtime 1.5 es un PRERREQUISITO que el instalador COMPRUEBA, no que descarga ni incluye. Se valoro que una CustomAction
-      lo bajase de https://aka.ms/windowsappsdk/1.5/latest/windowsappruntimeinstall-x64.exe y lo ejecutase cuando WINAPPRUNTIME_INSTALLED = "0", y se descarto por ahora:
-       - Seria bajar y ejecutar un .exe de internet con permisos de administrador dentro de una accion diferida de MSI. Las reglas del actualizador (ADR-0003) lo
-         exigen con sha256 y firma verificados; Microsoft no publica un sha256 estable para el enlace «latest», y fijar el firmante (Microsoft Corporation) es codigo
-         que aqui no se puede probar: instalar el .msi pide elevacion y registraria cosas en el equipo.
-       - Sin red, o con un proxy, fallaria a mitad de la instalacion con un error de MSI poco claro (una accion diferida no puede mostrar mensajes utiles).
-       - Incluir los 64 MB del instalador dentro del .msi tampoco es mejor: hay que actualizarlo con cada parche del runtime.
-      Lo correcto, cuando se pruebe el instalador en un Windows limpio y haya firma, es un bundle de WiX Burn (extension WixToolset.Bal.wixext) con un ExePackage para
-      WindowsAppRuntimeInstall-x64.exe: DetectCondition, Hash y firma fijados, interfaz y reintentos. Mientras tanto, este aviso con el enlace y windows/README.md.
+      DECISION (P14, sustituye a la de P10): el .msi suelto sigue COMPROBANDO el Windows App Runtime 1.5 (y se niega si falta), pero lo que se descarga para
+      instalar es Terminal-NetDeck-X.Y.Z-Setup.exe (NetDeckBundle.wxs, WiX Burn), que lleva dentro el redistribuible oficial de Microsoft y lo instala en
+      silencio antes de este .msi: un paso, sin red. El redistribuible se fija por URL y sha256 (windows-app-runtime.json) y build-bundle.ps1 comprueba la firma
+      de Microsoft; el job «probar-instalador» de windows-release.yml lo prueba en un Windows sin el runtime. Este .msi suelto queda para despliegues gestionados
+      (msiexec /qn con el runtime ya puesto). Se descarto llevar el runtime dentro de la app (WindowsAppSDKSelfContained): es una propiedad de MSBuild que
+      SwiftPM no tiene, y swift-windowsappsdk siempre inicializa con el bootstrapper.
     -->
     <Property Id="WINAPPRUNTIME_INSTALLED" Value="0" Secure="yes" />
     <Property Id="SKIP_WINAPPRUNTIME_CHECK" Value="0" Secure="yes" />
@@ -95,7 +92,7 @@
     <CustomAction Id="DetectarWindowsAppRuntime" BinaryRef="DetectarRuntimeJs" JScriptCall="DetectarWindowsAppRuntime"
                   Execute="immediate" Return="ignore" />
     <Launch Condition="Installed OR WINAPPRUNTIME_INSTALLED = &quot;1&quot; OR SKIP_WINAPPRUNTIME_CHECK = &quot;1&quot;"
-            Message="Terminal NetDeck necesita el Windows App Runtime 1.5.&#10;Descárgalo en: https://aka.ms/windowsappsdk/1.5/latest/windowsappruntimeinstall-x64.exe&#10;Instálalo y vuelve a ejecutar este instalador." />
+            Message="Terminal NetDeck necesita el Windows App Runtime 1.5.&#10;Lo más sencillo: instala con Terminal-NetDeck-X.Y.Z-Setup.exe (en la misma página de descarga), que lo incluye y lo instala solo.&#10;O descárgalo en https://aka.ms/windowsappsdk/1.5/latest/windowsappruntimeinstall-x64.exe, instálalo y vuelve a ejecutar este instalador." />
     <InstallUISequence>
       <Custom Action="DetectarWindowsAppRuntime" Before="LaunchConditions" Condition="NOT Installed" />
     </InstallUISequence>

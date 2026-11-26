@@ -1,3 +1,27 @@
+## 2026-11-26 · Windows · Instalador de un paso: Setup.exe con Windows App Runtime 1.5 dentro
+
+- **Por qué:** en la prueba en limpio el autor pidió que instalar fuera sencillo, sin bajar el runtime a mano. Se descartó llevar el runtime dentro de la app (`WindowsAppSDKSelfContained`): es una propiedad de MSBuild que SwiftPM no tiene, y `WindowsAppRuntimeInitializer` de swift-windowsappsdk siempre llama al bootstrapper sin identidad de paquete.
+- **Setup.exe:** `windows/installer/NetDeckBundle.wxs` (WiX Burn, extensión `WixToolset.Bal.wixext` 4.0.6), con interfaz estándar en castellano (`bundle-es.wxl`) y una sola pantalla.
+  - Encadena el redistribuible oficial `WindowsAppRuntimeInstall-x64.exe --quiet`: Permanent, PerMachine y dentro del .exe, así que funciona sin red. Después instala el `.msi` de siempre, oculto en «Aplicaciones», con una sola entrada (la del bundle).
+  - `build-bundle.ps1` lo baja de la URL fija de `windows-app-runtime.json` y comprueba el sha256 y la firma (Microsoft Corporation) antes de compilar. Pesa 61,2 MB y el Setup.exe queda en 122,7 MB.
+  - El aviso del `.msi` suelto ahora remite al Setup.exe.
+- **CI:** `windows-release.yml` compila `Terminal-NetDeck-X.Y.Z-Setup.exe` y su `.sha256` y los sube con lo demás. El job nuevo `probar-instalador` hace, en un `windows-2022`:
+  1. quita el runtime 1.5 si lo trae la imagen;
+  2. `Setup.exe /quiet`;
+  3. comprueba el runtime (`detectar-runtime.ps1`), el exe y una sola entrada en «Aplicaciones»;
+  4. arranca la app 20 s;
+  5. `/uninstall /quiet`: NetDeck se va y el runtime se queda.
+
+  `publish` espera a ese job y el disparo por rama incluye ahora `windows/installer/**`.
+- **Actualizador:** `UpdateCheck.candidate` prefiere `*-Setup.exe` al `.msi`, porque el `.msi` sobre una instalación del bundle dejaría dos entradas. Test nuevo `UpdateCheckerWindowsTests.prefiereElSetupConElRuntimeAlMsiSuelto`.
+- **Portable:** no lleva el runtime. Sin él, el bootstrapper enseña el aviso de Microsoft con la descarga y `Arranque.swift` sale con `exit(1)` en vez de `fatalError`. Si el runtime está y aun así falla, enseña el error en un `MessageBoxW` (texto nuevo en `Ingles.swift`). Se actualiza el LEEME.txt.
+- **Comprobado en local:**
+  - `build-bundle.ps1` compila con el `.msi` del 24-11.
+  - La ventana del Setup.exe sale en castellano y con el logo (captura con PrintWindow, sin instalar). Se acortó la casilla «Acepto la licencia», que no cabía.
+  - `test.ps1 --filter 'UpdateCheckerWindowsTests|IdiomaTests'`: 19 tests en verde.
+  - Hay un aviso de WiX (WIX1161, sin DetectCondition) a propósito: no hay forma de detectar paquetes AppX desde Burn y el instalador de Microsoft no hace nada si ya está.
+- **Sin probar todavía:** el job `probar-instalador` (pide subir la rama). Tampoco se ha visto en pantalla el aviso de la portable sin runtime, porque este PC tiene el runtime: Windows Sandbox no está activado.
+
 ## 2026-11-26 · Windows · Compilación y tests de lo que llegó del Mac (hasta `10708f0`)
 
 - **Compilación:** `git pull` (avance rápido a `10708f0`) y `desktop.ps1 -Configuration release` sin errores en 199 s (buscador de registros en el núcleo, barra compartida, foco de la pestaña nueva, modo portable). Solo avisos que ya estaban (`fileExists` sin usar, `getpid`, `fila` sin usar en `PanelSelectorColor`).

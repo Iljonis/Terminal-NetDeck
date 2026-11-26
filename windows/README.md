@@ -11,18 +11,31 @@ el formato `ssh_config`, los temas `.tema` y el núcleo de conexiones.
 - **Windows 10 versión 2004 (10.0.19041) o superior**, 64 bits (x64). Compatible con Windows 11.
 - **Cliente OpenSSH** (`ssh.exe`), que Windows trae de serie en *Configuración → Aplicaciones → Características opcionales*. Las sesiones SSH, el
   explorador SFTP y los túneles lo usan.
-- **Windows App Runtime 1.5 (x64)** (el Framework y su DDLM): la interfaz lo necesita. **El instalador no lo incluye, pero lo comprueba**: si falta, se
-  detiene antes de copiar nada y muestra un aviso con el enlace de descarga
-  (<https://aka.ms/windowsappsdk/1.5/latest/windowsappruntimeinstall-x64.exe>). Instálalo y vuelve a ejecutar el instalador. Si la comprobación
-  fallara en tu equipo, se salta con `SKIP_WINAPPRUNTIME_CHECK=1` al instalar por línea de órdenes.
+- **Windows App Runtime 1.5 (x64)** (el Framework y su DDLM): la interfaz lo necesita. **`Terminal-NetDeck-<versión>-Setup.exe` lo incluye y lo
+  instala solo** si falta (el redistribuible oficial de Microsoft, en silencio). No hace falta red: va dentro del instalador. Desinstalar
+  NetDeck no lo quita, porque es un componente de Windows que usan otras apps.
+  - El `.msi` suelto no lo incluye, pero lo comprueba: si falta, se detiene antes de copiar nada y avisa con el enlace de descarga
+    (<https://aka.ms/windowsappsdk/1.5/latest/windowsappruntimeinstall-x64.exe>). Si la comprobación fallara en tu equipo, se salta con
+    `SKIP_WINAPPRUNTIME_CHECK=1` al instalar por línea de órdenes.
+  - La versión portable (`.zip`) tampoco lo lleva. Si falta, Windows lo avisa al abrirla y ofrece descargarlo.
 
 ## Instalación desde una release
 
-Estos pasos se aplican cuando hay un MSI de Windows publicado para la versión que quieres instalar.
+Estos pasos se aplican cuando hay una versión de Windows publicada en la [página de Releases](https://github.com/Iljonis/Terminal-NetDeck/releases).
 
-1. Descarga `Terminal-NetDeck-<versión>.msi` de la [página de Releases](https://github.com/Iljonis/Terminal-NetDeck/releases).
-2. Ejecútalo y acepta el aviso de administrador (UAC): se instala en `C:\Program Files\Terminal NetDeck`.
-3. Abre **Terminal NetDeck** desde el menú Inicio. El acceso del escritorio es opcional (`ADDLOCAL=Principal,AccesoEscritorio` al instalar por línea de órdenes).
+1. Descarga `Terminal-NetDeck-<versión>-Setup.exe` (unos 120 MB: lleva dentro Windows App Runtime 1.5).
+2. Ejecútalo, marca «Acepto la licencia», pulsa **Instalar** y acepta el aviso de administrador (UAC). Instala el runtime si falta y
+   la app en `C:\Program Files\Terminal NetDeck`. Sin otros pasos.
+3. Abre **Terminal NetDeck** desde el menú Inicio.
+
+Otras descargas de la misma Release:
+
+- **`Terminal-NetDeck-<versión>.msi`:** para despliegues gestionados (`msiexec /i … /qn`) en equipos que ya tienen el runtime.
+  El acceso del escritorio es opcional (`ADDLOCAL=Principal,AccesoEscritorio`).
+- **`Terminal-NetDeck-<versión>-portable-x64.zip`:** sin instalar. Los datos se guardan junto al ejecutable. Necesita el runtime ya instalado.
+- En silencio con el Setup.exe: `Terminal-NetDeck-<versión>-Setup.exe /quiet` (con `/log archivo.txt` para el registro).
+
+El actualizador de la app descarga el Setup.exe de la versión nueva y comprueba su SHA-256 y su firma.
 
 Mientras no haya firma, Windows (SmartScreen) puede avisar de que el instalador es de un editor desconocido.
 
@@ -140,7 +153,8 @@ La comprobación de actualizaciones verifica el SHA-256 y la firma antes de ejec
 ## Desinstalar
 
 *Panel de control → Programas → Desinstalar un programa → Terminal NetDeck* (o *Configuración → Aplicaciones*). Tus sesiones, ajustes y túneles
-quedan en tu carpeta de usuario y no se borran.
+quedan en tu carpeta de usuario y no se borran. Windows App Runtime 1.5 también se queda (lo usan otras apps). Se quita aparte, en
+*Configuración → Aplicaciones*, si ya no lo necesitas.
 
 ## Compilar desde el código fuente
 

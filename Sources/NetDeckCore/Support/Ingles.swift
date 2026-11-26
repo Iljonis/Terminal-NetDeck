@@ -2611,6 +2611,7 @@ enum Ingles {
         "Buscar actualizaciones": "Check for updates",
         "Buscando actualizaciones…": "Checking for updates…",
         "Estás al día (versión %@)": "You’re up to date (version %@)",
+        "Terminal NetDeck no ha podido iniciar Windows App Runtime 1.5: %@": "Terminal NetDeck couldn’t start Windows App Runtime 1.5: %@",
         "No se puede comprobar: %@": "Can’t check: %@",
         "Actualización disponible: %@": "Update available: %@",
         "Se descargará de github.com, se comprobarán el sha256 y la firma y Windows pedirá permisos de administrador. No se instala nada sin tu clic.": "It will be downloaded from github.com, its sha256 and signature will be checked, and Windows will ask for administrator permission. Nothing is installed without your click.",

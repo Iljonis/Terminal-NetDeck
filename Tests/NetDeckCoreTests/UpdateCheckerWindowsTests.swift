@@ -26,6 +26,15 @@ import Testing
         #expect(c.digest == Self.hash && c.notes == "Cambios de la 1.2.0" && c.checksum == nil)
     }
 
+    @Test func prefiereElSetupConElRuntimeAlMsiSuelto() throws {
+        // (la Release de Windows lleva los tres: con el .msi, quien instaló con el Setup.exe acabaría con dos entradas en Aplicaciones)
+        let data = Self.release(assets: [Self.asset("Terminal-NetDeck-1.2.0.msi"), Self.asset("Terminal-NetDeck-1.2.0-portable-x64.zip"),
+                                         Self.asset("Terminal-NetDeck-1.2.0-Setup.exe"), Self.asset("Terminal-NetDeck-1.2.0-Setup.exe.sha256")])
+        let c = try #require(UpdateChecker.candidate(from: data, repo: Self.repo))
+        #expect(c.installer.lastPathComponent == "Terminal-NetDeck-1.2.0-Setup.exe")
+        #expect(c.checksum?.lastPathComponent == "Terminal-NetDeck-1.2.0-Setup.exe.sha256")
+    }
+
     @Test func elSha256PuedeVenirEnUnArchivoAparte() throws {
         let data = Self.release(assets: [Self.asset("Setup.exe"), Self.asset("Setup.exe.sha256")])
         let c = try #require(UpdateChecker.candidate(from: data, repo: Self.repo))

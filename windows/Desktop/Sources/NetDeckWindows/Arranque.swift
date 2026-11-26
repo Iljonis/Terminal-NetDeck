@@ -23,8 +23,30 @@ enum Arranque {
                 app?.onShutdown()
             }
         } catch {
-            fatalError("No se pudo iniciar Windows App Runtime: \(error)")
+            // Sin el Windows App Runtime (la versión portable en un equipo que no lo tiene; el Setup.exe lo instala): el bootstrapper ya
+            // ha enseñado el aviso de Microsoft con el enlace de descarga (OnNoMatch_ShowUI, porque no hay WindowsAppRuntimeInstaller.exe
+            // al lado). Se sale sin más, en vez de colgarse. Con el runtime instalado, el fallo es otro: se enseña.
+            if runtimeInstalado() {
+                let texto = L("Terminal NetDeck no ha podido iniciar Windows App Runtime 1.5: \(error)")
+                _ = texto.withCString(encodedAs: UTF16.self) { mensaje in
+                    "Terminal NetDeck".withCString(encodedAs: UTF16.self) { titulo in
+                        MessageBoxW(nil, mensaje, titulo, UINT(MB_OK | MB_ICONERROR))
+                    }
+                }
+            }
+            exit(1)
         }
+    }
+
+    /// Si está el paquete Framework de Windows App Runtime 1.5 para este usuario (lo mismo que mira windows/installer/detectar-runtime.ps1;
+    /// la versión es la de swift-windowsappsdk, WINDOWSAPPSDK_RELEASE_MAJORMINOR).
+    private static func runtimeInstalado() -> Bool {
+        var cuantos: UInt32 = 0
+        var longitud: UInt32 = 0
+        let r = "Microsoft.WindowsAppRuntime.1.5_8wekyb3d8bbwe".withCString(encodedAs: UTF16.self) {
+            GetPackagesByPackageFamily($0, &cuantos, nil, &longitud, nil)
+        }
+        return (Int(r) == Int(ERROR_SUCCESS) || Int(r) == Int(ERROR_INSUFFICIENT_BUFFER)) && cuantos > 0
     }
 
     /// La versión portable (.zip): con `NetDeck.portable` junto al ejecutable, los datos van a la carpeta `datos` de al lado.

@@ -24,6 +24,10 @@ Historial de cambios de la versión de Windows de Terminal NetDeck. Sigue el for
 - Túneles SSH, asistente de primer arranque, edición remota, macros, botones de órdenes y pegado seguro.
 - Instalador MSI con WiX 4, Sparse Package y comprobación de Windows App Runtime 1.5. El actualizador verifica
   el SHA-256 y la firma del instalador.
+- Instalador de un paso, `Terminal-NetDeck-X.Y.Z-Setup.exe` (WiX Burn, en castellano):
+  - lleva dentro el redistribuible oficial de Windows App Runtime 1.5 y lo instala en silencio si falta, antes de la app;
+  - el CI lo prueba en un Windows sin el runtime;
+  - el actualizador de la app prefiere este instalador al `.msi`.
 - Asistente de primer arranque de siete pasos, como el del Mac: bienvenida con el logo, tema (se aplica al momento),
   fuentes, contraseñas, resaltado con vista previa, primera sesión y resumen. Se puede reabrir desde el engranaje.
 - Arrastre de pestañas: la pestaña sigue al cursor, las vecinas se deslizan al hueco y se reordena al soltar; soltando

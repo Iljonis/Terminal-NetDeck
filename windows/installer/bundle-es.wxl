@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Textos en castellano de la interfaz estándar de WiX (tema hyperlinkLicense) para NetDeckBundle.wxs. Mismos Id que el
+     HyperlinkTheme.wxl de WixToolset.Bal.wixext 4.0.6 (que solo trae inglés): si se actualiza la extensión, comparar. -->
+<WixLocalization Culture="es-es" Language="3082" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="Caption" Value="Instalación de [WixBundleName]" />
+  <String Id="Title" Value="[WixBundleName]" />
+  <String Id="CheckingForUpdatesLabel" Value="Buscando actualizaciones" />
+  <String Id="UpdateButton" Value="&amp;Actualizar a la versión [WixStdBAUpdateAvailable]" />
+  <String Id="InstallHeader" Value="Bienvenido" />
+  <String Id="InstallMessage" Value="Se instalará [WixBundleName] en este equipo, con el Windows App Runtime 1.5 si falta. Pulsa Instalar para continuar o Cancelar para salir." />
+  <String Id="InstallMessageOptions" Value="Se instalará [WixBundleName] en este equipo, con el Windows App Runtime 1.5 si falta. Pulsa Instalar para continuar, Opciones para cambiar la instalación o Cancelar para salir." />
+  <String Id="InstallVersion" Value="Versión [WixBundleVersion]" />
+  <String Id="ConfirmCancelMessage" Value="¿Seguro que quieres cancelar?" />
+  <String Id="ExecuteUpgradeRelatedBundleMessage" Value="Versión anterior" />
+  <String Id="HelpHeader" Value="Ayuda de la instalación" />
+  <String Id="HelpText" Value="/install | /repair | /uninstall | /layout [carpeta] - instala, repara, desinstala o&#xA;   copia el instalador completo en la carpeta. Por defecto, instala.&#xA;&#xA;/passive | /quiet - muestra una interfaz mínima sin preguntas, o ninguna interfaz&#xA;   y ninguna pregunta. Por defecto se muestran la interfaz y las preguntas.&#xA;&#xA;/norestart   - no reinicia el equipo. Por defecto pregunta antes de reiniciar.&#xA;/log log.txt - escribe el registro en ese archivo. Por defecto va a %TEMP%." />
+  <String Id="HelpCloseButton" Value="&amp;Cerrar" />
+  <String Id="InstallLicenseLinkText" Value="&lt;a href=&quot;#&quot;&gt;Licencia&lt;/a&gt; de [WixBundleName]." />
+  <String Id="InstallAcceptCheckbox" Value="&amp;Acepto la licencia" />
+  <String Id="InstallOptionsButton" Value="&amp;Opciones" />
+  <String Id="InstallInstallButton" Value="&amp;Instalar" />
+  <String Id="InstallCancelButton" Value="&amp;Cancelar" />
+  <String Id="OptionsHeader" Value="Opciones de instalación" />
+  <String Id="OptionsLocationLabel" Value="Carpeta de instalación:" />
+  <String Id="OptionsBrowseButton" Value="&amp;Examinar" />
+  <String Id="OptionsOkButton" Value="&amp;Aceptar" />
+  <String Id="OptionsCancelButton" Value="&amp;Cancelar" />
+  <String Id="ProgressHeader" Value="Progreso de la instalación" />
+  <String Id="ProgressLabel" Value="Procesando:" />
+  <String Id="OverallProgressPackageText" Value="Iniciando..." />
+  <String Id="ProgressCancelButton" Value="&amp;Cancelar" />
+  <String Id="ModifyHeader" Value="Modificar la instalación" />
+  <String Id="ModifyRepairButton" Value="&amp;Reparar" />
+  <String Id="ModifyUninstallButton" Value="&amp;Desinstalar" />
+  <String Id="ModifyCancelButton" Value="&amp;Cancelar" />
+  <String Id="SuccessHeader" Value="Instalación correcta" />
+  <String Id="SuccessCacheHeader" Value="Copia en caché completada" />
+  <String Id="SuccessInstallHeader" Value="Instalación completada" />
+  <String Id="SuccessLayoutHeader" Value="Copia del instalador completada" />
+  <String Id="SuccessModifyHeader" Value="Modificación completada" />
+  <String Id="SuccessRepairHeader" Value="Reparación completada" />
+  <String Id="SuccessUninstallHeader" Value="Desinstalación completada" />
+  <String Id="SuccessUnsafeUninstallHeader" Value="Desinstalación completada" />
+  <String Id="SuccessLaunchButton" Value="&amp;Abrir" />
+  <String Id="SuccessRestartText" Value="Tienes que reiniciar el equipo antes de usar la aplicación." />
+  <String Id="SuccessUninstallRestartText" Value="Tienes que reiniciar el equipo para terminar de quitar la aplicación." />
+  <String Id="SuccessRestartButton" Value="&amp;Reiniciar" />
+  <String Id="SuccessCloseButton" Value="&amp;Cerrar" />
+  <String Id="FailureHeader" Value="La instalación ha fallado" />
+  <String Id="FailureCacheHeader" Value="La copia en caché ha fallado" />
+  <String Id="FailureInstallHeader" Value="La instalación ha fallado" />
+  <String Id="FailureLayoutHeader" Value="La copia del instalador ha fallado" />
+  <String Id="FailureModifyHeader" Value="La modificación ha fallado" />
+  <String Id="FailureRepairHeader" Value="La reparación ha fallado" />
+  <String Id="FailureUninstallHeader" Value="La desinstalación ha fallado" />
+  <String Id="FailureUnsafeUninstallHeader" Value="La desinstalación ha fallado" />
+  <String Id="FailureHyperlinkLogText" Value="La instalación no se ha podido completar. Corrige el problema y vuelve a intentarlo. Los detalles están en el &lt;a href=&quot;#&quot;&gt;archivo de registro&lt;/a&gt;." />
+  <String Id="FailureRestartText" Value="Tienes que reiniciar el equipo para terminar de deshacer la instalación." />
+  <String Id="FailureRestartButton" Value="&amp;Reiniciar" />
+  <String Id="FailureCloseButton" Value="&amp;Cerrar" />
+  <String Id="FilesInUseTitle" Value="Archivos en uso" />
+  <String Id="FilesInUseLabel" Value="Estas aplicaciones usan archivos que hay que actualizar:" />
+  <String Id="FilesInUseNetfxCloseRadioButton" Value="Cerrar las &amp;aplicaciones." />
+  <String Id="FilesInUseCloseRadioButton" Value="Cerrar las &amp;aplicaciones e intentar abrirlas de nuevo." />
+  <String Id="FilesInUseDontCloseRadioButton" Value="&amp;No cerrar las aplicaciones. Habrá que reiniciar el equipo." />
+  <String Id="FilesInUseRetryButton" Value="&amp;Reintentar" />
+  <String Id="FilesInUseIgnoreButton" Value="&amp;Omitir" />
+  <String Id="FilesInUseExitButton" Value="&amp;Salir" />
+</WixLocalization>

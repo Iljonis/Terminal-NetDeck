@@ -173,14 +173,17 @@ public actor UpdateChecker {
 
     // MARK: - lo que no depende de la red (con tests)
 
-    /// La respuesta de `GET /repos/{repo}/releases/latest`: el instalador de Windows (.msi y, si no, .exe) y su sha256.
+    /// La respuesta de `GET /repos/{repo}/releases/latest`: el instalador de Windows y su sha256. Primero el `…-Setup.exe` (el bundle de
+    /// Burn con el runtime: lanzar el .msi suelto sobre una instalación hecha con él dejaría dos entradas en «Aplicaciones instaladas»),
+    /// después el .msi y, si no, cualquier .exe.
     static func candidate(from data: Data, repo: String) -> UpdateCandidate? {
         guard let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let tag = j["tag_name"] as? String else { return nil }
         let assets = j["assets"] as? [[String: Any]] ?? []
         func url(_ a: [String: Any]) -> URL? { (a["browser_download_url"] as? String).flatMap(URL.init(string:)) }
         func name(_ a: [String: Any]) -> String { (a["name"] as? String ?? "").lowercased() }
-        guard let installer = assets.first(where: { name($0).hasSuffix(".msi") }) ?? assets.first(where: { name($0).hasSuffix(".exe") }),
+        guard let installer = assets.first(where: { name($0).hasSuffix("-setup.exe") })
+                ?? assets.first(where: { name($0).hasSuffix(".msi") }) ?? assets.first(where: { name($0).hasSuffix(".exe") }),
               let installerURL = url(installer), isAllowedDownload(installerURL, repo: repo) else { return nil }
         let digest = (installer["digest"] as? String).flatMap { d -> String? in
             d.hasPrefix("sha256:") ? checksum(in: String(d.dropFirst(7))) : nil
