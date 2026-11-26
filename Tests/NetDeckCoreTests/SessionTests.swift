@@ -32,6 +32,17 @@ private let config = """
 @Suite struct SSHConfigParserTests {
     let profiles = SSHConfigParser().parse(config)
 
+    /// El Include que escribe la propia app se reconoce (en Windows «~» se expande a «C:/Users/…» y antes se tomaba
+    /// por relativo a ~/.ssh: cada guardado añadía otro bloque al ~/.ssh/config).
+    @Test func includePropioSeReconoce() {
+        let propio = AppPaths.home.appendingPathComponent(".config/netdeck/ssh_config").standardizedFileURL.path
+        #expect(SSHConfigParser.includePaths("~/.config/netdeck/ssh_config", sshDirectory: nil) == [propio])
+        #expect(SSHConfigParser.includePaths("\"\(propio)\"", sshDirectory: nil) == [propio])
+        #expect(SessionFile.hasInclude(SessionFile.includeLine + "\n"))
+        #expect(SSHConfigParser.esAbsoluta(propio))
+        #expect(!SSHConfigParser.esAbsoluta("otros/ssh_config"))
+    }
+
     @Test func aliasesConcretos() {
         #expect(profiles.map(\.name) == ["bastion", "core-01", "core-01b", "core-02", "olt-01"])
     }

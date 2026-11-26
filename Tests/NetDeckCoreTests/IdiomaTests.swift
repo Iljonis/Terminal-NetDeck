@@ -6,6 +6,14 @@ import Testing
     static let raiz = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         .deletingLastPathComponent().deletingLastPathComponent()
 
+    /// El idioma de Windows (LANGID): cualquier castellano es castellano; lo demás, inglés.
+    @Test func idiomaDeWindows() {
+        #expect(Idioma.deWindows(0x0C0A) == .es)   // es-ES
+        #expect(Idioma.deWindows(0x080A) == .es)   // es-MX
+        #expect(Idioma.deWindows(0x0409) == .en)   // en-US
+        #expect(Idioma.deWindows(0x040C) == .en)   // fr-FR
+    }
+
     @Test func laClaveLlevaUnHuecoPorValor() {
         let n = 3, host = "core-01"
         let t: Texto = "\(n) equipos en «\(host)» al 100%"
