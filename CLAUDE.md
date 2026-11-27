@@ -46,9 +46,9 @@ Una pasada funcional en DEMO (`tools/verificar_demo.sh`, con `NETDECK_HOME` temp
 datos reales) que compruebe terminal, explorador SFTP/FTP, pestañas, temas, resaltado y menús, mirando las capturas.
 Después, un informe al autor: problemas detectados, arreglos y estado de `./test.sh` y `tools/privacidad.sh`. Con
 Claude: skill `netdeck-verificar-demo`.
-Excepción, aprobada por el autor el 2026-11-10: los commits hechos **desde Windows** en `propuesta/windows` y en las
-ramas `windows/*` no llevan demo (allí no hay app que probar todavía). Basta con `bash tools/privacidad.sh` en verde, el
-núcleo compilando en Windows (desde el paso P2), los tests con `windows/scripts/test.ps1` (desde P6) y el informe en
+Excepción, aprobada por el autor el 2026-11-10: los commits hechos **desde Windows** en las ramas `windows/*` no
+llevan demo (allí no hay app que probar todavía). Basta con `bash tools/privacidad.sh` en verde, el núcleo
+compilando en Windows (desde el paso P2), los tests con `windows/scripts/test.ps1` (desde P6) y el informe en
 `windows/ESTADO.md`. Nada de esas ramas se fusiona a `main` sin la pasada completa en el Mac (`./test.sh` + demo).
 
 ## Git
@@ -56,12 +56,13 @@ núcleo compilando en Windows (desde el paso P2), los tests con `windows/scripts
 - Mensajes en castellano: un título corto, una línea en blanco y viñetas con el porqué.
 - Forzar un push (`--force`) o mover un tag, sólo si el autor lo pide expresamente.
 
-## Windows (port en curso)
+## Windows
 - El código Windows vive en `windows/` y en las ramas `#if os(Windows)` de `Sources/NetDeckCore`. Todo lo nuevo va tras
   `#if os(Windows)` o en archivos exclusivos del target `NetDeckWindows`. Lo compartido con macOS sólo se cambia si en
   macOS el comportamiento queda idéntico y `./test.sh` sigue en verde; si hace falta tocar `Package.swift`,
   `Package.resolved` o el comportamiento de macOS, se para y se pregunta al autor.
-- Rama activa: `windows/p14-escritorio` (PR #7 contra `main`). Estado y próximos pasos: `windows/ESTADO.md`; la lista
+- Publicada con la 1.1.0 (PR #7 fusionado en `main` el 2026-11-26). El trabajo nuevo de Windows va en ramas
+  `windows/<tema>` que salen de `main`, con un PR contra `main`. Estado y próximos pasos: `windows/ESTADO.md`; la lista
   priorizada de pendientes, en `windows/PENDIENTE.md`.
 - Fin de línea y BOM: LF y sin BOM en `Sources/`, `Tests/`, `tools/` y `.github/` (lo vigila `tools/comprobar_formato.sh`
   dentro de `./test.sh`); los `.ps1` con acentos sí llevan BOM (PowerShell 5.1 los lee como ANSI sin él).

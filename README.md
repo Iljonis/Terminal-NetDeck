@@ -2,16 +2,18 @@
 
 # Terminal NetDeck
 
-**Cliente SSH para macOS hecho para ingenieros de red: SSH, Telnet, SFTP/FTP y consola serie en una app nativa.**
+**Cliente SSH para macOS y Windows hecho para ingenieros de red: SSH, Telnet, SFTP/FTP y consola serie en una app nativa.**
 
-Una alternativa gratuita y de código abierto a SecureCRT y a MobaXterm en el Mac. Sesiones con saltos sobre tu propio
-`ssh_config`, contraseñas sólo en el Llavero, MultiExec con pegado seguro, explorador SFTP con copias comprobadas y
-resaltado de la salida de Cisco, Juniper, Huawei y Nokia. En castellano o en inglés.
+Una alternativa gratuita y de código abierto a SecureCRT y a MobaXterm, en el Mac y en Windows 10/11. Sesiones con
+saltos sobre tu propio `ssh_config`, contraseñas sólo en el Llavero (o en el Administrador de credenciales de Windows),
+MultiExec con pegado seguro, explorador SFTP con copias comprobadas y resaltado de la salida de Cisco, Juniper, Huawei
+y Nokia. En castellano o en inglés.
 
-[![Descargar para macOS](https://img.shields.io/badge/Descargar-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
+[![Descargar para macOS](https://img.shields.io/badge/macOS-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
+[![Descargar para Windows](https://img.shields.io/badge/Windows-Setup.exe-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v1.1.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.1.0)** · macOS 15 o posterior ·
-Apple Silicon · código abierto (MIT)
+Versión actual: **[v1.1.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.1.0)** · macOS 15 o posterior
+(Apple Silicon) · Windows 10 (2004) y Windows 11 x64 · código abierto (MIT)
 
 [![Última versión](https://img.shields.io/github/v/release/Iljonis/Terminal-NetDeck?label=versi%C3%B3n&color=ff2e88)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 [![Descargas](https://img.shields.io/github/downloads/Iljonis/Terminal-NetDeck/total?label=descargas&color=5ce1f0)](https://github.com/Iljonis/Terminal-NetDeck/releases)
@@ -19,12 +21,13 @@ Apple Silicon · código abierto (MIT)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Swift 6.2](https://img.shields.io/badge/Swift-6.2-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
 [![macOS 15+](https://img.shields.io/badge/macOS-15%2B-000000.svg?logo=apple&logoColor=white)](https://www.apple.com/macos/)
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4.svg?logo=windows&logoColor=white)](windows/README.md)
 
 **Español** · [English](README.en.md)
 
 ![Terminal NetDeck con el tema Liquid Glass: cliente SSH para macOS con sesiones de routers y switches por carpetas, un salto por el bastión y la salida de un router Cisco resaltada en color](docs/capturas/portada-liquid-glass.png)
 
-[Novedades](#novedades-de-100) · [Funciones](#funciones-para-ingenieros-de-red) ·
+[Novedades](#novedades-de-110) · [Funciones](#funciones-para-ingenieros-de-red) · [Windows](#windows) ·
 [Temas](#-85-temas-filtros-de-pantalla-y-colores-a-tu-gusto) ·
 [Comparación](#comparación-con-securecrt-mobaxterm-iterm2-y-royal-tsx) ·
 [Instalación](#instalación-y-primer-uso-en-macos-15-sequoia) · [Primeros pasos](#primeros-pasos) ·
@@ -36,7 +39,7 @@ Apple Silicon · código abierto (MIT)
 
 Si administras una red, tu día es abrir veinte sesiones detrás de un bastión, escribir la misma contraseña una y
 otra vez, pegar configuraciones con miedo a un `reload` y mover archivos entre servidores. Terminal NetDeck junta
-todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una mala pasada.**
+todo eso en una sola app nativa para macOS y Windows, con una idea fija: **que nunca te juegue una mala pasada.**
 
 - Tus sesiones son las de tu `ssh_config`: `ssh core-01` sigue funcionando desde cualquier otra terminal.
 - Las contraseñas viven sólo en el Llavero y sólo se escriben para el usuario y el equipo que de verdad las piden.
@@ -45,7 +48,7 @@ todo eso en una sola app de macOS, con una idea fija: **que nunca te juegue una 
   te avisa y conserva las copias que puedan necesitar recuperación.
 
 **Para quién es:** ingenieros de red, de sistemas y de NOC que trabajan desde un Mac con routers, switches,
-cortafuegos y servidores Linux por SSH, Telnet o el puerto de consola.
+cortafuegos y servidores Linux por SSH, Telnet o el puerto de consola, desde un Mac o un PC con Windows.
 
 **Qué no es:** no hace escritorio remoto (RDP, VNC), no tiene versión para Linux (sí para [Windows](#windows)) y no trae un lenguaje de
 scripting completo: para eso están las macros, los botones y las listas de equipos.
@@ -56,6 +59,10 @@ scripting completo: para eso están las macros, los botones y las listas de equi
    **Aplicaciones**.
 2. Autorízala una vez (no está notarizada): `sudo xattr -cr "/Applications/Terminal NetDeck.app"`.
 3. Ábrela: el asistente configura sesiones, tema, fuente, contraseñas y resaltado.
+
+**En Windows 10/11:** descarga `Terminal-NetDeck-1.1.0-Setup.exe` de la misma
+[página](https://github.com/Iljonis/Terminal-NetDeck/releases/latest) y ejecútalo; instala también Windows App
+Runtime 1.5 si falta. Hay `.msi` y versión portable `.zip`; detalles en [Windows](#windows).
 
 ¿Prefieres compilarla? `git clone https://github.com/Iljonis/Terminal-NetDeck.git && cd Terminal-NetDeck && ./install.sh`
 (macOS 15.6+ y Swift 6.2). Todos los detalles, en [Instalación](#instalación-y-primer-uso-en-macos-15-sequoia).
@@ -370,8 +377,8 @@ fuente, pueden **seguir al modo claro u oscuro del Mac**, y **todos pasan una pr
 
 ## Comparación con SecureCRT, MobaXterm, iTerm2 y Royal TSX
 
-Terminal NetDeck no quiere hacerlo todo: es un terminal para trabajar con equipos de red desde un Mac. Si buscas una
-alternativa a SecureCRT o a MobaXterm en macOS, esto es lo que hay en cada uno:
+Terminal NetDeck no quiere hacerlo todo: es un terminal para trabajar con equipos de red desde un Mac o un PC con
+Windows. Si buscas una alternativa a SecureCRT o a MobaXterm en macOS o en Windows, esto es lo que hay en cada uno:
 
 | | Terminal NetDeck | SecureCRT | MobaXterm | iTerm2 | Royal TSX |
 |---|:-:|:-:|:-:|:-:|:-:|
@@ -401,11 +408,13 @@ remoto; iTerm2 es un gran terminal local. Lo propio de Terminal NetDeck:
 - las contraseñas se escriben sólo para su usuario y su equipo, y la regla de los 15 minutos protege tu cuenta de AD;
 - el pegado se revisa y los `reload` o `write erase` se confirman, también con MultiExec;
 - las copias SFTP/FTP son atómicas y se comprueban con MD5;
-- es nativa (SwiftUI), gratis y de código abierto.
+- es nativa (SwiftUI en el Mac, WinUI 3 en Windows, con el mismo núcleo en Swift), gratis y de código abierto.
 
 ## Requisitos y compatibilidad
 
 - macOS Sequoia (15.0) o posterior.
+- Windows 10 versión 2004 o posterior y Windows 11, de 64 bits (x64), con el cliente OpenSSH de Windows. Más en la
+  [guía de Windows](windows/README.md#requisitos).
 - Para compilar desde el código: Swift 6.2 o posterior (Xcode 26 o sus Command Line Tools, que piden macOS 15.6 o
   posterior). La app compilada funciona desde macOS 15.0.
 
@@ -536,7 +545,7 @@ cd Terminal-NetDeck
 ## Preguntas frecuentes
 
 <details>
-<summary><b>¿Sirve como alternativa a SecureCRT o a MobaXterm en el Mac?</b></summary>
+<summary><b>¿Sirve como alternativa a SecureCRT o a MobaXterm en el Mac y en Windows?</b></summary>
 
 Para el trabajo diario con equipos de red, sí: sesiones con carpetas y saltos, SSH, Telnet, consola serie, SFTP/FTP,
 MultiExec, botones y resaltado de la salida. No tiene escritorio remoto ni un lenguaje de scripting como el de
@@ -599,10 +608,12 @@ apagan con las opciones de accesibilidad del Mac.
 </details>
 
 <details>
-<summary><b>¿Funciona en un Mac con Intel? ¿Y en Windows o Linux?</b></summary>
+<summary><b>¿Hay versión para Windows? ¿Funciona en un Mac con Intel o en Linux?</b></summary>
 
 El `.dmg` es para Mac con Apple Silicon y macOS 15 o posterior. En un Mac con Intel puedes compilarla desde el código
-con `./install.sh` (no se prueba en Intel). No hay versión para Linux. La de Windows 10/11 se descarga de la misma página (ver [Windows](#windows)).
+con `./install.sh` (no se prueba en Intel). No hay versión para Linux.
+Sí hay versión para Windows 10 (2004 o posterior) y Windows 11 x64 desde la 1.1.0: se descarga de la misma página
+(ver [Windows](#windows)).
 
 </details>
 
@@ -616,7 +627,8 @@ código, `./desinstalar.sh --todo` quita también los temas y los ajustes (el Ll
 
 ## Hoja de ruta
 
-La 1.0.0 es la versión para trabajar en producción sin miedo. Lo que ha hecho falta para llegar:
+La 1.0.0 es la versión para trabajar en producción sin miedo y la 1.1.0 la lleva a Windows. Lo que ha hecho falta para
+llegar:
 
 - [x] Pegado y MultiExec más seguros: revisar antes de pegar y confirmar órdenes peligrosas (0.9.12).
 - [x] Resaltado más fino de contadores, BGP y syslog (0.9.12).
@@ -627,12 +639,14 @@ La 1.0.0 es la versión para trabajar en producción sin miedo. Lo que ha hecho 
 - [x] **Rendimiento:** menos trabajo por tecla y por línea con salidas largas y muchas pestañas abiertas.
 - [x] **Personalización:** 33 temas nuevos, filtros de pantalla, colores a tu gusto en cualquier tema y más control
   de la fuente.
+- [x] **Windows 10/11** con el mismo núcleo que el Mac: instalador `Setup.exe`, `.msi` y versión portable (1.1.0).
+- [ ] Firma de código del instalador de Windows, para que SmartScreen no avise.
 
 ¿Echas algo en falta? [Propón una función](https://github.com/Iljonis/Terminal-NetDeck/issues/new/choose).
 
 ## Windows
 
-La versión de escritorio para Windows 10 (2004 o superior) y Windows 11, ambos x64, se descarga de la
+Terminal NetDeck también es un cliente SSH para Windows. La versión de escritorio para Windows 10 (2004 o superior) y Windows 11, ambos x64, se descarga de la
 [página de versiones](https://github.com/Iljonis/Terminal-NetDeck/releases/latest): `Terminal-NetDeck-X.Y.Z-Setup.exe`
 (instala también Windows App Runtime 1.5 si falta), el `.msi` o la versión portable `.zip`. Aún no está firmada:
 SmartScreen avisa al abrirla. Incluye terminal con pestañas y vista dividida,
@@ -688,7 +702,7 @@ agentes de revisión están en [CLAUDE.md](CLAUDE.md). Los tests se ejecutan en 
 
 ## Licencia
 
-[MIT](LICENSE) © 2026 Jonay / Iljonis. Hecho con Swift 6.2, SwiftUI y [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm).
+[MIT](LICENSE) © 2026 Jonay / Iljonis. Hecho con Swift 6.2, SwiftUI, WinUI 3 y [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm).
 Las licencias de las dependencias y la atribución de las paletas de color están en
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), que también va dentro de la app.
 

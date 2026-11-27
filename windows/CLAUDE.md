@@ -6,8 +6,8 @@ Este archivo y `windows/AGENTS.md` (Codex) son el mismo: si cambias uno, cambia 
 ## Al empezar cada sesión
 1. Lee `windows/ESTADO.md` (dónde se quedó) y el paso que toque de `windows/PLAN.md`. No hace falta leer el resto del
    plan: cada paso trae su propio contexto. Lee también el apartado «Convenciones» del plan.
-2. Comprueba la rama: el trabajo de Windows va en `propuesta/windows` o en ramas `windows/pN-<tema>` que salen de ella.
-   **Nunca** directamente en `main`.
+2. Comprueba la rama: el trabajo de Windows va en ramas `windows/<tema>` que salen de `main` (la antigua
+   `propuesta/windows` ya está fusionada y borrada). **Nunca** directamente en `main`.
 3. `git pull` antes de tocar nada: el autor también trabaja desde un Mac.
 
 ## Al terminar cada sesión
@@ -35,7 +35,7 @@ La herramienta Bash de Claude Code en Windows suele ir por **Git Bash**, y las �
 - **Antes de un commit desde Windows** (aprobado por el autor el 2026-11-10 y escrito en la sección «Antes de un
   commit» de la raíz): no hay demo, porque en Windows no hay app que probar todavía. En su lugar:
   `bash tools/privacidad.sh` en verde, el núcleo compila en Windows (desde P2), los tests con `test.ps1` (desde P6) y un
-  informe en `windows/ESTADO.md`. Vale sólo para `propuesta/windows` y `windows/*`. **Nada se fusiona a `main` sin que
+  informe en `windows/ESTADO.md`. Vale sólo para las ramas `windows/*`. **Nada se fusiona a `main` sin que
   el autor haga en su Mac la pasada de siempre** (`./test.sh` + demo): los cambios en `Sources/` no pueden romper macOS.
 - **El código de Windows no cambia el de macOS.** Lo nuevo va tras `#if os(Windows)` o detrás de un protocolo con su
   implementación de macOS intacta (paso P4). Si un cambio obliga a tocar lo que se compila en macOS (`Package.swift`,
@@ -47,10 +47,9 @@ La herramienta Bash de Claude Code en Windows suele ir por **Git Bash**, y las �
   `git status` enseña archivos enteros cambiados sin motivo, es eso: `git config core.autocrlf false` y
   `git checkout -- .` (sólo si no hay trabajo tuyo sin guardar).
 
-## Decisión pendiente
-El camino para la interfaz y la terminal está en `windows/decisiones/0001-camino-para-windows.md`, en estado
-**propuesta**. Los pasos P0, P1, P2 y P5 sirven para decidirlo con datos y se pueden hacer ya. A partir de P4 hay que
-esperar a que el autor acepte o cambie la ADR (paso P3).
+## Decisión tomada
+El camino para la interfaz y la terminal está en `windows/decisiones/0001-camino-para-windows.md`: **aceptada**
+(camino A, Swift con WinUI 3) y publicada en la 1.1.0. Una decisión nueva va en otra ADR.
 
 ## Skills y agentes
 - Las skills del proyecto están en `.agents/skills/` (en el repo). En Windows, Claude Code no las ve hasta copiarlas a

@@ -2,16 +2,18 @@
 
 # Terminal NetDeck
 
-**SSH client for macOS built for network engineers: SSH, Telnet, SFTP/FTP and serial console in one native app.**
+**SSH client for macOS and Windows built for network engineers: SSH, Telnet, SFTP/FTP and serial console in one native app.**
 
-A free, open-source SecureCRT alternative for the Mac, and what you may be looking for if you want MobaXterm on macOS.
-Sessions with jump hosts on top of your own `ssh_config`, passwords only in the Keychain, MultiExec with safe paste, an
-SFTP browser with verified copies and output highlighting for Cisco, Juniper, Huawei and Nokia. In English or Spanish.
+A free, open-source SecureCRT and MobaXterm alternative for the Mac and for Windows 10/11. Sessions with jump hosts on
+top of your own `ssh_config`, passwords only in the Keychain (or Windows Credential Manager), MultiExec with safe
+paste, an SFTP browser with verified copies and output highlighting for Cisco, Juniper, Huawei and Nokia. In English
+or Spanish.
 
-[![Download for macOS](https://img.shields.io/badge/Download-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
+[![Download for macOS](https://img.shields.io/badge/macOS-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
+[![Download for Windows](https://img.shields.io/badge/Windows-Setup.exe-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v1.1.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.1.0)** · macOS 15 or later ·
-Apple silicon · open source (MIT)
+Current version: **[v1.1.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.1.0)** · macOS 15 or later
+(Apple silicon) · Windows 10 (2004) and Windows 11 x64 · open source (MIT)
 
 [![Latest release](https://img.shields.io/github/v/release/Iljonis/Terminal-NetDeck?label=version&color=ff2e88)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/Iljonis/Terminal-NetDeck/total?label=downloads&color=5ce1f0)](https://github.com/Iljonis/Terminal-NetDeck/releases)
@@ -19,12 +21,13 @@ Apple silicon · open source (MIT)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Swift 6.2](https://img.shields.io/badge/Swift-6.2-F05138.svg?logo=swift&logoColor=white)](https://www.swift.org)
 [![macOS 15+](https://img.shields.io/badge/macOS-15%2B-000000.svg?logo=apple&logoColor=white)](https://www.apple.com/macos/)
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4.svg?logo=windows&logoColor=white)](windows/README.md)
 
 [Español](README.md) · **English**
 
 ![Terminal NetDeck with the Liquid Glass theme: an SSH client for macOS with router and switch sessions in folders, a hop through the bastion and Cisco router output highlighted in colour](docs/capturas/portada-liquid-glass-en.png)
 
-[What's new](#new-in-100) · [Features](#features-for-network-engineers) ·
+[What's new](#new-in-110) · [Features](#features-for-network-engineers) · [Windows](#windows) ·
 [Themes](#-85-themes-screen-filters-and-your-own-colours) ·
 [Comparison](#comparison-with-securecrt-mobaxterm-iterm2-and-royal-tsx) ·
 [Install](#installation--first-run-on-macos-15-sequoia) · [Getting started](#getting-started) · [FAQ](#faq) ·
@@ -36,7 +39,7 @@ Apple silicon · open source (MIT)
 
 If you run a network, your day means opening twenty sessions behind a jump host, typing the same password again and
 again, pasting configs while dreading a `reload`, and moving files between servers. Terminal NetDeck brings all of
-that into one macOS app, built around one idea: **it should never play a trick on you.**
+that into one native app for macOS and Windows, built around one idea: **it should never play a trick on you.**
 
 - Your sessions are the ones in your `ssh_config`: `ssh core-01` keeps working from any other terminal.
 - Passwords live only in the Keychain and are only typed for the user and the device that really ask for them.
@@ -45,7 +48,7 @@ that into one macOS app, built around one idea: **it should never play a trick o
   you, and keeps whatever copies may need recovering.
 
 **Who it's for:** network, systems and NOC engineers who work from a Mac with routers, switches, firewalls and Linux
-servers over SSH, Telnet or the console port.
+servers over SSH, Telnet or the console port, from a Mac or a Windows PC.
 
 **What it isn't:** it doesn't do remote desktop (RDP, VNC), there's no Linux version (there is a [Windows](#windows) one), and it has no full
 scripting language: macros, buttons and device lists cover that ground.
@@ -56,6 +59,10 @@ scripting language: macros, buttons and device lists cover that ground.
    **Applications**.
 2. Allow it once (it isn't notarized): `sudo xattr -cr "/Applications/Terminal NetDeck.app"`.
 3. Open it: the setup assistant configures sessions, theme, font, passwords and highlighting.
+
+**On Windows 10/11:** download `Terminal-NetDeck-1.1.0-Setup.exe` from the same
+[page](https://github.com/Iljonis/Terminal-NetDeck/releases/latest) and run it; it also installs Windows App Runtime
+1.5 if it's missing. There's also an `.msi` and a portable `.zip`; details in [Windows](#windows).
 
 Rather build it? `git clone https://github.com/Iljonis/Terminal-NetDeck.git && cd Terminal-NetDeck && ./install.sh`
 (macOS 15.6+ and Swift 6.2). Full details in [Installation](#installation--first-run-on-macos-15-sequoia).
@@ -370,8 +377,9 @@ original, **NetDeck Cyberpunk**, always there as a fallback.
 
 ## Comparison with SecureCRT, MobaXterm, iTerm2 and Royal TSX
 
-Terminal NetDeck doesn't try to do everything: it is a terminal for working with network devices from a Mac. If you
-are looking for a SecureCRT or MobaXterm alternative on macOS, this is what each one offers:
+Terminal NetDeck doesn't try to do everything: it is a terminal for working with network devices from a Mac or a
+Windows PC. If you are looking for a SecureCRT or MobaXterm alternative on macOS or Windows, this is what each one
+offers:
 
 | | Terminal NetDeck | SecureCRT | MobaXterm | iTerm2 | Royal TSX |
 |---|:-:|:-:|:-:|:-:|:-:|
@@ -401,11 +409,13 @@ is a great local terminal. What Terminal NetDeck brings:
 - passwords are only typed for their own user and device, and the 15-minute rule protects your AD account;
 - pastes are reviewed and `reload` or `write erase` need confirming, with MultiExec too;
 - SFTP/FTP copies are atomic and checked with MD5;
-- it's native (SwiftUI), free and open source.
+- it's native (SwiftUI on the Mac, WinUI 3 on Windows, sharing one Swift core), free and open source.
 
 ## Requirements & compatibility
 
 - macOS Sequoia (15.0) or later.
+- Windows 10 version 2004 or later and Windows 11, 64-bit (x64), with the Windows OpenSSH client. More in the
+  [Windows guide](windows/README.md#requisitos).
 - To build from source: Swift 6.2 or later (Xcode 26 or its Command Line Tools, which need macOS 15.6 or later).
   The built app runs on macOS 15.0 and later.
 
@@ -536,7 +546,7 @@ Found a security issue? Please don't open a public issue: see [SECURITY.md](SECU
 ## FAQ
 
 <details>
-<summary><b>Is it a SecureCRT or MobaXterm alternative on the Mac?</b></summary>
+<summary><b>Is it a SecureCRT or MobaXterm alternative on the Mac and on Windows?</b></summary>
 
 For day-to-day work with network devices, yes: sessions with folders and jump hosts, SSH, Telnet, serial console,
 SFTP/FTP, MultiExec, buttons and output highlighting. It has no remote desktop and no scripting language like
@@ -599,10 +609,12 @@ they turn off with the Mac's accessibility options.
 </details>
 
 <details>
-<summary><b>Does it run on an Intel Mac? On Windows or Linux?</b></summary>
+<summary><b>Is there a Windows version? Does it run on an Intel Mac or on Linux?</b></summary>
 
 The `.dmg` is for Apple silicon Macs with macOS 15 or later. On an Intel Mac you can build it from source with
-`./install.sh` (it isn't tested on Intel). There is no Linux version. The Windows 10/11 one is on the same page (see [Windows](#windows)).
+`./install.sh` (it isn't tested on Intel). There is no Linux version.
+There is a Windows version for Windows 10 (2004 or later) and Windows 11 x64 since 1.1.0, on the same page (see
+[Windows](#windows)).
 
 </details>
 
@@ -616,7 +628,8 @@ source, `./desinstalar.sh --todo` also removes themes and settings (the Keychain
 
 ## Roadmap
 
-1.0.0 is the version for working on production networks without fear. What it took to get here:
+1.0.0 is the version for working on production networks without fear, and 1.1.0 brings it to Windows. What it took
+to get here:
 
 - [x] Safer paste and MultiExec: review before pasting and confirm dangerous commands (0.9.12).
 - [x] Finer highlighting of counters, BGP and syslog (0.9.12).
@@ -626,12 +639,14 @@ source, `./desinstalar.sh --todo` also removes themes and settings (the Keychain
 - [x] **Liquid Glass** on macOS 26: glass on buttons, tabs and menus, never over the terminal text.
 - [x] **Performance:** less work per key and per line with long outputs and many open tabs.
 - [x] **Customisation:** 33 new themes, screen filters, your own colours in any theme and more control over the font.
+- [x] **Windows 10/11** with the same core as the Mac: `Setup.exe` installer, `.msi` and portable version (1.1.0).
+- [ ] Code signing for the Windows installer, so SmartScreen stops warning.
 
 Missing something? [Suggest a feature](https://github.com/Iljonis/Terminal-NetDeck/issues/new/choose).
 
 ## Windows
 
-The x64 desktop version for Windows 10 (2004 or later) and Windows 11 is on the
+Terminal NetDeck is also an SSH client for Windows. The x64 desktop version for Windows 10 (2004 or later) and Windows 11 is on the
 [releases page](https://github.com/Iljonis/Terminal-NetDeck/releases/latest): `Terminal-NetDeck-X.Y.Z-Setup.exe` (it
 also installs Windows App Runtime 1.5 if it's missing), the `.msi` or the portable `.zip`. It isn't signed yet, so
 SmartScreen warns when you open it. It includes a tabbed terminal with split layouts,
@@ -688,7 +703,7 @@ Does it save you time day to day? A ⭐ on GitHub helps other network engineers 
 
 ## License
 
-[MIT](LICENSE) © 2026 Jonay / Iljonis. Built with Swift 6.2, SwiftUI and [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm).
+[MIT](LICENSE) © 2026 Jonay / Iljonis. Built with Swift 6.2, SwiftUI, WinUI 3 and [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm).
 Dependency licences and colour-palette attributions are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), which
 also ships inside the app.
 

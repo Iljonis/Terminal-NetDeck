@@ -8,6 +8,7 @@ Los archivos de salida en bruto quedan fuera del repositorio. Antes de un commit
 | Informe | Contenido |
 |---|---|
 | [Entorno de Windows](entorno.md) | Herramientas y requisitos del paso P0 |
+| [Compilación del núcleo · P2](compilacion.md) | Qué compila de `NetDeckCore` en Windows sin cambios y con `#if !os(Windows)`: los datos de la ADR 0001 |
 | [Escritorio · 19 de noviembre de 2026](escritorio-2026-11-19.md) | Compilación, 553 pruebas del núcleo, pruebas de ventana y verificaciones visuales pendientes |
 
 El historial de comprobaciones de OpenSSH, askpass e instalador está en el [estado del port](../ESTADO.md).

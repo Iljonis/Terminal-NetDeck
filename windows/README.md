@@ -1,10 +1,15 @@
 # Terminal NetDeck para Windows
 
-Gestor de sesiones SSH, Telnet, SFTP, FTP y serie para Windows. Comparte con [Terminal NetDeck para macOS](../README.md)
-el formato `ssh_config`, los temas `.tema` y el núcleo de conexiones.
+Cliente SSH para Windows 10 y Windows 11 hecho para ingenieros de red: gestor de sesiones SSH, Telnet, SFTP, FTP y
+consola serie (COM), con saltos por bastión, MultiExec y pegado seguro, y resaltado de la salida de Cisco, Juniper,
+Huawei y Nokia. Gratis y de código abierto (MIT): una alternativa a SecureCRT y a MobaXterm. Comparte con
+[Terminal NetDeck para macOS](../README.md) el formato `ssh_config`, los temas `.tema` y el núcleo de conexiones.
 
-> **Versión de desarrollo 1.0.1.** Consulta el [estado del port](ESTADO.md) y el [informe de verificación](resultados/escritorio-2026-11-19.md)
-> para ver qué se ha probado en la ventana y qué queda pendiente.
+[![Descargar para Windows](https://img.shields.io/badge/Descargar-Setup.exe_para_Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
+
+> **Versión 1.1.0, la primera oficial para Windows.** Aún sin firma de código: SmartScreen avisa al abrir el instalador.
+> Consulta el [estado del port](ESTADO.md) y el [informe de verificación](resultados/escritorio-2026-11-19.md) para ver
+> qué se ha probado en la ventana y qué queda pendiente.
 
 ## Requisitos
 
@@ -21,7 +26,8 @@ el formato `ssh_config`, los temas `.tema` y el núcleo de conexiones.
 
 ## Instalación desde una release
 
-Estos pasos se aplican cuando hay una versión de Windows publicada en la [página de Releases](https://github.com/Iljonis/Terminal-NetDeck/releases).
+Las descargas de Windows están en la [última versión](https://github.com/Iljonis/Terminal-NetDeck/releases/latest),
+junto al `.dmg` de macOS.
 
 1. Descarga `Terminal-NetDeck-<versión>-Setup.exe` (unos 120 MB: lleva dentro Windows App Runtime 1.5).
 2. Ejecútalo, marca «Acepto la licencia», pulsa **Instalar** y acepta el aviso de administrador (UAC). Instala el runtime si falta y
@@ -183,19 +189,18 @@ decisiones de arquitectura y el plan por fases. Está pensada para seguir el tra
 | [PLAN.md](PLAN.md) | El plan por pasos (P0…P14), cada uno con contexto, tareas, comprobación y criterio de salida |
 | [ESTADO.md](ESTADO.md) | Dónde se quedó el trabajo: cada sesión lo actualiza al terminar |
 | [ESTUDIO.md](ESTUDIO.md) | Viabilidad: qué se aprovecha del núcleo, qué hay que reescribir y qué hacen otros, con fuentes |
-| [decisiones/](decisiones/README.md) | Decisiones de arquitectura (ADR); la 0001, qué camino seguir, está «propuesta» |
+| [decisiones/](decisiones/README.md) | Decisiones de arquitectura (ADR); la 0001, qué camino seguir, está aceptada (camino A, WinUI 3) |
 | [scripts/](scripts/) | PowerShell para comprobar el entorno, probar el ssh de Windows (askpass, `ssh -G`, `-J`, sftp) y pasar los tests con un `NETDECK_HOME` temporal (`test.ps1`) |
 | [resultados/](resultados/README.md) | Evidencia de compilación, pruebas del núcleo y comprobaciones con la demo |
 
 ### Empezar a desarrollar en Windows
 
 1. Instala Git for Windows, el toolchain de Swift para Windows y Claude Code (detalle en [PLAN.md, paso P0](PLAN.md#p0--preparar-el-pc-con-windows)).
-2. Clona el repositorio **sin conversión de fin de línea** y cámbiate a la rama de la propuesta:
+2. Clona el repositorio **sin conversión de fin de línea** (la rama `main` ya trae la versión de Windows):
 
    ```powershell
    git clone -c core.autocrlf=false https://github.com/Iljonis/Terminal-NetDeck.git
    cd Terminal-NetDeck
-   git switch propuesta/windows
    ```
 
 3. Comprueba el entorno:
