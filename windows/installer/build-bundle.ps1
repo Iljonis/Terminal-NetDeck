@@ -1,22 +1,17 @@
-# Genera Terminal-NetDeck-X.Y.Z-Setup.exe (NetDeckBundle.wxs): el instalador de un paso, con Windows App Runtime 1.5 dentro.
+# Genera Terminal-NetDeck-X.Y.Z-Setup.exe (NetDeckBundle.wxs): el instalador de un paso, con el .msi dentro.
 # Prerequisitos: el .msi ya compilado (build-msi.ps1 o el CI) y wix 4.0.6 (dotnet tool install --global wix --version 4.0.6).
-# La extension WixToolset.Bal.wixext 4.0.6 se anade sola si falta.
-#
-# El redistribuible de Microsoft se baja de la URL fija de windows-app-runtime.json (o se usa -Runtime con uno ya bajado) y
-# se comprueban su sha256 y su firma Authenticode (firmante de ese .json) ANTES de meterlo en el .exe: va a ejecutarse con
-# permisos de administrador en el equipo de quien instale.
+# La extension WixToolset.Bal.wixext 4.0.6 se anade sola si falta. Windows App Runtime y OpenSSH ya van dentro del .msi
+# (incluir-dependencias.ps1): el Setup.exe no instala nada mas.
 #
 # Uso: powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/build-bundle.ps1 -Msi <ruta del .msi>
-#        [-Out <ruta del Setup.exe>] [-Version 1.1.0] [-Runtime <WindowsAppRuntimeInstall-x64.exe ya bajado>]
+#        [-Out <ruta del Setup.exe>] [-Version 1.1.1]
 param(
     [Parameter(Mandatory = $true)][string]$Msi,
     [string]$Out = (Join-Path $env:LOCALAPPDATA 'NetDeckInstaller\Terminal-NetDeck-Setup.exe'),
-    [string]$Version = '1.1.0',
-    [string]$Runtime = ''
+    [string]$Version = '1.1.1'
 )
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-$fijado = Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot 'windows-app-runtime.json') | ConvertFrom-Json
 
 if (!(Test-Path -LiteralPath $Msi)) { throw "Falta el .msi: $Msi (compilalo antes con build-msi.ps1)." }
 
@@ -28,24 +23,6 @@ if (!$wix) {
     if (Test-Path $userWix) { $wix = $userWix }
     else { throw 'wix no esta en PATH. Instala: dotnet tool install --global wix --version 4.0.6' }
 }
-
-# El redistribuible: bajado aqui (a una carpeta propia y vacia) o el que se pasa con -Runtime; en los dos casos, comprobado.
-if (!$Runtime) {
-    $carpeta = Join-Path $env:TEMP ('netdeck-runtime-' + [guid]::NewGuid().ToString('N'))
-    New-Item -ItemType Directory -Force $carpeta | Out-Null
-    $Runtime = Join-Path $carpeta 'WindowsAppRuntimeInstall-x64.exe'
-    Write-Host "Bajando $($fijado.url) ..."
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    $ProgressPreference = 'SilentlyContinue'          # (con la barra de progreso, Invoke-WebRequest de 5.1 va muchisimo mas lento)
-    Invoke-WebRequest -UseBasicParsing -Uri $fijado.url -OutFile $Runtime
-}
-if (!(Test-Path -LiteralPath $Runtime)) { throw "Falta el redistribuible: $Runtime" }
-$hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Runtime).Hash.ToLower()
-if ($hash -ne $fijado.sha256) { throw "El sha256 del redistribuible ($hash) no es el de windows-app-runtime.json ($($fijado.sha256))." }
-$firma = Get-AuthenticodeSignature -LiteralPath $Runtime
-if ($firma.Status -ne 'Valid') { throw "La firma del redistribuible no es valida: $($firma.Status)" }
-if ($firma.SignerCertificate.Subject -ne $fijado.firmante) { throw "El redistribuible lo firma '$($firma.SignerCertificate.Subject)', no '$($fijado.firmante)'." }
-Write-Host "Redistribuible comprobado: sha256 $hash, firmado por $($firma.SignerCertificate.Subject)"
 
 # La extension de la interfaz estandar de Burn (global: la misma que usa el CI)
 $extensiones = & $wix extension list -g 2>&1 | Out-String
@@ -62,7 +39,6 @@ Write-Host "Generando $Out ..."
     -arch x64 `
     -d "Version=$Version" `
     -d "Msi=$((Resolve-Path -LiteralPath $Msi).Path)" `
-    -d "RuntimeInstaller=$((Resolve-Path -LiteralPath $Runtime).Path)" `
     -d "Assets=$(Join-Path $repo 'windows\Desktop\Assets')" `
     -o $Out
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

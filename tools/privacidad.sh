@@ -59,7 +59,10 @@ buscar() {  # descripción  regex(ERE)  [regex de excepciones]
 }
 
 # IPs privadas (RFC 1918) y de carrier-grade NAT: en el código sólo valen las de documentación.
-buscar "IPs privadas" '(^|[^0-9.])(10\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])|192\.168|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7]))\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)'
+# (excepción: la URL de descarga de Win32-OpenSSH de windows/installer/dependencias.json, cuyo tag es una versión de cuatro
+# números como «10.4.0.0p1-Preview»)
+buscar "IPs privadas" '(^|[^0-9.])(10\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])|192\.168|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7]))\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)' \
+  '^windows/installer/dependencias\.json:[0-9]+: *"url": "https://github\.com/PowerShell/Win32-OpenSSH/releases/download/[0-9.]+p[0-9]+-Preview/OpenSSH-Win64\.zip",$'
 # Rutas personales (los ejemplos usan ~ o /Users/x en tests)
 buscar "rutas de una carpeta personal" '/Users/[A-Za-z0-9._-]{2,}' '/Users/(x|usuario|tu\.usuario)([^A-Za-z0-9._-]|$)'
 # (y las de Windows: C:\Users\nombre, C:/Users/nombre o /c/Users/nombre de Git Bash; los ejemplos usan C:\Users\<usuario>)

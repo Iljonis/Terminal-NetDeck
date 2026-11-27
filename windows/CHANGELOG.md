@@ -3,6 +3,30 @@
 Historial de cambios de la versión de Windows de Terminal NetDeck. Sigue el formato de
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). El de la versión de macOS está en el [CHANGELOG de la raíz](../CHANGELOG.md).
 
+## 1.1.1 - 2026-11-27
+
+### Añadido
+
+- **Categorías de botones**, como en el Mac: en el panel de botones, crear, renombrar (si ya existe, se juntan),
+  subir, bajar y borrar con sus botones (pide confirmación; queda copia en `botones.txt.anterior`). Cambiar la
+  categoría de un botón lo lleva al final de la suya, y uno nuevo entra al final de su categoría. Las operaciones son
+  las de `ButtonFile` del núcleo.
+
+### Cambiado
+
+- **Nada que instalar antes:** el Setup.exe, el `.msi` y la portable llevan dentro Windows App Runtime 1.5 (modo «self-contained» de
+  Microsoft: sus archivos junto al ejecutable y las clases WinRT en el manifiesto del `.exe`) y el cliente de Win32-OpenSSH 10.4 de
+  Microsoft (carpeta `OpenSSH`), como MobaXterm o SecureCRT. La portable se abre sin ser administrador y sin la Microsoft Store, y
+  SSH, SFTP y los túneles funcionan aunque el PC no tenga la característica opcional «Cliente OpenSSH».
+  - `incluir-dependencias.ps1` los baja de URL fijas con sha256 (`dependencias.json`) y comprueba la firma de Microsoft de cada
+    `.exe` y `.dll`; `preparar-instalador.ps1` lo llama.
+  - La app usa el runtime incluido si está `Microsoft.WindowsAppRuntime.dll` junto al ejecutable (sin bootstrapper); una compilación
+    de desarrollo sigue usando el instalado. `SystemTools` prefiere el `ssh.exe` incluido y la app lo pone delante en el PATH (para
+    `-J` y `sftp.exe`).
+  - El `.msi` ya no comprueba el runtime ni se niega a instalar, y el Setup.exe ya no instala el redistribuible de Microsoft (el que
+    dejó la 1.1.0 se queda en el equipo).
+  - El CI prueba la portable y el Setup.exe en un Windows sin el runtime y comprueba que no lo instalan.
+
 ## 1.1.0 - 2026-11-26
 
 <!-- La versión de Windows es la del repositorio y va en la misma Release que el .dmg: windows-release.yml comprueba que

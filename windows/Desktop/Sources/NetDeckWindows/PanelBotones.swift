@@ -3,10 +3,20 @@ import NetDeckCore
 import WinUI
 
 final class PanelBotones {
+    /// Lo que se pide sobre una categoría (el grupo de los botones), como el menú de categoría del Mac (`Buttons.swift`). Lo
+    /// hace `NetDeckWindows` con las operaciones de `ButtonFile` del núcleo y guarda botones.txt.
+    enum AccionCategoria {
+        case nueva
+        case renombrar(String)
+        case mover(String, Int)
+        case borrar(String)
+    }
+
     static let modos: [CommandButton.Mode] = [.run, .type, .pass, .clave, .login, .session]
     let view = ScrollViewer()
     var onUse: ((CommandButton) -> Void)?
     var onSave: ((CommandButton, CommandButton.ID?) -> Void)?
+    var onCategoria: ((AccionCategoria) -> Void)?
     var onClose: (() -> Void)?
 
     private let lista = ComboBox()
@@ -17,7 +27,13 @@ final class PanelBotones {
     private let orden = TextBox()
     private let hotkey = TextBox()
     private let modo = ComboBox()
+    private let categorias = ComboBox()
+    private let renombrarCategoria = Button()
+    private let subirCategoria = Button()
+    private let bajarCategoria = Button()
+    private let borrarCategoria = Button()
     private var botones: [CommandButton] = []
+    private var grupos: [String] = []
     private var original: CommandButton?
 
     private static func editorTitle(_ mode: CommandButton.Mode) -> String {
@@ -39,7 +55,7 @@ final class PanelBotones {
         titulo.text = L("Botones de órdenes")
         titulo.fontSize = 20
         lista.minWidth = 300
-        grupo.header = L("Grupo")
+        grupo.header = L("Categoría")
         nombre.header = L("Nombre")
         orden.minWidth = 420
         hotkey.header = L("Atajo (F5, S-F5, M-F5, C-F5)")
@@ -84,7 +100,45 @@ final class PanelBotones {
         fila.orientation = .horizontal
         fila.spacing = 8
         for control in [aplicar, editar, nuevo] { fila.children.append(control) }
-        for control in [titulo as FrameworkElement, lista, fila, grupo, nombre, modo, orden, hotkey, guardar, cerrar] {
+
+        // Categorías: crear, renombrar, ordenar y borrar (mover un botón a otra es cambiar su «Categoría» y guardar)
+        categorias.header = L("Categoría")
+        categorias.minWidth = 300
+        let nuevaCategoria = Button()
+        nuevaCategoria.content = L("Nueva categoría")
+        renombrarCategoria.content = L("Renombrar…")
+        subirCategoria.content = L("Subir la categoría")
+        bajarCategoria.content = L("Bajar la categoría")
+        borrarCategoria.content = L("Borrar con sus botones…")
+        AutomationProperties.setAutomationId(categorias, "Botones_Categorias")
+        AutomationProperties.setAutomationId(nuevaCategoria, "Botones_NuevaCategoria")
+        categorias.selectionChanged.addHandler { [weak self] _, _ in self?.updateCategoriaButtons() }
+        nuevaCategoria.click.addHandler { [weak self] _, _ in self?.onCategoria?(.nueva) }
+        renombrarCategoria.click.addHandler { [weak self] _, _ in
+            guard let self, let g = self.categoriaElegida() else { return }
+            self.onCategoria?(.renombrar(g))
+        }
+        subirCategoria.click.addHandler { [weak self] _, _ in
+            guard let self, let g = self.categoriaElegida() else { return }
+            self.onCategoria?(.mover(g, -1))
+        }
+        bajarCategoria.click.addHandler { [weak self] _, _ in
+            guard let self, let g = self.categoriaElegida() else { return }
+            self.onCategoria?(.mover(g, 1))
+        }
+        borrarCategoria.click.addHandler { [weak self] _, _ in
+            guard let self, let g = self.categoriaElegida() else { return }
+            self.onCategoria?(.borrar(g))
+        }
+        let filaCategorias = StackPanel()
+        filaCategorias.orientation = .horizontal
+        filaCategorias.spacing = 8
+        for control in [nuevaCategoria, renombrarCategoria, subirCategoria, bajarCategoria, borrarCategoria] {
+            filaCategorias.children.append(control)
+        }
+
+        for control in [titulo as FrameworkElement, lista, fila, categorias, filaCategorias, grupo, nombre, modo, orden, hotkey,
+                        guardar, cerrar] {
             form.children.append(control)
         }
         view.content = form
@@ -92,14 +146,41 @@ final class PanelBotones {
         view.visibility = .collapsed
     }
 
-    func show(_ file: ButtonFile, select: CommandButton? = nil) {
+    /// `categoria`: la que queda elegida en el desplegable de categorías (si no, la del botón elegido o la que ya lo estaba).
+    func show(_ file: ButtonFile, select: CommandButton? = nil, categoria: String? = nil) {
+        let antes = categoriaElegida()
         botones = file.buttons.filter { Self.modos.contains($0.mode) }
         lista.items.clear()
         for button in botones { lista.items.append(button.group + " · " + button.name) }
         aplicar.isEnabled = !botones.isEmpty
         editar.isEnabled = aplicar.isEnabled
         lista.selectedIndex = botones.isEmpty ? -1 : Int32(botones.firstIndex { $0 == select } ?? 0)
+        grupos = file.groups
+        categorias.items.clear()
+        for g in grupos { categorias.items.append(g) }
+        let elegida = [categoria, select?.group, antes].compactMap { $0 }.first { grupos.contains($0) }
+        categorias.selectedIndex = grupos.isEmpty ? -1 : Int32(elegida.flatMap { grupos.firstIndex(of: $0) } ?? 0)
+        updateCategoriaButtons()
         if let select { draft(select) }
+    }
+
+    /// Un botón nuevo en blanco ya en la categoría `g` (una categoría nueva existe cuando se guarda su primer botón).
+    func nuevoEn(_ g: String) {
+        draft(nil)
+        grupo.text = g
+    }
+
+    private func categoriaElegida() -> String? {
+        let index = Int(categorias.selectedIndex)
+        return grupos.indices.contains(index) ? grupos[index] : nil
+    }
+
+    private func updateCategoriaButtons() {
+        let g = categoriaElegida()
+        renombrarCategoria.isEnabled = g != nil
+        borrarCategoria.isEnabled = g != nil
+        subirCategoria.isEnabled = g != nil && grupos.first != g
+        bajarCategoria.isEnabled = g != nil && grupos.last != g
     }
 
     private func selected() -> CommandButton? {

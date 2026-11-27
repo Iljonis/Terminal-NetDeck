@@ -1,0 +1,20 @@
+{
+  "comentario": "Lo que la instalacion y la portable de Windows llevan DENTRO para no pedir nada al PC (incluir-dependencias.ps1). Se baja de estas URL fijas y se comprueba el sha256 y la firma de Microsoft de cada .exe y .dll. Para cambiar de version: URL, sha256 y version a la vez.",
+  "firmante": "O=Microsoft Corporation",
+  "windowsAppSDK": {
+    "comentario": "Paquete NuGet oficial Microsoft.WindowsAppSDK (1.5, la de swift-windowsappsdk 0.1.2). De el sale el paquete Framework x64, que se copia junto al exe como hace WindowsAppSDKSelfContained en MSBuild.",
+    "version": "1.5.250108004",
+    "url": "https://api.nuget.org/v3-flatcontainer/microsoft.windowsappsdk/1.5.250108004/microsoft.windowsappsdk.1.5.250108004.nupkg",
+    "sha256": "272f8988531d5cf827430453bebfef55e90f9926960397c35cf7ab691bd458ba",
+    "msix": "tools/MSIX/win10-x64/Microsoft.WindowsAppRuntime.1.5.msix"
+  },
+  "openssh": {
+    "comentario": "Win32-OpenSSH de Microsoft (el mismo proyecto que el OpenSSH de Windows), solo el cliente. Va en la carpeta OpenSSH junto al exe; SystemTools lo prefiere al del sistema.",
+    "version": "10.4p1",
+    "url": "https://github.com/PowerShell/Win32-OpenSSH/releases/download/10.4.0.0p1-Preview/OpenSSH-Win64.zip",
+    "sha256": "b67ff8becd203502190ec42ac7787c24c2cd3325ed7700485fe7a1c83d2a7957",
+    "carpeta": "OpenSSH-Win64",
+    "archivos": ["ssh.exe", "sftp.exe", "scp.exe", "ssh-keygen.exe", "ssh-keyscan.exe", "ssh-add.exe", "ssh-sk-helper.exe",
+                 "ssh-pkcs11-helper.exe", "libcrypto.dll", "LICENSE.txt", "NOTICE.txt"]
+  }
+}

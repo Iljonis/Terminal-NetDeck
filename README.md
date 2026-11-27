@@ -12,7 +12,7 @@ y Nokia. En castellano o en inglés.
 [![Descargar para macOS](https://img.shields.io/badge/macOS-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 [![Descargar para Windows](https://img.shields.io/badge/Windows-Setup.exe-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Versión actual: **[v1.1.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.1.0)** · macOS 15 o posterior
+Versión actual: **[v1.1.1](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.1.1)** · macOS 15 o posterior
 (Apple Silicon) · Windows 10 (2004) y Windows 11 x64 · código abierto (MIT)
 
 [![Última versión](https://img.shields.io/github/v/release/Iljonis/Terminal-NetDeck?label=versi%C3%B3n&color=ff2e88)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
@@ -60,12 +60,20 @@ scripting completo: para eso están las macros, los botones y las listas de equi
 2. Autorízala una vez (no está notarizada): `sudo xattr -cr "/Applications/Terminal NetDeck.app"`.
 3. Ábrela: el asistente configura sesiones, tema, fuente, contraseñas y resaltado.
 
-**En Windows 10/11:** descarga `Terminal-NetDeck-1.1.0-Setup.exe` de la misma
-[página](https://github.com/Iljonis/Terminal-NetDeck/releases/latest) y ejecútalo; instala también Windows App
-Runtime 1.5 si falta. Hay `.msi` y versión portable `.zip`; detalles en [Windows](#windows).
+**En Windows 10/11:** descarga `Terminal-NetDeck-1.1.1-Setup.exe` de la misma
+[página](https://github.com/Iljonis/Terminal-NetDeck/releases/latest) y ejecútalo. Hay `.msi` y versión portable `.zip`
+(sin instalar ni ser administrador); los tres llevan dentro todo lo que necesitan. Detalles en [Windows](#windows).
 
 ¿Prefieres compilarla? `git clone https://github.com/Iljonis/Terminal-NetDeck.git && cd Terminal-NetDeck && ./install.sh`
 (macOS 15.6+ y Swift 6.2). Todos los detalles, en [Instalación](#instalación-y-primer-uso-en-macos-15-sequoia).
+
+## Novedades de 1.1.1
+
+- **Windows sin requisitos:** el instalador, el `.msi` y la portable llevan dentro Windows App Runtime 1.5 y el cliente
+  OpenSSH de Microsoft, como MobaXterm o SecureCRT. No hay que instalar nada antes, la portable se abre sin ser
+  administrador y SSH, SFTP y los túneles funcionan aunque el PC no tenga la característica opcional «Cliente OpenSSH».
+- **Categorías de botones en Windows:** crear, renombrar, ordenar y borrar categorías desde el panel de botones, como
+  en el Mac.
 
 ## Novedades de 1.1.0
 
@@ -413,7 +421,7 @@ remoto; iTerm2 es un gran terminal local. Lo propio de Terminal NetDeck:
 ## Requisitos y compatibilidad
 
 - macOS Sequoia (15.0) o posterior.
-- Windows 10 versión 2004 o posterior y Windows 11, de 64 bits (x64), con el cliente OpenSSH de Windows. Más en la
+- Windows 10 versión 2004 o posterior y Windows 11, de 64 bits (x64); lleva dentro su cliente OpenSSH. Más en la
   [guía de Windows](windows/README.md#requisitos).
 - Para compilar desde el código: Swift 6.2 o posterior (Xcode 26 o sus Command Line Tools, que piden macOS 15.6 o
   posterior). La app compilada funciona desde macOS 15.0.
@@ -647,8 +655,8 @@ llegar:
 ## Windows
 
 Terminal NetDeck también es un cliente SSH para Windows. La versión de escritorio para Windows 10 (2004 o superior) y Windows 11, ambos x64, se descarga de la
-[página de versiones](https://github.com/Iljonis/Terminal-NetDeck/releases/latest): `Terminal-NetDeck-X.Y.Z-Setup.exe`
-(instala también Windows App Runtime 1.5 si falta), el `.msi` o la versión portable `.zip`. Aún no está firmada:
+[página de versiones](https://github.com/Iljonis/Terminal-NetDeck/releases/latest): `Terminal-NetDeck-X.Y.Z-Setup.exe`,
+el `.msi` o la versión portable `.zip`, que llevan dentro Windows App Runtime y OpenSSH. Aún no está firmada:
 SmartScreen avisa al abrirla. Incluye terminal con pestañas y vista dividida,
 importación nativa de sesiones, historial y grabación, temas y filtros, consola COM, SFTP lateral y MultiExec. La
 última compilación y la cobertura de ventana se detallan en el [informe de Windows](windows/resultados/escritorio-2026-11-19.md).

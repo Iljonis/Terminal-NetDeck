@@ -7,38 +7,38 @@ Huawei y Nokia. Gratis y de código abierto (MIT): una alternativa a SecureCRT y
 
 [![Descargar para Windows](https://img.shields.io/badge/Descargar-Setup.exe_para_Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-> **Versión 1.1.0, la primera oficial para Windows.** Aún sin firma de código: SmartScreen avisa al abrir el instalador.
+> **Versión 1.1.1** (la primera oficial para Windows fue la 1.1.0). Aún sin firma de código: SmartScreen avisa al abrir el instalador.
 > Consulta el [estado del port](ESTADO.md) y el [informe de verificación](resultados/escritorio-2026-11-19.md) para ver
 > qué se ha probado en la ventana y qué queda pendiente.
 
 ## Requisitos
 
 - **Windows 10 versión 2004 (10.0.19041) o superior**, 64 bits (x64). Compatible con Windows 11.
-- **Cliente OpenSSH** (`ssh.exe`), que Windows trae de serie en *Configuración → Aplicaciones → Características opcionales*. Las sesiones SSH, el
-  explorador SFTP y los túneles lo usan.
-- **Windows App Runtime 1.5 (x64)** (el Framework y su DDLM): la interfaz lo necesita. **`Terminal-NetDeck-<versión>-Setup.exe` lo incluye y lo
-  instala solo** si falta (el redistribuible oficial de Microsoft, en silencio). No hace falta red: va dentro del instalador. Desinstalar
-  NetDeck no lo quita, porque es un componente de Windows que usan otras apps.
-  - El `.msi` suelto no lo incluye, pero lo comprueba: si falta, se detiene antes de copiar nada y avisa con el enlace de descarga
-    (<https://aka.ms/windowsappsdk/1.5/latest/windowsappruntimeinstall-x64.exe>). Si la comprobación fallara en tu equipo, se salta con
-    `SKIP_WINAPPRUNTIME_CHECK=1` al instalar por línea de órdenes.
-  - La versión portable (`.zip`) tampoco lo lleva. Si falta, Windows lo avisa al abrirla y ofrece descargarlo.
+- **Nada más.** El instalador, el `.msi` y la portable llevan dentro lo que la app necesita, como MobaXterm o SecureCRT:
+  - **Windows App Runtime 1.5** (la interfaz WinUI), copiado junto al ejecutable: no se instala en Windows ni hace falta la Microsoft Store.
+  - **Cliente OpenSSH** de Microsoft (Win32-OpenSSH, en la carpeta `OpenSSH` de la app): las sesiones SSH, el explorador SFTP y los
+    túneles lo usan aunque el PC no tenga activada la característica opcional «Cliente OpenSSH». Si la app no lo encontrara (una
+    compilación propia), usa el de Windows.
+  - Así funciona también en un PC de empresa sin permisos de administrador: la portable se descomprime y se abre.
+  - Hasta la 1.1.0 el `.msi` y la portable pedían instalar antes el runtime y el cliente OpenSSH de Windows.
 
 ## Instalación desde una release
 
 Las descargas de Windows están en la [última versión](https://github.com/Iljonis/Terminal-NetDeck/releases/latest),
 junto al `.dmg` de macOS.
 
-1. Descarga `Terminal-NetDeck-<versión>-Setup.exe` (unos 120 MB: lleva dentro Windows App Runtime 1.5).
-2. Ejecútalo, marca «Acepto la licencia», pulsa **Instalar** y acepta el aviso de administrador (UAC). Instala el runtime si falta y
-   la app en `C:\Program Files\Terminal NetDeck`. Sin otros pasos.
+1. Descarga `Terminal-NetDeck-<versión>-Setup.exe`.
+2. Ejecútalo, marca «Acepto la licencia», pulsa **Instalar** y acepta el aviso de administrador (UAC). Instala la app en
+   `C:\Program Files\Terminal NetDeck`. Sin otros pasos.
 3. Abre **Terminal NetDeck** desde el menú Inicio.
 
 Otras descargas de la misma Release:
 
-- **`Terminal-NetDeck-<versión>.msi`:** para despliegues gestionados (`msiexec /i … /qn`) en equipos que ya tienen el runtime.
+- **`Terminal-NetDeck-<versión>-portable-x64.zip`:** sin instalar y **sin ser administrador**. Descomprímela donde quieras (tu carpeta,
+  un USB) y abre `NetDeckWindows.exe`. Los datos se guardan en la carpeta `datos` de al lado. Para que SmartScreen no avise con cada
+  archivo, antes de descomprimir: clic derecho en el `.zip` → Propiedades → «Desbloquear».
+- **`Terminal-NetDeck-<versión>.msi`:** para despliegues gestionados (`msiexec /i … /qn`, Intune, SCCM). No pide nada más.
   El acceso del escritorio es opcional (`ADDLOCAL=Principal,AccesoEscritorio`).
-- **`Terminal-NetDeck-<versión>-portable-x64.zip`:** sin instalar. Los datos se guardan junto al ejecutable. Necesita el runtime ya instalado.
 - En silencio con el Setup.exe: `Terminal-NetDeck-<versión>-Setup.exe /quiet` (con `/log archivo.txt` para el registro).
 
 El actualizador de la app descarga el Setup.exe de la versión nueva y comprueba su SHA-256 y su firma.

@@ -1,10 +1,9 @@
-# Comprueba si esta instalado el Windows App Runtime que necesita Terminal NetDeck (el Framework x64 y su DDLM, que el
-# bootstrapper de la app exige). Escribe WAR-OK y sale con 0 si esta; si falta, no escribe nada y sale con 1.
+# Comprueba si esta instalado en Windows el Windows App Runtime 1.5 (el Framework x64 y su DDLM). Escribe WAR-OK y sale con 0 si
+# esta; si falta, no escribe nada y sale con 1.
 #
-# El instalador (NetDeckWindows.wxs -> detectar-runtime.js, CustomAction DetectarWindowsAppRuntime) lleva ESTE script codificado en
-# base64 (-EncodedCommand) para no pelear con las comillas ni con el formato de propiedades de MSI; preparar-instalador.ps1
-# comprueba que el .js y este archivo dicen lo mismo. Para regenerarlo:
-#   [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes((Get-Content -Raw detectar-runtime.ps1 -Encoding UTF8)))
+# La app ya no lo necesita instalado: lo lleva dentro (incluir-dependencias.ps1). Lo usa windows-release.yml para probar en un
+# Windows SIN el runtime que la portable y el Setup.exe arrancan y no lo instalan. (Hasta la 1.1.0, el .msi lo llevaba en base64 en
+# detectar-runtime.js para negarse a instalar sin el.)
 #
 # Se mira con -AllUsers (el instalador va elevado) y, si no se puede, solo con el usuario actual. NETDECK_WAR_VERSION cambia la
 # version (solo para probar la ausencia).

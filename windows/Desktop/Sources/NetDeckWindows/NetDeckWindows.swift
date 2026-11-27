@@ -561,6 +561,7 @@ final class NetDeckWindows: SwiftApplication {
         }
         botones.onUse = { [weak self] in self?.useCommandButton($0) }
         botones.onSave = { [weak self] button, replacing in self?.saveCommandButton(button, replacing: replacing) }
+        botones.onCategoria = { [weak self] in self?.categoriaBotones($0) }
         botones.onClose = { [weak self] in self?.showPanel(nil) }
         confirmarBoton.onCancel = { [weak self] in self?.showCommandButtons() }
         espacios.onOpen = { [weak self] in self?.restoreWorkspace($0) }
@@ -2038,9 +2039,14 @@ final class NetDeckWindows: SwiftApplication {
                 guard indices.count == 1, let index = indices.first else {
                     throw RemoteError(L("El archivo de botones cambió. Vuelve a abrir el panel."))
                 }
-                file.buttons[index] = button
+                // (con otra categoría, al final de la suya, como «Mover a la categoría» del Mac: el bloque no se parte)
+                var enSuSitio = button
+                enSuSitio.group = file.buttons[index].group
+                file.buttons[index] = enSuSitio
+                if enSuSitio.group != button.group { file.moveButton(button.id, toGroup: button.group) }
             } else {
-                file.buttons.append(button)
+                let at = (file.buttons.lastIndex { $0.group == button.group }).map { $0 + 1 } ?? file.buttons.count
+                file.buttons.insert(button, at: at)
             }
             if !isDemo { try file.save() }
             archivoBotones = file
@@ -2050,6 +2056,88 @@ final class NetDeckWindows: SwiftApplication {
         } catch {
             estado = L("No se puede guardar: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: categorías de botones (lo mismo que el menú de categoría del Mac; las operaciones, de ButtonFile)
+
+    private func categoriaBotones(_ accion: PanelBotones.AccionCategoria) {
+        switch accion {
+        case .nueva:
+            pedirCategoria(L("Nombre de la categoría nueva"), valor: "", confirmar: L("Crear")) { [weak self] n in
+                guard let self else { return }
+                if self.archivoBotones.groups.contains(n) {
+                    self.estado = L("Ya hay una categoría «\(n)»")
+                    self.showPanel(self.botones.view)
+                    return
+                }
+                self.botones.nuevoEn(n)
+                self.showPanel(self.botones.view)
+            }
+        case .renombrar(let g):
+            pedirCategoria(L("Renombrar la categoría «\(g)»"), valor: g, confirmar: L("Renombrar")) { [weak self] n in
+                guard let self else { return }
+                guard n != g else { self.showPanel(self.botones.view); return }
+                let renombrar = { [weak self] in
+                    guard let self else { return }
+                    // (antes de cambiar: construirBarraBotones pasa a la primera categoría si la elegida ya no existe)
+                    if self.grupoBotones == g { self.grupoBotones = n }
+                    self.cambiarBotones(categoria: n) { $0.renameGroup(g, to: n) }
+                }
+                guard self.archivoBotones.groups.contains(n) else { renombrar(); return }
+                self.confirmarBoton.show(title: L("Ya hay una categoría «\(n)»: ¿juntarlas?"), hint: L("Queda una copia en botones.txt.anterior."),
+                                         text: "", editable: false, confirmTitle: L("Juntar"))
+                self.confirmarBoton.onConfirm = { _ in renombrar() }
+                self.showPanel(self.confirmarBoton.view)
+            }
+        case .mover(let g, let paso):
+            cambiarBotones(categoria: g) { $0.moveGroup(g, by: paso) }
+        case .borrar(let g):
+            let n = archivoBotones.buttons.filter { $0.group == g }.count
+            confirmarBoton.show(title: L("¿Borrar la categoría «\(g)» y sus \(n) botones?"), hint: L("Queda una copia en botones.txt.anterior."),
+                                text: "", editable: false, confirmTitle: L("Borrar"), destructivo: true)
+            confirmarBoton.onConfirm = { [weak self] _ in
+                self?.cambiarBotones(categoria: nil) { file in
+                    guard file.groups.contains(g) else { return false }
+                    file.removeGroup(g)
+                    return true
+                }
+            }
+            showPanel(confirmarBoton.view)
+        }
+    }
+
+    /// Pide el nombre de una categoría en una línea; sólo sigue con uno válido para botones.txt (`ButtonFile.validGroup`).
+    private func pedirCategoria(_ titulo: String, valor: String, confirmar: String, _ seguir: @escaping (String) -> Void) {
+        confirmarBoton.show(title: titulo, hint: "", text: valor, editable: true, confirmTitle: confirmar, unaLinea: true)
+        confirmarBoton.onConfirm = { [weak self] texto in
+            guard let self else { return }
+            let n = texto.trimmingCharacters(in: .whitespaces)
+            guard !n.isEmpty else { self.showPanel(self.botones.view); return }
+            guard ButtonFile.validGroup(n) else {
+                self.estado = L("Nombre no válido (sin «::» ni «#» delante)")
+                self.showPanel(self.botones.view)
+                return
+            }
+            seguir(n)
+        }
+        showPanel(confirmarBoton.view)
+    }
+
+    /// Cambia botones.txt leído de nuevo (como `saveCommandButton`), lo guarda y vuelve al panel con `categoria` elegida.
+    private func cambiarBotones(categoria: String?, _ cambio: (inout ButtonFile) -> Bool) {
+        do {
+            var file = try readCommandButtons()
+            guard file.problems.isEmpty else { throw RemoteError(file.problems[0]) }
+            if cambio(&file) {
+                if !isDemo { try file.save() }
+                archivoBotones = file
+                construirBarraBotones()
+            }
+            botones.show(archivoBotones, categoria: categoria)
+        } catch {
+            estado = L("No se puede guardar: \(error.localizedDescription)")
+        }
+        showPanel(botones.view)
     }
 
     private func dispatchButtonHotkey(_ sequence: String, tab: PestanaTerminal) -> Bool {

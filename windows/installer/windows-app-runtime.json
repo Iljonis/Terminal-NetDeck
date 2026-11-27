@@ -1,7 +1,0 @@
-{
-  "comentario": "El redistribuible oficial de Windows App Runtime 1.5 (x64) que lleva dentro Terminal-NetDeck-X.Y.Z-Setup.exe (NetDeckBundle.wxs). Lo bajan build-bundle.ps1 y windows-release.yml de esta URL fija y comprueban el sha256 y la firma (firmante). Para pasar a otra version 1.5.x: URL y sha256 nuevos a la vez (el enlace aka.ms/windowsappsdk/1.5/latest/windowsappruntimeinstall-x64.exe redirige a la ultima).",
-  "url": "https://download.microsoft.com/download/4f5a8b87-f017-485d-8cf7-c16e82671dbe/WindowsAppRuntimeInstall-x64.exe",
-  "sha256": "7418dc8dc18cfee1cdc1b087a326ea6fd66e2e3a5e1c76d49fa948737a83a45e",
-  "bytes": 64195640,
-  "firmante": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
-}

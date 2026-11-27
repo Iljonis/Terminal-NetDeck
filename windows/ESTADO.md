@@ -1,3 +1,51 @@
+## 2026-11-27 · Mac · Categorías de botones en Windows y versión 1.1.1 (sin compilar en Windows)
+
+- **Categorías de botones** (pedido por el autor; el Mac ya las tenía): en `PanelBotones.swift`, un desplegable «Categoría» con «Nueva
+  categoría», «Renombrar…», «Subir la categoría», «Bajar la categoría» y «Borrar con sus botones…». `NetDeckWindows.categoriaBotones` pide el
+  nombre con `confirmarBoton` (una línea, `ButtonFile.validGroup`), confirma juntar (si ya existe) y borrar, y aplica `renameGroup`,
+  `moveGroup` y `removeGroup` del núcleo sobre botones.txt leído de nuevo (`cambiarBotones`, como `saveCommandButton`; SafeFile deja
+  `.anterior`). «Nueva categoría» deja un botón en blanco en ella: existe cuando se guarda (botones.txt no tiene categorías vacías).
+  El campo del editor pasa de «Grupo» a «Categoría», como en el Mac.
+- **Guardar un botón:** si cambia de categoría va al final de la suya (`moveButton(toGroup:)`) y uno nuevo entra al final de su
+  categoría; antes se quedaba en su sitio o al final del archivo y partía el bloque de la categoría.
+- **Versión 1.1.1:** `install.sh`, `UpdateChecker.currentVersion`, `AppxManifest.xml` (1.1.1.0), `NetDeckWindows.wxs`, `NetDeckBundle.wxs`,
+  `build-msi.ps1`, `build-bundle.ps1`, los README (versión actual y novedades) y los dos CHANGELOG («## 1.1.1 - 2026-11-27»).
+- **Sin verificar:** no compilado en Windows; sin demo en el Mac (el autor lo pidió así: lo prueba él). Lo compila el CI.
+
+## 2026-11-27 · Mac · Windows sin requisitos: runtime y OpenSSH dentro (sin compilar en Windows)
+
+- **Por qué:** con la 1.1.0, el Setup.exe instalaba solo, pero el `.msi` y la portable pedían instalar antes Windows App Runtime 1.5, y SSH
+  necesitaba la característica opcional «Cliente OpenSSH». En PCs de empresa sin administrador o con la Store y los paquetes MSIX bloqueados
+  no era posible. El autor pidió que fuera como MobaXterm o SecureCRT: todo dentro. Sin firma de código (cuesta dinero), SmartScreen sigue
+  avisando; eso no cambia.
+- **Runtime «self-contained»:** se descartó en P14 porque es una propiedad de MSBuild. Se ha leído qué hace exactamente
+  (`build/Microsoft.WindowsAppSDK.SelfContained.targets` del NuGet 1.5) y se replica en `windows/installer/incluir-dependencias.ps1`:
+  copia del paquete Framework x64 (dentro del NuGet oficial) los `.dll`, `.mui`, `.png`, `.winmd`, `.xaml`, `.xbf`, `RestartAgent.exe` y
+  `map.html` junto al exe y su `resources.pri` como `Microsoft.UI.Xaml.Controls.pri`, genera el manifiesto RegFree WinRT (896 clases de 16
+  `.dll`, como `GenerateAppManifestFromAppx`) y lo mete en `NetDeckWindows.exe` con `mt.exe`, mezclado con el que tuviera.
+- **El bootstrapper no se salta solo** (leído en `MddBootstrap.cpp` de la v1.5.9): sin el runtime instalado falla aunque esté al lado. Por eso
+  `Arranque.swift`, si ve `Microsoft.WindowsAppRuntime.dll` junto al exe, no usa `WindowsAppRuntimeInitializer`: carga esa `.dll` (su RegFree
+  WinRT, como el AutoInitializer de Microsoft), `RoInitialize` en STA (de `combase.dll` por `GetProcAddress`, para no tocar el enlazado) y
+  DPI por monitor, igual que la librería. Sin esa `.dll` (compilación de desarrollo), todo sigue como antes.
+- **OpenSSH:** el cliente de Win32-OpenSSH 10.4p1 de Microsoft (ssh, sftp, scp, ssh-keygen, ssh-keyscan, ssh-add, helpers, `libcrypto.dll`,
+  `LICENSE.txt`, `NOTICE.txt`) en la carpeta `OpenSSH`. `SystemTools.locateWindows` lo prefiere (parámetro `bundled`, test nuevo
+  `prefiereElOpenSSHQueLlevaLaApp`) y `Arranque` pone esa carpeta delante en el PATH: ssh relanza «ssh» a secas para `-J` y `sftp.exe` busca
+  `ssh.exe`. Decisión D1 de `PENDIENTE.md` actualizada.
+- **Descargas fijadas** en `windows/installer/dependencias.json` (URL + sha256; el NuGet 1.5.250108004 y el `.zip` de OpenSSH, comprobados
+  aquí con `shasum`). El script comprueba también la firma Authenticode de Microsoft de cada `.exe` y `.dll` (en el Mac se vio que todos la llevan).
+  Copia `license.txt` y `NOTICE.txt` del NuGet como `WindowsAppSDK-LICENSE.txt` / `-NOTICE.txt`; los dos van en `THIRD_PARTY_NOTICES.md`.
+- **Instaladores:** el `.msi` deja de comprobar el runtime (fuera `detectar-runtime.js`, la `Launch Condition` y `SKIP_WINAPPRUNTIME_CHECK`);
+  el Setup.exe ya no encadena el redistribuible (fuera `windows-app-runtime.json`) y sigue existiendo para que el actualizador no deje dos
+  entradas en «Aplicaciones». `preparar-instalador.ps1` llama a `incluir-dependencias.ps1`, así que la portable también lo lleva.
+- **CI (`windows-release.yml`, job `probar-instalador`):** en un Windows sin el runtime, la portable se abre (`probar-arranque.ps1`: sigue
+  abierta a los 20 s y su ventana no es un cuadro de aviso `#32770`), crea `datos`, su `OpenSSH\ssh.exe -V` responde y el runtime NO aparece
+  instalado; el Setup.exe instala sin pasos, la app arranca, el runtime sigue sin instalarse y desinstalar la quita.
+- **Sin verificar:** nada de esto se ha compilado ni ejecutado en Windows (no hay PowerShell en el Mac). Lo comprueba el primer run de
+  `windows-release.yml` al subir la rama como `windows/<tema>`. Dudas abiertas: si WinUI encuentra sus recursos sin un `resources.pri` propio
+  (se copia como MSBuild), si el `.exe` de Swift ya lleva manifiesto (el script mezcla o crea) y el tamaño final del Setup.exe.
+- **Pendiente en un PC real:** la portable desde una cuenta sin administrador; SSH, SFTP, `-J` y túneles con el OpenSSH incluido; que el
+  askpass sigue funcionando con él.
+
 ## 2026-11-26 · Windows · Apariencia como el Mac (G1, G2, G3, G5, G6 y G15 de PENDIENTE) y versión 1.1.0
 
 - **G1 · controles con el tema:** `EstiloMac.vestirControles` pone en los recursos del marco los colores del tema para botones, campos, desplegables, casillas, interruptores, menús (`MenuFlyout`), ayudas y el texto por defecto: todos los paneles de la tarjeta emergente (Llavero, Túneles, Macros…) y los menús nativos dejan los grises de Windows (visto en la demo: Llavero y el menú de pantalla dividida).

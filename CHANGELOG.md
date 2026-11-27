@@ -10,6 +10,20 @@ All notable changes to Terminal NetDeck are listed here. The format follows
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-27
+
+### Added
+
+- Windows: button categories can be created, renamed, reordered and deleted from the buttons panel, as on the Mac.
+  Changing a button's category moves it to the end of that category.
+
+### Changed
+
+- Windows: the installer, the `.msi` and the portable `.zip` now carry Windows App Runtime 1.5 and Microsoft's OpenSSH
+  client inside the app folder, like MobaXterm or SecureCRT. Nothing has to be installed first, the portable version
+  runs without administrator rights, and SSH works even when the Windows "OpenSSH Client" optional feature is missing.
+  See the [Windows changelog](windows/CHANGELOG.md).
+
 ## [1.1.0] - 2026-11-26
 
 ### Added
@@ -229,7 +243,8 @@ Paths shown with `~`, private permissions (0700/0600) for the app's data, and do
 First public release: background update checks (never installs without a click), standard `.dmg` install and
 rejection of names, hosts and users starting with `-`.
 
-[Unreleased]: https://github.com/Iljonis/Terminal-NetDeck/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/Iljonis/Terminal-NetDeck/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/Iljonis/Terminal-NetDeck/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/Iljonis/Terminal-NetDeck/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/Iljonis/Terminal-NetDeck/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Iljonis/Terminal-NetDeck/compare/v0.9.13...v1.0.0
