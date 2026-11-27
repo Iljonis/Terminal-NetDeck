@@ -130,6 +130,9 @@ jobs:
           $msi = Join-Path $carpeta "Terminal-NetDeck-${{ steps.version.outputs.version }}.msi"
           wix build windows/installer/NetDeckWindows.wxs (Join-Path $carpeta 'archivos.wxs') -arch x64 -d "SourceDir=$(Join-Path $carpeta 'files')" -d "Version=${{ steps.version.outputs.version }}" -o $msi
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # (idioma neutro en la tabla File: algunos .mui de Windows App Runtime traen idiomas que ICE03 rechaza)
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/idioma-neutro-msi.ps1 -Msi $msi
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           wix msi validate $msi
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Add-Content -Encoding utf8 -Path $env:GITHUB_OUTPUT -Value "msi=$msi"

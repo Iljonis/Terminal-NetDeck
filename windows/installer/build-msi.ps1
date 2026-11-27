@@ -31,6 +31,8 @@ Write-Host "Generando $Out ..."
     -d "Version=$Version" `
     -o $Out
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+# (idioma neutro en la tabla File: algunos .mui del runtime llevan idiomas que la validacion de MSI rechaza)
+& (Join-Path $PSScriptRoot 'idioma-neutro-msi.ps1') -Msi $Out
 
 $f = Get-Item $Out
 Write-Host "MSI OK: $Out ($([math]::Round($f.Length/1MB,1)) MB)"

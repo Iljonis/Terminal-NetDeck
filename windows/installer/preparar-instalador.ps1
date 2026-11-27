@@ -68,12 +68,8 @@ Get-ChildItem -LiteralPath $Destino -Recurse -File | Where-Object { $_.Name -ne 
     $subAttr = ''
     if ($sub) { $subAttr = ' Subdirectory="' + [System.Security.SecurityElement]::Escape($sub) + '"' }
     $src = [System.Security.SecurityElement]::Escape('$(var.SourceDir)\' + $rel)
-    # Todo lo demas, "companero" del exe: toma su version e idioma. Algunos archivos de Windows App Runtime (los .mui de
-    # ciertos idiomas) llevan identificadores de idioma que la validacion de MSI rechaza (ICE03); asi WiX no los lee. El
-    # .msi hace MajorUpgrade (quita la version anterior entera antes de instalar): no cambia que se instala.
-    $fichero = if ($rel -eq 'NetDeckWindows.exe') { 'Id="NetDeckExe"' } else { 'Id="Fichero' + $i + '" CompanionFile="NetDeckExe"' }
     $lineas.Add('      <Component Id="Archivo' + $i + '"' + $subAttr + ' Guid="*">')
-    $lineas.Add('        <File ' + $fichero + ' Source="' + $src + '" KeyPath="yes" />')
+    $lineas.Add('        <File Id="Fichero' + $i + '" Source="' + $src + '" KeyPath="yes" />')
     $lineas.Add('      </Component>')
 }
 $wxs = @('<?xml version="1.0" encoding="utf-8"?>', '<!-- Generado por preparar-instalador.ps1: no se edita. -->',
