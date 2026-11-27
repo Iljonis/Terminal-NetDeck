@@ -114,6 +114,10 @@ try {
     }
     # (MSBuild deshace el cambio de nombre que hace el paquete: su resources.pri es el Microsoft.UI.Xaml.Controls.pri de WinUI)
     Copiar (Join-Path $framework 'resources.pri') 'Microsoft.UI.Xaml.Controls.pri'
+    # Y es tambien el resources.pri de la app: MSBuild genera uno propio mezclando ese dentro, y alli busca WinUI lo que carga
+    # XamlControlsResources (ms-appx:///Microsoft.UI.Xaml/Themes/...). Sin el, la app se paraba al arrancar (0xC000001D en el CI).
+    # La app no tiene recursos propios: el mismo archivo hace el papel del mezclado.
+    Copiar (Join-Path $framework 'resources.pri') 'resources.pri'
 
     # El manifiesto RegFree WinRT: lo mismo que GenerateAppManifestFromAppx (RedirectDlls=false).
     [xml]$appx = Get-Content -Raw -Encoding UTF8 (Join-Path $framework 'AppxManifest.xml')

@@ -13,9 +13,31 @@ Add-Type -Namespace NetDeck -Name Ventanas -MemberDefinition @'
 [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
 public static extern int GetClassName(System.IntPtr ventana, System.Text.StringBuilder clase, int maximo);
 '@
-$app = Start-Process -FilePath $Exe -WorkingDirectory (Split-Path $Exe) -PassThru
+$inicio = Get-Date
+$salida = Join-Path $env:TEMP ('netdeck-salida-' + [guid]::NewGuid().ToString('N') + '.txt')
+$errores = "$salida.err"
+# (salida y errores a archivos: si la app se para, Swift escribe ahi el motivo, "Fatal error: ...")
+$app = Start-Process -FilePath $Exe -WorkingDirectory (Split-Path $Exe) -PassThru -RedirectStandardOutput $salida -RedirectStandardError $errores
 Start-Sleep -Seconds $Segundos
-if ($app.HasExited) { throw "NetDeckWindows.exe se ha cerrado a los pocos segundos (codigo $($app.ExitCode))" }
+if ($app.HasExited) {
+    $codigo = $app.ExitCode
+    Write-Host ('--- codigo de salida: {0} (0x{1:X8})' -f $codigo, $codigo)
+    foreach ($f in $salida, $errores) {
+        if ((Test-Path $f) -and (Get-Item $f).Length -gt 0) { Write-Host "--- $(Split-Path $f -Leaf):"; Get-Content $f -Tail 40 | Write-Host }
+    }
+    # El registro de aplicaciones de Windows: modulo y desplazamiento del fallo (Application Error, 1000) y avisos de .NET/WER
+    Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = $inicio } -ErrorAction SilentlyContinue |
+        Where-Object { $_.Message -match 'NetDeckWindows' } | Select-Object -First 4 |
+        ForEach-Object { Write-Host "--- evento $($_.Id) ($($_.ProviderName)):"; Write-Host $_.Message }
+    # Lo que la app haya dejado en su registro de errores (portable: datos junto al exe; si no, NETDECK_HOME)
+    foreach ($carpeta in (Join-Path (Split-Path $Exe) 'datos'), $env:NETDECK_HOME) {
+        if ($carpeta -and (Test-Path $carpeta)) {
+            Get-ChildItem $carpeta -Recurse -File -Include '*.log', '*.txt' -ErrorAction SilentlyContinue | Select-Object -First 5 |
+                ForEach-Object { Write-Host "--- $($_.FullName):"; Get-Content $_.FullName -Tail 30 | Write-Host }
+        }
+    }
+    throw "NetDeckWindows.exe se ha cerrado a los pocos segundos (codigo $codigo)"
+}
 $app.Refresh()
 $clase = ''
 if ($app.MainWindowHandle -ne [IntPtr]::Zero) {

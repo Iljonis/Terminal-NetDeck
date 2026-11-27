@@ -257,7 +257,7 @@ jobs:
           Expand-Archive -LiteralPath $zip.FullName -DestinationPath $carpeta
           $raiz = Get-ChildItem $carpeta -Directory | Select-Object -First 1
           $exe = Join-Path $raiz.FullName 'NetDeckWindows.exe'
-          foreach ($f in 'Microsoft.WindowsAppRuntime.dll', 'Microsoft.UI.Xaml.Controls.pri', 'OpenSSH\ssh.exe', 'OpenSSH\sftp.exe') {
+          foreach ($f in 'Microsoft.WindowsAppRuntime.dll', 'Microsoft.UI.Xaml.Controls.pri', 'resources.pri', 'OpenSSH\ssh.exe', 'OpenSSH\sftp.exe') {
             if (-not (Test-Path (Join-Path $raiz.FullName $f))) { throw "La portable no lleva $f" }
           }
           $ErrorActionPreference = 'Continue'
