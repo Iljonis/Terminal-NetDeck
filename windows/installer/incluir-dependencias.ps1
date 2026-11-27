@@ -55,7 +55,8 @@ function ComprobarFirmas($archivos) {
         if ($archivo.Extension -notin '.exe', '.dll') { continue }
         $firma = Get-AuthenticodeSignature -LiteralPath $archivo.FullName
         $sujeto = if ($firma.SignerCertificate) { $firma.SignerCertificate.Subject } else { '' }
-        if ($firma.Status -ne 'Valid' -or $sujeto -notmatch [regex]::Escape($fijado.firmante)) {
+        # (el campo O= entero del sujeto, no un trozo: "O=Microsoft Corporation Ltd" no vale)
+        if ($firma.Status -ne 'Valid' -or $sujeto -notmatch ('(^|,\s*)' + [regex]::Escape($fijado.firmante) + '(,|$)')) {
             throw "$($archivo.Name): la firma no es valida o no es de Microsoft ($($firma.Status), '$sujeto')."
         }
     }
