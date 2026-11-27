@@ -14,6 +14,8 @@ this file also ships inside the app (`Contents/Resources`), as those licences re
 | Swift Argument Parser | 1.8.2 | Apache-2.0 con excepción de runtime de Swift | <https://github.com/apple/swift-argument-parser> |
 | swift-png | 4.5.2 | Apache-2.0 | <https://github.com/tayloraswift/swift-png> |
 | h | 1.0.1 | Apache-2.0 | <https://github.com/rarestype/h> |
+| Windows App SDK (Windows App Runtime 1.5; sólo en Windows · Windows only) | 1.5.250108004 | Microsoft Software License Terms, código distribuible · distributable code (`WindowsAppSDK-LICENSE.txt` y `WindowsAppSDK-NOTICE.txt` junto a la app · next to the app) | <https://github.com/microsoft/WindowsAppSDK> |
+| Win32-OpenSSH (cliente · client; sólo en Windows · Windows only) | 10.4p1 | BSD (OpenSSH) y otras · and others (`OpenSSH\LICENSE.txt` y `OpenSSH\NOTICE.txt`) | <https://github.com/PowerShell/Win32-OpenSSH> |
 
 ## Paletas de color · Colour palettes
 

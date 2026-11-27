@@ -12,6 +12,9 @@ seguimiento de la Release y qué hacer si falla.
    anterior); el historial va en `CHANGELOG.md` (en inglés, Keep a Changelog): pasa lo de `[Unreleased]` a una sección
    `[X.Y.Z] - fecha` y añade su enlace de comparación al final. Después:
    `./test.sh`, `tools/seguridad_cron.sh` y una pasada de `ecc:security-reviewer` y `ecc:opensource-sanitizer`.
+   Windows lleva dentro el cliente OpenSSH y el runtime (`windows/installer/dependencias.json`), que Windows Update no
+   actualiza: mira si hay una versión nueva de Win32-OpenSSH (<https://github.com/PowerShell/Win32-OpenSSH/releases>,
+   sobre todo si es de seguridad) y de Windows App SDK 1.5, y si la hay, cambia URL, sha256 y versión a la vez.
 2. Commit, push, `git tag -a vX.Y.Z -m "Terminal NetDeck X.Y.Z"` y `git push origin vX.Y.Z`.
 3. Nada más. `.github/workflows/release.yml` comprueba que el tag y `VERSION` coinciden, pasa los tests, hace el
    .dmg, ejecuta `tools/privacidad.sh --binario` y crea la Release con el .dmg. La app se la ofrece («Actualizar

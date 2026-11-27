@@ -7,8 +7,8 @@
   <String Id="CheckingForUpdatesLabel" Value="Buscando actualizaciones" />
   <String Id="UpdateButton" Value="&amp;Actualizar a la versión [WixStdBAUpdateAvailable]" />
   <String Id="InstallHeader" Value="Bienvenido" />
-  <String Id="InstallMessage" Value="Se instalará [WixBundleName] en este equipo, con el Windows App Runtime 1.5 si falta. Pulsa Instalar para continuar o Cancelar para salir." />
-  <String Id="InstallMessageOptions" Value="Se instalará [WixBundleName] en este equipo, con el Windows App Runtime 1.5 si falta. Pulsa Instalar para continuar, Opciones para cambiar la instalación o Cancelar para salir." />
+  <String Id="InstallMessage" Value="Se instalará [WixBundleName] en este equipo. Pulsa Instalar para continuar o Cancelar para salir." />
+  <String Id="InstallMessageOptions" Value="Se instalará [WixBundleName] en este equipo. Pulsa Instalar para continuar, Opciones para cambiar la instalación o Cancelar para salir." />
   <String Id="InstallVersion" Value="Versión [WixBundleVersion]" />
   <String Id="ConfirmCancelMessage" Value="¿Seguro que quieres cancelar?" />
   <String Id="ExecuteUpgradeRelatedBundleMessage" Value="Versión anterior" />

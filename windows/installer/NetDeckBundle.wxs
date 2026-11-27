@@ -1,20 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Instalador de un paso de Terminal NetDeck para Windows (WiX Toolset 4, Burn): Terminal-NetDeck-X.Y.Z-Setup.exe.
-  Es lo que se descarga para instalar. Encadena, en este orden:
-    1. el redistribuible oficial de Windows App Runtime 1.5 (WindowsAppRuntimeInstall-x64.exe, en silencio), que la app
-       necesita para arrancar. Si ya esta instalado, no hace nada (lo dice la guia de despliegue de Microsoft). Va DENTRO
-       del .exe: funciona sin red y con proxy (bajarlo durante la instalacion es lo que se descarto en P10).
-    2. el .msi de siempre (NetDeckWindows.wxs), que sigue publicandose suelto para despliegues gestionados (msiexec /qn).
+  Es lo que se descarga para instalar: una pantalla con la licencia y «Instalar», y dentro el .msi de siempre
+  (NetDeckWindows.wxs), que se sigue publicando suelto para despliegues gestionados (msiexec /qn).
 
-  El redistribuible lo baja build-bundle.ps1 de la URL fija de windows-app-runtime.json y comprueba su sha256 y la firma de
-  Microsoft antes de compilar. Uso:
+  Despues de la 1.1.0 no encadena nada mas: Windows App Runtime 1.5 y el cliente OpenSSH van dentro de la carpeta de la app
+  (incluir-dependencias.ps1). Hasta la 1.1.0 instalaba antes el redistribuible de Microsoft; el runtime que dejo esa version
+  en el equipo se queda (era Permanent y lo pueden usar otras apps). Uso:
       powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/build-bundle.ps1 -Msi <ruta del .msi> [-Out ...]
   Necesita la extension WixToolset.Bal.wixext 4.0.6 (build-bundle.ps1 la anade si falta).
-
-  El runtime es Permanent: desinstalar Terminal NetDeck no lo quita (es un componente de Windows que usan otras apps). Sin
-  DetectCondition, Burn lo ejecuta en cada instalacion o actualizacion; el instalador de Microsoft sale enseguida con 0 si
-  ya estan todos sus paquetes. Va elevado (PerMachine): aprovisiona el runtime para todos los usuarios.
 
   Una sola entrada en «Aplicaciones instaladas»: la del bundle (Burn instala el .msi oculto, ARPSYSTEMCOMPONENT). El
   actualizador de la app (UpdateCheck.candidate) prefiere el Setup.exe al .msi para no dejar dos entradas.
@@ -22,7 +16,7 @@
   La version llega de fuera (-d Version=..., la misma que el .msi). El UpgradeCode del bundle no se cambia nunca.
 -->
 <?ifndef Version?>
-<?define Version = "1.1.0"?>
+<?define Version = "1.1.1"?>
 <?endif?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
@@ -56,19 +50,6 @@
     <bal:Condition Message="Terminal NetDeck necesita Windows 10 o 11 de 64 bits." Condition="VersionNT64" />
 
     <Chain>
-      <!-- Codigos de salida de la guia de Microsoft: 0 = bien (tambien si ya estaba). Cualquier otro es un fallo y se
-           deshace la instalacion (Vital): 0x80073D06 = fallo algun paquete, 0x80070005 = sin elevacion. -->
-      <ExePackage Id="WindowsAppRuntime15"
-                  DisplayName="Windows App Runtime 1.5"
-                  SourceFile="$(var.RuntimeInstaller)"
-                  Name="WindowsAppRuntimeInstall-x64.exe"
-                  InstallArguments="--quiet"
-                  PerMachine="yes"
-                  Permanent="yes"
-                  Vital="yes">
-        <ExitCode Value="0" Behavior="success" />
-      </ExePackage>
-
       <MsiPackage Id="TerminalNetDeck"
                   SourceFile="$(var.Msi)"
                   Vital="yes" />

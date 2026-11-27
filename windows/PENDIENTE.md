@@ -8,6 +8,15 @@ macOS, en `docs/agentes/paridad.md`. Marca aquí (o borra la línea) lo que cier
 De la sección C ya están hechos: C10 (primera parte: tareas fuera del hilo de WinUI en `EdicionRemota`) y la prueba a mano de
 MultiExec con órdenes peligrosas. El resto sigue abierto.
 
+### Próxima versión (pedido por el autor el 27-11)
+- ~~**Botones · categorías en Windows**~~ hecho en la 1.1.1 (`PanelBotones.swift` + `categoriaBotones` en `NetDeckWindows.swift`). Falta probarlo
+  en pantalla: crear, renombrar, juntar, subir/bajar, borrar y cambiar la categoría de un botón.
+- **Botones · duplicados (Mac y Windows):** avisar desde la interfaz de botones repetidos (mismo nombre en la misma categoría, o la misma orden)
+  al crear, editar o importar, y poder verlos y quitarlos. La detección va UNA vez en `NetDeckCore` (`ButtonBar.swift`) con tests, y las dos
+  apps sólo la pintan.
+- **Windows sin requisitos:** runtime y OpenSSH dentro (1.1.1, ver `ESTADO.md`): comprobar en un PC real que la
+  portable se abre sin administrador y que SSH, SFTP, `-J` y túneles van con el OpenSSH incluido.
+
 ### A. Hecho en el Mac (ya compilado y probado en Windows el 25-11; se deja como referencia)
 Archivos tocados que sólo compilan en Windows:
 - `Support/SafeFile.swift` (`replace` con MoveFileExW + reintentos, `write` con reintentos), `Support/WindowsTypes.swift` (`kill`), `Support/SystemTools.swift`
@@ -22,7 +31,7 @@ Archivos tocados que sólo compilan en Windows:
   (¿se rechaza?), editar dos archivos remotos con el mismo nombre.
 
 ### B. Decisiones tomadas (con su porqué)
-- **D1** `SystemTools.locate`: sólo System32\OpenSSH y, si falta, PATH dentro de SystemRoot/Program Files (decidido por el autor). Quien tenga ssh en otra ruta verá «No está ssh.exe».
+- **D1** `SystemTools.locate` (cambiada el 27-11, a petición del autor: «como hace Moba, SecureCRT»): primero el Win32-OpenSSH que lleva la app (carpeta `OpenSSH` junto al exe, `incluir-dependencias.ps1`); si no está (compilación de desarrollo), System32\OpenSSH y, si falta, PATH dentro de SystemRoot/Program Files. Quien tenga ssh en otra ruta verá «No está ssh.exe».
 - **D2** `Highlighter` y escapes de reposicionamiento (CUP/CUF) de ConPTY: NO se toca todavía. Es una hipótesis (en el banco del Mac, con el volcado «repintado» simulado, IOS perdía
   37 trozos de color y XR 13). Hace falta un volcado REAL de ConPTY: en Windows graba los bytes crudos de `cls` y de un redimensionado en una pestaña ssh a un equipo de pruebas y guárdalos
   en `Tests/` como fixture sin datos reales. Con eso el Mac parchea `Highlighter.line()` (separador para los CSI que no son SGR) y hace la pasada de demo, porque cambia código de macOS.

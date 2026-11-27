@@ -41,7 +41,8 @@ Mac**. No lo garantiza la memoria de nadie; lo garantizan estas reglas y `tools/
 | Suavizado de fuente, efecto CRT | ❌ | Ajustes |
 | Gestión de grupos (renombrar, quitar, contraseña de grupo, reordenar) | ❌ | `SessionFile.move` ya en el núcleo ⚙️; el resto, por extraer |
 | Exportar sesiones JSON/CSV | ⚙️ | `SessionExport` |
-| Importar y exportar `botones.txt`, categorías | ⚙️ | `ButtonFile.merge/renameGroup/moveGroup` |
+| Categorías de botones (crear, renombrar o juntar, ordenar, borrar, cambiar la de un botón) | ⚙️→✅ | `ButtonFile.renameGroup/moveGroup/removeGroup/moveButton(toGroup:)`; en Windows, en el panel de botones (1.1.1, sin compilar al escribirlo). Mover botones dentro de la categoría y duplicar, aún sólo en el Mac |
+| Importar y exportar `botones.txt` | ⚙️ | `ButtonFile.merge` |
 | Macros: duplicar, subir/bajar, MultiExec | ⚙️ | Operaciones puras por mover a `MacroLibrary` |
 | Túneles: saltos y duplicar | ⚙️ | `Tunnel.jump` existe; falta la interfaz |
 | SFTP/FTP: selección múltiple, arrastrar y soltar, cola, filtro, ocultos, «Enviar a…», `verifyTransfers` | ❌ | Modelo por extraer (`RemoteListing`, `TransferCenter`) |

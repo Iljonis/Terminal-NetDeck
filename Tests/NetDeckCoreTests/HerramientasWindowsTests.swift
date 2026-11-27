@@ -37,6 +37,21 @@ import Testing
         #expect(locate(env: ["PATH": "C:\\Tools"], present: []) == sys)       // (ninguno: la de System32, que no existe)
     }
 
+    @Test func prefiereElOpenSSHQueLlevaLaApp() {
+        let propio = "C:\\Program Files\\Terminal NetDeck\\OpenSSH\\ssh.exe"
+        let sys = "C:\\Windows\\System32\\OpenSSH\\ssh.exe"
+        let carpeta = "C:\\Program Files\\Terminal NetDeck\\OpenSSH"
+        #expect(SystemTools.locateWindows("ssh", subfolder: "OpenSSH", searchPath: true, bundled: carpeta, environment: env,
+                                          exists: { [propio, sys].contains($0) }) == propio)
+        // sin el propio (una compilación de desarrollo), el de Windows como siempre
+        #expect(SystemTools.locateWindows("ssh", subfolder: "OpenSSH", searchPath: true, bundled: carpeta, environment: env,
+                                          exists: { $0 == sys }) == sys)
+        #expect(SystemTools.locateWindows("sftp", subfolder: "OpenSSH", searchPath: true, bundled: carpeta + "\\", environment: env,
+                                          exists: { $0 == carpeta + "\\sftp.exe" }) == carpeta + "\\sftp.exe")
+        #expect(SystemTools.locateWindows("ssh", subfolder: "OpenSSH", searchPath: true, bundled: "", environment: env,
+                                          exists: { $0 == "\\ssh.exe" || $0 == sys }) == sys)
+    }
+
     @Test func telnetSoloEnSystem32() {
         let sys = "C:\\Windows\\System32\\telnet.exe"
         #expect(locate("telnet", sub: "", path: false, present: [sys]) == sys)

@@ -1,5 +1,7 @@
-# Windows Release: compila la app WinUI en Release y genera el instalador de un paso (Setup.exe: Windows App Runtime 1.5 + .msi), el .msi
-# suelto (despliegues gestionados) y la versión portable (.zip). El job «probar-instalador» prueba el Setup.exe en un Windows sin el runtime.
+# Windows Release: compila la app WinUI en Release y genera el instalador de un paso (Setup.exe con el .msi dentro), el .msi suelto
+# (despliegues gestionados) y la versión portable (.zip). Los tres llevan DENTRO Windows App Runtime 1.5 y el cliente OpenSSH
+# (windows/installer/incluir-dependencias.ps1): no piden instalar nada en el PC. El job «probar-instalador» prueba la portable y el
+# Setup.exe en un Windows sin el runtime y comprueba que no lo instalan.
 #
 # Con un tag «vX.Y.Z» (el MISMO que la Release de macOS, release.yml) sube el Setup.exe, el .msi, el .zip y sus .sha256 a esa Release, DESPUÉS de que
 # macOS la cree (este flujo no la crea: `gh release create` de release.yml falla si ya existe). A mano («Run workflow») y en los
@@ -21,11 +23,10 @@
 # el motor) + `wix burn reattach` + firmar el resultado.
 #
 # PORTABLE: el .zip lleva el archivo NetDeck.portable junto al ejecutable; con él, la app guarda sus datos en la carpeta «datos» de al
-# lado (PortableMode en NetDeckCore). Necesita Windows App Runtime 1.5 instalado: no lo lleva (un portable no instala nada en el sistema); si
-# falta, el bootstrapper de Windows App SDK lo avisa al abrir y ofrece descargarlo, y la app se cierra sin colgarse. Lo dice su LEEME.txt.
+# lado (PortableMode en NetDeckCore). Se descomprime y se abre: no necesita administrador ni instalar nada.
 #
-# SETUP.EXE: windows/installer/build-bundle.ps1 + NetDeckBundle.wxs. Lleva dentro el redistribuible oficial de Microsoft (URL fija y sha256 en
-# windows/installer/windows-app-runtime.json; se comprueba también la firma) y lo instala en silencio antes del .msi.
+# DEPENDENCIAS: Windows App Runtime 1.5 (del NuGet oficial Microsoft.WindowsAppSDK, en modo «self-contained») y Win32-OpenSSH, de URL fijas
+# con sha256 en windows/installer/dependencias.json; se comprueba la firma de Microsoft de cada .exe y .dll.
 
 name: Windows Release
 
@@ -129,13 +130,15 @@ jobs:
           $msi = Join-Path $carpeta "Terminal-NetDeck-${{ steps.version.outputs.version }}.msi"
           wix build windows/installer/NetDeckWindows.wxs (Join-Path $carpeta 'archivos.wxs') -arch x64 -d "SourceDir=$(Join-Path $carpeta 'files')" -d "Version=${{ steps.version.outputs.version }}" -o $msi
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # (idioma neutro en la tabla File: algunos .mui de Windows App Runtime traen idiomas que ICE03 rechaza)
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/idioma-neutro-msi.ps1 -Msi $msi
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           wix msi validate $msi
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Add-Content -Encoding utf8 -Path $env:GITHUB_OUTPUT -Value "msi=$msi"
 
-      - name: Compilar el Setup.exe (el .msi con Windows App Runtime 1.5 dentro)
-        # build-bundle.ps1 baja el redistribuible de Microsoft de la URL fija de windows/installer/windows-app-runtime.json, comprueba su sha256 y su
-        # firma (Microsoft Corporation) y lo mete con el .msi en un bundle de Burn (NetDeckBundle.wxs). Es lo que se descarga para instalar en un paso.
+      - name: Compilar el Setup.exe (el .msi en un instalador de un paso)
+        # build-bundle.ps1 mete el .msi en un bundle de Burn (NetDeckBundle.wxs): una pantalla con la licencia y «Instalar».
         id: setup
         shell: pwsh
         run: |
@@ -161,13 +164,14 @@ jobs:
           $leeme = @(
             'Terminal NetDeck para Windows (versión portable)'
             ''
-            '1. Necesita Windows App Runtime 1.5 (x64). Si falta, Windows lo avisa al abrir y ofrece descargarlo:'
-            '   https://aka.ms/windowsappsdk/1.5/latest/windowsappruntimeinstall-x64.exe'
-            '   (o instala con Terminal-NetDeck-X.Y.Z-Setup.exe, que lo incluye y lo instala solo).'
-            '2. Descomprime esta carpeta donde quieras y ejecuta NetDeckWindows.exe.'
-            '3. Sesiones, botones, listas y copias se guardan en la carpeta "datos" de al lado (NetDeck.portable activa este modo).'
+            '1. Descomprime esta carpeta donde quieras (tu carpeta de usuario, un USB...) y ejecuta NetDeckWindows.exe.'
+            '   No hace falta ser administrador ni instalar nada: lleva dentro Windows App Runtime 1.5 y el cliente OpenSSH'
+            '   (carpeta OpenSSH, de Microsoft).'
+            '2. Sesiones, botones, listas y copias se guardan en la carpeta "datos" de al lado (NetDeck.portable activa este modo).'
             '   Para volver al modo normal, borra el archivo NetDeck.portable.'
-            '4. Sin firma de código: Windows SmartScreen puede avisar al abrirlo. No se actualiza solo: descarga la versión nueva.'
+            '3. Sin firma de código: Windows SmartScreen puede avisar al abrirlo ("Más información" > "Ejecutar de todas formas").'
+            '   Para que no avise con cada archivo, antes de descomprimir: clic derecho en el .zip > Propiedades > "Desbloquear".'
+            '4. No se actualiza solo: descarga la versión nueva y copia dentro tu carpeta "datos".'
           )
           [System.IO.File]::WriteAllLines((Join-Path $raiz 'LEEME.txt'), $leeme, (New-Object System.Text.UTF8Encoding $true))
           $zip = Join-Path $carpeta "$nombre.zip"
@@ -207,10 +211,11 @@ jobs:
           if-no-files-found: error
 
   probar-instalador:
-    # El Setup.exe recién compilado, en un Windows SIN Windows App Runtime 1.5 (si la imagen lo trae, se quita antes): tiene que instalar el
-    # runtime y la app sin ningún paso a mano, la app tiene que arrancar y desinstalar tiene que quitar NetDeck y dejar el runtime.
+    # La portable y el Setup.exe recién compilados, en un Windows SIN Windows App Runtime 1.5 (si la imagen lo trae, se quita antes): la portable
+    # tiene que abrirse sin instalar nada, el Setup.exe tiene que instalar la app sin ningún paso a mano, la app tiene que arrancar sin que
+    # aparezca el runtime en Windows (lo lleva dentro) y desinstalar tiene que quitar NetDeck.
     # (shell: powershell, el 5.1 de Windows: los cmdlets de Appx no van en pwsh 7 sin -UseWindowsPowerShell)
-    name: Probar el Setup.exe en un Windows sin el runtime
+    name: Probar la portable y el Setup.exe en un Windows sin el runtime
     needs: build
     runs-on: windows-2022
     timeout-minutes: 30
@@ -237,9 +242,34 @@ jobs:
             Get-AppxPackage -AllUsers -Name $nombre | ForEach-Object { Write-Host "Quitando $($_.PackageFullName)"; Remove-AppxPackage -AllUsers -Package $_.PackageFullName }
           }
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/detectar-runtime.ps1
-          if ($LASTEXITCODE -eq 0) { throw 'Windows App Runtime 1.5 sigue instalado: no se puede probar el Setup.exe sin el' }
+          if ($LASTEXITCODE -eq 0) { throw 'Windows App Runtime 1.5 sigue instalado: no se puede probar sin el' }
           Write-Host 'Sin Windows App Runtime 1.5: listo para probar'
           # (el paso acaba con el código de la última orden externa: detectar-runtime.ps1 ha salido con 1 a propósito)
+          exit 0
+
+      - name: La portable se abre sin instalar nada y lleva su OpenSSH
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = Get-ChildItem archivos -Filter '*-portable-x64.zip' | Select-Object -First 1
+          if (-not $zip) { throw 'No esta la portable en el artefacto' }
+          $carpeta = Join-Path $env:RUNNER_TEMP 'portable'
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $carpeta
+          $raiz = Get-ChildItem $carpeta -Directory | Select-Object -First 1
+          $exe = Join-Path $raiz.FullName 'NetDeckWindows.exe'
+          foreach ($f in 'Microsoft.WindowsAppRuntime.dll', 'Microsoft.UI.Xaml.Controls.pri', 'resources.pri', 'OpenSSH\ssh.exe', 'OpenSSH\sftp.exe') {
+            if (-not (Test-Path (Join-Path $raiz.FullName $f))) { throw "La portable no lleva $f" }
+          }
+          $ErrorActionPreference = 'Continue'
+          $version = (& (Join-Path $raiz.FullName 'OpenSSH\ssh.exe') -V 2>&1 | Out-String).Trim()     # (ssh -V escribe en stderr)
+          $ErrorActionPreference = 'Stop'
+          Write-Host "OpenSSH incluido: $version"
+          if ("$version" -notmatch 'OpenSSH_for_Windows') { throw "OpenSSH\ssh.exe no responde como OpenSSH: $version" }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/probar-arranque.ps1 -Exe $exe
+          if ($LASTEXITCODE -ne 0) { throw 'La portable no arranca en un Windows sin el runtime' }
+          if (-not (Test-Path (Join-Path $raiz.FullName 'datos'))) { throw 'La portable no ha creado su carpeta datos (NetDeck.portable)' }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/detectar-runtime.ps1
+          if ($LASTEXITCODE -eq 0) { throw 'Tras abrir la portable aparece Windows App Runtime 1.5 instalado: no tendria que instalar nada' }
           exit 0
 
       - name: Instalar con el Setup.exe, en silencio y sin pasos a mano
@@ -253,30 +283,28 @@ jobs:
           Write-Host "Setup.exe /quiet salio con $($p.ExitCode)"
           if ($p.ExitCode -ne 0) { Get-Content $log -Tail 80 | Write-Host; throw "El Setup.exe ha fallado ($($p.ExitCode)): mira el artefacto de registros" }
 
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/detectar-runtime.ps1
-          if ($LASTEXITCODE -ne 0) { throw 'El Setup.exe ha terminado bien pero Windows App Runtime 1.5 no esta instalado' }
           $exe = Join-Path ${env:ProgramFiles} 'Terminal NetDeck\NetDeckWindows.exe'
           if (-not (Test-Path $exe)) { throw "No se ha instalado $exe" }
+          if (-not (Test-Path (Join-Path ${env:ProgramFiles} 'Terminal NetDeck\OpenSSH\ssh.exe'))) { throw 'La instalacion no lleva OpenSSH\ssh.exe' }
           # Una sola entrada en Aplicaciones instaladas: la del bundle (el .msi va oculto, SystemComponent=1)
           $claves = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
           $visibles = @(Get-ItemProperty $claves -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -eq 'Terminal NetDeck' -and $_.SystemComponent -ne 1 })
           $visibles | Select-Object DisplayName, DisplayVersion, PSChildName | Format-Table -AutoSize | Out-String | Write-Host
           if ($visibles.Count -ne 1) { throw "Tendria que haber UNA entrada visible de Terminal NetDeck en Aplicaciones instaladas y hay $($visibles.Count)" }
 
-      - name: La app arranca con el runtime que ha instalado el Setup.exe
+      - name: La app instalada arranca con el runtime que lleva dentro
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           $env:NETDECK_HOME = Join-Path $env:RUNNER_TEMP 'netdeck-home'
           New-Item -ItemType Directory -Force $env:NETDECK_HOME | Out-Null
-          $exe = Join-Path ${env:ProgramFiles} 'Terminal NetDeck\NetDeckWindows.exe'
-          $app = Start-Process -FilePath $exe -PassThru
-          Start-Sleep -Seconds 20
-          if ($app.HasExited) { throw "NetDeckWindows.exe se ha cerrado a los pocos segundos (codigo $($app.ExitCode))" }
-          Write-Host "NetDeckWindows.exe sigue abierto a los 20 s (PID $($app.Id)): cerrando"
-          Stop-Process -Id $app.Id -Force
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/probar-arranque.ps1 -Exe (Join-Path ${env:ProgramFiles} 'Terminal NetDeck\NetDeckWindows.exe')
+          if ($LASTEXITCODE -ne 0) { throw 'La app instalada no arranca en un Windows sin el runtime' }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/detectar-runtime.ps1
+          if ($LASTEXITCODE -eq 0) { throw 'El Setup.exe ha instalado Windows App Runtime 1.5 en Windows: ya no tendria que hacerlo' }
+          exit 0
 
-      - name: Desinstalar quita NetDeck y deja el runtime
+      - name: Desinstalar quita NetDeck
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
@@ -285,8 +313,6 @@ jobs:
           $p = Start-Process -FilePath $setup.FullName -ArgumentList '/uninstall', '/quiet', '/norestart', '/log', "`"$log`"" -Wait -PassThru
           if ($p.ExitCode -ne 0) { Get-Content $log -Tail 80 | Write-Host; throw "La desinstalacion ha fallado ($($p.ExitCode))" }
           if (Test-Path (Join-Path ${env:ProgramFiles} 'Terminal NetDeck\NetDeckWindows.exe')) { throw 'Tras desinstalar sigue NetDeckWindows.exe en Program Files' }
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/detectar-runtime.ps1
-          if ($LASTEXITCODE -ne 0) { throw 'Desinstalar NetDeck ha quitado el runtime (tiene que quedarse: Permanent)' }
 
       - name: Registros del Setup.exe
         if: always()

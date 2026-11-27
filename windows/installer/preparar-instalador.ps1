@@ -2,6 +2,7 @@
 #   - lo que compila windows/scripts/desktop.ps1: NetDeckWindows.exe, sus .dll y el bootstrapper de Windows App SDK
 #   - los .dll del runtime de Swift (la app los busca junto al exe; desktop.ps1 los pone en el PATH)
 #   - la carpeta Temas (los temas de color del terminal), AppxManifest.xml y sus iconos, los scripts de registro del Sparse Package y, si existe, NetDeckSparse.msix
+#   - Windows App Runtime 1.5 y el cliente OpenSSH DENTRO (incluir-dependencias.ps1): la app no pide instalar nada en el PC
 # Uso (desde la raiz del repo, tras compilar con desktop.ps1):
 #   powershell.exe -NoProfile -ExecutionPolicy Bypass -File windows/installer/preparar-instalador.ps1 [-Destino carpeta]
 # Y despues:  wix build windows/installer/NetDeckWindows.wxs <carpeta>/../archivos.wxs -arch x64 -d SourceDir=<carpeta> -o NetDeckWindows.msi
@@ -14,13 +15,6 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-# detectar-runtime.js lleva detectar-runtime.ps1 codificado en base64: que no se desincronicen (si falla, ver la cabecera de detectar-runtime.ps1).
-$deteccion = (Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot 'detectar-runtime.ps1')) -replace "`r`n", "`n"
-$esperado = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($deteccion))
-$js = Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot 'detectar-runtime.js')
-if ($js -notmatch '-EncodedCommand ([A-Za-z0-9+/=]+)' -or $Matches[1] -ne $esperado) {
-    throw 'detectar-runtime.js no lleva la version actual de detectar-runtime.ps1 en base64: regenerala (ver la cabecera de ese script).'
-}
 if (!(Test-Path (Join-Path $Productos 'NetDeckWindows.exe'))) { throw "Falta NetDeckWindows.exe en ${Productos}: compila antes con windows/scripts/desktop.ps1." }
 if (!(Test-Path (Join-Path $Productos 'NetDeckAskpass.exe'))) { throw "Falta NetDeckAskpass.exe en ${Productos}: compila antes con windows/scripts/desktop.ps1." }
 if (!(Test-Path $Runtime)) { throw "Falta el runtime de Swift en ${Runtime}." }
@@ -60,6 +54,9 @@ $msix = Join-Path $PSScriptRoot 'NetDeckSparse.msix'
 if (Test-Path $msix) { Copy-Item $msix $Destino -Force }
 
 Set-Content -LiteralPath $marcador -Value 'carpeta generada por preparar-instalador.ps1' -Encoding ASCII
+
+# Windows App Runtime 1.5 y OpenSSH dentro (bajados con sha256 fijo y firma de Microsoft comprobada)
+& (Join-Path $PSScriptRoot 'incluir-dependencias.ps1') -Destino $Destino
 # La lista de archivos para WiX (WiX 4.0 no tiene el elemento Files): un componente por archivo, en archivos.wxs, junto a la carpeta.
 $origen = $Destino.TrimEnd('\', '/')
 $lineas = New-Object System.Collections.Generic.List[string]

@@ -12,7 +12,7 @@ or Spanish.
 [![Download for macOS](https://img.shields.io/badge/macOS-Terminal--NetDeck.dmg-ff2e88?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 [![Download for Windows](https://img.shields.io/badge/Windows-Setup.exe-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
 
-Current version: **[v1.1.0](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.1.0)** · macOS 15 or later
+Current version: **[v1.1.1](https://github.com/Iljonis/Terminal-NetDeck/releases/tag/v1.1.1)** · macOS 15 or later
 (Apple silicon) · Windows 10 (2004) and Windows 11 x64 · open source (MIT)
 
 [![Latest release](https://img.shields.io/github/v/release/Iljonis/Terminal-NetDeck?label=version&color=ff2e88)](https://github.com/Iljonis/Terminal-NetDeck/releases/latest)
@@ -60,12 +60,20 @@ scripting language: macros, buttons and device lists cover that ground.
 2. Allow it once (it isn't notarized): `sudo xattr -cr "/Applications/Terminal NetDeck.app"`.
 3. Open it: the setup assistant configures sessions, theme, font, passwords and highlighting.
 
-**On Windows 10/11:** download `Terminal-NetDeck-1.1.0-Setup.exe` from the same
-[page](https://github.com/Iljonis/Terminal-NetDeck/releases/latest) and run it; it also installs Windows App Runtime
-1.5 if it's missing. There's also an `.msi` and a portable `.zip`; details in [Windows](#windows).
+**On Windows 10/11:** download `Terminal-NetDeck-1.1.1-Setup.exe` from the same
+[page](https://github.com/Iljonis/Terminal-NetDeck/releases/latest) and run it. There's also an `.msi` and a portable
+`.zip` (no install, no administrator rights); all three carry everything they need. Details in [Windows](#windows).
 
 Rather build it? `git clone https://github.com/Iljonis/Terminal-NetDeck.git && cd Terminal-NetDeck && ./install.sh`
 (macOS 15.6+ and Swift 6.2). Full details in [Installation](#installation--first-run-on-macos-15-sequoia).
+
+## New in 1.1.1
+
+- **Windows with no prerequisites:** the installer, the `.msi` and the portable version carry Windows App Runtime 1.5
+  and Microsoft's OpenSSH client inside, like MobaXterm or SecureCRT. Nothing has to be installed first, the portable
+  version runs without administrator rights, and SSH, SFTP and tunnels work even without the Windows "OpenSSH Client"
+  optional feature.
+- **Button categories on Windows:** create, rename, reorder and delete categories from the buttons panel, as on the Mac.
 
 ## New in 1.1.0
 
@@ -414,7 +422,7 @@ is a great local terminal. What Terminal NetDeck brings:
 ## Requirements & compatibility
 
 - macOS Sequoia (15.0) or later.
-- Windows 10 version 2004 or later and Windows 11, 64-bit (x64), with the Windows OpenSSH client. More in the
+- Windows 10 version 2004 or later and Windows 11, 64-bit (x64); it carries its own OpenSSH client. More in the
   [Windows guide](windows/README.md#requisitos).
 - To build from source: Swift 6.2 or later (Xcode 26 or its Command Line Tools, which need macOS 15.6 or later).
   The built app runs on macOS 15.0 and later.
@@ -647,8 +655,8 @@ Missing something? [Suggest a feature](https://github.com/Iljonis/Terminal-NetDe
 ## Windows
 
 Terminal NetDeck is also an SSH client for Windows. The x64 desktop version for Windows 10 (2004 or later) and Windows 11 is on the
-[releases page](https://github.com/Iljonis/Terminal-NetDeck/releases/latest): `Terminal-NetDeck-X.Y.Z-Setup.exe` (it
-also installs Windows App Runtime 1.5 if it's missing), the `.msi` or the portable `.zip`. It isn't signed yet, so
+[releases page](https://github.com/Iljonis/Terminal-NetDeck/releases/latest): `Terminal-NetDeck-X.Y.Z-Setup.exe`, the
+`.msi` or the portable `.zip`, which carry Windows App Runtime and OpenSSH inside. It isn't signed yet, so
 SmartScreen warns when you open it. It includes a tabbed terminal with split layouts,
 native session import, scrollback and recording, themes and screen filters, a COM console, a side-by-side SFTP
 browser, and MultiExec. The [Windows test report](windows/resultados/escritorio-2026-11-19.md) lists build and UI coverage.
